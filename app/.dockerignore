@@ -1,0 +1,16 @@
+Dockerfile
+.dockerignore
+.git
+.gitignore
+node_modules
+.expo
+dist
+web-build
+android
+ios
+*.md
+.env
+.env.*
+!.env.example
+GoogleService-Info.plist
+google-services.json

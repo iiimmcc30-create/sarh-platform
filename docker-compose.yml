@@ -1,0 +1,112 @@
+# LOCAL DEVELOPMENT ONLY.
+# Production Hostinger must use:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.ssl.yml \
+#     --env-file .env.production up -d
+# Recreating prod services from this file attaches them to sarh_default and
+# breaks nginx→socket (502) when nginx is on the prod sarh_internal network.
+
+services:
+  postgres:
+    # Must match Render / Hostinger imported cluster (PostgreSQL 18).
+    # Official PG18 images store data under /var/lib/postgresql/<major>/docker —
+    # mount the volume at /var/lib/postgresql (NOT .../data) or initdb fails.
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sarouh
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./backend-nest/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sarouh
+      DIRECT_URL: postgresql://postgres:postgres@postgres:5432/sarouh
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
+      BUTCHER_ORDER_UNPAID_EXPIRES_MINUTES: "30"
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             node dist/main.js"
+
+  worker:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend-nest/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sarouh
+      DIRECT_URL: postgresql://postgres:postgres@postgres:5432/sarouh
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "dist/queue/worker.main.js"]
+
+  socket:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./backend-nest/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sarouh
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
+      PORT: "3002"
+      RUN_UNPAID_ORDER_EXPIRY: "false"
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "dist/gateway/socket.main.js"]
+
+volumes:
+  postgres_data:

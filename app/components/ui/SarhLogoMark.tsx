@@ -1,0 +1,65 @@
+import type { StyleProp, ViewStyle } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+
+/**
+ * Official Sarh mark, traced from `assets/images/logo.png` (the same raster
+ * used by `APP_LOGO` / `icon.png`). Paths are the original filled silhouettes
+ * of the two waves + diamond — not a redraw, Lucide stand-in, or new mark.
+ *
+ * Tint via `color`. Scales via `size` (height); width follows the original aspect.
+ */
+export const SARH_LOGO_MARK_VIEWBOX_WIDTH = 611;
+export const SARH_LOGO_MARK_VIEWBOX_HEIGHT = 417;
+export const SARH_LOGO_MARK_ASPECT =
+  SARH_LOGO_MARK_VIEWBOX_WIDTH / SARH_LOGO_MARK_VIEWBOX_HEIGHT;
+
+/** Potrace silhouette of the lower wave from the official PNG. */
+const WAVE_BOTTOM =
+  'M8.00 407.77C8.00 403.03 16.81 383.49 25.03 370.01C32.60 357.60 41.34 346.88 53.63 334.93C65.44 323.45 76.30 314.97 89.23 307.16C113.08 292.76 144.58 282.26 173.96 278.93L184.43 277.74L204.46 278.27L224.50 278.80L246.56 281.89C278.65 286.38 294.21 287.98 305.50 287.96C325.88 287.92 341.07 284.58 357.50 276.54L368.50 271.15L376.66 264.58C385.85 257.17 394.63 247.42 402.20 236.21C405.02 232.03 413.28 216.83 420.57 202.42C427.86 188.01 436.67 171.62 440.16 166.00C453.01 145.27 471.13 126.88 489.66 115.74C501.69 108.51 516.50 102.25 529.65 98.84L541.50 95.77L557.50 95.28L573.50 94.78L582.50 96.36C587.45 97.23 593.98 98.74 597.00 99.72L602.50 101.50L602.82 103.79C603.16 106.14 588.58 153.60 586.90 155.62C586.35 156.29 581.13 156.97 574.23 157.27C560.57 157.86 553.69 159.53 542.06 165.07C521.00 175.10 504.49 192.76 491.18 219.50C488.44 225.00 482.07 239.40 477.03 251.50C471.98 263.60 465.42 278.12 462.45 283.76C444.86 317.16 421.77 340.56 391.74 355.42C354.68 373.75 313.16 377.44 261.94 366.97C256.20 365.79 238.90 361.69 223.50 357.84C208.10 354.00 188.97 349.71 181.00 348.31L166.50 345.76L147.00 345.69L127.50 345.63L117.50 347.43C89.96 352.37 64.47 363.19 40.77 380.00C35.73 383.57 26.29 391.61 19.80 397.87C13.31 404.12 8.00 408.58 8.00 407.77Z';
+
+/** Potrace silhouette of the upper wave from the official PNG. */
+const WAVE_TOP =
+  'M33.55 307.50C35.70 297.55 43.05 280.11 50.23 267.91C77.23 222.04 117.96 193.95 170.50 184.97L182.50 182.92L212.00 182.00L241.50 181.09L248.48 179.55C264.36 176.04 275.70 170.72 285.04 162.39C292.36 155.85 295.53 152.24 300.73 144.50C306.08 136.54 307.48 133.66 316.96 111.03C325.59 90.45 329.44 82.90 337.37 71.00C346.89 56.73 365.15 40.89 381.50 32.72C389.99 28.48 403.62 24.11 413.71 22.39L423.34 20.75L435.92 21.31C442.84 21.61 451.88 22.61 456.00 23.52C465.53 25.61 474.50 29.14 474.50 30.78C474.50 31.48 471.04 33.56 466.82 35.39C449.62 42.87 438.31 50.63 424.44 64.46L414.38 74.50L407.11 85.42C398.34 98.59 391.91 111.81 381.04 139.00C371.28 163.41 362.11 182.54 354.90 193.50C351.91 198.05 344.87 206.24 338.57 212.50L327.49 223.50L318.57 228.74C307.36 235.34 296.14 239.70 284.15 242.11L274.81 244.00L260.40 244.00L245.99 244.00L221.24 240.81L196.50 237.61L178.00 237.62L159.50 237.63L147.68 239.87C132.74 242.71 119.02 247.42 102.50 255.39C80.26 266.13 61.56 280.10 42.85 299.94L32.90 310.50L33.55 307.50Z';
+
+/** Potrace silhouette of the diamond from the official PNG. */
+const DIAMOND =
+  'M148.19 68.64C134.76 55.08 130.00 49.65 130.00 47.88C130.00 46.10 134.84 40.65 148.76 26.74C159.88 15.63 168.29 8.00 169.41 8.00C172.00 8.00 207.96 44.84 207.98 47.51C208.01 50.28 171.23 87.00 168.43 87.00C167.10 87.00 160.00 80.56 148.19 68.64Z';
+
+export const SARH_LOGO_MARK_PATHS = [WAVE_BOTTOM, WAVE_TOP, DIAMOND] as const;
+
+type SarhLogoMarkProps = {
+  /** Height in points. Width follows the original mark aspect. */
+  size?: number;
+  color?: string;
+  /** Diamond / star fill. Defaults to `color` so existing marks stay one tint. */
+  accentColor?: string;
+  style?: StyleProp<ViewStyle>;
+};
+
+export function SarhLogoMark({
+  size = 14,
+  color = '#FFFFFF',
+  accentColor,
+  style,
+}: SarhLogoMarkProps) {
+  const height = size;
+  const width = size * SARH_LOGO_MARK_ASPECT;
+  const starColor = accentColor ?? color;
+
+  return (
+    <Svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${SARH_LOGO_MARK_VIEWBOX_WIDTH} ${SARH_LOGO_MARK_VIEWBOX_HEIGHT}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={style}
+      accessible={false}
+    >
+      <Path d={WAVE_BOTTOM} fill={color} />
+      <Path d={WAVE_TOP} fill={color} />
+      <Path d={DIAMOND} fill={starColor} />
+    </Svg>
+  );
+}
+
+export default SarhLogoMark;

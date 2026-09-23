@@ -1,0 +1,11 @@
+# Local Gradle/Android caches (avoid EBUSY locks during EAS upload)
+android/.gradle
+android/build
+android/app/build
+android/.kotlin
+android/.cxx
+
+.expo
+dist
+web-build
+expo-qr.png

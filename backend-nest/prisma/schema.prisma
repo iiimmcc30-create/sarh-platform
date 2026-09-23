@@ -1,0 +1,1945 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                                  String                            @id @default(uuid())
+  username                            String                            @unique
+  email                               String?                           @unique
+  phone                               String?                           @unique
+  googleId                            String?                           @unique
+  passwordHash                        String
+  passwordVersion                     Int                               @default(0)
+  emailVerified                       Boolean                           @default(false)
+  displayName                         String
+  arabicName                          String
+  avatar                              String?
+  coverImage                          String?
+  bio                                 String?
+  about                               String?
+  website                             String?
+  publicPhone                         String?
+  publicEmail                         String?
+  verified                            Boolean                           @default(false)
+  isAI                                Boolean                           @default(false)
+  country                             Country                           @default(SA)
+  role                                Role                              @default(USER)
+  isActive                            Boolean                           @default(true)
+  lastSeenAt                          DateTime?
+  fcmToken                            String?
+  rating                              Float                             @default(0)
+  reviewCount                         Int                               @default(0)
+  showInSearch                        Boolean                           @default(true)
+  allowPrivateMessages                Boolean                           @default(true)
+  showFollowingList                   Boolean                           @default(true)
+  birthDate                           DateTime?
+  commentsAudience                    String                            @default("everyone")
+  privateMessagesAudience             String                            @default("everyone")
+  notificationsEnabled                Boolean                           @default(true)
+  createdAt                           DateTime                          @default(now())
+  updatedAt                           DateTime                          @updatedAt
+  nameChangedAt                       DateTime?
+  usernameChangedAt                   DateTime?
+  deletedAt                           DateTime?
+  activities                          Activity[]                        @relation("ActivityActor")
+  activityTargets                     Activity[]                        @relation("ActivityTarget")
+  reviewsReceived                     UserReview[]                      @relation("UserReviewsReceived")
+  reviewsGiven                        UserReview[]                      @relation("UserReviewsGiven")
+  butcherProfile                      Butcher?
+  butcherOrders                       ButcherOrder[]
+  butcherCheckouts                    ButcherCheckout[]
+  butcherCheckoutReservations         ButcherCheckoutReservation[]
+  following                           Follow[]                          @relation("Followers")
+  followers                           Follow[]                          @relation("Following")
+  blocksInitiated                     UserBlock[]                       @relation("BlocksInitiated")
+  blocksReceived                      UserBlock[]                       @relation("BlocksReceived")
+  listings                            Listing[]
+  fees                                ListingFee[]
+  listingBoosts                       ListingBoost[]
+  listingPromotions                   ListingPromotion[]
+  liveStreams                         LiveStream[]
+  receivedMessages                    Message[]                         @relation("ReceivedMessages")
+  sentMessages                        Message[]                         @relation("SentMessages")
+  notifications                       Notification[]
+  payments                            Payment[]
+  posts                               Post[]
+  postComments                        PostComment[]
+  listingComments                     ListingComment[]
+  postLikes                           PostLike[]
+  postReposts                         PostRepost[]
+  postBookmarks                       PostBookmark[]
+  stories                             Story[]
+  storyViews                          StoryView[]
+  storyReactions                      StoryReaction[]
+  subscription                        Subscription?
+  sessions                            UserSession[]
+  butcherReviews                      ButcherReview[]
+  butcherFavorites                    ButcherFavorite[]
+  butcherApplications                 ButcherApplication[]
+  butcherApplicationTimelineEvents    ButcherApplicationTimelineEvent[]
+  verifiedButcherApplicationDocuments ButcherApplicationDocument[]      @relation("DocumentVerifiedBy")
+  supportTickets                      SupportTicket[]
+  assignedSupportTickets              SupportTicket[]                   @relation("TicketAssignee")
+  supportTicketMessages               SupportTicketMessage[]
+  accountVerificationRequest          AccountVerificationRequest?
+  reviewedVerificationRequests        AccountVerificationRequest[]      @relation("VerificationReviewer")
+  accountActionsReceived              AdminAccountAction[]              @relation("AccountActionTarget")
+  accountActionsTaken                 AdminAccountAction[]              @relation("AccountActionActor")
+  deviceTokens                        UserDeviceToken[]
+  messageThreadStates                 MessageThreadState[]
+
+  @@index([username])
+  @@index([email])
+  @@index([country])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  deviceInfo   String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model UserDeviceToken {
+  id         String   @id @default(uuid())
+  userId     String
+  token      String   @unique
+  platform   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastSeenAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Followers", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("BlocksInitiated", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model Plan {
+  id             String         @id @default(uuid())
+  slug           String
+  name           String
+  description    String         @default("")
+  audience       PlanAudience
+  monthlyPrice   Float          @default(0)
+  yearlyPrice    Float          @default(0)
+  currency       String         @default("SAR")
+  yearlyDiscount Float          @default(0)
+  isActive       Boolean        @default(true)
+  sortOrder      Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  features       PlanFeature[]
+  subscriptions  Subscription[]
+
+  @@unique([slug, audience])
+  @@index([audience, isActive, sortOrder])
+}
+
+model PlanFeature {
+  id        String           @id @default(uuid())
+  planId    String
+  key       String
+  value     String
+  valueType FeatureValueType
+  plan      Plan             @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@index([planId])
+}
+
+model Subscription {
+  id                  String       @id @default(uuid())
+  userId              String       @unique
+  planId              String       @default("free")
+  planAudience        PlanAudience @default(USER)
+  planDbId            String?
+  billingCycle        String       @default("monthly")
+  status              String       @default("active")
+  renewDate           DateTime
+  listingsUsed        Int          @default(0)
+  liveMinutesUsed     Int          @default(0)
+  featuredAdsUsed     Int          @default(0)
+  pinnedAdsUsed       Int          @default(0)
+  dailyAdsUsed        Int          @default(0)
+  dailyAdsWindowStart DateTime?
+  autoRenew           Boolean      @default(true)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  payments            Payment[]
+  plan                Plan?        @relation(fields: [planDbId], references: [id])
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([planDbId])
+}
+
+model Payment {
+  id             String                @id @default(uuid())
+  userId         String
+  subscriptionId String?
+  feeId          String?
+  referenceId    String?
+  referenceType  PaymentReferenceType?
+  orderId        String                @unique
+  amount         Float
+  currency       String                @default("SAR")
+  method         PaymentMethod
+  status         PaymentStatus         @default(pending)
+  transactionId  String?
+  checkoutUrl    String?
+  description    String?
+  descriptionAr  String?
+  metadata       Json?
+  paidAt         DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  fee               ListingFee?        @relation(fields: [feeId], references: [id])
+  subscription      Subscription?      @relation(fields: [subscriptionId], references: [id])
+  user              User               @relation(fields: [userId], references: [id])
+  integrationOrder  IntegrationOrder?
+  butcherCheckout   ButcherCheckout?
+  butcherOrder      ButcherOrder?      @relation("ButcherOrderPayment")
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderId])
+  @@index([transactionId])
+  @@index([userId, referenceId, referenceType, status])
+}
+
+/// External provider checkout (currently Network International / N-Genius).
+/// Local Payment.orderId stays the Sarh merchant reference; externalOrderId is the NI UUID.
+model IntegrationOrder {
+  id                       String               @id @default(uuid())
+  paymentId                String               @unique
+  provider                 IntegrationProvider  @default(ni)
+  status                   IntegrationStatus    @default(pending)
+  merchantOrderReference   String
+  idempotencyKey           String               @unique
+  externalOrderId          String?
+  externalReference        String?
+  checkoutUrl              String?
+  requestPayload           Json?
+  responsePayload          Json?
+  lastError                String?
+  retryCount               Int                  @default(0)
+  lastAttemptAt            DateTime?
+  syncedAt                 DateTime?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  payment                  Payment              @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([provider, status])
+  @@index([externalOrderId])
+  @@index([merchantOrderReference])
+}
+
+model IntegrationWebhookEvent {
+  id         String              @id @default(uuid())
+  provider   IntegrationProvider
+  eventKey   String
+  eventName  String?
+  payload    Json
+  processed  Boolean             @default(false)
+  paymentId  String?
+  lastError  String?
+  createdAt  DateTime            @default(now())
+
+  @@unique([provider, eventKey])
+  @@index([paymentId])
+  @@index([createdAt])
+}
+
+model MarketCategory {
+  id                    String           @id @default(uuid())
+  nameAr                String
+  nameEn                String?
+  slug                  String           @unique
+  icon                  String?
+  emoji                 String?
+  parentId              String?
+  sortOrder             Int              @default(0)
+  isActive              Boolean          @default(true)
+  requiresWeight        Boolean          @default(false)
+  legacyCategory        String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  deletedAt             DateTime?
+  parent                MarketCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children              MarketCategory[] @relation("CategoryTree")
+  listingsAsCategory    Listing[]        @relation("ListingMarketCategory")
+  listingsAsSubcategory Listing[]        @relation("ListingMarketSubcategory")
+
+  @@index([parentId])
+  @@index([isActive, sortOrder])
+  @@index([deletedAt])
+}
+
+model Listing {
+  id                String          @id @default(uuid())
+  /// Null only for ADMIN_MANAGED listings. Real listings always have a user.
+  sellerId          String?
+  origin            ListingOrigin   @default(USER)
+  /// Display-only identity. Never a User login, id, or foreign key.
+  displayUsername   String?
+  displaySellerName String?
+  displayPhone      String?
+  displayRegion     String?
+  title             String
+  arabicTitle       String
+  description       String
+  arabicDescription String
+  price             Float
+  currency          String          @default("SAR")
+  category          ListingCategory
+  categoryId        String?
+  subcategoryId     String?
+  breed             String?
+  age               String?
+  quantity          Int             @default(1)
+  location          String
+  arabicLocation    String
+  country           Country
+  contactPhone      String?
+  weightKg          Float?
+  images            String[]
+  videoUrl          String?
+  thumbnailUrl      String?
+  videoDuration     Float?
+  videoWidth        Int?
+  videoHeight       Int?
+  videoFileSize     Int?
+  featured          Boolean         @default(false)
+  pinned            Boolean         @default(false)
+  featuredUntil     DateTime?
+  pinnedUntil       DateTime?
+  promoted          Boolean         @default(false)
+  promotedUntil     DateTime?
+  promotionWeight   Int             @default(0)
+  promotionTier     String?
+  status            ListingStatus   @default(active)
+  views             Int             @default(0)
+  commentsCount     Int             @default(0)
+  editCount         Int             @default(0)
+  expiresAt         DateTime?
+  covenantAccepted    Boolean   @default(false)
+  covenantAcceptedAt  DateTime?
+  covenantVersion     String?
+  sellerDeclaredSold  Boolean?
+  sellerDeclaredSoldAt DateTime?
+  deleteReason        String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  seller            User?           @relation(fields: [sellerId], references: [id])
+  marketCategory    MarketCategory? @relation("ListingMarketCategory", fields: [categoryId], references: [id])
+  marketSubcategory MarketCategory? @relation("ListingMarketSubcategory", fields: [subcategoryId], references: [id])
+  fee               ListingFee?
+  boosts            ListingBoost[]
+  promotions        ListingPromotion[]
+  offers            ListingOffer[]
+  stories           Story[]
+  comments          ListingComment[]
+
+  @@index([sellerId])
+  @@index([origin])
+  @@index([category])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([country])
+  @@index([status])
+  @@index([featured])
+  @@index([pinned])
+  @@index([promoted])
+  @@index([promotionWeight])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([deletedAt])
+}
+
+model ListingBoost {
+  id            String     @id @default(uuid())
+  listingId     String
+  userId        String
+  boostType     BoostType
+  durationDays  Int        @default(30)
+  amount        Float
+  currency      String     @default("SAR")
+  status        FeeStatus  @default(pending)
+  startsAt      DateTime?
+  expiresAt     DateTime?
+  transactionId String?
+  paidAt        DateTime?
+  paymentId     String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  listing       Listing    @relation(fields: [listingId], references: [id])
+  user          User       @relation(fields: [userId], references: [id])
+
+  @@index([listingId])
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model ListingPromotion {
+  id              String    @id @default(uuid())
+  listingId       String
+  userId          String
+  tier            String    @default("standard")
+  weight          Int       @default(100)
+  durationDays    Int
+  amount          Float
+  currency        String    @default("SAR")
+  status          FeeStatus @default(pending)
+  startsAt        DateTime?
+  expiresAt       DateTime?
+  transactionId   String?
+  paidAt          DateTime?
+  paymentId       String?
+  impressions     Int       @default(0)
+  clicks          Int       @default(0)
+  promotedViews   Int       @default(0)
+  baselineViews   Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  listing         Listing   @relation(fields: [listingId], references: [id])
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([listingId])
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([tier])
+}
+
+model ListingFee {
+  id            String    @id @default(uuid())
+  listingId     String    @unique
+  userId        String
+  category      String
+  quantity      Int       @default(1)
+  price         Float
+  commission    Float
+  status        FeeStatus @default(pending)
+  dueDate       DateTime?
+  saleAmount    Float?
+  saleDeclaredAt DateTime?
+  paidAt        DateTime?
+  transactionId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  listing       Listing   @relation(fields: [listingId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
+  payments      Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([status, dueDate])
+}
+
+model AdminAccountAction {
+  id        String   @id @default(uuid())
+  userId    String
+  actorId   String
+  action    String
+  reason    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation("AccountActionTarget", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User     @relation("AccountActionActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([actorId])
+}
+
+model ListingOffer {
+  id        String   @id @default(uuid())
+  listingId String
+  buyerId   String
+  amount    Float
+  currency  String   @default("SAR")
+  message   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  listing   Listing  @relation(fields: [listingId], references: [id])
+
+  @@index([listingId])
+}
+
+model Post {
+  id               String            @id @default(uuid())
+  authorId         String
+  content          String
+  arabicContent    String
+  image            String?
+  images           String[]          @default([])
+  isHidden         Boolean           @default(false)
+  likesCount       Int               @default(0)
+  repostsCount     Int               @default(0)
+  commentsCount    Int               @default(0)
+  viewsCount       Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  author           User              @relation(fields: [authorId], references: [id])
+  comments         PostComment[]
+  likes            PostLike[]
+  reposts          PostRepost[]
+  bookmarks        PostBookmark[]
+  knowledgeArticle KnowledgeArticle?
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model PostRepost {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model PostBookmark {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model ListingComment {
+  id        String   @id @default(uuid())
+  listingId String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+}
+
+model Story {
+  id             String          @id @default(uuid())
+  userId         String
+  thumbnail      String
+  mediaUrl       String?
+  caption        String?
+  captionAr      String?
+  location       String?
+  duration       Int             @default(5)
+  isLive         Boolean         @default(false)
+  liveStreamId   String?
+  listingId      String?
+  viewsCount     Int             @default(0)
+  reactionsCount Int             @default(0)
+  expiresAt      DateTime
+  createdAt      DateTime        @default(now())
+  deletedAt      DateTime?
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing        Listing?        @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  views          StoryView[]
+  reactions      StoryReaction[]
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, expiresAt, createdAt])
+  @@index([expiresAt, createdAt])
+  @@index([listingId])
+  @@index([deletedAt])
+}
+
+model StoryView {
+  id        String   @id @default(uuid())
+  storyId   String
+  viewerId  String
+  createdAt DateTime @default(now())
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewer    User     @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, viewerId])
+  @@index([storyId, createdAt])
+  @@index([viewerId])
+}
+
+model StoryReaction {
+  id        String   @id @default(uuid())
+  storyId   String
+  userId    String
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+  @@index([storyId])
+  @@index([userId])
+}
+
+model LiveStream {
+  id          String        @id @default(uuid())
+  hostId      String
+  title       String
+  arabicTitle String
+  thumbnail   String?
+  category    String
+  topic       String?
+  streamKey   String        @unique @default(uuid())
+  rtmpUrl     String?
+  hlsUrl      String?
+  isLive      Boolean       @default(false)
+  viewers     Int           @default(0)
+  peakViewers Int           @default(0)
+  likes       Int           @default(0)
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime      @default(now())
+  deletedAt   DateTime?
+  comments    LiveComment[]
+  host        User          @relation(fields: [hostId], references: [id])
+
+  @@index([hostId])
+  @@index([isLive])
+  @@index([deletedAt])
+}
+
+model LiveComment {
+  id          String     @id @default(uuid())
+  streamId    String
+  userId      String?
+  username    String
+  arabicName  String?
+  message     String
+  avatar      String?
+  isOffer     Boolean    @default(false)
+  offerAmount Float?
+  createdAt   DateTime   @default(now())
+  stream      LiveStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId])
+  @@index([streamId, createdAt])
+}
+
+model Message {
+  id         String        @id @default(uuid())
+  threadId   String
+  senderId   String
+  receiverId String
+  text       String?
+  imageUrl   String?
+  videoUrl   String?
+  orderId    String?
+  isRead     Boolean       @default(false)
+  readAt     DateTime?
+  createdAt  DateTime      @default(now())
+  receiver   User          @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender     User          @relation("SentMessages", fields: [senderId], references: [id])
+  thread     MessageThread @relation(fields: [threadId], references: [id])
+
+  @@index([threadId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([threadId, createdAt])
+}
+
+model MessageThread {
+  id            String            @id @default(uuid())
+  participant1  String
+  participant2  String
+  type          MessageThreadType @default(DIRECT)
+  butcherId     String?
+  /// Unique conversation scope: "direct" or "butcher:{butcherId}"
+  scopeKey      String            @default("direct")
+  lastMessageAt DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  messages      Message[]
+  states        MessageThreadState[]
+  butcher       Butcher?          @relation(fields: [butcherId], references: [id], onDelete: SetNull)
+
+  @@unique([participant1, participant2, scopeKey])
+  @@index([participant1])
+  @@index([participant2])
+  @@index([lastMessageAt])
+  @@index([type])
+  @@index([butcherId])
+}
+
+model MessageThreadState {
+  id       String         @id @default(uuid())
+  threadId String
+  userId   String
+  pinnedAt DateTime?
+  hiddenAt DateTime?
+  thread   MessageThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([userId])
+  @@index([threadId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  titleAr   String
+  bodyAr    String
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model Activity {
+  id           String   @id @default(uuid())
+  actorId      String
+  targetUserId String?
+  type         String
+  entityId     String?
+  entityType   String?
+  createdAt    DateTime @default(now())
+  actor        User     @relation("ActivityActor", fields: [actorId], references: [id])
+  target       User?    @relation("ActivityTarget", fields: [targetUserId], references: [id])
+
+  @@index([actorId])
+  @@index([targetUserId])
+}
+
+model Butcher {
+  id                  String              @id @default(uuid())
+  userId              String              @unique
+  nameAr              String
+  nameEn              String
+  logo                String?
+  cover               String?
+  type                ButcherType         @default(regular)
+  country             Country
+  city                String
+  cityAr              String
+  address             String
+  addressAr           String
+  lat                 Float?
+  lng                 Float?
+  phone               String
+  bioAr               String?
+  bioEn               String?
+  specialties         String[]
+  commercialReg       String?
+  subscriptionActive  Boolean             @default(false)
+  subscriptionExpiry  DateTime?
+  rating              Float               @default(0)
+  reviewCount         Int                 @default(0)
+  orderCompletionRate Float               @default(100)
+  activityScore       Int                 @default(50)
+  profileViews        Int                 @default(0)
+  totalOrders         Int                 @default(0)
+  completedOrdersCount Int                @default(0)
+  favoritesCount      Int                 @default(0)
+  avgAcceptMinutes    Float?
+  avgPrepMinutes      Float?
+  avgCompleteMinutes  Float?
+  rankingScore        Float               @default(0)
+  normalizedOrders    Float               @default(0)
+  normalizedRating    Float               @default(0)
+  normalizedFavorites Float               @default(0)
+  normalizedDistance  Float               @default(50)
+  normalizedSpeed     Float               @default(0)
+  newButcherBoost     Float               @default(0)
+  lastRankingUpdate   DateTime?
+  openTime            String              @default("06:00")
+  closeTime           String              @default("22:00")
+  closedDays          String[]
+  isOpen              Boolean             @default(true)
+  sourceApplicationId String?             @unique
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  deletedAt           DateTime?
+  user                User                @relation(fields: [userId], references: [id])
+  sourceApplication   ButcherApplication? @relation("ButcherSourceApplication", fields: [sourceApplicationId], references: [id])
+  daftraIntegration   ButcherDaftraIntegration?
+  daftraProductLinks  ButcherDaftraProduct[]
+  offers              ButcherOffer[]
+  orders              ButcherOrder[]
+  checkouts           ButcherCheckout[]
+  products            ButcherProduct[]
+  reviews             ButcherReview[]
+  stories             ButcherStory[]
+  messageThreads      MessageThread[]
+  favorites           ButcherFavorite[]
+
+  @@index([country])
+  @@index([subscriptionActive])
+  @@index([rating])
+  @@index([country, subscriptionActive, rating])
+  @@index([deletedAt])
+  @@index([rankingScore])
+  @@index([completedOrdersCount])
+  @@index([favoritesCount])
+  @@index([createdAt])
+  @@index([lat, lng])
+}
+
+model ButcherProduct {
+  id                String         @id @default(uuid())
+  butcherId         String
+  nameAr            String
+  nameEn            String
+  category          MeatCategory
+  images            String[]
+  pricePerKg        Float?
+  priceFixed        Float?
+  pricingNoteAr     String?
+  availableCuts     String[]
+  weightMin         Float?
+  weightMax         Float?
+  availableQuantity Float          @default(0)
+  reservedQuantity  Float          @default(0)
+  inStock           Boolean        @default(true)
+  freshness         String         @default("fresh")
+  descriptionAr     String
+  descriptionEn     String
+  country           Country
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  deletedAt         DateTime?
+  orderItems             ButcherOrder[]
+  lineItems              ButcherOrderItem[]
+  checkoutReservations   ButcherCheckoutReservation[]
+  butcher                Butcher        @relation(fields: [butcherId], references: [id])
+  daftraLink        ButcherDaftraProduct?
+
+  @@index([butcherId])
+  @@index([inStock])
+  @@index([deletedAt])
+}
+
+model ButcherOffer {
+  id              String    @id @default(uuid())
+  butcherId       String
+  titleAr         String
+  titleEn         String
+  descriptionAr   String
+  descriptionEn   String
+  discountPercent Float?
+  originalPrice   Float?
+  offerPrice      Float?
+  image           String
+  validUntil      DateTime
+  country         Country
+  createdAt       DateTime  @default(now())
+  deletedAt       DateTime?
+  butcher         Butcher   @relation(fields: [butcherId], references: [id])
+
+  @@index([butcherId])
+  @@index([validUntil])
+  @@index([deletedAt])
+}
+
+model ButcherStory {
+  id        String    @id @default(uuid())
+  butcherId String
+  thumbnail String
+  caption   String?
+  captionAr String?
+  mediaUrl  String?
+  duration  Int       @default(15)
+  type      StoryType
+  seen      Boolean   @default(false)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  butcher   Butcher   @relation(fields: [butcherId], references: [id])
+
+  @@index([butcherId])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}
+
+model ButcherOrder {
+  id                 String             @id @default(uuid())
+  orderNumber        String             @unique
+  butcherId          String
+  customerId         String
+  productId          String
+  cutType            String
+  weightKg           Float
+  reservedQuantity   Float              @default(0)
+  deliveryType       String             @default("pickup")
+  deliveryAddress    String?
+  status             OrderStatus        @default(pending)
+  paymentStatus      OrderPaymentStatus @default(unpaid)
+  paidAt             DateTime?
+  totalPrice         Float
+  currency           String             @default("SAR")
+  notes              String?
+  cancelledBy        String?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  checkoutId         String?            @unique
+  paymentId          String?            @unique
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  butcher            Butcher            @relation(fields: [butcherId], references: [id])
+  customer           User               @relation(fields: [customerId], references: [id])
+  product            ButcherProduct     @relation(fields: [productId], references: [id])
+  checkout           ButcherCheckout?   @relation(fields: [checkoutId], references: [id])
+  payment            Payment?           @relation("ButcherOrderPayment", fields: [paymentId], references: [id])
+  items              ButcherOrderItem[]
+  timeline           OrderTimeline[]
+  audits             OrderStatusAudit[]
+  supportTickets     SupportTicket[]
+
+  @@index([butcherId])
+  @@index([customerId])
+  @@index([status])
+  @@index([butcherId, status])
+  @@index([orderNumber])
+  @@index([paymentStatus])
+}
+
+/// Temporary payment-first checkout. Final ButcherOrder is created only after N-Genius confirmation.
+model ButcherCheckout {
+  id              String                        @id @default(uuid())
+  userId          String
+  butcherId       String
+  paymentId       String?                       @unique
+  status          ButcherCheckoutStatus         @default(pending)
+  expiresAt       DateTime
+  deliveryType    String                        @default("pickup")
+  deliveryAddress String?
+  notes           String?
+  currency        String                        @default("SAR")
+  totalPrice      Float
+  itemsSnapshot   Json
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+  user            User                          @relation(fields: [userId], references: [id])
+  butcher         Butcher                       @relation(fields: [butcherId], references: [id])
+  payment         Payment?                      @relation(fields: [paymentId], references: [id])
+  order           ButcherOrder?
+  reservations    ButcherCheckoutReservation[]
+
+  @@index([userId, status])
+  @@index([butcherId, status])
+  @@index([status, expiresAt])
+}
+
+model ButcherCheckoutReservation {
+  id          String                       @id @default(uuid())
+  checkoutId  String
+  userId      String
+  productId   String
+  quantity    Float
+  status      ButcherReservationStatus     @default(held)
+  expiresAt   DateTime
+  releasedAt  DateTime?
+  createdAt   DateTime                     @default(now())
+  checkout    ButcherCheckout              @relation(fields: [checkoutId], references: [id], onDelete: Cascade)
+  user        User                         @relation(fields: [userId], references: [id])
+  product     ButcherProduct               @relation(fields: [productId], references: [id])
+
+  @@index([checkoutId])
+  @@index([userId, status])
+  @@index([productId, status])
+  @@index([status, expiresAt])
+}
+
+model ButcherOrderItem {
+  id               String         @id @default(uuid())
+  orderId          String
+  productId        String
+  cutType          String
+  weightKg         Float
+  linePrice        Float
+  reservedQuantity Float          @default(0)
+  createdAt        DateTime       @default(now())
+  order            ButcherOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          ButcherProduct @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderTimeline {
+  id        String       @id @default(uuid())
+  orderId   String
+  status    OrderStatus
+  note      String?
+  createdBy String
+  createdAt DateTime     @default(now())
+  order     ButcherOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model OrderStatusAudit {
+  id             String       @id @default(uuid())
+  orderId        String
+  previousStatus OrderStatus
+  newStatus      OrderStatus
+  changedBy      String
+  changedAt      DateTime     @default(now())
+  order          ButcherOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, changedAt])
+  @@index([changedBy, changedAt])
+}
+
+model OrderNumberSequence {
+  id         String   @id @default(uuid())
+  year       Int      @unique
+  lastNumber Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+// General account rating — any user can rate any other user's account once (editable).
+model UserReview {
+  id         String   @id @default(uuid())
+  targetId   String
+  reviewerId String
+  rating     Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  target     User     @relation("UserReviewsReceived", fields: [targetId], references: [id])
+  reviewer   User     @relation("UserReviewsGiven", fields: [reviewerId], references: [id])
+
+  @@unique([targetId, reviewerId])
+  @@index([targetId])
+  @@index([reviewerId])
+}
+
+model ButcherReview {
+  id         String   @id @default(uuid())
+  butcherId  String
+  reviewerId String
+  orderId    String?
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  butcher    Butcher  @relation(fields: [butcherId], references: [id])
+  reviewer   User     @relation(fields: [reviewerId], references: [id])
+
+  @@unique([butcherId, reviewerId])
+  @@index([butcherId])
+  @@index([reviewerId])
+  @@index([orderId])
+}
+
+model ButcherFavorite {
+  id        String   @id @default(uuid())
+  butcherId String
+  userId    String
+  createdAt DateTime @default(now())
+  butcher   Butcher  @relation(fields: [butcherId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([butcherId, userId])
+  @@index([butcherId])
+  @@index([userId])
+}
+
+model ButcherApplication {
+  id                String                   @id @default(uuid())
+  userId            String
+  applicationNumber Int
+  status            ButcherApplicationStatus @default(DRAFT)
+
+  nameAr        String?
+  nameEn        String?
+  shopPhone     String?
+  commercialReg String?
+  country       Country?
+  city          String?
+  cityAr        String?
+  address       String?
+  addressAr     String?
+  lat           Float?
+  lng           Float?
+  bioAr         String?
+  bioEn         String?
+  specialties   String[] @default([])
+  /// Application layer must validate HH:mm (24-hour), e.g. "06:00", "22:30".
+  openTime      String   @default("06:00")
+  /// Application layer must validate HH:mm (24-hour), e.g. "06:00", "22:30".
+  closeTime     String   @default("22:00")
+
+  /// Login username for the butcher account created on approve. Not the applicant.
+  accountUsername     String?
+  /// Optional login email for the butcher account created on approve.
+  accountEmail        String?
+  /// bcrypt hash of the butcher-account password. Never returned by APIs.
+  accountPasswordHash String?
+
+  rejectionReason String?
+  acceptedTermsAt DateTime?
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  withdrawnAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user           User                              @relation(fields: [userId], references: [id])
+  sourcedButcher Butcher?                          @relation("ButcherSourceApplication")
+  documents      ButcherApplicationDocument[]
+  timelineEvents ButcherApplicationTimelineEvent[]
+
+  @@unique([userId, applicationNumber])
+  @@index([userId, status])
+  @@index([status, submittedAt])
+  @@index([status, createdAt])
+  @@index([country, status])
+  @@index([userId, createdAt])
+}
+
+model ButcherApplicationDocument {
+  id               String                           @id @default(uuid())
+  applicationId    String
+  type             ButcherApplicationDocumentType
+  fileKey          String?
+  status           ButcherApplicationDocumentStatus @default(UPLOADED)
+  notes            String?
+  originalFileName String?
+  mimeType         String?
+  fileSizeBytes    Int?
+  verifiedBy       String?
+  verifiedAt       DateTime?
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+
+  application ButcherApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  verifier    User?              @relation("DocumentVerifiedBy", fields: [verifiedBy], references: [id], onDelete: Restrict)
+
+  @@index([applicationId])
+  @@index([applicationId, type])
+  @@index([status])
+  @@index([verifiedBy])
+}
+
+model ButcherApplicationTimelineEvent {
+  id            String                           @id @default(uuid())
+  applicationId String
+  action        ButcherApplicationTimelineAction
+  comment       String?
+  /// Null for automated system events (e.g. Daftra product poll). Real admin/user events keep a User.id.
+  createdBy     String?
+  /// Defaults to {} so timeline rows always carry a JSON object; app may merge transition context.
+  metadata      Json                             @default("{}")
+  createdAt     DateTime                         @default(now())
+
+  application ButcherApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  actor       User?              @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([applicationId, createdAt])
+  @@index([createdBy])
+  @@index([action])
+}
+
+enum Country {
+  SA
+  AE
+  KW
+  QA
+  BH
+  OM
+  EG
+}
+
+enum Role {
+  USER
+  BUTCHER
+  ADMIN
+  MODERATOR
+}
+
+enum PlanAudience {
+  USER
+  BUTCHER
+}
+
+enum MessageThreadType {
+  DIRECT
+  BUTCHER
+}
+
+enum FeatureValueType {
+  BOOLEAN
+  NUMBER
+  STRING
+  JSON
+}
+
+enum ListingCategory {
+  camels
+  sheep
+  goats
+  cows
+  horses
+  birds
+  feed
+  equipment
+  livestock
+  transport
+  slaughter
+}
+
+enum ListingStatus {
+  active
+  sold
+  expired
+  pending_fee
+  suspended
+}
+
+/// USER listings belong to a real account. ADMIN_MANAGED listings have display identity only.
+enum ListingOrigin {
+  USER
+  ADMIN_MANAGED
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  preparing
+  ready
+  delivered
+  cancelled
+}
+
+enum FeeStatus {
+  pending
+  paid
+  overdue
+  waived
+}
+
+enum PaymentReferenceType {
+  subscription
+  fee
+  listing_fee
+  butcher_order
+  butcher_checkout
+  featured_ad
+  pinned_ad
+  promoted_ad
+  commission
+  order_commission
+}
+
+enum ButcherCheckoutStatus {
+  pending
+  paid
+  failed
+  cancelled
+  expired
+}
+
+enum ButcherReservationStatus {
+  held
+  converted
+  released
+}
+
+enum BoostType {
+  featured
+  pinned
+  both
+}
+
+enum OrderPaymentStatus {
+  unpaid
+  paid
+  failed
+  refunded
+}
+
+enum PaymentMethod {
+  mada
+  visa
+  mastercard
+  apple_pay
+  stc_pay
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum IntegrationProvider {
+  ni
+}
+
+enum IntegrationStatus {
+  pending
+  processing
+  synced
+  failed
+  retrying
+  cancelled
+}
+
+enum NotificationType {
+  like
+  follow
+  comment
+  repost
+  offer
+  order_update
+  fee_due
+  subscription_renew
+  new_message
+  live_start
+  system
+  story_reaction
+  story_reply
+}
+
+enum ButcherType {
+  regular
+  verified
+}
+
+enum MeatCategory {
+  whole_livestock
+  lamb
+  beef
+  camel
+  chicken
+  goat
+  special_orders
+}
+
+enum StoryType {
+  daily_slaughter
+  offer
+  new_stock
+  update
+}
+
+enum ButcherApplicationStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ButcherApplicationDocumentType {
+  commercial_license
+  national_id
+  municipal_permit
+  shop_photo
+  other
+}
+
+enum ButcherApplicationDocumentStatus {
+  UPLOADED
+  APPROVED
+  REJECTED
+}
+
+enum ButcherApplicationTimelineAction {
+  CREATE
+  UPDATE
+  SUBMIT
+  APPROVE
+  REJECT
+  WITHDRAW
+  COMMENT
+}
+
+enum DaftraIntegrationStatus {
+  NOT_CONFIGURED
+  CONNECTED
+  CONNECTION_FAILED
+  DISABLED
+}
+
+/// How Sarh authenticates to Daftra for this butcher.
+enum DaftraAuthMethod {
+  API_KEY
+  OAUTH
+  BOTH
+}
+
+model ButcherDaftraIntegration {
+  id                   String                   @id @default(uuid())
+  butcherId            String                   @unique
+  /// Daftra account/subdomain identifier used to build https://{account}.daftra.com
+  accountIdentifier    String
+  /// API key fields — required for API_KEY / BOTH; null when OAuth-only.
+  apiKeyCiphertext     String?
+  apiKeyIv             String?
+  apiKeyTag            String?
+  apiKeyLast4          String?
+  authMethod           DaftraAuthMethod         @default(API_KEY)
+  /// OAuth provider label (currently only "daftra").
+  oauthProvider        String?
+  accessTokenCiphertext String?
+  accessTokenIv         String?
+  accessTokenTag        String?
+  refreshTokenCiphertext String?
+  refreshTokenIv         String?
+  refreshTokenTag        String?
+  accessTokenExpiresAt   DateTime?
+  /// Space-separated scopes as returned/stored; never invent scopes.
+  oauthScopes            String?
+  oauthConnectedAt       DateTime?
+  status               DaftraIntegrationStatus  @default(NOT_CONFIGURED)
+  lastConnectionTestAt DateTime?
+  lastConnectionError  String?
+  daftraLoginEmail     String?
+  daftraLoginUrl       String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  butcher              Butcher                  @relation(fields: [butcherId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([oauthProvider])
+}
+
+model ButcherDaftraProduct {
+  id                String   @id @default(uuid())
+  butcherId         String
+  sarhProductId     String?  @unique
+  daftraProductId   Int
+  daftraProductCode String?
+  daftraSaleUnit    String?
+  lastKnownQuantity Float?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  butcher           Butcher         @relation(fields: [butcherId], references: [id], onDelete: Cascade)
+  sarhProduct       ButcherProduct? @relation(fields: [sarhProductId], references: [id], onDelete: SetNull)
+
+  @@unique([butcherId, daftraProductId])
+  @@index([butcherId])
+}
+
+model SupportTicket {
+  id           String                    @id @default(uuid())
+  ticketNumber String                    @unique
+  type         SupportTicketType         @default(SUPPORT)
+  category     String
+  priority     TicketPriority            @default(NORMAL)
+  status       TicketStatus              @default(OPEN)
+  handlerMode  SupportHandlerMode        @default(HUMAN_ACTIVE)
+  subject      String
+  description  String
+  adminNotes   String?
+  reporterId   String?
+  assignedToId String?
+  orderId      String?
+  metadata     Json?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  closedAt     DateTime?
+  deletedAt    DateTime?
+  reporter     User?                     @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+  assignedTo   User?                     @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  order        ButcherOrder?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages     SupportTicketMessage[]
+  attachments  SupportTicketAttachment[]
+
+  @@index([status])
+  @@index([category])
+  @@index([type])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([reporterId])
+  @@index([assignedToId])
+  @@index([orderId])
+  @@index([handlerMode])
+}
+
+model SupportTicketMessage {
+  id           String                    @id @default(uuid())
+  ticketId     String
+  authorId     String?
+  authorKind   SupportMessageAuthor      @default(CUSTOMER)
+  body         String
+  isStaffReply Boolean                   @default(false)
+  createdAt    DateTime                  @default(now())
+  ticket       SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author       User?                     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  attachments  SupportTicketAttachment[]
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model SupportTicketAttachment {
+  id            String                @id @default(uuid())
+  ticketId      String
+  messageId     String?
+  fileUrl       String
+  fileName      String?
+  mimeType      String?
+  fileSizeBytes Int?
+  createdAt     DateTime              @default(now())
+  ticket        SupportTicket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message       SupportTicketMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([messageId])
+}
+
+model AccountVerificationRequest {
+  id             String                           @id @default(uuid())
+  userId         String                           @unique
+  status         AccountVerificationStatus        @default(DRAFT)
+  fullName       String?
+  nationalId     String?
+  businessName   String?
+  businessType   String?
+  additionalInfo String?
+  reviewReason   String?
+  adminNotes     String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  submittedAt    DateTime?
+  createdAt      DateTime                         @default(now())
+  updatedAt      DateTime                         @updatedAt
+  user           User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy     User?                            @relation("VerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  documents      AccountVerificationDocument[]
+  timeline       AccountVerificationTimelineEvent[]
+
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model AccountVerificationDocument {
+  id               String                          @id @default(uuid())
+  requestId        String
+  type             AccountVerificationDocumentType
+  fileKey          String
+  fileUrl          String
+  originalFileName String?
+  mimeType         String?
+  fileSizeBytes    Int?
+  createdAt        DateTime                        @default(now())
+  request          AccountVerificationRequest      @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+model AccountVerificationTimelineEvent {
+  id        String                     @id @default(uuid())
+  requestId String
+  action    String
+  actorId   String?
+  note      String?
+  createdAt DateTime                   @default(now())
+  request   AccountVerificationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([createdAt])
+}
+
+model Faq {
+  id         String      @id @default(uuid())
+  questionAr String
+  answerAr   String
+  category   FaqCategory
+  isActive   Boolean     @default(true)
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  @@index([category])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([deletedAt])
+}
+
+model AppSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  labelAr   String?
+  category  String   @default("general")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Official MEWA / Naama services directory (informational links only)
+model Service {
+  id               String   @id @default(uuid())
+  title            String
+  description      String
+  category         String
+  icon             String
+  externalUrl      String
+  active           Boolean  @default(true)
+  feeText          String?
+  isFree           Boolean  @default(true)
+  steps            String?
+  conditions       String?
+  documents        String?
+  deliveryChannel  String?
+  imageUrl         String?
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([active])
+  @@index([category])
+  @@index([sortOrder])
+  @@map("services")
+}
+
+model ContentSection {
+  id            String                 @id @default(uuid())
+  slug          String                 @unique
+  titleAr       String
+  titleEn       String?
+  bodyAr        String
+  bodyEn        String?
+  isActive      Boolean                @default(true)
+  sortOrder     Int                    @default(0)
+  publishedAt   DateTime?
+  updatedByName String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  deletedAt     DateTime?
+  versions      ContentSectionVersion[]
+
+  @@index([deletedAt])
+  @@index([isActive, sortOrder])
+}
+
+model ContentSectionVersion {
+  id            String         @id @default(uuid())
+  sectionId     String
+  section       ContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  titleAr       String
+  titleEn       String?
+  bodyAr        String
+  bodyEn        String?
+  version       Int
+  isPublished   Boolean        @default(false)
+  createdByName String?
+  createdAt     DateTime       @default(now())
+
+  @@unique([sectionId, version])
+  @@index([sectionId])
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_REVIEW
+  AI_ASSISTING
+  WAITING_FOR_CUSTOMER
+  WAITING_FOR_SUPPORT
+  IN_PROGRESS
+  AWAITING_USER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportHandlerMode {
+  AI_ACTIVE
+  HUMAN_ACTIVE
+}
+
+enum SupportMessageAuthor {
+  CUSTOMER
+  SARHAN
+  STAFF
+}
+
+enum SupportTicketType {
+  SUPPORT
+  REPORT
+}
+
+enum AccountVerificationStatus {
+  DRAFT
+  UNDER_REVIEW
+  NEEDS_AMENDMENTS
+  VERIFIED
+  REJECTED
+}
+
+enum AccountVerificationDocumentType {
+  NATIONAL_ID
+  COMMERCIAL_REGISTER
+  OTHER
+}
+
+enum FaqCategory {
+  ACCOUNT
+  ADS
+  MARKET
+  BUY_SELL
+  PAYMENT
+  VERIFICATION
+  BUTCHERS
+  TECHNICAL
+  GENERAL
+}
+
+enum KnowledgeSourceType {
+  RSS
+  API
+}
+
+enum KnowledgeArticleStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+model KnowledgeSource {
+  id        String              @id @default(uuid())
+  name      String
+  url       String
+  type      KnowledgeSourceType @default(RSS)
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  articles  KnowledgeArticle[]
+  syncLogs  KnowledgeSyncLog[]
+
+  @@index([enabled])
+  @@index([type])
+}
+
+model KnowledgeArticle {
+  id            String                 @id @default(uuid())
+  sourceId      String
+  originalTitle String
+  originalUrl   String                 @unique
+  summary       String?
+  titleAr       String?
+  publishedAt   DateTime?
+  status        KnowledgeArticleStatus @default(PENDING)
+  postId        String?                @unique
+  errorMessage  String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  source        KnowledgeSource        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  post          Post?                  @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([sourceId])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([createdAt])
+}
+
+model KnowledgeSyncLog {
+  id        String           @id @default(uuid())
+  sourceId  String?
+  level     String
+  message   String
+  meta      Json?
+  createdAt DateTime         @default(now())
+  source    KnowledgeSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([sourceId])
+  @@index([level])
+}
+
+/// Admin-managed editorial / news stories shown on the home feed (image + article).
+model EditorialStory {
+  id          String    @id @default(uuid())
+  titleAr     String
+  bodyAr      String
+  imageUrl    String
+  duration    Int       @default(20)
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
+  @@index([isActive, sortOrder])
+  @@index([publishedAt])
+  @@index([createdAt])
+}
+
+/// Admin-managed feed supplier directory (no user account).
+model FeedSupplier {
+  id          String        @id @default(uuid())
+  nameAr      String
+  logo        String?
+  cover       String?
+  description String?
+  cityAr      String
+  districtAr  String?
+  addressAr   String?
+  lat         Float?
+  lng         Float?
+  phone       String?
+  whatsapp    String?
+  email       String?
+  website     String?
+  hoursAr     String?
+  verified    Boolean       @default(false)
+  published   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  products    FeedProduct[]
+
+  @@index([deletedAt])
+  @@index([published, deletedAt])
+  @@index([cityAr])
+}
+
+model FeedProduct {
+  id          String              @id @default(uuid())
+  supplierId  String
+  supplier    FeedSupplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  nameAr      String
+  description String?
+  category    FeedProductCategory
+  imageUrl    String?
+  weightLabel String?
+  available   Boolean             @default(true)
+  published   Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+
+  @@index([supplierId, published])
+  @@index([deletedAt])
+  @@index([category])
+}
+
+enum FeedProductCategory {
+  livestock
+  sheep
+  camels
+  poultry
+  hay
+  barley
+}
+
+/// Admin-managed promotional banners on the butchers market home slider (3 slots).
+model ButcherMarketBanner {
+  id         String   @id @default(uuid())
+  slot       Int      @unique
+  titleAr    String
+  subtitleAr String
+  captionAr  String   @default("")
+  imageUrl   String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([isActive, slot])
+}
+
+/// Admin-managed image banners for the home “استكشف سرح” slider (independent of home-explore destinations).
+model ExploreSarhBanner {
+  id                 String   @id @default(uuid())
+  imageUrl           String
+  accessibilityLabel String
+  href               String
+  sortOrder          Int      @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}

@@ -1,0 +1,21 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transformIgnorePatterns": [
+    "/node_modules/(?!(@nestjs)/)"
+  ],
+  "transform": {
+    "/node_modules/@nestjs/.+\\.js$": "<rootDir>/../jest-nestjs-cjs.cjs",
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "isolatedModules": true,
+        "diagnostics": false
+      }
+    ]
+  },
+  "maxWorkers": 1,
+  "forceExit": true
+}

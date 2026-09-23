@@ -1,0 +1,302 @@
+# Sarh production stack — Hostinger VPS
+# Usage:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.ssl.yml \
+#     --env-file .env.production up -d
+#
+# Do NOT deploy with docker-compose.yml — that file is local-dev only and attaches
+# services to the Compose default network (sarh_default), which breaks nginx→socket.
+#
+# Requires .env.production (never commit). See scripts/hostinger/env.production.example
+# Compatible with backend-nest Dockerfile ENTRYPOINT (api|worker|socket roles).
+
+name: sarh
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: "1.0"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sarh}
+    volumes:
+      # PG 18+ images expect the volume at /var/lib/postgresql (not .../data)
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sarh_internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: "0.50"
+    # Cap memory so noeviction is meaningful for BullMQ/session keys on a small VPS.
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - sarh_internal
+
+  api:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    image: sarh-backend:latest
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: "1.0"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      SERVICE_MODE: api
+      PORT: '3001'
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
+      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      REDIS_ENABLED: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:3001:3001'
+    networks:
+      - sarh_internal
+    entrypoint: ['./docker-entrypoint.sh']
+    healthcheck:
+      # Existing GET /api/health (DB liveness) — no new health logic.
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(\"http://127.0.0.1:3001/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    image: sarh-backend:latest
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      SERVICE_MODE: worker
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
+      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      REDIS_ENABLED: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - sarh_internal
+    entrypoint: ['node']
+    command: ['dist/queue/worker.main.js']
+    healthcheck:
+      # Worker writes Redis key sarh:worker:heartbeat (WorkerHeartbeatService).
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "const Redis=require(\"ioredis\"); const r=new Redis({host:process.env.REDIS_HOST||\"redis\",port:Number(process.env.REDIS_PORT||6379),maxRetriesPerRequest:1,lazyConnect:true,connectTimeout:3000}); r.connect().then(()=>r.get(\"sarh:worker:heartbeat\")).then(v=>{r.disconnect(); process.exit(v?0:1);}).catch(()=>{try{r.disconnect()}catch(_){} process.exit(1);})"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  socket:
+    image: sarh-backend:latest
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: "0.50"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      SERVICE_MODE: socket
+      PORT: '3002'
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
+      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      REDIS_ENABLED: 'true'
+      SOCKET_PORT: '3002'
+      SOCKET_HTTP_PORT: '3002'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:3002:3002'
+    networks:
+      - sarh_internal
+    entrypoint: ['node']
+    command: ['dist/gateway/socket.main.js']
+    healthcheck:
+      # Existing SocketHealthController GET /health (no global api prefix).
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(\"http://127.0.0.1:3002/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  admin:
+    build:
+      context: ./admin-panel
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://sarhsa.online
+        NEXT_PUBLIC_SOCKET_URL: https://sarhsa.online
+        NEXT_PUBLIC_ADMIN_BASE_PATH: /admin
+    image: sarh-admin:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.25"
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      HOSTNAME: 0.0.0.0
+      # Must match API JWT_SECRET — middleware verifies admin_token cookies.
+      # Without this, every /admin/* nav redirects to /admin/login, then login
+      # restores localStorage and bounces back to /admin (stuck on home).
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - sarh_internal
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(\"http://127.0.0.1:3000/admin/login\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  butcher:
+    build:
+      context: ./butcher-dashboard
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://sarhsa.online
+        NEXT_PUBLIC_SOCKET_URL: https://sarhsa.online
+        NEXT_PUBLIC_BUTCHER_BASE_PATH: /butcher
+    image: sarh-butcher:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.25"
+    environment:
+      NODE_ENV: production
+      PORT: '3003'
+      HOSTNAME: 0.0.0.0
+      # Must match API JWT_SECRET — middleware verifies butcher_token cookies.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - sarh_internal
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(\"http://127.0.0.1:3003/butcher/login\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  web:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      args:
+        EXPO_PUBLIC_WEB_SAME_ORIGIN: 'true'
+        EXPO_PUBLIC_API_URL: ''
+        EXPO_PUBLIC_SOCKET_URL: https://sarhsa.online
+        EXPO_PUBLIC_AGORA_ENABLED: 'false'
+    image: sarh-web:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
+    networks:
+      - sarh_internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null']
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
+    depends_on:
+      - api
+      - socket
+      - admin
+      - butcher
+      - web
+    ports:
+      - '80:80'
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl-redirect.conf:/etc/nginx/includes/ssl-redirect.conf:ro
+      - ./nginx/admin-location.conf:/etc/nginx/includes/admin-location.conf:ro
+      - ./nginx/butcher-location.conf:/etc/nginx/includes/butcher-location.conf:ro
+      - ./nginx/join-location.conf:/etc/nginx/includes/join-location.conf:ro
+      - ./nginx/web-location.conf:/etc/nginx/includes/web-location.conf:ro
+      - ./nginx/payment-bridge.conf:/etc/nginx/includes/payment-bridge.conf:ro
+      # Host path shared with certbot (scripts/hostinger/06-setup-ssl.sh)
+      - /var/www/certbot:/var/www/certbot:ro
+    networks:
+      - sarh_internal
+
+# Single shared bridge for api/worker/socket/nginx/postgres/redis.
+# Explicit `name` keeps the Docker network id stable across compose recreates
+# (avoids project-prefixed drift like sarh_sarh_internal vs sarh_default).
+networks:
+  sarh_internal:
+    name: sarh_internal
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

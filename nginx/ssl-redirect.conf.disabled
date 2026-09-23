@@ -1,0 +1,2 @@
+# Enabled by scripts/hostinger/06-setup-ssl.sh after certificate issuance
+return 301 https://$host$request_uri;

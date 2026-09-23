@@ -1,0 +1,1 @@
+# Keep folder so Docker COPY public works in CI/Railway builds

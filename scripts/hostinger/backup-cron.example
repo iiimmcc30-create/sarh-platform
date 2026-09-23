@@ -1,0 +1,11 @@
+# Example cron for Hostinger VPS — install with: crontab -e
+# Adjust SARH_ROOT if your deploy path differs.
+#
+# Daily PostgreSQL backup at 03:15 UTC, log to /var/log/sarh-backup.log
+15 3 * * * SARH_ROOT=/opt/sarh /opt/sarh/scripts/hostinger/09-backup-postgres.sh >> /var/log/sarh-backup.log 2>&1
+#
+# Off-site sync (configure rclone/s3 on VPS — not in Git):
+# 30 3 * * * rclone copy /opt/backups/sarh/postgres remote:sarh-backups/postgres/ --min-age 1h >> /var/log/sarh-backup-sync.log 2>&1
+#
+# Monthly restore drill (manual recommended first):
+# 0 4 1 * * SARH_ROOT=/opt/sarh /opt/sarh/scripts/hostinger/10-restore-postgres.sh --list $(cat /opt/backups/sarh/postgres/LATEST.txt | sed -n 's/^file=//p')

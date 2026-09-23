@@ -1,0 +1,85 @@
+# Dependencies
+node_modules/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+!.env.e2e.example
+.env.local
+.env.*.local
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+expo-qr*.png
+.metro-health-check*
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.crt
+*.cer
+*.mobileprovision
+*.orig.*
+
+# Next.js (backend)
+.next/
+out/
+
+# Build / native
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/ios/build/
+frontend/ios/Pods/
+app/android/app/build/
+app/android/build/
+app/android/.gradle/
+*.apk
+*.aab
+artifacts/
+coverage/
+
+# Logs & OS
+*.log
+npm-debug.log*
+eas-*.bin
+eas-build-log.txt
+eas-log*.bin
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Android debug signing key (not a production artifact)
+*.keystore
+!*.keystore.example
+app/android/app/debug.keystore
+
+
+# TypeScript
+*.tsbuildinfo
+
+# Prisma
+backend/prisma/*.db
+backend/prisma/*.db-journal
+backend-nest/prisma/*.db
+backend-nest/prisma/*.db-journal
+
+# SQL dumps (keep Prisma migration SQL)
+*.dump
+*.sql
+!backend-nest/prisma/migrations/**/*.sql
+
+# Uploads / temp
+uploads/
+tmp/
+temp/

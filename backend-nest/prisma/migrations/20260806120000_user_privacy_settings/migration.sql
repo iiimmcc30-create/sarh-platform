@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "showInSearch" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "User" ADD COLUMN "allowPrivateMessages" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "User" ADD COLUMN "showFollowingList" BOOLEAN NOT NULL DEFAULT true;

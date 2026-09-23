@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "720837081602",
+    "project_id": "alsafat-d5f63",
+    "storage_bucket": "alsafat-d5f63.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:720837081602:android:e5e9f60315d4ff91e1051b",
+        "android_client_info": {
+          "package_name": "com.safat.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChjlpXeDHczi2gbAP8rznbN_9kARquASQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:720837081602:android:01e663c5368d9230e1051b",
+        "android_client_info": {
+          "package_name": "com.sarh.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChjlpXeDHczi2gbAP8rznbN_9kARquASQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
