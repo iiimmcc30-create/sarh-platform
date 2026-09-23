@@ -17,7 +17,7 @@ import { FeedVideoTile } from '@/components/feature/FeedVideoTile';
 import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
 import { radius, typography, type ThemeColors } from '@/constants/theme';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
-import { collectPostMedia, type FeedMediaItem } from '@/lib/postMedia';
+import { collectPostMedia, type FeedMediaItem, type PostMediaRecord } from '@/lib/postMedia';
 import { postFeedImageUrl } from '@/lib/listingMedia';
 import { recordPostView } from '@/lib/postEngagement';
 
@@ -32,6 +32,7 @@ function postFeedDeliveryUri(uri: string): string {
 interface PostMediaGalleryProps {
   images: string[];
   video?: string | null;
+  media?: PostMediaRecord[] | null;
   colors: ThemeColors;
   scheme: 'light' | 'dark';
   postId?: string;
@@ -123,12 +124,13 @@ function MediaPage({
 export function PostMediaGallery({
   images,
   video,
+  media,
   colors,
   scheme,
   postId,
   onViewRecorded,
 }: PostMediaGalleryProps) {
-  const items = useMemo(() => collectPostMedia(images, video), [images, video]);
+  const items = useMemo(() => collectPostMedia(images, video, media), [images, video, media]);
   const [width, setWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [viewerVisible, setViewerVisible] = useState(false);

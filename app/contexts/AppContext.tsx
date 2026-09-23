@@ -225,6 +225,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       image: p.image,
       images: Array.isArray(p.images) && p.images.length > 0 ? p.images : p.image ? [p.image] : undefined,
       video: p.video ?? undefined,
+      media: Array.isArray(p.media)
+        ? p.media
+            .filter((row: { url?: string }) => row?.url)
+            .map((row: { id?: string; url: string; type?: string; sortOrder?: number; posterUrl?: string }, index: number) => ({
+              id: row.id,
+              url: row.url,
+              type: String(row.type).toUpperCase() === 'VIDEO' ? 'VIDEO' : 'IMAGE',
+              sortOrder: typeof row.sortOrder === 'number' ? row.sortOrder : index,
+              posterUrl: row.posterUrl,
+            }))
+        : undefined,
       likes: p.likesCount ?? 0,
       reposts: p.repostsCount ?? 0,
       comments: p.commentsCount ?? 0,

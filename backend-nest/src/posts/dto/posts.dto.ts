@@ -7,9 +7,32 @@ import {
   IsArray,
   ArrayMaxSize,
   ArrayMinSize,
+  IsIn,
+  IsInt,
+  Min,
+  ValidateNested,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import {
+  MAX_POST_MEDIA,
+  POST_MEDIA_TYPES,
+  type PostMediaKind,
+} from '../lib/post-media';
+
+export class PostMediaItemDto {
+  @IsUrl(MEDIA_URL_OPTS)
+  url!: string;
+
+  @IsIn(POST_MEDIA_TYPES)
+  type!: PostMediaKind;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  sortOrder?: number;
+}
 
 export class ListPostsQueryDto {
   @IsOptional()
@@ -49,6 +72,14 @@ export class CreatePostDto {
   @ArrayMaxSize(4)
   @IsUrl(MEDIA_URL_OPTS, { each: true })
   images?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_POST_MEDIA)
+  @ValidateNested({ each: true })
+  @Type(() => PostMediaItemDto)
+  media?: PostMediaItemDto[];
 }
 
 export class UpdatePostDto {
@@ -73,6 +104,13 @@ export class UpdatePostDto {
   @ArrayMaxSize(4)
   @IsUrl(MEDIA_URL_OPTS, { each: true })
   images?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_POST_MEDIA)
+  @ValidateNested({ each: true })
+  @Type(() => PostMediaItemDto)
+  media?: PostMediaItemDto[];
 }
 
 export class CreateCommentDto {

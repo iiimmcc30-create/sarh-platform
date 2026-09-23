@@ -132,6 +132,14 @@ export interface Post {
   images?: string[];
   /** Post video, if present — rendered full-width in place of the image gallery */
   video?: string;
+  /** Ordered PostMedia — source of truth for mixed image/video posts */
+  media?: Array<{
+    id?: string;
+    url: string;
+    type: 'IMAGE' | 'VIDEO';
+    sortOrder: number;
+    posterUrl?: string | null;
+  }>;
   likes: number;
   reposts: number;
   comments: number;

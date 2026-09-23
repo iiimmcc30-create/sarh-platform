@@ -2,6 +2,25 @@ import { collectListingMedia, collectPostMedia, isFeedVideoUri } from '@/lib/pos
 import { postShareUrl } from '@/lib/postInteractions';
 
 describe('post media collection', () => {
+  it('reads ordered PostMedia first for mixed image and video', () => {
+    const items = collectPostMedia(
+      ['https://cdn.example/legacy.jpg'],
+      'https://cdn.example/legacy.mp4',
+      [
+        { url: 'https://cdn.example/a.jpg', type: 'IMAGE', sortOrder: 0 },
+        {
+          url: 'https://res.cloudinary.com/demo/video/upload/v1/clip.mp4',
+          type: 'VIDEO',
+          sortOrder: 1,
+        },
+        { url: 'https://cdn.example/b.png', type: 'IMAGE', sortOrder: 2 },
+      ],
+    );
+    expect(items.map((item) => item.kind)).toEqual(['image', 'video', 'image']);
+    expect(items[1].uri).toContain('/video/upload/');
+    expect(items[1].posterUri).toContain('so_0');
+  });
+
   it('keeps mixed image and video order for the viewer', () => {
     const items = collectPostMedia(
       [
@@ -14,6 +33,15 @@ describe('post media collection', () => {
     );
     expect(items.map((item) => item.kind)).toEqual(['image', 'image', 'video', 'image']);
     expect(items[2].posterUri).toContain('so_0');
+  });
+
+  it('keeps legacy posts working when PostMedia is absent', () => {
+    const items = collectPostMedia(
+      ['https://cdn.example/old.jpg', 'https://cdn.example/old-2.png'],
+      undefined,
+    );
+    expect(items.map((item) => item.kind)).toEqual(['image', 'image']);
+    expect(items[0].uri).toBe('https://cdn.example/old.jpg');
   });
 
   it('includes a dedicated video field once', () => {

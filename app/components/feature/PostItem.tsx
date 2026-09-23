@@ -275,11 +275,12 @@ function PostItemComponent({
               )
             ) : null}
 
-            {images.length > 0 || post.video ? (
+            {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
               <View style={styles.mediaWrap}>
                 <PostMediaGallery
                   images={images}
                   video={post.video}
+                  media={post.media}
                   colors={colors}
                   scheme={scheme}
                   postId={post.id}
@@ -391,6 +392,7 @@ function arePropsEqual(prev: PostItemProps, next: PostItemProps): boolean {
     a.image === b.image &&
     a.video === b.video &&
     a.images === b.images &&
+    a.media === b.media &&
     a.postedAt === b.postedAt &&
     a.createdAt === b.createdAt &&
     a.author.id === b.author.id &&

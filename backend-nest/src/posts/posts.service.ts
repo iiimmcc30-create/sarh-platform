@@ -13,6 +13,7 @@ import {
 import { PostsRepository } from './repositories/posts.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { notDeleted } from '../common/utils/soft-delete.util';
+import { normalizeCreateMedia, presentPostMedia } from './lib/post-media';
 
 const PAGE_SIZE = 20;
 
@@ -33,9 +34,18 @@ export class PostsService {
     reposted: boolean,
     bookmarked = false,
   ) {
-    const { _count, ...rest } = post;
+    const { _count, media, ...rest } = post as PostWithCount & {
+      media?: Array<{
+        id: string;
+        url: string;
+        type: 'IMAGE' | 'VIDEO';
+        sortOrder: number;
+      }>;
+    };
+    const presented = presentPostMedia(rest, media);
     return {
       ...rest,
+      ...presented,
       likesCount: _count.likes,
       repostsCount: _count.reposts,
       commentsCount: _count.comments,
@@ -156,20 +166,25 @@ export class PostsService {
     };
   }
 
-  private normalizeImages(image?: string | null, images?: string[]): string[] {
-    if (images?.length) return images.slice(0, 4);
-    if (image) return [image];
-    return [];
-  }
-
   async createPost(user: JwtPayload, dto: CreatePostDto) {
-    const images = this.normalizeImages(dto.image, dto.images);
+    const { media, images, image } = normalizeCreateMedia(dto);
     const post = await this.repo.create({
       content: dto.content,
       arabicContent: dto.arabicContent,
-      image: images[0] ?? null,
+      image,
       images,
       author: { connect: { id: user.userId } },
+      ...(media.length
+        ? {
+            media: {
+              create: media.map((item) => ({
+                url: item.url,
+                type: item.type,
+                sortOrder: item.sortOrder,
+              })),
+            },
+          }
+        : {}),
     });
 
     const followers = await this.repo.findFollowerIds(user.userId);
@@ -187,7 +202,8 @@ export class PostsService {
 
     await this.cache.del('posts:feed:first');
     await this.cache.delPattern('posts:feed:following:*').catch(() => 0);
-    return post;
+    const presented = presentPostMedia(post, post.media);
+    return { ...post, ...presented };
   }
 
   async getPost(id: string, user?: JwtPayload) {
@@ -238,23 +254,36 @@ export class PostsService {
       throwApi(403, 'forbidden', 'غير مسموح');
     }
 
+    const mediaPatch =
+      dto.media !== undefined
+        ? normalizeCreateMedia({ media: dto.media })
+        : dto.images !== undefined
+          ? normalizeCreateMedia({ images: dto.images })
+          : dto.image !== undefined
+            ? normalizeCreateMedia({ image: dto.image })
+            : null;
+
     const updated = await this.repo.update(id, {
       content: dto.content,
       arabicContent: dto.arabicContent,
-      ...(dto.images !== undefined
+      ...(mediaPatch
         ? {
-            images: dto.images,
-            image: dto.images[0] ?? null,
+            images: mediaPatch.images,
+            image: mediaPatch.image,
+            media: {
+              deleteMany: {},
+              create: mediaPatch.media.map((item) => ({
+                url: item.url,
+                type: item.type,
+                sortOrder: item.sortOrder,
+              })),
+            },
           }
-        : dto.image !== undefined
-          ? {
-              image: dto.image,
-              images: dto.image ? [dto.image] : [],
-            }
-          : {}),
+        : {}),
     });
     await this.invalidatePostCaches(id, post.authorId);
-    return updated;
+    const presented = presentPostMedia(updated, updated.media);
+    return { ...updated, ...presented };
   }
 
   async deletePost(user: JwtPayload, id: string) {

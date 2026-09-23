@@ -111,6 +111,32 @@ describe('posts mapping', () => {
     expect(mapped?.images).toEqual(['https://cdn/x.jpg']);
     expect(mapped?.author.verified).toBe(true);
   });
+
+  it('maps ordered PostMedia for mixed image and video posts', () => {
+    const mapped = mapPostFromApi({
+      id: 'p2',
+      content: 'clip',
+      arabicContent: 'مقطع',
+      createdAt: '2026-01-02T00:00:00.000Z',
+      author: {
+        id: 'u1',
+        username: 'ali',
+        displayName: 'Ali',
+        arabicName: 'علي',
+      },
+      media: [
+        { id: 'm1', url: 'https://cdn.example/a.jpg', type: 'IMAGE', sortOrder: 0 },
+        {
+          id: 'm2',
+          url: 'https://res.cloudinary.com/demo/video/upload/v1/clip.mp4',
+          type: 'VIDEO',
+          sortOrder: 1,
+        },
+      ],
+    });
+    expect(mapped?.media?.map((item) => item.type)).toEqual(['IMAGE', 'VIDEO']);
+    expect(mapped?.media?.[1].url).toContain('/video/upload/');
+  });
 });
 
 describe('stories media rules', () => {

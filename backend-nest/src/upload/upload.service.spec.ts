@@ -116,6 +116,47 @@ describe('UploadService presign (existing storage)', () => {
     expect(JSON.stringify(result)).not.toMatch(/api_secret|APIKEY/i);
   });
 
+  it('allows image and supported video MIME types for posts', async () => {
+    (getPresignedUploadUrl as jest.Mock).mockResolvedValue({
+      provider: 'cloudinary',
+      uploadUrl: 'https://api.cloudinary.com/v1_1/demo/video/upload',
+      apiKey: 'pub-key',
+      timestamp: 1,
+      signature: 'signed',
+      folder: 'safat/posts',
+      publicId: 'vid',
+    });
+
+    const image = await service.presign(jwt(), {
+      mimetype: 'image/jpeg',
+      folder: 'posts',
+    });
+    expect(image.maxSizeMb).toBe(20);
+
+    const video = await service.presign(jwt(), {
+      mimetype: 'video/mp4',
+      folder: 'posts',
+    });
+    expect(getPresignedUploadUrl).toHaveBeenCalledWith(
+      'posts',
+      'video/mp4',
+      300,
+      undefined,
+    );
+    expect(video.maxSizeMb).toBe(50);
+  });
+
+  it('rejects unsupported MIME types for posts', async () => {
+    await expect(
+      service.presign(jwt(), {
+        mimetype: 'application/pdf',
+        folder: 'posts',
+        count: 1,
+      }),
+    ).rejects.toMatchObject({ status: 400 } satisfies Partial<ApiException>);
+    expect(getPresignedUploadUrl).not.toHaveBeenCalled();
+  });
+
   it('returns 503 when storage signing fails', async () => {
     (getPresignedUploadUrl as jest.Mock).mockRejectedValue(
       new Error('Cloudinary is not configured'),

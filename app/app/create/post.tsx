@@ -27,11 +27,17 @@ import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
-import { uploadImageFromUri } from '@/services/upload';
+import { uploadMediaFromUri } from '@/services/upload';
 import { rtlInputText, ltrInputText } from '@/lib/rtl';
+import { cloudinaryVideoFirstFrameUrl } from '@/lib/listingMedia';
 
 const HASHTAG_BLUE = '#1D9BF0';
-const MAX_POST_IMAGES = 4;
+const MAX_POST_MEDIA = 4;
+
+type DraftMedia = {
+  uri: string;
+  kind: 'image' | 'video';
+};
 
 const POST_TYPES = [
   { id: 'text', label: 'نص' },
@@ -57,7 +63,7 @@ export default function CreatePostScreen() {
   const [arabicContent, setArabicContent] = useState('');
   const [selectedType, setSelectedType] = useState('text');
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
-  const [imageUris, setImageUris] = useState<string[]>([]);
+  const [draftMedia, setDraftMedia] = useState<DraftMedia[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [loadingPost, setLoadingPost] = useState(!!editId);
 
@@ -103,30 +109,36 @@ export default function CreatePostScreen() {
     toggleHashtag(tag);
   };
 
-  const pickImages = async () => {
+  const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور لإضافتها للمنشور');
+      Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور والفيديو لإضافتها للمنشور');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ['images', 'videos'],
       allowsMultipleSelection: true,
-      selectionLimit: MAX_POST_IMAGES - imageUris.length,
+      selectionLimit: MAX_POST_MEDIA - draftMedia.length,
       quality: 0.85,
+      videoMaxDuration: 90,
     });
 
     if (!result.canceled && result.assets.length > 0) {
-      setImageUris((prev) =>
-        [...prev, ...result.assets.map((a) => a.uri)].slice(0, MAX_POST_IMAGES),
-      );
+      const picked: DraftMedia[] = result.assets.map((asset) => ({
+        uri: asset.uri,
+        kind:
+          asset.type === 'video' || (asset.mimeType?.startsWith('video/') ?? false)
+            ? 'video'
+            : 'image',
+      }));
+      setDraftMedia((prev) => [...prev, ...picked].slice(0, MAX_POST_MEDIA));
       setSelectedType('image');
     }
   };
 
-  const removeImage = (index: number) => {
-    setImageUris((prev) => prev.filter((_, i) => i !== index));
+  const removeMedia = (index: number) => {
+    setDraftMedia((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handlePost = async () => {
@@ -135,23 +147,35 @@ export default function CreatePostScreen() {
     const text = arabicContent.trim();
 
     try {
-      const uploadedUrls: string[] = [];
-      for (const uri of imageUris) {
-        const url = await uploadImageFromUri(accessToken, uri, 'posts');
-        if (url) uploadedUrls.push(url);
+      const uploaded: Array<{ url: string; type: 'IMAGE' | 'VIDEO'; sortOrder: number }> = [];
+      for (let i = 0; i < draftMedia.length; i += 1) {
+        const item = draftMedia[i];
+        const url = await uploadMediaFromUri(
+          accessToken,
+          item.uri,
+          'posts',
+          item.kind === 'video' ? 'video' : 'image',
+        );
+        if (url) {
+          uploaded.push({
+            url,
+            type: item.kind === 'video' ? 'VIDEO' : 'IMAGE',
+            sortOrder: uploaded.length,
+          });
+        }
       }
 
-      if (imageUris.length > 0 && uploadedUrls.length === 0) {
-        Alert.alert('خطأ', 'فشل رفع الصور. حاول مجدداً.');
+      if (draftMedia.length > 0 && uploaded.length === 0) {
+        Alert.alert('خطأ', 'فشل رفع الوسائط. حاول مجدداً.');
         return;
       }
 
+      const imageUrls = uploaded.filter((item) => item.type === 'IMAGE').map((item) => item.url);
       const payload = {
         content: text,
         arabicContent: text,
-        ...(uploadedUrls.length > 0
-          ? { images: uploadedUrls, image: uploadedUrls[0] }
-          : {}),
+        ...(uploaded.length > 0 ? { media: uploaded } : {}),
+        ...(imageUrls.length > 0 ? { images: imageUrls, image: imageUrls[0] } : {}),
       };
 
       const success = isEditing && editId
@@ -232,24 +256,39 @@ export default function CreatePostScreen() {
           </View>
 
           {/* Image previews */}
-          {imageUris.length > 0 && (
+          {draftMedia.length > 0 && (
             <View style={styles.imagePreviewRow}>
-              {imageUris.map((uri, index) => (
-                <View key={`${uri}-${index}`} style={styles.imagePreviewWrap}>
-                  <Image source={{ uri }} style={styles.imagePreview} contentFit="cover" />
+              {draftMedia.map((item, index) => (
+                <View key={`${item.kind}-${item.uri}-${index}`} style={styles.imagePreviewWrap}>
+                  {item.kind === 'video' ? (
+                    <View style={[styles.imagePreview, styles.videoPreview]}>
+                      <Image
+                        source={{
+                          uri: cloudinaryVideoFirstFrameUrl(item.uri) ?? item.uri,
+                        }}
+                        style={styles.imagePreview}
+                        contentFit="cover"
+                      />
+                      <View style={styles.videoPlayBadge} pointerEvents="none">
+                        <AppIcon name="play" size={14} color="#fff" />
+                      </View>
+                    </View>
+                  ) : (
+                    <Image source={{ uri: item.uri }} style={styles.imagePreview} contentFit="cover" />
+                  )}
                   <Pressable
                     style={styles.imageRemoveBtn}
-                    onPress={() => removeImage(index)}
+                    onPress={() => removeMedia(index)}
                     hitSlop={6}
                     accessibilityRole="button"
-                    accessibilityLabel="حذف الصورة"
+                    accessibilityLabel={item.kind === 'video' ? 'حذف الفيديو' : 'حذف الصورة'}
                   >
                     <AppIcon name="close" size={14} color="#fff" />
                   </Pressable>
                 </View>
               ))}
-              {imageUris.length < MAX_POST_IMAGES && (
-                <Pressable style={styles.imageAddBtn} onPress={pickImages}>
+              {draftMedia.length < MAX_POST_MEDIA && (
+                <Pressable style={styles.imageAddBtn} onPress={pickMedia}>
                   <AppIcon name="add" size={24} color={colors.textMuted} />
                 </Pressable>
               )}
@@ -304,15 +343,26 @@ export default function CreatePostScreen() {
                 {arabicContent ? (
                   <Text style={styles.previewText}>{arabicContent}</Text>
                 ) : null}
-                {imageUris.length > 0 && (
+                {draftMedia.length > 0 && (
                   <View style={styles.previewImagesRow}>
-                    {imageUris.map((uri, index) => (
-                      <Image
-                        key={`${uri}-${index}`}
-                        source={{ uri }}
-                        style={styles.previewImageThumb}
-                        contentFit="cover"
-                      />
+                    {draftMedia.map((item, index) => (
+                      <View key={`${item.kind}-${item.uri}-${index}`} style={styles.previewImageThumb}>
+                        <Image
+                          source={{
+                            uri:
+                              item.kind === 'video'
+                                ? cloudinaryVideoFirstFrameUrl(item.uri) ?? item.uri
+                                : item.uri,
+                          }}
+                          style={styles.previewImageThumb}
+                          contentFit="cover"
+                        />
+                        {item.kind === 'video' ? (
+                          <View style={styles.previewVideoBadge} pointerEvents="none">
+                            <AppIcon name="play" size={10} color="#fff" />
+                          </View>
+                        ) : null}
+                      </View>
                     ))}
                   </View>
                 )}
@@ -332,7 +382,7 @@ export default function CreatePostScreen() {
         >
           <View style={styles.toolbarLeft}>
             {[
-              { icon: 'image-outline', label: 'صورة', action: pickImages },
+              { icon: 'image-outline', label: 'صورة', action: pickMedia },
               { icon: 'location-outline', label: 'موقع' },
               { icon: 'at-outline', label: 'إشارة' },
               { icon: 'link-outline', label: 'رابط' },
@@ -473,6 +523,30 @@ function createStyles(colors: ThemeColors) {
   imagePreview: {
     width: '100%',
     height: '100%',
+  },
+  videoPreview: {
+    backgroundColor: '#000',
+  },
+  videoPlayBadge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.28)',
+  },
+  previewVideoBadge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderRadius: radius.md,
   },
   imageRemoveBtn: {
     position: 'absolute',

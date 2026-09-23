@@ -51,6 +51,7 @@ const MEDIA_FOLDERS = new Set<UploadFolder>([
   'stories',
   'messages',
   'listings',
+  'posts',
 ]);
 
 const IMAGE_MIMES = new Set(IMAGE_MIME_TYPES);

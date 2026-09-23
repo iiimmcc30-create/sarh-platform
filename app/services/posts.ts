@@ -31,6 +31,17 @@ export function mapPostFromApi(p: Record<string, unknown> | null | undefined): P
           ? [String(p.image)]
           : undefined,
     video: p.video ? String(p.video) : undefined,
+    media: Array.isArray(p.media)
+      ? (p.media as Array<Record<string, unknown>>)
+          .filter((row) => row && typeof row.url === 'string')
+          .map((row, index) => ({
+            id: row.id ? String(row.id) : undefined,
+            url: String(row.url),
+            type: String(row.type).toUpperCase() === 'VIDEO' ? 'VIDEO' : 'IMAGE',
+            sortOrder: typeof row.sortOrder === 'number' ? row.sortOrder : index,
+            posterUrl: row.posterUrl ? String(row.posterUrl) : undefined,
+          }))
+      : undefined,
     likes: Number(p.likesCount ?? 0),
     reposts: Number(p.repostsCount ?? 0),
     comments: Number(p.commentsCount ?? 0),

@@ -528,11 +528,25 @@ model Post {
   likes            PostLike[]
   reposts          PostRepost[]
   bookmarks        PostBookmark[]
+  media            PostMedia[]
   knowledgeArticle KnowledgeArticle?
 
   @@index([authorId])
   @@index([createdAt])
   @@index([deletedAt])
+}
+
+model PostMedia {
+  id        String        @id @default(uuid())
+  postId    String
+  url       String
+  type      PostMediaType
+  sortOrder Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  post      Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, sortOrder])
 }
 
 model PostLike {
@@ -1392,6 +1406,11 @@ enum MeatCategory {
   chicken
   goat
   special_orders
+}
+
+enum PostMediaType {
+  IMAGE
+  VIDEO
 }
 
 enum StoryType {

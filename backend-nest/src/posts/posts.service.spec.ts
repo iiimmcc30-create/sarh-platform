@@ -20,6 +20,8 @@ describe('PostsService feed cache isolation', () => {
     findBookmarksByUser: jest.fn(),
     findById: jest.fn(),
     incrementViewsCount: jest.fn().mockResolvedValue({ viewsCount: 1 }),
+    create: jest.fn(),
+    findFollowerIds: jest.fn().mockResolvedValue([]),
     findLike: jest.fn(),
     findRepost: jest.fn(),
     findBookmark: jest.fn(),
@@ -38,7 +40,7 @@ describe('PostsService feed cache isolation', () => {
     get: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
-    delPattern: jest.fn(),
+    delPattern: jest.fn().mockResolvedValue(0),
     keys: { post: (id: string) => `post:${id}` },
   };
   const notifications = { notifyUsers: jest.fn() };
@@ -138,6 +140,59 @@ describe('PostsService feed cache isolation', () => {
       }),
     ).rejects.toMatchObject({ status: 403, error: 'blocked' });
     expect(repo.incrementViewsCount).not.toHaveBeenCalled();
+  });
+
+  it('creates a post with image and video PostMedia in order', async () => {
+    repo.create.mockImplementation(async (data: Record<string, unknown>) => ({
+      id: 'p-new',
+      authorId: 'author-1',
+      content: data.content,
+      arabicContent: data.arabicContent,
+      image: data.image,
+      images: data.images,
+      media: (
+        data.media as { create: Array<{ url: string; type: string; sortOrder: number }> }
+      )?.create,
+      author: { id: 'author-1' },
+    }));
+
+    const created = await service.createPost(
+      { userId: 'author-1', username: 'a', role: 'USER' },
+      {
+        content: 'hello',
+        arabicContent: 'مرحبا',
+        media: [
+          { url: 'https://cdn.example/a.jpg', type: 'IMAGE', sortOrder: 0 },
+          {
+            url: 'https://res.cloudinary.com/demo/video/upload/v1/clip.mp4',
+            type: 'VIDEO',
+            sortOrder: 1,
+          },
+        ],
+      },
+    );
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: ['https://cdn.example/a.jpg'],
+        image: 'https://cdn.example/a.jpg',
+        media: {
+          create: [
+            { url: 'https://cdn.example/a.jpg', type: 'IMAGE', sortOrder: 0 },
+            {
+              url: 'https://res.cloudinary.com/demo/video/upload/v1/clip.mp4',
+              type: 'VIDEO',
+              sortOrder: 1,
+            },
+          ],
+        },
+      }),
+    );
+    expect(created.media.map((item: { type: string }) => item.type)).toEqual([
+      'IMAGE',
+      'VIDEO',
+    ]);
+    expect(created.video).toContain('/video/upload/');
   });
 
   it('increments views when a post is opened', async () => {

@@ -16,8 +16,11 @@ export const POST_AUTHOR_SELECT = {
   isAI: true,
 } as const;
 
+const POST_MEDIA_ORDER = { orderBy: { sortOrder: 'asc' as const } };
+
 const POST_INCLUDE = {
   author: { select: POST_AUTHOR_SELECT },
+  media: POST_MEDIA_ORDER,
   _count: { select: { likes: true, reposts: true, comments: true } },
 } as const;
 
@@ -67,7 +70,10 @@ export class PostsRepository {
   create(data: Prisma.PostCreateInput) {
     return this.prisma.post.create({
       data,
-      include: { author: { select: POST_AUTHOR_SELECT } },
+      include: {
+        author: { select: POST_AUTHOR_SELECT },
+        media: POST_MEDIA_ORDER,
+      },
     });
   }
 
@@ -115,7 +121,10 @@ export class PostsRepository {
     return this.prisma.post.update({
       where: { id },
       data,
-      include: { author: { select: POST_AUTHOR_SELECT } },
+      include: {
+        author: { select: POST_AUTHOR_SELECT },
+        media: POST_MEDIA_ORDER,
+      },
     });
   }
 
