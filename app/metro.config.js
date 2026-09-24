@@ -1,8 +1,32 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const { resolve: resolveMetroRequest } = require('metro-resolver');
 
 const projectRoot = __dirname;
 const config = getDefaultConfig(projectRoot);
+
+// Prefer compiled lib/ entries — Metro can fail resolving Reanimated 4 `src/` (css/*.ts).
+const reanimatedMain = path.join(
+  projectRoot,
+  'node_modules/react-native-reanimated/lib/module/index.js',
+);
+const workletsMain = path.join(
+  projectRoot,
+  'node_modules/react-native-worklets/lib/module/index.js',
+);
+const upstreamResolve = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === 'react-native-reanimated') {
+    return { type: 'sourceFile', filePath: reanimatedMain };
+  }
+  if (moduleName === 'react-native-worklets') {
+    return { type: 'sourceFile', filePath: workletsMain };
+  }
+  if (typeof upstreamResolve === 'function') {
+    return upstreamResolve(context, moduleName, platform);
+  }
+  return resolveMetroRequest(context, moduleName, platform);
+};
 
 // Windows: avoid workspace-wide watching and sibling-project resolution.
 if (process.platform === 'win32') {
