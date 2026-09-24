@@ -220,6 +220,69 @@ export class PostsRepository {
     });
   }
 
+  findCommentsByAuthor(params: {
+    authorId: string;
+    take: number;
+    cursor?: string;
+  }) {
+    return this.prisma.postComment.findMany({
+      where: {
+        authorId: params.authorId,
+        post: { ...notDeleted, isHidden: false },
+      },
+      take: params.take,
+      cursor: params.cursor ? { id: params.cursor } : undefined,
+      skip: params.cursor ? 1 : 0,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        author: { select: POST_AUTHOR_SELECT },
+        post: {
+          select: {
+            id: true,
+            authorId: true,
+            author: { select: POST_AUTHOR_SELECT },
+          },
+        },
+      },
+    });
+  }
+
+  findRepostsForUser(params: {
+    userId: string;
+    take: number;
+    cursor?: string;
+  }) {
+    return this.prisma.postRepost.findMany({
+      where: {
+        userId: params.userId,
+        post: { ...notDeleted, isHidden: false },
+      },
+      take: params.take,
+      cursor: params.cursor ? { id: params.cursor } : undefined,
+      skip: params.cursor ? 1 : 0,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        post: { include: POST_INCLUDE },
+      },
+    });
+  }
+
+  findLikesForUser(params: { userId: string; take: number; cursor?: string }) {
+    return this.prisma.postLike.findMany({
+      where: {
+        userId: params.userId,
+        post: { ...notDeleted, isHidden: false },
+      },
+      take: params.take,
+      cursor: params.cursor ? { id: params.cursor } : undefined,
+      skip: params.cursor ? 1 : 0,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        post: { include: POST_INCLUDE },
+      },
+    });
+  }
+
   createComment(postId: string, authorId: string, content: string) {
     return this.prisma.$transaction(async (tx) => {
       const created = await tx.postComment.create({

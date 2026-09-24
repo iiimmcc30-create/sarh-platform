@@ -56,6 +56,10 @@ export class PostsService {
   }
 
   async getFeed(query: ListPostsQueryDto, user?: JwtPayload) {
+    if (query.activity) {
+      return this.getProfileActivity(query, user);
+    }
+
     const { cursor, userId: authorId, feed } = query;
     const followingOnly = feed === 'following';
 
@@ -164,6 +168,87 @@ export class PostsService {
       nextCursor,
       hasMore,
     };
+  }
+
+  private async getProfileActivity(
+    query: ListPostsQueryDto,
+    user?: JwtPayload,
+  ) {
+    const { activity, userId: profileUserId, cursor } = query;
+    if (!profileUserId) {
+      throwApi(400, 'invalid_query', 'معرّف المستخدم مطلوب');
+    }
+
+    if (activity === 'likes') {
+      if (!user?.userId || user.userId !== profileUserId) {
+        return { posts: [], nextCursor: null, hasMore: false };
+      }
+    }
+
+    if (activity === 'replies') {
+      const rows = await this.repo.findCommentsByAuthor({
+        authorId: profileUserId,
+        take: PAGE_SIZE + 1,
+        cursor,
+      });
+      const hasMore = rows.length > PAGE_SIZE;
+      const items = hasMore ? rows.slice(0, -1) : rows;
+      let visible = items;
+      if (user?.userId) {
+        const blockedIds = await this.usersRepo.findBlockedRelationshipIds(
+          user.userId,
+        );
+        if (blockedIds.length > 0) {
+          const blocked = new Set(blockedIds);
+          visible = items.filter(
+            (row) =>
+              !blocked.has(row.post.authorId) && !blocked.has(row.authorId),
+          );
+        }
+      }
+      return {
+        posts: [],
+        replies: visible.map((row) => ({
+          id: row.id,
+          content: row.content,
+          createdAt: row.createdAt,
+          author: row.author,
+          postId: row.post.id,
+          originalAuthor: row.post.author,
+        })),
+        nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+        hasMore,
+      };
+    }
+
+    const rows =
+      activity === 'reposts'
+        ? await this.repo.findRepostsForUser({
+            userId: profileUserId,
+            take: PAGE_SIZE + 1,
+            cursor,
+          })
+        : await this.repo.findLikesForUser({
+            userId: profileUserId,
+            take: PAGE_SIZE + 1,
+            cursor,
+          });
+
+    const hasMore = rows.length > PAGE_SIZE;
+    const items = hasMore ? rows.slice(0, -1) : rows;
+    const posts = items
+      .map((row) => row.post)
+      .filter((post): post is NonNullable<(typeof items)[number]['post']> =>
+        Boolean(post),
+      );
+
+    return this.personalizeFeed(
+      posts as PostWithCount[],
+      hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+      user,
+      undefined,
+    );
   }
 
   async createPost(user: JwtPayload, dto: CreatePostDto) {

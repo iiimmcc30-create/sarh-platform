@@ -31,11 +31,13 @@ import { useComposerKeyboardPad } from '@/hooks/useComposerKeyboardPad';
 
 
 export default function PostDetailScreen() {
-  const params = useLocalSearchParams<{ id: string; focusComment?: string }>();
+  const params = useLocalSearchParams<{ id: string; focusComment?: string; replyId?: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const focusComment = Array.isArray(params.focusComment)
     ? params.focusComment[0]
     : params.focusComment;
+  const replyIdRaw = Array.isArray(params.replyId) ? params.replyId[0] : params.replyId;
+  const replyId = replyIdRaw ? decodeURIComponent(replyIdRaw) : '';
   const postId = id ? decodeURIComponent(id) : '';
   const router = useRouter();
   const { keyboardVisible, restingBottom } = useComposerKeyboardPad();
@@ -134,6 +136,7 @@ export default function PostDetailScreen() {
         ref={commentsRef}
         postId={enrichedPost.id}
         postOwnerId={enrichedPost.author.id}
+        highlightCommentId={replyId || undefined}
         onSubmitComment={(content) => addComment(enrichedPost.id, content)}
         onCommentAdded={() => {
           setPost((prev) => (prev ? { ...prev, comments: prev.comments + 1 } : prev));

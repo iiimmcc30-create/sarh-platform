@@ -39,6 +39,7 @@ import type { PostComment } from '@/services/types';
 type PostCommentsSectionProps = {
   postId: string;
   postOwnerId?: string;
+  highlightCommentId?: string;
   showInput?: boolean;
   onCommentAdded?: () => void;
   onSubmitComment?: (content: string) => Promise<boolean>;
@@ -63,6 +64,7 @@ type CommentsApi = {
   handleSend: () => Promise<void>;
   handleDelete: (commentId: string) => Promise<void>;
   postOwnerId?: string;
+  highlightCommentId?: string;
   isAuthenticated: boolean;
   user: ReturnType<typeof useAuth>['user'];
   me: ReturnType<typeof useAppUser>['me'];
@@ -114,7 +116,7 @@ function mapComment(c: {
 
 export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostCommentsSectionProps>(
   function PostCommentsProvider(
-    { postId, postOwnerId, onCommentAdded, onSubmitComment, children },
+    { postId, postOwnerId, highlightCommentId, onCommentAdded, onSubmitComment, children },
     ref,
   ) {
     const { isAuthenticated, user } = useAuth();
@@ -231,6 +233,7 @@ export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostComme
         handleSend,
         handleDelete,
         postOwnerId,
+        highlightCommentId,
         isAuthenticated,
         user,
         me,
@@ -245,6 +248,7 @@ export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostComme
         deletingId,
         loadComments,
         postOwnerId,
+        highlightCommentId,
         isAuthenticated,
         user,
         me,
@@ -268,9 +272,17 @@ export function PostCommentsList() {
     handleDelete,
     deletingId,
     postOwnerId,
+    highlightCommentId,
     user,
     me,
   } = useCommentsApi();
+
+  const orderedComments = useMemo(() => {
+    if (!highlightCommentId) return comments;
+    const focused = comments.find((c) => c.id === highlightCommentId);
+    if (!focused) return comments;
+    return [focused, ...comments.filter((c) => c.id !== highlightCommentId)];
+  }, [comments, highlightCommentId]);
 
   if (loading && comments.length === 0) {
     return <ActivityIndicator color={colors.electricBright} style={styles.loader} />;
@@ -293,8 +305,14 @@ export function PostCommentsList() {
 
   return (
     <View>
-      {comments.map((c) => (
-        <View key={c.id} style={styles.commentWrap}>
+      {orderedComments.map((c) => (
+        <View
+          key={c.id}
+          style={[
+            styles.commentWrap,
+            highlightCommentId === c.id ? styles.commentHighlight : null,
+          ]}
+        >
           <View style={[styles.commentRow, getRtlRow()]}>
             <UserProfileLink userId={c.author.id}>
               <Image source={uriSource(c.author.avatar)} style={styles.avatar} contentFit="cover" />
@@ -442,6 +460,9 @@ function createStyles(colors: ThemeColors) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.borderHairline,
       backgroundColor: colors.bgDeep,
+    },
+    commentHighlight: {
+      backgroundColor: colors.bgElevated,
     },
     commentRow: {
       alignItems: 'flex-start',
