@@ -1,17 +1,25 @@
 import type { Router } from 'expo-router';
 import { safePush } from '@/lib/safeNavigate';
 
-function buildPostHref(postId: string, focusComment?: boolean): `/post/${string}` {
+export type OpenPostOptions = {
+  focusComment?: boolean;
+  replyId?: string;
+};
+
+function buildPostHref(postId: string, opts?: OpenPostOptions): `/post/${string}` {
   const id = encodeURIComponent(postId.trim());
-  return focusComment
-    ? (`/post/${id}?focusComment=1` as `/post/${string}`)
-    : (`/post/${id}` as `/post/${string}`);
+  const params = new URLSearchParams();
+  if (opts?.focusComment) params.set('focusComment', '1');
+  const replyId = opts?.replyId?.trim();
+  if (replyId) params.set('replyId', replyId);
+  const query = params.toString();
+  return (query ? `/post/${id}?${query}` : `/post/${id}`) as `/post/${string}`;
 }
 
 export function openPostDetail(
   router: Router,
   postId: string,
-  opts?: { focusComment?: boolean },
+  opts?: OpenPostOptions,
 ) {
   const id = String(postId ?? '').trim();
   if (!id) {
@@ -19,10 +27,10 @@ export function openPostDetail(
     return;
   }
 
-  safePush(buildPostHref(id, opts?.focusComment), undefined, router);
+  safePush(buildPostHref(id, opts), undefined, router);
 }
 
 export function postDetailHref(postId: string, focusComment?: boolean): `/post/${string}` {
   const id = String(postId ?? '').trim();
-  return buildPostHref(id, focusComment);
+  return buildPostHref(id, { focusComment });
 }

@@ -2,7 +2,7 @@
 // SAFAT — Profile Tab (حسابي)
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Share, StyleSheet } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { AppText, SarhButton } from '@/design-system/components';
 import { Stack } from '@/design-system/layout';
 import { space } from '@/design-system/tokens';
@@ -14,13 +14,18 @@ import { sarhProfileShareUrl } from '@/constants/sarhOfficial';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { SellerListingsPaginationFooter } from '@/components/feature/SellerListingsPaginationFooter';
 import { PostItem } from '@/components/feature/PostItem';
+import { ProfileReplyRow } from '@/components/feature/ProfileReplyRow';
+import { ProfileRepostAttribution } from '@/components/feature/ProfileRepostAttribution';
 import { ProfileScreenLayout, type ProfileDisplayUser } from '@/components/feature/ProfileScreenLayout';
+import { useProfileActivity } from '@/hooks/useProfileActivity';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
+import type { ProfileTabKey } from '@/lib/profileTabs';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { safePush } from '@/lib/safeNavigate';
 import { fetchStoriesFeed, type StoryGroup } from '@/services/stories';
 import { shouldReuseFreshResult } from '@/services/requestCoordination';
+import type { Post } from '@/services/types';
 
 const PROFILE_FOCUS_TTL_MS = 60_000;
 
@@ -62,6 +67,8 @@ export default function ProfileScreen() {
     loadFirstPage,
     loadNextPage,
   } = useSellerListingsPager({ sellerId: me.id, accessToken });
+  const activity = useProfileActivity(me.id);
+  const repostName = me.arabicName || me.displayName || me.username;
 
   const profileUrl = sarhProfileShareUrl(me.username);
 
@@ -163,9 +170,23 @@ export default function ProfileScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadStories(true), refetchData(true), loadMyListings(true)]);
+    await Promise.all([
+      loadStories(true),
+      refetchData(true),
+      loadMyListings(true),
+      activity.reloadVisited(),
+    ]);
     setRefreshing(false);
-  }, [loadMyListings, loadStories, refetchData]);
+  }, [activity.reloadVisited, loadMyListings, loadStories, refetchData]);
+
+  const onTabChange = useCallback(
+    (tab: ProfileTabKey) => {
+      if (tab === 'replies' || tab === 'reposts' || tab === 'likes') {
+        void activity.load(tab);
+      }
+    },
+    [activity.load],
+  );
 
   const renderPosts = () => {
     if (myPosts.length === 0) {
@@ -184,15 +205,19 @@ export default function ProfileScreen() {
       );
     }
 
-    return myPosts.map((post) => (
+    return myPosts.map((post) => renderPost(post));
+  };
+
+  const renderPost = (post: Post, extra?: { attribution?: boolean }) => (
+    <View key={post.id}>
+      {extra?.attribution ? <ProfileRepostAttribution name={repostName} /> : null}
       <PostItem
-        key={post.id}
         variant="profile"
         post={{
           ...post,
           liked: likedPosts.has(post.id),
           bookmarked: bookmarkedPosts.has(post.id),
-          reposted: repostedPosts.has(post.id),
+          reposted: extra?.attribution ? true : repostedPosts.has(post.id),
         }}
         onPress={() => openPostDetail(router, post.id)}
         onLike={() => requireAuth(isAuthenticated, 'الإعجاب') && void toggleLike(post.id)}
@@ -202,7 +227,42 @@ export default function ProfileScreen() {
         onShare={() => sharePost(post)}
         onMenu={() => showPostMenu(post, me, router, deletePost, isAuthenticated)}
       />
+    </View>
+  );
+
+  const renderActivityEmpty = (message: string, loading?: boolean) => (
+    <Stack gap="md" align="center" style={EMPTY_STATE}>
+      <AppText variant="body" color="textMuted">
+        {loading ? 'جاري التحميل...' : message}
+      </AppText>
+    </Stack>
+  );
+
+  const renderReplies = () => {
+    if (activity.replies.length === 0) {
+      return renderActivityEmpty('لا توجد ردود بعد', activity.loading.replies);
+    }
+    return activity.replies.map((reply) => (
+      <ProfileReplyRow
+        key={reply.id}
+        reply={reply}
+        onPress={() => openPostDetail(router, reply.postId, { replyId: reply.id })}
+      />
     ));
+  };
+
+  const renderReposts = () => {
+    if (activity.reposts.length === 0) {
+      return renderActivityEmpty('لا توجد إعادة نشر بعد', activity.loading.reposts);
+    }
+    return activity.reposts.map((post) => renderPost(post, { attribution: true }));
+  };
+
+  const renderLikes = () => {
+    if (activity.likes.length === 0) {
+      return renderActivityEmpty('لا توجد إعجابات بعد', activity.loading.likes);
+    }
+    return activity.likes.map((post) => renderPost(post));
   };
 
   const renderAds = () => {
@@ -270,6 +330,10 @@ export default function ProfileScreen() {
       onFollowingPress={() => openConnections('following')}
       postsContent={renderPosts()}
       adsContent={renderAds()}
+      repliesContent={renderReplies()}
+      repostsContent={renderReposts()}
+      likesContent={renderLikes()}
+      onTabChange={onTabChange}
       onAdsNearEnd={() => void loadNextPage()}
     />
   );
