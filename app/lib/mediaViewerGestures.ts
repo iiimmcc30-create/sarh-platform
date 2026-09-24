@@ -1,7 +1,7 @@
 import { containSizeFromRatio } from '@/lib/mediaContain';
 
 export const VIEWER_MIN_SCALE = 1;
-export const VIEWER_MAX_SCALE = 3.5;
+export const VIEWER_MAX_SCALE = 4;
 export const VIEWER_DISMISS_DISTANCE = 120;
 export const VIEWER_TAP_SLOP = 8;
 export const VIEWER_TAP_MS = 280;

@@ -20,6 +20,7 @@ import {
   type MediaViewerOverlay,
 } from '@/components/ui/MediaViewerModal';
 import { radius, typography, type ThemeColors } from '@/constants/theme';
+import { detailMediaMaxHeight, resolveMediaLayoutRatio } from '@/lib/mediaAspectRatio';
 import { detailMediaHeight, normalizeAspectRatio } from '@/lib/mediaContain';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
 import { collectPostMedia, type FeedMediaItem, type PostMediaRecord } from '@/lib/postMedia';
@@ -144,18 +145,33 @@ function MediaPage({
 }
 
 function useItemAspect(item: FeedMediaItem | undefined) {
-  const [ratio, setRatio] = useState<number | null>(null);
+  const [naturalRatio, setNaturalRatio] = useState<number | null>(null);
+  const [posterRatio, setPosterRatio] = useState<number | null>(null);
 
   useEffect(() => {
-    setRatio(null);
+    setNaturalRatio(null);
+    setPosterRatio(null);
     if (!item) return;
-    const probe = item.kind === 'image' ? item.uri : item.posterUri ?? item.uri;
-    if (!probe) return;
+
+    if (item.kind === 'image') {
+      RNImage.getSize(
+        item.uri,
+        (width, height) => {
+          const next = normalizeAspectRatio(width, height);
+          if (next) setNaturalRatio(next);
+        },
+        () => undefined,
+      );
+      return;
+    }
+
+    const poster = item.posterUri ?? item.uri;
+    if (!poster) return;
     RNImage.getSize(
-      probe,
+      poster,
       (width, height) => {
         const next = normalizeAspectRatio(width, height);
-        if (next) setRatio(next);
+        if (next) setPosterRatio(next);
       },
       () => undefined,
     );
@@ -163,10 +179,16 @@ function useItemAspect(item: FeedMediaItem | undefined) {
 
   const applySize = useCallback((width: number, height: number) => {
     const next = normalizeAspectRatio(width, height);
-    if (next) setRatio(next);
+    if (next) setNaturalRatio(next);
   }, []);
 
-  return { ratio, applySize };
+  const resolved = resolveMediaLayoutRatio({
+    naturalRatio,
+    cachedRatio: null,
+    posterRatio: item?.kind === 'video' ? posterRatio : naturalRatio,
+  });
+
+  return { ratio: resolved.layoutRatio, applySize };
 }
 
 export function PostMediaGallery({
@@ -229,8 +251,13 @@ export function PostMediaGallery({
   const pageWidth = width || Dimensions.get('window').width;
   const windowH = Dimensions.get('window').height;
   const detailHeight = isDetail
-    ? detailMediaHeight(ratio, pageWidth, windowH * 0.82)
+    ? detailMediaHeight(ratio, pageWidth, detailMediaMaxHeight(windowH, pageWidth))
     : undefined;
+
+  const cachedRatios = useMemo(() => {
+    if (!isDetail || !ratio || !activeItem) return undefined;
+    return { [activeItem.uri]: ratio };
+  }, [activeItem, isDetail, ratio]);
 
   const containerStyle = isDetail
     ? [styles.detailContainer, { height: detailHeight }]
@@ -307,6 +334,7 @@ export function PostMediaGallery({
         initialIndex={viewerIndex}
         origin={viewerOrigin}
         overlay={overlay}
+        cachedRatios={cachedRatios}
         onClose={() => setViewerVisible(false)}
       />
     </>

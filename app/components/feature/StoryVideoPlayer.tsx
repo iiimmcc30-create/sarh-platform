@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Image } from '@/components/ui/AppImage';
 import { getExpoVideoModule, isExpoVideoNativeAvailable } from '@/lib/expoVideo';
+import { normalizeAspectRatio } from '@/lib/mediaContain';
 
 type StoryVideoFit = 'cover' | 'contain';
 
@@ -15,6 +16,9 @@ type StoryVideoPlayerProps = {
   uri: string;
   posterUri?: string | null;
   style?: StyleProp<ViewStyle>;
+  /** Explicit viewer sizing — feed tiles omit these and fill the container. */
+  layoutWidth?: number;
+  layoutHeight?: number;
   muted?: boolean;
   loop?: boolean;
   autoPlay?: boolean;
@@ -23,24 +27,40 @@ type StoryVideoPlayerProps = {
   contentFit?: StoryVideoFit;
   onReady?: () => void;
   onNaturalSize?: (width: number, height: number) => void;
+  onPlayer?: (player: unknown) => void;
 };
 
 function StoryVideoFallback({
   posterUri,
   uri,
   style,
+  layoutWidth,
+  layoutHeight,
   contentFit = 'cover',
   onReady,
-}: Pick<StoryVideoPlayerProps, 'uri' | 'posterUri' | 'style' | 'contentFit' | 'onReady'>) {
+}: Pick<
+  StoryVideoPlayerProps,
+  'uri' | 'posterUri' | 'style' | 'layoutWidth' | 'layoutHeight' | 'contentFit' | 'onReady'
+>) {
   const previewUri = posterUri || uri;
+  const explicit =
+    layoutWidth != null && layoutHeight != null && layoutWidth > 0 && layoutHeight > 0;
 
   useEffect(() => {
     onReady?.();
   }, [onReady]);
 
+  const containerStyle = explicit
+    ? { width: layoutWidth, height: layoutHeight, overflow: 'hidden' as const }
+    : (style ?? StyleSheet.absoluteFillObject);
+
+  const mediaStyle = explicit
+    ? { width: layoutWidth, height: layoutHeight }
+    : StyleSheet.absoluteFillObject;
+
   return (
-    <View style={style ?? StyleSheet.absoluteFillObject}>
-      <Image source={{ uri: previewUri }} style={StyleSheet.absoluteFill} contentFit={contentFit} />
+    <View style={containerStyle}>
+      <Image source={{ uri: previewUri }} style={mediaStyle} contentFit={contentFit} />
     </View>
   );
 }
@@ -49,6 +69,8 @@ function StoryVideoPlayerNative({
   uri,
   posterUri,
   style,
+  layoutWidth,
+  layoutHeight,
   muted = false,
   loop = false,
   autoPlay = true,
@@ -56,9 +78,13 @@ function StoryVideoPlayerNative({
   contentFit = 'cover',
   onReady,
   onNaturalSize,
+  onPlayer,
 }: StoryVideoPlayerProps) {
   const { useVideoPlayer, VideoView } = getExpoVideoModule()!;
   const readyRef = useRef(false);
+
+  const explicit =
+    layoutWidth != null && layoutHeight != null && layoutWidth > 0 && layoutHeight > 0;
 
   const notifyReady = useCallback(() => {
     if (readyRef.current) return;
@@ -66,11 +92,24 @@ function StoryVideoPlayerNative({
     onReady?.();
   }, [onReady]);
 
+  const emitNatural = useCallback(
+    (width: number, height: number) => {
+      const ratio = normalizeAspectRatio(width, height);
+      if (!ratio) return;
+      onNaturalSize?.(width, height);
+    },
+    [onNaturalSize],
+  );
+
   const player = useVideoPlayer(uri, (p) => {
     p.loop = loop;
     p.muted = muted;
     p.keepScreenOnWhilePlaying = false;
   });
+
+  useEffect(() => {
+    onPlayer?.(player);
+  }, [onPlayer, player]);
 
   useEffect(() => {
     readyRef.current = false;
@@ -115,11 +154,28 @@ function StoryVideoPlayerNative({
       if (isPlaying) notifyReady();
     });
 
+    const sourceLoadSub = player.addListener('sourceLoad', (payload) => {
+      const tracks = (payload as { availableVideoTracks?: { size?: { width?: number; height?: number } }[] })
+        .availableVideoTracks;
+      const track = tracks?.[0];
+      if (track?.size?.width && track.size.height) {
+        emitNatural(track.size.width, track.size.height);
+      }
+    });
+
+    const trackSub = player.addListener('videoTrackChange', (payload) => {
+      const videoTrack = (payload as { videoTrack?: { size?: { width?: number; height?: number } } })
+        .videoTrack;
+      if (videoTrack?.size?.width && videoTrack.size.height) {
+        emitNatural(videoTrack.size.width, videoTrack.size.height);
+      }
+    });
+
     start();
 
     try {
       const size = (player as { size?: { width?: number; height?: number } }).size;
-      if (size?.width && size.height) onNaturalSize?.(size.width, size.height);
+      if (size?.width && size.height) emitNatural(size.width, size.height);
     } catch {
       // optional
     }
@@ -127,8 +183,10 @@ function StoryVideoPlayerNative({
     return () => {
       statusSub.remove();
       playingSub.remove();
+      sourceLoadSub.remove();
+      trackSub.remove();
     };
-  }, [player, autoPlay, uri, notifyReady, onNaturalSize]);
+  }, [player, autoPlay, uri, notifyReady, emitNatural]);
 
   useEffect(() => {
     return () => {
@@ -140,18 +198,34 @@ function StoryVideoPlayerNative({
     };
   }, [player]);
 
+  const wrapStyle = explicit
+    ? [
+        {
+          width: layoutWidth,
+          height: layoutHeight,
+          overflow: 'hidden' as const,
+          backgroundColor: '#000',
+        },
+        style,
+      ]
+    : [style ?? StyleSheet.absoluteFillObject, styles.wrap];
+
+  const surfaceStyle = explicit
+    ? { width: layoutWidth, height: layoutHeight }
+    : StyleSheet.absoluteFillObject;
+
   return (
-    <View style={[style ?? StyleSheet.absoluteFillObject, styles.wrap]}>
+    <View style={wrapStyle}>
       {posterUri ? (
         <Image
           source={{ uri: posterUri }}
-          style={StyleSheet.absoluteFillObject}
+          style={surfaceStyle}
           contentFit={contentFit}
         />
       ) : null}
       <VideoView
         player={player}
-        style={StyleSheet.absoluteFillObject}
+        style={surfaceStyle}
         contentFit={contentFit}
         nativeControls={nativeControls}
         fullscreenOptions={{ enable: false }}
