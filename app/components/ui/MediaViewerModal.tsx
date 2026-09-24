@@ -1,32 +1,18 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { Image, uriSource } from '@/components/ui/AppImage';
-import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
+import { MediaViewerSlide } from '@/components/media-viewer/MediaViewerSlide';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
-import { containSizeFromRatio, normalizeAspectRatio } from '@/lib/mediaContain';
+export { containSizeFromRatio } from '@/lib/mediaContain';
 import { useHeroMediaTransition, type MediaOriginRect } from '@/lib/mediaOrigin';
-import {
-  clampPan,
-  clampViewerScale,
-  classifyViewerGesture,
-  isZoomed,
-  nextOverlayVisible,
-  pinchScale,
-  resetTransformWhenIdle,
-  shouldDismissFromSwipe,
-} from '@/lib/mediaViewerGestures';
-import { postDetailImageUrl } from '@/lib/listingMedia';
+import { nextOverlayVisible } from '@/lib/mediaViewerGestures';
 import { getRtlRow } from '@/lib/rtl';
 import type { FeedMediaItem } from '@/lib/postMedia';
-import { resolveMediaUrl } from '@/services/media';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Modal,
-  PanResponder,
-  PixelRatio,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -65,297 +51,14 @@ type MediaViewerModalProps = {
   initialIndex?: number;
   origin?: MediaOriginRect | null;
   overlay?: MediaViewerOverlay | null;
+  /** Session-cached aspect ratios keyed by media uri. */
+  cachedRatios?: Record<string, number>;
   onClose: () => void;
 };
 
 const LIKE_RED = '#F91880';
 const REPOST_GREEN = '#00BA7C';
 const BOOKMARK_BLUE = '#1D9BF0';
-
-function deliveryUri(uri: string, screenW: number): string {
-  const dpr = typeof PixelRatio.get === 'function' ? PixelRatio.get() : 2;
-  return postDetailImageUrl(uri, screenW, dpr) ?? uri;
-}
-
-function touchDistance(touches: readonly { pageX: number; pageY: number }[]): number {
-  if (touches.length < 2) return 0;
-  const [a, b] = touches;
-  const dx = a.pageX - b.pageX;
-  const dy = a.pageY - b.pageY;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-function ViewerMedia({
-  item,
-  active,
-  screenW,
-  screenH,
-  onZoomedChange,
-  onToggleOverlay,
-  onDismiss,
-}: {
-  item: FeedMediaItem;
-  active: boolean;
-  screenW: number;
-  screenH: number;
-  onZoomedChange: (next: boolean) => void;
-  onToggleOverlay: () => void;
-  onDismiss: () => void;
-}) {
-  const [ready, setReady] = useState(false);
-  const [ratio, setRatio] = useState<number | null>(null);
-  const uri = resolveMediaUrl(item.uri) ?? item.uri;
-  const poster = item.posterUri ? resolveMediaUrl(item.posterUri) ?? item.posterUri : undefined;
-  const imageUri = deliveryUri(uri, screenW);
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const lastScale = useRef(1);
-  const lastTx = useRef(0);
-  const lastTy = useRef(0);
-  const startDistance = useRef(0);
-  const gestureStart = useRef(0);
-  const boxRef = useRef({ width: screenW, height: screenH });
-  const frameRef = useRef({ width: screenW, height: screenH });
-  const onZoomedChangeRef = useRef(onZoomedChange);
-  const onToggleOverlayRef = useRef(onToggleOverlay);
-  const onDismissRef = useRef(onDismiss);
-  onZoomedChangeRef.current = onZoomedChange;
-  onToggleOverlayRef.current = onToggleOverlay;
-  onDismissRef.current = onDismiss;
-
-  const applySize = useCallback((width: number, height: number) => {
-    const next = normalizeAspectRatio(width, height);
-    if (next) setRatio(next);
-  }, []);
-
-  const box = useMemo(() => {
-    const used = ratio && ratio > 0 ? ratio : 16 / 9;
-    return containSizeFromRatio(used, screenW, screenH);
-  }, [ratio, screenW, screenH]);
-  boxRef.current = box;
-  frameRef.current = { width: screenW, height: screenH };
-
-  const resetIdle = useCallback(
-    (animated: boolean) => {
-      lastScale.current = 1;
-      lastTx.current = 0;
-      lastTy.current = 0;
-      onZoomedChangeRef.current(false);
-      if (animated) {
-        Animated.parallel([
-          Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 0 }),
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
-        ]).start();
-        return;
-      }
-      scale.setValue(1);
-      translateX.setValue(0);
-      translateY.setValue(0);
-    },
-    [scale, translateX, translateY],
-  );
-
-  useEffect(() => {
-    if (!active) resetIdle(false);
-  }, [active, resetIdle]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (event, gs) => {
-        const touches = event.nativeEvent.touches?.length ?? gs.numberActiveTouches;
-        const kind = classifyViewerGesture({
-          touches,
-          scale: lastScale.current,
-          dx: gs.dx,
-          dy: gs.dy,
-        });
-        return kind === 'pinch' || kind === 'pan' || kind === 'swipe-down';
-      },
-      onMoveShouldSetPanResponderCapture: (event, gs) => {
-        const touches = event.nativeEvent.touches?.length ?? gs.numberActiveTouches;
-        return (
-          touches >= 2 ||
-          isZoomed(lastScale.current) ||
-          (gs.dy > 8 && gs.dy >= Math.abs(gs.dx) * 1.15)
-        );
-      },
-      onPanResponderGrant: (event) => {
-        gestureStart.current = Date.now();
-        const touches = event.nativeEvent.touches ?? [];
-        if (touches.length >= 2) {
-          startDistance.current = touchDistance(touches);
-        }
-        scale.stopAnimation((v) => {
-          lastScale.current = v;
-        });
-        translateX.stopAnimation((v) => {
-          lastTx.current = v;
-        });
-        translateY.stopAnimation((v) => {
-          lastTy.current = v;
-        });
-      },
-      onPanResponderMove: (event, gs) => {
-        const touches = event.nativeEvent.touches ?? [];
-        if (touches.length >= 2) {
-          if (startDistance.current <= 0) {
-            startDistance.current = touchDistance(touches);
-            return;
-          }
-          const next = pinchScale(lastScale.current, touchDistance(touches), startDistance.current);
-          scale.setValue(next);
-          const clamped = clampPan(lastTx.current, lastTy.current, next, boxRef.current, frameRef.current);
-          translateX.setValue(clamped.x);
-          translateY.setValue(clamped.y);
-          onZoomedChangeRef.current(isZoomed(next));
-          return;
-        }
-
-        if (isZoomed(lastScale.current)) {
-          const clamped = clampPan(
-            lastTx.current + gs.dx,
-            lastTy.current + gs.dy,
-            lastScale.current,
-            boxRef.current,
-            frameRef.current,
-          );
-          translateX.setValue(clamped.x);
-          translateY.setValue(clamped.y);
-          return;
-        }
-
-        if (gs.dy > 0 && gs.dy >= Math.abs(gs.dx)) {
-          translateY.setValue(gs.dy);
-        }
-      },
-      onPanResponderRelease: (_event, gs) => {
-        startDistance.current = 0;
-        const durationMs = Date.now() - gestureStart.current;
-        const kind = classifyViewerGesture({
-          touches: 1,
-          scale: lastScale.current,
-          dx: gs.dx,
-          dy: gs.dy,
-          durationMs,
-        });
-
-        if (kind === 'tap') {
-          onToggleOverlayRef.current();
-          return;
-        }
-
-        scale.stopAnimation((currentScale) => {
-          const nextScale = clampViewerScale(currentScale);
-          lastScale.current = nextScale;
-          scale.setValue(nextScale);
-          onZoomedChangeRef.current(isZoomed(nextScale));
-
-          if (!isZoomed(nextScale)) {
-            if (shouldDismissFromSwipe(gs.dy, nextScale)) {
-              onDismissRef.current();
-              return;
-            }
-            const idle = resetTransformWhenIdle(nextScale);
-            lastTx.current = idle.x;
-            lastTy.current = idle.y;
-            Animated.parallel([
-              Animated.spring(scale, { toValue: idle.scale, useNativeDriver: true, bounciness: 0 }),
-              Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
-              Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
-            ]).start();
-            return;
-          }
-
-          translateX.stopAnimation((tx) => {
-            translateY.stopAnimation((ty) => {
-              const clamped = clampPan(tx, ty, nextScale, boxRef.current, frameRef.current);
-              lastTx.current = clamped.x;
-              lastTy.current = clamped.y;
-              Animated.parallel([
-                Animated.spring(translateX, {
-                  toValue: clamped.x,
-                  useNativeDriver: true,
-                  bounciness: 0,
-                }),
-                Animated.spring(translateY, {
-                  toValue: clamped.y,
-                  useNativeDriver: true,
-                  bounciness: 0,
-                }),
-              ]).start();
-            });
-          });
-        });
-      },
-      onPanResponderTerminate: () => {
-        startDistance.current = 0;
-      },
-    }),
-  ).current;
-
-  const mediaStyle = {
-    width: box.width,
-    height: box.height,
-    transform: [{ translateX }, { translateY }, { scale }],
-  };
-
-  const body =
-    item.kind === 'image' ? (
-      <Animated.Image
-        source={{ uri: imageUri }}
-        style={mediaStyle}
-        resizeMode="contain"
-        onLoad={(e) => {
-          const src = e.nativeEvent?.source;
-          if (src?.width && src.height) applySize(src.width, src.height);
-        }}
-      />
-    ) : !active ? (
-      poster ? (
-        <Animated.Image
-          source={{ uri: poster }}
-          style={mediaStyle}
-          resizeMode="contain"
-          onLoad={(e) => {
-            const src = e.nativeEvent?.source;
-            if (src?.width && src.height) applySize(src.width, src.height);
-          }}
-        />
-      ) : null
-    ) : (
-      <Animated.View style={mediaStyle}>
-        {!ready ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color="#fff" />
-          </View>
-        ) : null}
-        <StoryVideoPlayer
-          uri={uri}
-          posterUri={poster}
-          autoPlay={active}
-          muted={false}
-          nativeControls={false}
-          contentFit="contain"
-          onReady={() => setReady(true)}
-          onNaturalSize={applySize}
-        />
-      </Animated.View>
-    );
-
-  return (
-    <View
-      style={[styles.slide, { width: screenW, height: screenH }]}
-      {...panResponder.panHandlers}
-    >
-      <Pressable style={StyleSheet.absoluteFill} onPress={onToggleOverlay} />
-      {body}
-    </View>
-  );
-}
 
 function OverlayAction({
   icon,
@@ -492,6 +195,7 @@ export function MediaViewerModal({
   initialIndex = 0,
   origin,
   overlay,
+  cachedRatios,
   onClose,
 }: MediaViewerModalProps) {
   const insets = useSafeAreaInsets();
@@ -579,12 +283,15 @@ export function MediaViewerModal({
             style={{ width: screenW, height: screenH }}
           >
             {items.map((item, idx) => (
-              <ViewerMedia
+              <MediaViewerSlide
                 key={`${item.kind}-${item.uri}-${idx}`}
                 item={item}
                 active={visible && idx === currentIndex}
                 screenW={screenW}
                 screenH={screenH}
+                cachedRatio={cachedRatios?.[item.uri] ?? null}
+                overlayVisible={overlayVisible}
+                controlsBottomInset={overlay ? 168 : 0}
                 onZoomedChange={setZoomed}
                 onToggleOverlay={toggleOverlay}
                 onDismiss={requestClose}
@@ -637,16 +344,6 @@ const styles = StyleSheet.create({
   },
   chrome: {
     ...StyleSheet.absoluteFillObject,
-  },
-  slide: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  loading: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   closeBtn: {
     position: 'absolute',

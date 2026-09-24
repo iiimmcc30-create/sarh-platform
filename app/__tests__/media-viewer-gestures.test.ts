@@ -42,19 +42,19 @@ describe('media viewer contain sizing', () => {
 });
 
 describe('media viewer zoom and pan', () => {
-  it('starts at 1x and clamps to 3.5x', () => {
+  it('starts at 1x and clamps to 4x', () => {
     expect(VIEWER_MIN_SCALE).toBe(1);
-    expect(VIEWER_MAX_SCALE).toBe(3.5);
+    expect(VIEWER_MAX_SCALE).toBe(4);
     expect(clampViewerScale(1)).toBe(1);
     expect(clampViewerScale(0.2)).toBe(1);
-    expect(clampViewerScale(8)).toBe(3.5);
+    expect(clampViewerScale(8)).toBe(4);
     expect(isZoomed(1)).toBe(false);
     expect(isZoomed(2)).toBe(true);
   });
 
   it('applies pinch from the current scale', () => {
     expect(pinchScale(1, 200, 100)).toBe(2);
-    expect(pinchScale(1, 800, 100)).toBe(3.5);
+    expect(pinchScale(1, 800, 100)).toBe(4);
   });
 
   it('allows pan only while zoomed and recenters at 1x', () => {
@@ -93,13 +93,15 @@ describe('media viewer swipe and overlay tap', () => {
 describe('media viewer source contracts', () => {
   it('keeps video contain and does not size from the thumbnail hero scale', () => {
     const viewer = src('components/ui/MediaViewerModal.tsx');
-    expect(viewer).toContain('contentFit="contain"');
-    expect(viewer).toContain('containSizeFromRatio');
-    expect(viewer).toContain('resizeMode="contain"');
+    const slide = src('components/media-viewer/MediaViewerSlide.tsx');
+    expect(slide).toContain('contentFit="contain"');
+    expect(slide).toContain('containSizeFromRatio');
+    expect(slide).toContain('resizeMode="contain"');
+    expect(viewer).toContain('MediaViewerSlide');
     expect(src('lib/mediaViewerGestures.ts')).toContain('VIEWER_MAX_SCALE');
-    expect(viewer).toContain('shouldDismissFromSwipe');
+    expect(src('lib/useMediaViewerTransform.ts')).toContain('shouldDismissFromSwipe');
     expect(viewer).toContain('nextOverlayVisible');
-    expect(viewer).toContain('nativeControls={false}');
+    expect(slide).toContain('nativeControls={false}');
     expect(viewer).not.toContain('heroFromScale');
     expect(viewer).not.toContain('c_fill');
     expect(viewer).not.toMatch(/style=\{\[styles\.heroLayer,\s*heroStyle\]\}/);

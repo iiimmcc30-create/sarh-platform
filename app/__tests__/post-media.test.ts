@@ -101,8 +101,10 @@ describe('post detail and media viewer', () => {
     expect(viewer).toContain('ViewerOverlay');
     expect(viewer).toContain('overlayAvatar');
     expect(viewer).toContain('overlayText');
-    expect(viewer).toContain('contentFit="contain"');
-    expect(viewer).toContain('containSizeFromRatio');
+    const slide = src('components/media-viewer/MediaViewerSlide.tsx');
+    expect(slide).toContain('contentFit="contain"');
+    expect(slide).toContain('containSizeFromRatio');
+    expect(viewer).toContain('MediaViewerSlide');
     expect(viewer).toContain('onLike');
     expect(viewer).toContain('onComment');
     expect(viewer).toContain('onRepost');

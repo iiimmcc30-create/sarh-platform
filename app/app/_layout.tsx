@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { enableFreeze } from 'react-native-screens';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -192,7 +193,7 @@ function RootLayoutBody() {
   }, []);
 
   return (
-    <View style={[styles.rtlRoot, { backgroundColor: colors.screenRoot }, getRtlDirection()]}>
+    <GestureHandlerRootView style={[styles.rtlRoot, { backgroundColor: colors.screenRoot }, getRtlDirection()]}>
       <AuthProvider>
         <OnboardingProvider>
           <BootSplashGate>
@@ -211,7 +212,7 @@ function RootLayoutBody() {
           </BootSplashGate>
         </OnboardingProvider>
       </AuthProvider>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 

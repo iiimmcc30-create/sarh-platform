@@ -1,3 +1,5 @@
+require('react-native-gesture-handler');
+
 // Custom entry — patches dev-runtime issues before expo-router loads.
 if (__DEV__) {
   const { LogBox } = require('react-native');
