@@ -48,23 +48,26 @@ export function heroFromScale(
   return Math.max(0.2, Math.min(origin.width / width, origin.height / height));
 }
 
-/** Native-driver transform: expand from the tapped thumbnail, or fade+scale 0.96. */
+/**
+ * Enter animation only. Final scale is always 1 — never inherit the thumbnail
+ * box (often a cropped 16:11 tile) or the video will appear zoomed.
+ */
 export function heroMediaStyle(
   progress: Animated.Value,
   origin?: MediaOriginRect | null,
 ) {
   const { width: screenW, height: screenH } = Dimensions.get('window');
+  const fadeScale = {
+    scale: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [FADE_SCALE_FROM, 1],
+    }),
+  };
+
   if (!origin || origin.width <= 0 || origin.height <= 0) {
     return {
       opacity: progress,
-      transform: [
-        {
-          scale: progress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [FADE_SCALE_FROM, 1],
-          }),
-        },
-      ],
+      transform: [fadeScale],
     };
   }
 
@@ -72,7 +75,7 @@ export function heroMediaStyle(
   const originCy = origin.y + origin.height / 2;
 
   return {
-    opacity: 1,
+    opacity: progress,
     transform: [
       {
         translateX: progress.interpolate({
@@ -86,12 +89,7 @@ export function heroMediaStyle(
           outputRange: [originCy - screenH / 2, 0],
         }),
       },
-      {
-        scale: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: [heroFromScale(origin, screenW, screenH), 1],
-        }),
-      },
+      fadeScale,
     ],
   };
 }

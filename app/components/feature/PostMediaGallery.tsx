@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Image as RNImage,
   PixelRatio,
   Pressable,
   StyleSheet,
@@ -14,11 +15,15 @@ import {
 import { ScrollView } from 'react-native';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { FeedVideoTile } from '@/components/feature/FeedVideoTile';
-import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
+import {
+  MediaViewerModal,
+  type MediaViewerOverlay,
+} from '@/components/ui/MediaViewerModal';
 import { radius, typography, type ThemeColors } from '@/constants/theme';
+import { detailMediaHeight, normalizeAspectRatio } from '@/lib/mediaContain';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
 import { collectPostMedia, type FeedMediaItem, type PostMediaRecord } from '@/lib/postMedia';
-import { postFeedImageUrl } from '@/lib/listingMedia';
+import { postDetailImageUrl, postFeedImageUrl } from '@/lib/listingMedia';
 import { recordPostView } from '@/lib/postEngagement';
 
 const ASPECT_RATIO = 16 / 11;
@@ -29,6 +34,12 @@ function postFeedDeliveryUri(uri: string): string {
   return postFeedImageUrl(uri, screenW, dpr) ?? uri;
 }
 
+function postDetailDeliveryUri(uri: string): string {
+  const screenW = Dimensions.get('window').width;
+  const dpr = typeof PixelRatio.get === 'function' ? PixelRatio.get() : 2;
+  return postDetailImageUrl(uri, screenW, dpr) ?? uri;
+}
+
 interface PostMediaGalleryProps {
   images: string[];
   video?: string | null;
@@ -36,6 +47,8 @@ interface PostMediaGalleryProps {
   colors: ThemeColors;
   scheme: 'light' | 'dark';
   postId?: string;
+  variant?: 'feed' | 'detail';
+  overlay?: MediaViewerOverlay | null;
   onViewRecorded?: (views: number) => void;
 }
 
@@ -64,14 +77,17 @@ function GalleryImage({
   uri,
   colors,
   onPress,
+  contentFit,
 }: {
   uri: string;
   colors: ThemeColors;
   onPress?: () => void;
+  contentFit: 'cover' | 'contain';
 }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const opacity = useRef(new Animated.Value(0)).current;
+  const delivery = contentFit === 'contain' ? postDetailDeliveryUri(uri) : postFeedDeliveryUri(uri);
 
   const handleLoad = useCallback(() => {
     setLoaded(true);
@@ -84,9 +100,9 @@ function GalleryImage({
       {!failed ? (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
           <Image
-            source={uriSource(postFeedDeliveryUri(uri))}
+            source={uriSource(delivery)}
             style={StyleSheet.absoluteFill}
-            contentFit="cover"
+            contentFit={contentFit}
             onLoad={handleLoad}
             onError={() => setFailed(true)}
           />
@@ -100,12 +116,16 @@ function MediaPage({
   item,
   colors,
   active,
+  contentFit,
   onOpen,
+  onNaturalSize,
 }: {
   item: FeedMediaItem;
   colors: ThemeColors;
   active: boolean;
+  contentFit: 'cover' | 'contain';
   onOpen: () => void;
+  onNaturalSize?: (width: number, height: number) => void;
 }) {
   if (item.kind === 'video') {
     return (
@@ -114,11 +134,39 @@ function MediaPage({
         posterUri={item.posterUri}
         colors={colors}
         active={active}
+        contentFit={contentFit}
         onOpen={onOpen}
+        onNaturalSize={onNaturalSize}
       />
     );
   }
-  return <GalleryImage uri={item.uri} colors={colors} onPress={onOpen} />;
+  return <GalleryImage uri={item.uri} colors={colors} onPress={onOpen} contentFit={contentFit} />;
+}
+
+function useItemAspect(item: FeedMediaItem | undefined) {
+  const [ratio, setRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    setRatio(null);
+    if (!item) return;
+    const probe = item.kind === 'image' ? item.uri : item.posterUri ?? item.uri;
+    if (!probe) return;
+    RNImage.getSize(
+      probe,
+      (width, height) => {
+        const next = normalizeAspectRatio(width, height);
+        if (next) setRatio(next);
+      },
+      () => undefined,
+    );
+  }, [item?.uri, item?.kind, item?.posterUri]);
+
+  const applySize = useCallback((width: number, height: number) => {
+    const next = normalizeAspectRatio(width, height);
+    if (next) setRatio(next);
+  }, []);
+
+  return { ratio, applySize };
 }
 
 export function PostMediaGallery({
@@ -128,6 +176,8 @@ export function PostMediaGallery({
   colors,
   scheme,
   postId,
+  variant = 'feed',
+  overlay,
   onViewRecorded,
 }: PostMediaGalleryProps) {
   const items = useMemo(() => collectPostMedia(images, video, media), [images, video, media]);
@@ -137,6 +187,9 @@ export function PostMediaGallery({
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerOrigin, setViewerOrigin] = useState<MediaOriginRect | null>(null);
   const frameRef = useRef<View>(null);
+  const isDetail = variant === 'detail';
+  const activeItem = items[activeIndex] ?? items[0];
+  const { ratio, applySize } = useItemAspect(isDetail ? activeItem : undefined);
 
   const markViewed = useCallback(() => {
     if (!postId) return;
@@ -173,14 +226,22 @@ export function PostMediaGallery({
 
   if (items.length === 0) return null;
 
-  const containerStyle = [
-    styles.container,
-    {
-      borderColor: scheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-    },
-  ];
-
   const pageWidth = width || Dimensions.get('window').width;
+  const windowH = Dimensions.get('window').height;
+  const detailHeight = isDetail
+    ? detailMediaHeight(ratio, pageWidth, windowH * 0.82)
+    : undefined;
+
+  const containerStyle = isDetail
+    ? [styles.detailContainer, { height: detailHeight }]
+    : [
+        styles.container,
+        {
+          borderColor: scheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+        },
+      ];
+
+  const contentFit = isDetail ? 'contain' : 'cover';
 
   return (
     <>
@@ -190,7 +251,9 @@ export function PostMediaGallery({
             item={items[0]}
             colors={colors}
             active
+            contentFit={contentFit}
             onOpen={() => openViewer(0)}
+            onNaturalSize={isDetail ? applySize : undefined}
           />
         ) : (
           <>
@@ -204,12 +267,14 @@ export function PostMediaGallery({
               decelerationRate="fast"
             >
               {items.map((item, idx) => (
-                <View key={`${item.kind}-${item.uri}-${idx}`} style={{ width: pageWidth }}>
+                <View key={`${item.kind}-${item.uri}-${idx}`} style={{ width: pageWidth, height: '100%' }}>
                   <MediaPage
                     item={item}
                     colors={colors}
                     active={idx === activeIndex}
+                    contentFit={contentFit}
                     onOpen={() => openViewer(idx)}
+                    onNaturalSize={isDetail && idx === activeIndex ? applySize : undefined}
                   />
                 </View>
               ))}
@@ -241,6 +306,7 @@ export function PostMediaGallery({
         items={items}
         initialIndex={viewerIndex}
         origin={viewerOrigin}
+        overlay={overlay}
         onClose={() => setViewerVisible(false)}
       />
     </>
@@ -255,6 +321,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: 340,
+  },
+  detailContainer: {
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
   countBadge: {
     position: 'absolute',

@@ -21,7 +21,9 @@ type FeedVideoTileProps = {
   colors: ThemeColors;
   active?: boolean;
   nativeControls?: boolean;
+  contentFit?: 'cover' | 'contain';
   onOpen?: () => void;
+  onNaturalSize?: (width: number, height: number) => void;
 };
 
 function posterDelivery(uri?: string): string | undefined {
@@ -37,7 +39,9 @@ export function FeedVideoTile({
   colors,
   active = true,
   nativeControls = false,
+  contentFit = 'cover',
   onOpen,
+  onNaturalSize,
 }: FeedVideoTileProps) {
   const id = useId();
   const [playing, setPlaying] = useState(false);
@@ -78,7 +82,7 @@ export function FeedVideoTile({
         onPress={onOpen}
       >
         {poster ? (
-          <Image source={uriSource(poster)} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Image source={uriSource(poster)} style={StyleSheet.absoluteFill} contentFit={contentFit} />
         ) : null}
         <View style={styles.centerOverlay} pointerEvents="none">
           <AppText style={styles.errorText}>تعذّر تشغيل الفيديو</AppText>
@@ -90,7 +94,7 @@ export function FeedVideoTile({
   return (
     <View style={styles.fill}>
       {poster ? (
-        <Image source={uriSource(poster)} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <Image source={uriSource(poster)} style={StyleSheet.absoluteFill} contentFit={contentFit} />
       ) : (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
       )}
@@ -102,7 +106,9 @@ export function FeedVideoTile({
           autoPlay
           muted={false}
           nativeControls={nativeControls}
+          contentFit={contentFit}
           onReady={() => setReady(true)}
+          onNaturalSize={onNaturalSize}
         />
       ) : null}
 

@@ -131,6 +131,21 @@ export function postFeedImageUrl(
   return cloudinaryWidthUrl(uri, postFeedImageWidth(screenWidth, dpr));
 }
 
+/** Full-bleed post detail / viewer: CSS width × DPR, `c_limit` (no crop). */
+export function postDetailImageWidth(screenWidth: number, dpr = 2): number {
+  const width = Math.round(Math.max(1, screenWidth) * dpr);
+  return Math.max(1, Math.min(width, 1920));
+}
+
+export function postDetailImageUrl(
+  uri?: string | null,
+  screenWidth?: number,
+  dpr = 2,
+): string | undefined {
+  if (screenWidth == null || !Number.isFinite(screenWidth)) return trimUri(uri);
+  return cloudinaryWidthUrl(uri, postDetailImageWidth(screenWidth, dpr));
+}
+
 export function cloudinaryListThumbUrl(uri?: string | null): string | undefined {
   return cloudinaryFitUrl(uri, 'list');
 }

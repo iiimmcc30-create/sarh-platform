@@ -12,6 +12,8 @@ import {
   listingPhotoUris,
   listingThumbUri,
   listingVideoUrl,
+  postDetailImageUrl,
+  postDetailImageWidth,
   postFeedImageUrl,
   postFeedImageWidth,
   POST_FEED_CHROME_PX,
@@ -238,6 +240,14 @@ describe('post feed Cloudinary delivery', () => {
     expect(postFeedImageUrl('file:///data/photo.jpg', 390, 2)).toBe('file:///data/photo.jpg');
     expect(postFeedImageUrl('/uploads/post.jpg', 390, 2)).toBe('/uploads/post.jpg');
     expect(postFeedImageUrl('content://media/1', 390, 2)).toBe('content://media/1');
+  });
+
+  it('requests full-bleed detail width × density with c_limit', () => {
+    expect(postDetailImageWidth(390, 2)).toBe(780);
+    expect(postDetailImageWidth(390, 3)).toBe(1170);
+    expect(postDetailImageUrl(bare, 390, 2)).toBe(
+      'https://res.cloudinary.com/demo/image/upload/w_780,c_limit,q_auto,f_auto/v1/sarh/posts/feed.jpg',
+    );
   });
 });
 

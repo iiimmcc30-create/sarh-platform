@@ -2,7 +2,7 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import {
   Animated,
@@ -25,6 +25,10 @@ import {
 import { Post } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { PostMediaGallery } from '@/components/feature/PostMediaGallery';
+import { useApp } from '@/hooks/useApp';
+import { useAuth } from '@/contexts/AuthContext';
+import { requireAuth } from '@/lib/postInteractions';
+import { fetchUserProfile, setFollowUser } from '@/services/users';
 
 const HASHTAG_BLUE = '#1D9BF0';
 
@@ -176,6 +180,12 @@ function PostItemComponent({
   }));
 
   const [expanded, setExpanded] = useState(variant === 'detail');
+  const { me } = useApp();
+  const { isAuthenticated } = useAuth();
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
+  const isOwnPost = !!me?.id && me.id === post.author.id;
+  const showFollow = variant === 'detail' && !isOwnPost;
 
   const images = useMemo(() => {
     if (post.images && post.images.length > 0) return post.images;
@@ -204,106 +214,63 @@ function PostItemComponent({
   const viewsLabel =
     typeof post.views === 'number' ? formatViewsLabelAr(post.views) : null;
 
-  return (
-    <View style={styles.rowWrap}>
-      <View style={[styles.row, getRtlRow()]}>
-        <UserProfileLink userId={post.author.id}>
-          <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
-        </UserProfileLink>
+  useEffect(() => {
+    if (!showFollow) return;
+    let cancelled = false;
+    void fetchUserProfile(post.author.id).then((profile) => {
+      if (cancelled || !profile) return;
+      setFollowing(profile.isFollowing);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showFollow, post.author.id]);
 
-        <View style={styles.main}>
-          <View style={[styles.metaLine, getRtlRow()]}>
-            <UserProfileLink userId={post.author.id} style={styles.metaInfo}>
-              <View style={[styles.nameRow, getRtlRow()]}>
-                <AppText style={styles.name} numberOfLines={1}>
-                  {post.author.arabicName}
-                </AppText>
-                {post.author.verified ? <VerificationBadge size={14} /> : null}
-                {authorRating ? (
-                  <View style={[styles.ratingMini, getRtlRow()]}>
-                    <AppIcon name="star" size={11} color={colors.gold} />
-                    <AppText style={styles.ratingMiniText}>{authorRating}</AppText>
-                  </View>
-                ) : null}
-                {handle ? (
-                  <AppText style={styles.handle} numberOfLines={1}>
-                    {handle}
-                  </AppText>
-                ) : null}
-                {variant !== 'detail' && timestamp ? (
-                  <>
-                    <AppText style={styles.metaDot}>·</AppText>
-                    <AppText style={styles.metaMuted} numberOfLines={1}>
-                      {timestamp}
-                    </AppText>
-                  </>
-                ) : null}
-              </View>
-            </UserProfileLink>
+  const onFollow = useCallback(async () => {
+    if (!requireAuth(isAuthenticated, 'المتابعة') || followBusy || following === null) return;
+    setFollowBusy(true);
+    const next = !following;
+    const result = await setFollowUser(post.author.id, next);
+    if (result) setFollowing(result.following);
+    setFollowBusy(false);
+  }, [followBusy, following, isAuthenticated, post.author.id]);
 
-            <Pressable
-              hitSlop={14}
-              onPress={onMenu}
-              accessibilityRole="button"
-              accessibilityLabel="المزيد"
-              style={({ pressed }) => [styles.menuBtn, pressed && styles.menuBtnPressed]}
-            >
-              <AppIcon name="ellipsis-vertical" size={18} color={colors.textMuted} />
-            </Pressable>
-          </View>
+  const gallery = (
+    <PostMediaGallery
+      images={images}
+      video={post.video}
+      media={post.media}
+      colors={colors}
+      scheme={scheme}
+      postId={post.id}
+      variant={variant === 'detail' ? 'detail' : 'feed'}
+      overlay={{
+        authorName: post.author.arabicName || post.author.displayName,
+        username: post.author.username,
+        avatar: post.author.avatar,
+        verified: post.author.verified,
+        text: bodyText,
+        likes: post.likes,
+        comments: post.comments,
+        reposts: post.reposts,
+        views: post.views,
+        liked: post.liked,
+        reposted: post.reposted,
+        bookmarked: post.bookmarked,
+        isFollowing: following ?? false,
+        showFollow,
+        onLike,
+        onComment,
+        onRepost,
+        onBookmark,
+        onShare,
+        onFollow,
+      }}
+      onViewRecorded={onViewsChange}
+    />
+  );
 
-          <Pressable
-            onPress={onPress}
-            disabled={!onPress || variant === 'detail'}
-            style={({ pressed }) => [pressed && onPress ? styles.bodyPressed : null]}
-          >
-            <PostBody
-              text={bodyText}
-              style={styles.body}
-              lines={expanded ? undefined : TEXT_COLLAPSE_LINES}
-            />
-            {variant === 'feed' &&
-            (bodyText.split('\n').length > TEXT_COLLAPSE_LINES || bodyText.length > 400) ? (
-              !expanded ? (
-                <Pressable onPress={() => (onPress ? onPress() : setExpanded(true))} hitSlop={6}>
-                  <AppText style={styles.showMore}>عرض المزيد</AppText>
-                </Pressable>
-              ) : (
-                <Pressable onPress={() => setExpanded(false)} hitSlop={6}>
-                  <AppText style={styles.showMore}>عرض أقل</AppText>
-                </Pressable>
-              )
-            ) : null}
-
-            {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
-              <View style={styles.mediaWrap}>
-                <PostMediaGallery
-                  images={images}
-                  video={post.video}
-                  media={post.media}
-                  colors={colors}
-                  scheme={scheme}
-                  postId={post.id}
-                  onViewRecorded={onViewsChange}
-                />
-              </View>
-            ) : null}
-          </Pressable>
-
-          {variant === 'detail' ? (
-            <View style={[styles.detailMeta, getRtlRow()]}>
-              {clock ? <AppText style={styles.metaMuted}>{clock}</AppText> : null}
-              {clock && dateLabel ? <AppText style={styles.metaDot}>·</AppText> : null}
-              {dateLabel ? <AppText style={styles.metaMuted}>{dateLabel}</AppText> : null}
-              {viewsLabel ? (
-                <>
-                  <AppText style={styles.metaDot}>·</AppText>
-                  <AppText style={styles.viewsMeta}>{viewsLabel}</AppText>
-                </>
-              ) : null}
-            </View>
-          ) : null}
-
+  const actions = (
           <View style={[styles.actions, getRtlRow()]}>
             <ActionBtn
               icon="chatbubble-ellipses-outline"
@@ -336,7 +303,7 @@ function PostItemComponent({
               filled={!!post.liked}
               accessibilityLabel="إعجاب"
             />
-            {variant !== 'detail' ? (
+            {variant === 'detail' ? null : (
               <View
                 style={[styles.actionSlot, getRtlRow(), styles.viewsSlot]}
                 accessibilityRole="text"
@@ -347,7 +314,7 @@ function PostItemComponent({
                   {formatCount(post.views ?? 0)}
                 </AppText>
               </View>
-            ) : null}
+            )}
             <ActionBtn
               icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}
               iconColor={post.bookmarked ? BOOKMARK_BLUE : colors.textMuted}
@@ -368,6 +335,165 @@ function PostItemComponent({
               accessibilityLabel="مشاركة"
             />
           </View>
+  );
+
+  if (variant === 'detail') {
+    return (
+      <View style={styles.rowWrap}>
+        <View style={styles.detailPad}>
+          <View style={[styles.detailHeader, getRtlRow()]}>
+            <UserProfileLink userId={post.author.id}>
+              <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
+            </UserProfileLink>
+            <UserProfileLink userId={post.author.id} style={styles.detailIdentity}>
+              <View style={[styles.detailNameRow, getRtlRow()]}>
+                <AppText style={styles.name} numberOfLines={1}>
+                  {post.author.arabicName}
+                </AppText>
+                {post.author.verified ? <VerificationBadge size={14} /> : null}
+                {authorRating ? (
+                  <View style={[styles.ratingMini, getRtlRow()]}>
+                    <AppIcon name="star" size={11} color={colors.gold} />
+                    <AppText style={styles.ratingMiniText}>{authorRating}</AppText>
+                  </View>
+                ) : null}
+              </View>
+              {handle ? (
+                <AppText style={styles.handle} numberOfLines={1}>
+                  {handle}
+                </AppText>
+              ) : null}
+            </UserProfileLink>
+            {showFollow ? (
+              <Pressable
+                onPress={() => void onFollow()}
+                disabled={followBusy || following === null}
+                style={({ pressed }) => [
+                  styles.followBtn,
+                  following ? styles.followBtnActive : null,
+                  pressed && styles.menuBtnPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={following ? 'متابَع' : 'متابعة'}
+              >
+                <AppText style={[styles.followBtnText, following ? styles.followBtnTextActive : null]}>
+                  {following ? 'متابَع' : 'متابعة'}
+                </AppText>
+              </Pressable>
+            ) : null}
+            <Pressable
+              hitSlop={14}
+              onPress={onMenu}
+              accessibilityRole="button"
+              accessibilityLabel="المزيد"
+              style={({ pressed }) => [styles.menuBtn, pressed && styles.menuBtnPressed]}
+            >
+              <AppIcon name="ellipsis-vertical" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+
+          <PostBody text={bodyText} style={styles.detailBody} />
+        </View>
+
+        {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
+          <View style={styles.detailMedia}>{gallery}</View>
+        ) : null}
+
+        <View style={styles.detailPad}>
+          <View style={[styles.detailMeta, getRtlRow()]}>
+            {clock ? <AppText style={styles.metaMuted}>{clock}</AppText> : null}
+            {clock && dateLabel ? <AppText style={styles.metaDot}>·</AppText> : null}
+            {dateLabel ? <AppText style={styles.metaMuted}>{dateLabel}</AppText> : null}
+            {viewsLabel ? (
+              <>
+                <AppText style={styles.metaDot}>·</AppText>
+                <AppText style={styles.viewsMeta}>{viewsLabel}</AppText>
+              </>
+            ) : null}
+          </View>
+          {actions}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.rowWrap}>
+      <View style={[styles.row, getRtlRow()]}>
+        <UserProfileLink userId={post.author.id}>
+          <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
+        </UserProfileLink>
+
+        <View style={styles.main}>
+          <View style={[styles.metaLine, getRtlRow()]}>
+            <UserProfileLink userId={post.author.id} style={styles.metaInfo}>
+              <View style={[styles.nameRow, getRtlRow()]}>
+                <AppText style={styles.name} numberOfLines={1}>
+                  {post.author.arabicName}
+                </AppText>
+                {post.author.verified ? <VerificationBadge size={14} /> : null}
+                {authorRating ? (
+                  <View style={[styles.ratingMini, getRtlRow()]}>
+                    <AppIcon name="star" size={11} color={colors.gold} />
+                    <AppText style={styles.ratingMiniText}>{authorRating}</AppText>
+                  </View>
+                ) : null}
+                {handle ? (
+                  <AppText style={styles.handle} numberOfLines={1}>
+                    {handle}
+                  </AppText>
+                ) : null}
+                {timestamp ? (
+                  <>
+                    <AppText style={styles.metaDot}>·</AppText>
+                    <AppText style={styles.metaMuted} numberOfLines={1}>
+                      {timestamp}
+                    </AppText>
+                  </>
+                ) : null}
+              </View>
+            </UserProfileLink>
+
+            <Pressable
+              hitSlop={14}
+              onPress={onMenu}
+              accessibilityRole="button"
+              accessibilityLabel="المزيد"
+              style={({ pressed }) => [styles.menuBtn, pressed && styles.menuBtnPressed]}
+            >
+              <AppIcon name="ellipsis-vertical" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+
+          <Pressable
+            onPress={onPress}
+            disabled={!onPress}
+            style={({ pressed }) => [pressed && onPress ? styles.bodyPressed : null]}
+          >
+            <PostBody
+              text={bodyText}
+              style={styles.body}
+              lines={expanded ? undefined : TEXT_COLLAPSE_LINES}
+            />
+            {variant === 'feed' &&
+            (bodyText.split('\n').length > TEXT_COLLAPSE_LINES || bodyText.length > 400) ? (
+              !expanded ? (
+                <Pressable onPress={() => (onPress ? onPress() : setExpanded(true))} hitSlop={6}>
+                  <AppText style={styles.showMore}>عرض المزيد</AppText>
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => setExpanded(false)} hitSlop={6}>
+                  <AppText style={styles.showMore}>عرض أقل</AppText>
+                </Pressable>
+              )
+            ) : null}
+
+            {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
+              <View style={styles.mediaWrap}>{gallery}</View>
+            ) : null}
+          </Pressable>
+
+          {actions}
         </View>
       </View>
     </View>
@@ -499,6 +625,57 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     menuBtnPressed: {
       opacity: 0.55,
+    },
+    detailPad: {
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+    },
+    detailHeader: {
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    detailIdentity: {
+      flex: 1,
+      minWidth: 0,
+    },
+    detailNameRow: {
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 4,
+    },
+    followBtn: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.textPrimary,
+      borderRadius: radius.pill,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      minHeight: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    followBtnActive: {
+      borderColor: colors.borderSoft,
+      backgroundColor: colors.bgSurface,
+    },
+    followBtnText: {
+      ...typography.caption,
+      ...resolveAppFontFace('600'),
+      color: colors.textPrimary,
+    },
+    followBtnTextActive: {
+      color: colors.textSecondary,
+    },
+    detailBody: {
+      ...typography.body,
+      ...resolveAppFontFace('400'),
+      color: colors.textPrimary,
+      marginTop: 12,
+      lineHeight: 24,
+    },
+    detailMedia: {
+      width: '100%',
+      marginTop: 12,
     },
     body: {
       ...typography.body,

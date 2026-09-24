@@ -71,4 +71,17 @@ describe('unified fade+scale navigation', () => {
     expect(src('app/listing/[id].tsx')).toContain('measureMediaOrigin');
     expect(src('app/_layout.tsx')).toContain("name=\"(tabs)\"");
   });
+
+  it('does not use the thumbnail box as the fullscreen media scale', () => {
+    const origin = src('lib/mediaOrigin.ts');
+    expect(origin).toContain('FADE_SCALE_FROM');
+    expect(origin).toContain('outputRange: [FADE_SCALE_FROM, 1]');
+    expect(origin).not.toContain('outputRange: [heroFromScale(origin, screenW, screenH), 1]');
+    const viewer = src('components/ui/MediaViewerModal.tsx');
+    expect(viewer).toContain('contentFit="contain"');
+    expect(viewer).toContain('containSizeFromRatio');
+    expect(viewer).toContain('resizeMode="contain"');
+    expect(viewer).toContain('contentFit="contain"');
+    expect(viewer.match(/contentFit="cover"/g)?.length ?? 0).toBe(1);
+  });
 });

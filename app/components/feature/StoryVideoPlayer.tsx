@@ -9,6 +9,8 @@ import {
 import { Image } from '@/components/ui/AppImage';
 import { getExpoVideoModule, isExpoVideoNativeAvailable } from '@/lib/expoVideo';
 
+type StoryVideoFit = 'cover' | 'contain';
+
 type StoryVideoPlayerProps = {
   uri: string;
   posterUri?: string | null;
@@ -17,15 +19,19 @@ type StoryVideoPlayerProps = {
   loop?: boolean;
   autoPlay?: boolean;
   nativeControls?: boolean;
+  /** Stories/feed tiles default to cover. Viewers must pass contain. */
+  contentFit?: StoryVideoFit;
   onReady?: () => void;
+  onNaturalSize?: (width: number, height: number) => void;
 };
 
 function StoryVideoFallback({
   posterUri,
   uri,
   style,
+  contentFit = 'cover',
   onReady,
-}: Pick<StoryVideoPlayerProps, 'uri' | 'posterUri' | 'style' | 'onReady'>) {
+}: Pick<StoryVideoPlayerProps, 'uri' | 'posterUri' | 'style' | 'contentFit' | 'onReady'>) {
   const previewUri = posterUri || uri;
 
   useEffect(() => {
@@ -34,7 +40,7 @@ function StoryVideoFallback({
 
   return (
     <View style={style ?? StyleSheet.absoluteFillObject}>
-      <Image source={{ uri: previewUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <Image source={{ uri: previewUri }} style={StyleSheet.absoluteFill} contentFit={contentFit} />
     </View>
   );
 }
@@ -47,7 +53,9 @@ function StoryVideoPlayerNative({
   loop = false,
   autoPlay = true,
   nativeControls = false,
+  contentFit = 'cover',
   onReady,
+  onNaturalSize,
 }: StoryVideoPlayerProps) {
   const { useVideoPlayer, VideoView } = getExpoVideoModule()!;
   const readyRef = useRef(false);
@@ -109,11 +117,18 @@ function StoryVideoPlayerNative({
 
     start();
 
+    try {
+      const size = (player as { size?: { width?: number; height?: number } }).size;
+      if (size?.width && size.height) onNaturalSize?.(size.width, size.height);
+    } catch {
+      // optional
+    }
+
     return () => {
       statusSub.remove();
       playingSub.remove();
     };
-  }, [player, autoPlay, uri, notifyReady]);
+  }, [player, autoPlay, uri, notifyReady, onNaturalSize]);
 
   useEffect(() => {
     return () => {
@@ -131,13 +146,13 @@ function StoryVideoPlayerNative({
         <Image
           source={{ uri: posterUri }}
           style={StyleSheet.absoluteFillObject}
-          contentFit="cover"
+          contentFit={contentFit}
         />
       ) : null}
       <VideoView
         player={player}
         style={StyleSheet.absoluteFillObject}
-        contentFit="cover"
+        contentFit={contentFit}
         nativeControls={nativeControls}
         fullscreenOptions={{ enable: false }}
         useExoShutter={false}

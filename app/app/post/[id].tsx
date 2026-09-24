@@ -17,6 +17,7 @@ import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import type { Post } from '@/services/types';
+import { mapPostFromApi } from '@/services/posts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -28,40 +29,6 @@ import {
 import { ComposerKeyboardView } from '@/components/ui/ComposerKeyboardView';
 import { useComposerKeyboardPad } from '@/hooks/useComposerKeyboardPad';
 
-function mapBackendPost(p: any): Post | null {
-  if (!p?.id || !p?.author) return null;
-  return {
-    id: p.id,
-    author: {
-      id: p.author.id,
-      username: p.author.username,
-      displayName: p.author.displayName || '',
-      arabicName: p.author.arabicName || '',
-      avatar: p.author.avatar ?? undefined,
-      verified: p.author.verified ?? false,
-      isAI: p.author.isAI ?? false,
-      followers: p.author.followersCount ?? 0,
-      following: p.author.followingCount ?? 0,
-      rating: typeof p.author.rating === 'number' ? p.author.rating : null,
-      country: p.author.country || 'SA',
-      bio: p.author.bio || '',
-    },
-    content: p.content,
-    arabicContent: p.arabicContent,
-    image: p.image ?? undefined,
-    images: Array.isArray(p.images) && p.images.length > 0 ? p.images : p.image ? [p.image] : undefined,
-    video: p.video ?? undefined,
-    likes: p.likesCount ?? 0,
-    reposts: p.repostsCount ?? 0,
-    comments: p.commentsCount ?? 0,
-    views: typeof p.viewsCount === 'number' ? p.viewsCount : undefined,
-    postedAt: new Date(p.createdAt).toLocaleDateString('ar-SA'),
-    createdAt: p.createdAt,
-    liked: p.liked ?? false,
-    reposted: p.reposted ?? false,
-    bookmarked: p.bookmarked ?? false,
-  };
-}
 
 export default function PostDetailScreen() {
   const params = useLocalSearchParams<{ id: string; focusComment?: string }>();
@@ -104,7 +71,7 @@ export default function PostDetailScreen() {
       const res = await authFetch(`${API_BASE}/api/posts/${postId}`);
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.success && json.data) {
-        const mapped = mapBackendPost(json.data);
+        const mapped = mapPostFromApi(json.data);
         if (mapped) {
           setPost(mapped);
           return;

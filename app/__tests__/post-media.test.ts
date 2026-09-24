@@ -1,5 +1,12 @@
+import { readFileSync } from 'fs';
+import path from 'path';
 import { collectListingMedia, collectPostMedia, isFeedVideoUri } from '@/lib/postMedia';
 import { postShareUrl } from '@/lib/postInteractions';
+
+const root = path.join(__dirname, '..');
+function src(rel: string) {
+  return readFileSync(path.join(root, rel), 'utf8');
+}
 
 describe('post media collection', () => {
   it('reads ordered PostMedia first for mixed image and video', () => {
@@ -71,5 +78,35 @@ describe('post media collection', () => {
 describe('post share url', () => {
   it('shares the real public post path', () => {
     expect(postShareUrl('abc-1')).toBe('https://sarhsa.online/post/abc-1');
+  });
+});
+
+describe('post detail and media viewer', () => {
+  it('maps PostMedia on the internal post screen', () => {
+    const detail = src('app/post/[id].tsx');
+    expect(detail).toContain('mapPostFromApi');
+    expect(detail).toContain("variant=\"detail\"");
+    expect(detail).not.toContain('function mapBackendPost');
+  });
+
+  it('keeps PostMedia IMAGE/VIDEO and legacy images[] in one collector', () => {
+    const gallery = src('components/feature/PostMediaGallery.tsx');
+    expect(gallery).toContain('collectPostMedia(images, video, media)');
+    expect(src('lib/postMedia.ts')).toContain("if (media && media.length > 0) return fromRecords(media)");
+    expect(src('lib/postMedia.ts')).toContain('fromLegacy');
+  });
+
+  it('shows author, caption, and actions in the fullscreen overlay', () => {
+    const viewer = src('components/ui/MediaViewerModal.tsx');
+    expect(viewer).toContain('ViewerOverlay');
+    expect(viewer).toContain('overlayAvatar');
+    expect(viewer).toContain('overlayText');
+    expect(viewer).toContain('contentFit="contain"');
+    expect(viewer).toContain('containSizeFromRatio');
+    expect(viewer).toContain('onLike');
+    expect(viewer).toContain('onComment');
+    expect(viewer).toContain('onRepost');
+    expect(viewer).toContain('onBookmark');
+    expect(viewer).toContain('onShare');
   });
 });

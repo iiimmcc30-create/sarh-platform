@@ -1,70 +1,285 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
+import { Image, uriSource } from '@/components/ui/AppImage';
 import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
+import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
+import { containSizeFromRatio, normalizeAspectRatio } from '@/lib/mediaContain';
 import { useHeroMediaTransition, type MediaOriginRect } from '@/lib/mediaOrigin';
+import { postDetailImageUrl } from '@/lib/listingMedia';
+import { getRtlRow } from '@/lib/rtl';
 import type { FeedMediaItem } from '@/lib/postMedia';
 import { resolveMediaUrl } from '@/services/media';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Modal,
+  PixelRatio,
   Pressable,
   StatusBar,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+export type MediaViewerOverlay = {
+  authorName: string;
+  username?: string;
+  avatar?: string;
+  verified?: boolean;
+  text?: string;
+  likes?: number;
+  comments?: number;
+  reposts?: number;
+  views?: number;
+  liked?: boolean;
+  reposted?: boolean;
+  bookmarked?: boolean;
+  isFollowing?: boolean;
+  showFollow?: boolean;
+  onLike?: () => void;
+  onComment?: () => void;
+  onRepost?: () => void;
+  onBookmark?: () => void;
+  onShare?: () => void;
+  onFollow?: () => void;
+};
 
 type MediaViewerModalProps = {
   visible: boolean;
   items: FeedMediaItem[];
   initialIndex?: number;
   origin?: MediaOriginRect | null;
+  overlay?: MediaViewerOverlay | null;
   onClose: () => void;
 };
 
-function ViewerVideo({
+const LIKE_RED = '#F91880';
+const REPOST_GREEN = '#00BA7C';
+const BOOKMARK_BLUE = '#1D9BF0';
+
+function deliveryUri(uri: string, screenW: number): string {
+  const dpr = typeof PixelRatio.get === 'function' ? PixelRatio.get() : 2;
+  return postDetailImageUrl(uri, screenW, dpr) ?? uri;
+}
+
+function ViewerMedia({
   item,
   active,
+  screenW,
+  screenH,
 }: {
   item: FeedMediaItem;
   active: boolean;
+  screenW: number;
+  screenH: number;
 }) {
   const [ready, setReady] = useState(false);
+  const [ratio, setRatio] = useState<number | null>(null);
   const uri = resolveMediaUrl(item.uri) ?? item.uri;
   const poster = item.posterUri ? resolveMediaUrl(item.posterUri) ?? item.posterUri : undefined;
+  const imageUri = deliveryUri(uri, screenW);
+
+  const applySize = useCallback((width: number, height: number) => {
+    const next = normalizeAspectRatio(width, height);
+    if (next) setRatio(next);
+  }, []);
+
+  const box = useMemo(() => {
+    const used = ratio && ratio > 0 ? ratio : 16 / 9;
+    return containSizeFromRatio(used, screenW, screenH);
+  }, [ratio, screenW, screenH]);
+
+  const mediaStyle = {
+    width: box.width,
+    height: box.height,
+  };
+
+  if (item.kind === 'image') {
+    return (
+      <View style={[styles.slide, { width: screenW, height: screenH }]}>
+        <Animated.Image
+          source={{ uri: imageUri }}
+          style={mediaStyle}
+          resizeMode="contain"
+          onLoad={(e) => {
+            const src = e.nativeEvent?.source;
+            if (src?.width && src.height) applySize(src.width, src.height);
+          }}
+        />
+      </View>
+    );
+  }
 
   if (!active) {
     return (
-      <View style={styles.slide}>
+      <View style={[styles.slide, { width: screenW, height: screenH }]}>
         {poster ? (
-          <Animated.Image source={{ uri: poster }} style={styles.media} resizeMode="contain" />
+          <Animated.Image
+            source={{ uri: poster }}
+            style={mediaStyle}
+            resizeMode="contain"
+            onLoad={(e) => {
+              const src = e.nativeEvent?.source;
+              if (src?.width && src.height) applySize(src.width, src.height);
+            }}
+          />
         ) : null}
       </View>
     );
   }
 
   return (
-    <View style={styles.slide}>
+    <View style={[styles.slide, { width: screenW, height: screenH }]}>
       {!ready ? (
         <View style={styles.loading}>
           <ActivityIndicator color="#fff" />
         </View>
       ) : null}
-      <StoryVideoPlayer
-        uri={uri}
-        posterUri={poster}
-        autoPlay={active}
-        muted={false}
-        nativeControls
-        onReady={() => setReady(true)}
-      />
+      <View style={mediaStyle}>
+        <StoryVideoPlayer
+          uri={uri}
+          posterUri={poster}
+          autoPlay={active}
+          muted={false}
+          nativeControls
+          contentFit="contain"
+          onReady={() => setReady(true)}
+          onNaturalSize={applySize}
+        />
+      </View>
+    </View>
+  );
+}
+
+function OverlayAction({
+  icon,
+  color,
+  count,
+  filled,
+  onPress,
+  label,
+}: {
+  icon: string;
+  color: string;
+  count?: number;
+  filled?: boolean;
+  onPress?: () => void;
+  label: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={styles.overlayAction}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <AppIcon name={icon} size={20} color={color} variant={filled ? 'sr' : 'rr'} />
+      {typeof count === 'number' && count > 0 ? (
+        <AppText style={styles.overlayCount}>{count}</AppText>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function ViewerOverlay({
+  overlay,
+  insetsBottom,
+}: {
+  overlay: MediaViewerOverlay;
+  insetsBottom: number;
+}) {
+  const handle = overlay.username
+    ? overlay.username.startsWith('@')
+      ? overlay.username
+      : `@${overlay.username}`
+    : '';
+
+  return (
+    <View style={[styles.overlayWrap, { paddingBottom: Math.max(insetsBottom, 12) }]} pointerEvents="box-none">
+      <View style={styles.overlayFade} pointerEvents="none" />
+      <View style={styles.overlayInner}>
+        <View style={[styles.overlayHeader, getRtlRow()]}>
+          <Image source={uriSource(overlay.avatar)} style={styles.overlayAvatar} contentFit="cover" />
+          <View style={styles.overlayIdentity}>
+            <View style={[styles.overlayNameRow, getRtlRow()]}>
+              <AppText style={styles.overlayName} numberOfLines={1}>
+                {overlay.authorName}
+              </AppText>
+              {overlay.verified ? <VerificationBadge size={13} /> : null}
+            </View>
+            {handle ? (
+              <AppText style={styles.overlayHandle} numberOfLines={1}>
+                {handle}
+              </AppText>
+            ) : null}
+          </View>
+          {overlay.showFollow ? (
+            <Pressable
+              onPress={overlay.onFollow}
+              style={styles.overlayFollow}
+              accessibilityRole="button"
+              accessibilityLabel={overlay.isFollowing ? 'متابَع' : 'متابعة'}
+            >
+              <AppText style={styles.overlayFollowText}>
+                {overlay.isFollowing ? 'متابَع' : 'متابعة'}
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
+        {overlay.text ? (
+          <AppText style={styles.overlayText} numberOfLines={4}>
+            {overlay.text}
+          </AppText>
+        ) : null}
+        <View style={[styles.overlayActions, getRtlRow()]}>
+          <OverlayAction
+            icon="chatbubble-ellipses-outline"
+            color="#fff"
+            count={overlay.comments}
+            onPress={overlay.onComment}
+            label="تعليق"
+          />
+          <OverlayAction
+            icon="repeat-2"
+            color={overlay.reposted ? REPOST_GREEN : '#fff'}
+            count={overlay.reposts}
+            onPress={overlay.onRepost}
+            label="إعادة نشر"
+          />
+          <OverlayAction
+            icon={overlay.liked ? 'heart' : 'heart-outline'}
+            color={overlay.liked ? LIKE_RED : '#fff'}
+            count={overlay.likes}
+            filled={!!overlay.liked}
+            onPress={overlay.onLike}
+            label="إعجاب"
+          />
+          <OverlayAction
+            icon="bar-chart-2"
+            color="#fff"
+            count={overlay.views}
+            label="مشاهدات"
+          />
+          <OverlayAction
+            icon={overlay.bookmarked ? 'bookmark' : 'bookmark-outline'}
+            color={overlay.bookmarked ? BOOKMARK_BLUE : '#fff'}
+            filled={!!overlay.bookmarked}
+            onPress={overlay.onBookmark}
+            label="حفظ"
+          />
+          <OverlayAction
+            icon="share-up"
+            color="#fff"
+            onPress={overlay.onShare}
+            label="مشاركة"
+          />
+        </View>
+      </View>
     </View>
   );
 }
@@ -74,11 +289,13 @@ export function MediaViewerModal({
   items,
   initialIndex = 0,
   origin,
+  overlay,
   onClose,
 }: MediaViewerModalProps) {
   const insets = useSafeAreaInsets();
+  const { width: screenW, height: screenH } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const scrollX = useRef(new Animated.Value(initialIndex * SCREEN_W)).current;
+  const scrollX = useRef(new Animated.Value(initialIndex * screenW)).current;
 
   const finishClose = useCallback(() => {
     pauseAllFeedPlayback();
@@ -95,15 +312,15 @@ export function MediaViewerModal({
     if (!visible) return;
     pauseAllFeedPlayback();
     setCurrentIndex(initialIndex);
-    scrollX.setValue(initialIndex * SCREEN_W);
-  }, [visible, initialIndex, scrollX]);
+    scrollX.setValue(initialIndex * screenW);
+  }, [visible, initialIndex, scrollX, screenW]);
 
   const onScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
     {
       useNativeDriver: false,
       listener: (event: { nativeEvent: { contentOffset: { x: number } } }) => {
-        const idx = Math.round(event.nativeEvent.contentOffset.x / SCREEN_W);
+        const idx = Math.round(event.nativeEvent.contentOffset.x / screenW);
         if (idx !== currentIndex && idx >= 0 && idx < items.length) {
           setCurrentIndex(idx);
         }
@@ -114,7 +331,7 @@ export function MediaViewerModal({
   if (!items.length) return null;
 
   const imagesOnly = items.every((item) => item.kind === 'image');
-  if (imagesOnly) {
+  if (imagesOnly && !overlay) {
     return (
       <ImageViewerModal
         visible={visible}
@@ -139,7 +356,7 @@ export function MediaViewerModal({
       <StatusBar hidden />
       <View style={styles.shell}>
         <Animated.View style={[styles.backdropFill, { opacity: progress }]} />
-        <Animated.View style={[styles.heroLayer, heroStyle]}>
+        <Animated.View style={[styles.heroLayer, heroStyle]} pointerEvents="box-none">
           <Animated.ScrollView
             horizontal
             pagingEnabled
@@ -147,22 +364,18 @@ export function MediaViewerModal({
             scrollEnabled={items.length > 1}
             onScroll={onScroll}
             scrollEventThrottle={16}
-            contentOffset={{ x: initialIndex * SCREEN_W, y: 0 }}
-            style={styles.scrollView}
+            contentOffset={{ x: initialIndex * screenW, y: 0 }}
+            style={{ width: screenW, height: screenH }}
           >
-            {items.map((item, idx) =>
-              item.kind === 'video' ? (
-                <ViewerVideo key={`${item.uri}-${idx}`} item={item} active={visible && idx === currentIndex} />
-              ) : (
-                <View key={`${item.uri}-${idx}`} style={styles.slide}>
-                  <Animated.Image
-                    source={{ uri: resolveMediaUrl(item.uri) ?? item.uri }}
-                    style={styles.media}
-                    resizeMode="contain"
-                  />
-                </View>
-              ),
-            )}
+            {items.map((item, idx) => (
+              <ViewerMedia
+                key={`${item.kind}-${item.uri}-${idx}`}
+                item={item}
+                active={visible && idx === currentIndex}
+                screenW={screenW}
+                screenH={screenH}
+              />
+            ))}
           </Animated.ScrollView>
         </Animated.View>
 
@@ -184,6 +397,8 @@ export function MediaViewerModal({
               </AppText>
             </View>
           ) : null}
+
+          {overlay ? <ViewerOverlay overlay={overlay} insetsBottom={insets.bottom} /> : null}
         </Animated.View>
       </View>
     </Modal>
@@ -193,6 +408,7 @@ export function MediaViewerModal({
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
+    backgroundColor: '#000',
   },
   backdropFill: {
     ...StyleSheet.absoluteFillObject,
@@ -204,20 +420,10 @@ const styles = StyleSheet.create({
   chrome: {
     ...StyleSheet.absoluteFillObject,
   },
-  scrollView: {
-    width: SCREEN_W,
-    height: SCREEN_H,
-  },
   slide: {
-    width: SCREEN_W,
-    height: SCREEN_H,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
-  },
-  media: {
-    width: SCREEN_W,
-    height: SCREEN_H,
   },
   loading: {
     ...StyleSheet.absoluteFillObject,
@@ -245,5 +451,87 @@ const styles = StyleSheet.create({
   counterText: {
     color: '#fff',
     fontSize: 13,
+  },
+  overlayWrap: {
+    position: 'absolute',
+    start: 0,
+    end: 0,
+    bottom: 0,
+    zIndex: 90,
+  },
+  overlayFade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  overlayInner: {
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    gap: 8,
+  },
+  overlayHeader: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  overlayAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    flexShrink: 0,
+  },
+  overlayIdentity: {
+    flex: 1,
+    minWidth: 0,
+  },
+  overlayNameRow: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  overlayName: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  overlayHandle: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 13,
+    marginTop: 1,
+  },
+  overlayFollow: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    flexShrink: 0,
+  },
+  overlayFollowText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  overlayText: {
+    color: '#fff',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  overlayActions: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingTop: 4,
+  },
+  overlayAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 36,
+    minWidth: 36,
+  },
+  overlayCount: {
+    color: '#fff',
+    fontSize: 12,
   },
 });

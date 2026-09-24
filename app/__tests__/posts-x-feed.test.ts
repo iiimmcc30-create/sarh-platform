@@ -111,7 +111,7 @@ describe('Posts feed — X-style structure', () => {
     const gallery = src('components/feature/PostMediaGallery.tsx');
     expect(gallery).toContain('postFeedImageUrl');
     expect(gallery).toContain('postFeedDeliveryUri(uri)');
-    expect(gallery).toContain('contentFit="cover"');
+    expect(gallery).toContain("contentFit: 'cover'");
     expect(gallery).toContain('aspectRatio: ASPECT_RATIO');
     expect(gallery).toContain('collectPostMedia');
     expect(gallery).toContain('collectPostMedia(images, video, media)');
@@ -121,5 +121,18 @@ describe('Posts feed — X-style structure', () => {
     expect(postItem).not.toContain('cloudinaryFitUrl');
     expect(postItem).toContain('uriSource(post.author.avatar)');
     expect(postItem).toContain('<PostMediaGallery');
+  });
+
+  it('keeps the outer feed card cropped and reserves contain for internal detail', () => {
+    const gallery = src('components/feature/PostMediaGallery.tsx');
+    expect(gallery).toContain("variant === 'detail'");
+    expect(gallery).toContain("const contentFit = isDetail ? 'contain' : 'cover'");
+    expect(gallery).toContain('detailMediaHeight');
+    expect(gallery).toContain('postDetailImageUrl');
+    expect(postItem).toContain("variant={variant === 'detail' ? 'detail' : 'feed'}");
+    expect(postItem).toContain('styles.detailBody');
+    expect(postItem).toContain('متابعة');
+    expect(postItem).toContain('setFollowUser');
+    expect(postItem).toContain('styles.detailMedia');
   });
 });
