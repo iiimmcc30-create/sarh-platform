@@ -71,7 +71,10 @@ describe('normalizeCreateMedia', () => {
 
   it('keeps legacy image-only payloads working for old posts', () => {
     const result = normalizeCreateMedia({
-      images: ['https://cdn.example/old-a.jpg', 'https://cdn.example/old-b.jpg'],
+      images: [
+        'https://cdn.example/old-a.jpg',
+        'https://cdn.example/old-b.jpg',
+      ],
     });
     expect(result.media).toEqual([
       { url: 'https://cdn.example/old-a.jpg', type: 'IMAGE', sortOrder: 0 },
@@ -89,7 +92,12 @@ describe('presentPostMedia', () => {
     const presented = presentPostMedia(
       { images: ['https://cdn.example/legacy.jpg'] },
       [
-        { id: '2', url: 'https://cdn.example/b.jpg', type: 'IMAGE', sortOrder: 1 },
+        {
+          id: '2',
+          url: 'https://cdn.example/b.jpg',
+          type: 'IMAGE',
+          sortOrder: 1,
+        },
         {
           id: '1',
           url: 'https://res.cloudinary.com/demo/video/upload/v1/clip.mp4',
@@ -98,7 +106,10 @@ describe('presentPostMedia', () => {
         },
       ],
     );
-    expect(presented.media.map((item) => item.type)).toEqual(['VIDEO', 'IMAGE']);
+    expect(presented.media.map((item) => item.type)).toEqual([
+      'VIDEO',
+      'IMAGE',
+    ]);
     expect(presented.video).toBe(
       'https://res.cloudinary.com/demo/video/upload/v1/clip.mp4',
     );

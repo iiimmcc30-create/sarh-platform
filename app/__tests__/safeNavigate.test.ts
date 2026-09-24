@@ -15,6 +15,10 @@ describe('safeNavigate', () => {
     resetNavigationLockForTests();
   });
 
+  afterEach(() => {
+    resetNavigationLockForTests();
+  });
+
   it('normalizes expo group routes', () => {
     expect(normalizeRoutePath('/(tabs)/profile')).toBe('/profile');
     expect(normalizeRoutePath('/(tabs)/profile/')).toBe('/profile');
