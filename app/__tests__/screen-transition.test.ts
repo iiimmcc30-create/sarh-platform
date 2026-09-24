@@ -81,7 +81,7 @@ describe('unified fade+scale navigation', () => {
     expect(viewer).toContain('contentFit="contain"');
     expect(viewer).toContain('containSizeFromRatio');
     expect(viewer).toContain('resizeMode="contain"');
-    expect(viewer).toContain('contentFit="contain"');
+    expect(viewer).not.toMatch(/style=\{\[styles\.heroLayer,\s*heroStyle\]\}/);
     expect(viewer.match(/contentFit="cover"/g)?.length ?? 0).toBe(1);
   });
 });
