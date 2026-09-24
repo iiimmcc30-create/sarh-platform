@@ -292,6 +292,8 @@ export function MediaViewerModal({
                 cachedRatio={cachedRatios?.[item.uri] ?? null}
                 overlayVisible={overlayVisible}
                 controlsBottomInset={overlay ? 168 : 0}
+                contentFit="contain"
+                resizeMode="contain"
                 onZoomedChange={setZoomed}
                 onToggleOverlay={toggleOverlay}
                 onDismiss={requestClose}

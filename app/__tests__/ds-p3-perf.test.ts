@@ -70,9 +70,12 @@ describe('P3 performance — lists images state', () => {
     expect(home).not.toContain('useApp()');
   });
 
-  it('does not add Reanimated or FlashList as production dependencies', () => {
+  it('allows Reanimated for Media Viewer gestures but does not add FlashList', () => {
     const pkg = src('package.json');
-    expect(pkg).not.toContain('react-native-reanimated');
+    // Reanimated is required by Media Viewer (pinch/pan) on Expo SDK 54.
+    expect(pkg).toContain('react-native-reanimated');
+    expect(pkg).toContain('react-native-gesture-handler');
+    expect(pkg).toContain('react-native-worklets');
     expect(pkg).not.toContain('@shopify/flash-list');
   });
 });

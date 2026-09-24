@@ -34,6 +34,9 @@ export function MediaViewerSlide({
   cachedRatio,
   overlayVisible,
   controlsBottomInset = 0,
+  /** Fullscreen media must letterbox — never cover/crop. */
+  contentFit = 'contain',
+  resizeMode = 'contain',
   onZoomedChange,
   onToggleOverlay,
   onDismiss,
@@ -45,6 +48,8 @@ export function MediaViewerSlide({
   cachedRatio?: number | null;
   overlayVisible: boolean;
   controlsBottomInset?: number;
+  contentFit?: 'contain' | 'cover';
+  resizeMode?: 'contain' | 'cover';
   onZoomedChange: (next: boolean) => void;
   onToggleOverlay: () => void;
   onDismiss: () => void;
@@ -117,6 +122,11 @@ export function MediaViewerSlide({
   );
 
   const showLoading = item.kind === 'video' && active && resolved.awaitingMetadata && !ready;
+
+  // Props from MediaViewerModal document the fullscreen contain contract.
+  // Cover is never applied here — letterbox only.
+  void contentFit;
+  void resizeMode;
 
   const mediaBody =
     item.kind === 'image' ? (
