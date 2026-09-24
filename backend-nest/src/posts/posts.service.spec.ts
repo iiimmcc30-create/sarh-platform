@@ -151,7 +151,9 @@ describe('PostsService feed cache isolation', () => {
       image: data.image,
       images: data.images,
       media: (
-        data.media as { create: Array<{ url: string; type: string; sortOrder: number }> }
+        data.media as {
+          create: Array<{ url: string; type: string; sortOrder: number }>;
+        }
       )?.create,
       author: { id: 'author-1' },
     }));

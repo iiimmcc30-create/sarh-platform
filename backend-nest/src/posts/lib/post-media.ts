@@ -44,7 +44,9 @@ export function normalizeCreateMedia(input: {
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((item, index) => ({ ...item, sortOrder: index }));
-    const images = media.filter((item) => item.type === 'IMAGE').map((item) => item.url);
+    const images = media
+      .filter((item) => item.type === 'IMAGE')
+      .map((item) => item.url);
     return { media, images, image: images[0] ?? null };
   }
 
@@ -76,8 +78,8 @@ export function presentPostMedia<
   }>;
   video: string | null;
 } {
-  const rows = (mediaRows ?? []).filter(
-    (row): row is NonNullable<typeof row> => Boolean(row?.url && row.type),
+  const rows = (mediaRows ?? []).filter((row): row is NonNullable<typeof row> =>
+    Boolean(row?.url && row.type),
   );
   const media = rows.length
     ? [...rows].sort((a, b) => a.sortOrder - b.sortOrder)

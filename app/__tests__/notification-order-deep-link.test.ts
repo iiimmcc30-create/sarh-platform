@@ -25,6 +25,10 @@ describe('order and support notification deep links', () => {
     resetNavigationLockForTests();
   });
 
+  afterEach(() => {
+    resetNavigationLockForTests();
+  });
+
   it('does not open removed butcher order screens', () => {
     const r = router();
     const ok = handleNotificationNavigation(
