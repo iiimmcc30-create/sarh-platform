@@ -2,7 +2,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Share, StyleSheet } from 'react-native';
+import { ActivityIndicator, Alert, Share, StyleSheet, View } from 'react-native';
 import { AppText } from '@/design-system/components';
 import { Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { space } from '@/design-system/tokens';
@@ -25,7 +25,11 @@ import { promptReport } from '@/services/reports';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { SellerListingsPaginationFooter } from '@/components/feature/SellerListingsPaginationFooter';
 import { PostItem } from '@/components/feature/PostItem';
+import { ProfileReplyRow } from '@/components/feature/ProfileReplyRow';
+import { ProfileRepostAttribution } from '@/components/feature/ProfileRepostAttribution';
 import { ProfileScreenLayout, type ProfileDisplayUser } from '@/components/feature/ProfileScreenLayout';
+import { useProfileActivity } from '@/hooks/useProfileActivity';
+import type { ProfileTabKey } from '@/lib/profileTabs';
 import { RatingModal } from '@/components/feature/RatingModal';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
@@ -73,6 +77,8 @@ export default function UserProfileScreen() {
     loadFirstPage,
     loadNextPage,
   } = useSellerListingsPager({ sellerId: isOwnProfile ? null : targetId, accessToken });
+  const activity = useProfileActivity(isOwnProfile ? null : targetId);
+  const profileRepostName = profile?.arabicName || profile?.displayName || profile?.username || '';
   const listingsLoadGen = useRef(0);
   const loadedExtrasForRef = useRef<string | null>(null);
   const profileRef = useRef<PublicUserProfile | null>(profile);
@@ -150,9 +156,18 @@ export default function UserProfileScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadProfile(true);
+    await Promise.all([loadProfile(true), activity.reloadVisited()]);
     setRefreshing(false);
-  }, [loadProfile]);
+  }, [activity.reloadVisited, loadProfile]);
+
+  const onTabChange = useCallback(
+    (tab: ProfileTabKey) => {
+      if (tab === 'replies' || tab === 'reposts') {
+        void activity.load(tab);
+      }
+    },
+    [activity.load],
+  );
 
   const handleFollow = async () => {
     if (!profile || !accessToken || followLoading) {
@@ -216,15 +231,19 @@ export default function UserProfileScreen() {
       );
     }
 
-    return userPosts.map((post) => (
+    return userPosts.map((post) => renderPost(post));
+  };
+
+  const renderPost = (post: Post, extra?: { attribution?: boolean }) => (
+    <View key={post.id}>
+      {extra?.attribution ? <ProfileRepostAttribution name={profileRepostName} /> : null}
       <PostItem
-        key={post.id}
         variant="profile"
         post={{
           ...post,
           liked: likedPosts.has(post.id),
           bookmarked: bookmarkedPosts.has(post.id),
-          reposted: repostedPosts.has(post.id),
+          reposted: extra?.attribution ? true : repostedPosts.has(post.id),
         }}
         onPress={() => openPostDetail(router, post.id)}
         onLike={() => requireAuth(isAuthenticated, 'الإعجاب') && void toggleLike(post.id)}
@@ -234,7 +253,45 @@ export default function UserProfileScreen() {
         onShare={() => sharePost(post)}
         onMenu={() => showPostMenu(post, me, router, deletePost, isAuthenticated)}
       />
+    </View>
+  );
+
+  const renderActivityEmpty = (message: string, loading?: boolean) => (
+    <Stack gap="none" align="center" style={styles.emptyState}>
+      {loading ? (
+        <ActivityIndicator color={themeColors.electricBright} />
+      ) : (
+        <AppText variant="body" color="textMuted">
+          {message}
+        </AppText>
+      )}
+    </Stack>
+  );
+
+  const renderReplies = () => {
+    if (activity.failed.replies && activity.replies.length === 0) {
+      return renderActivityEmpty('', true);
+    }
+    if (activity.replies.length === 0) {
+      return renderActivityEmpty('لا توجد ردود بعد', activity.loading.replies);
+    }
+    return activity.replies.map((reply) => (
+      <ProfileReplyRow
+        key={reply.id}
+        reply={reply}
+        onPress={() => openPostDetail(router, reply.postId, { replyId: reply.id })}
+      />
     ));
+  };
+
+  const renderReposts = () => {
+    if (activity.failed.reposts && activity.reposts.length === 0) {
+      return renderActivityEmpty('', true);
+    }
+    if (activity.reposts.length === 0) {
+      return renderActivityEmpty('لا توجد إعادة نشر بعد', activity.loading.reposts);
+    }
+    return activity.reposts.map((post) => renderPost(post, { attribution: true }));
   };
 
   const renderAds = () => {
@@ -402,6 +459,9 @@ export default function UserProfileScreen() {
         isFollowing={profile.isFollowing}
         postsContent={renderPosts()}
         adsContent={renderAds()}
+        repliesContent={renderReplies()}
+        repostsContent={renderReposts()}
+        onTabChange={onTabChange}
         onAdsNearEnd={() => void loadNextPage()}
       />
 

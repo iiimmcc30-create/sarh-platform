@@ -30,6 +30,9 @@ describe('PostsService feed cache isolation', () => {
     toggleRepost: jest.fn(),
     toggleBookmark: jest.fn(),
     createComment: jest.fn(),
+    findCommentsByAuthor: jest.fn(),
+    findRepostsForUser: jest.fn(),
+    findLikesForUser: jest.fn(),
   };
   const usersRepo = {
     findBlockedRelationshipIds: jest.fn(),
@@ -126,6 +129,55 @@ describe('PostsService feed cache isolation', () => {
       posts: Array<{ liked?: boolean }>;
     };
     expect(stored.posts[0].liked).toBeUndefined();
+  });
+
+  it('does not leak another user likes list', async () => {
+    const result = await service.getFeed(
+      { userId: 'author-1', activity: 'likes' },
+      { userId: 'viewer-b', username: 'b', role: 'USER' },
+    );
+    expect(result).toEqual({ posts: [], nextCursor: null, hasMore: false });
+    expect(repo.findLikesForUser).not.toHaveBeenCalled();
+  });
+
+  it('returns profile replies from existing comments', async () => {
+    repo.findCommentsByAuthor.mockResolvedValue([
+      {
+        id: 'c1',
+        content: 'رد',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        authorId: 'author-1',
+        author: { id: 'author-1', username: 'a', arabicName: 'أ' },
+        post: {
+          id: 'p1',
+          authorId: 'owner-1',
+          author: { id: 'owner-1', username: 'owner', arabicName: 'محمد' },
+        },
+      },
+    ]);
+    usersRepo.findBlockedRelationshipIds.mockResolvedValue([]);
+
+    const result = await service.getFeed(
+      { userId: 'author-1', activity: 'replies' },
+      { userId: 'viewer-a', username: 'a', role: 'USER' },
+    );
+
+    expect(repo.findCommentsByAuthor).toHaveBeenCalledWith({
+      authorId: 'author-1',
+      take: 21,
+      cursor: undefined,
+    });
+    expect(result).toMatchObject({
+      hasMore: false,
+      replies: [
+        {
+          id: 'c1',
+          content: 'رد',
+          postId: 'p1',
+          originalAuthor: { username: 'owner', arabicName: 'محمد' },
+        },
+      ],
+    });
   });
 
   it('hides a post from a viewer who blocked the author', async () => {

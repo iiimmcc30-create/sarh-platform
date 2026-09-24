@@ -2,6 +2,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { ProfileTabs } from '@/components/feature/ProfileTabs';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { ds } from '@/constants/designSystem';
@@ -18,9 +19,10 @@ import { useAppChromeScroll } from '@/hooks/useAppChrome';
 import { useLayout } from '@/hooks/useLayout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { type ProfileTabKey } from '@/lib/profileTabs';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
 
-export type ProfileTabKey = 'posts' | 'ads';
+export type { ProfileTabKey };
 
 export type ProfileDisplayUser = {
   id: string;
@@ -44,6 +46,10 @@ type ProfileScreenLayoutProps = {
   user: ProfileDisplayUser;
   postsContent: ReactNode;
   adsContent: ReactNode;
+  repliesContent?: ReactNode;
+  repostsContent?: ReactNode;
+  likesContent?: ReactNode;
+  onTabChange?: (tab: ProfileTabKey) => void;
   refreshing?: boolean;
   onRefresh?: () => void;
   onMenu?: () => void;
@@ -77,44 +83,6 @@ function formatStatCount(n: number): string {
   return n.toLocaleString('en-US');
 }
 
-function ProfileTabButton({
-  label,
-  active,
-  onPress,
-  styles,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.spring(scale, {
-      toValue: active ? 1.04 : 1,
-      useNativeDriver: true,
-      speed: 18,
-      bounciness: 6,
-    }).start();
-  }, [active, scale]);
-
-  return (
-    <Pressable style={styles.tabItem} onPress={onPress}>
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <AppText
-          variant="label"
-          color={active ? 'textPrimary' : 'textMuted'}
-          style={active ? styles.tabLabelActive : undefined}
-        >
-          {label}
-        </AppText>
-      </Animated.View>
-      {active ? <View style={styles.tabIndicator} /> : null}
-    </Pressable>
-  );
-}
-
 /**
  * The shared profile shell for both the own-profile tab and a visitor profile.
  *
@@ -127,6 +95,10 @@ export function ProfileScreenLayout({
   user,
   postsContent,
   adsContent,
+  repliesContent,
+  repostsContent,
+  likesContent,
+  onTabChange,
   refreshing = false,
   onRefresh,
   onMenu,
@@ -154,7 +126,7 @@ export function ProfileScreenLayout({
   const [activeTab, setActiveTab] = useState<ProfileTabKey>(initialTab);
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerTranslate = useRef(new Animated.Value(12)).current;
-  const tabOpacity = useRef(new Animated.Value(1)).current;
+  const isOwnProfile = mode === 'own';
 
   useEffect(() => {
     Animated.parallel([
@@ -168,13 +140,14 @@ export function ProfileScreenLayout({
   }, [headerOpacity, headerTranslate]);
 
   useEffect(() => {
-    tabOpacity.setValue(0);
-    Animated.timing(tabOpacity, {
-      toValue: 1,
-      duration: duration.normal,
-      useNativeDriver: true,
-    }).start();
-  }, [activeTab, tabOpacity]);
+    if (!isOwnProfile && activeTab === 'likes') {
+      setActiveTab('posts');
+    }
+  }, [activeTab, isOwnProfile]);
+
+  useEffect(() => {
+    onTabChange?.(activeTab);
+  }, [activeTab, onTabChange]);
 
   const displayName = user.arabicName || user.displayName || user.username;
   const hasRating = user.rating != null && (user.reviewCount ?? 0) > 0;
@@ -436,31 +409,30 @@ export function ProfileScreenLayout({
         </Animated.View>
 
         <View style={styles.tabsBar}>
-          <Row gap="none" align="stretch" style={inset}>
-            <ProfileTabButton
-              label="المنشورات"
-              active={activeTab === 'posts'}
-              onPress={() => setActiveTab('posts')}
-              styles={styles}
-            />
-            <ProfileTabButton
-              label="الإعلانات"
-              active={activeTab === 'ads'}
-              onPress={() => setActiveTab('ads')}
-              styles={styles}
-            />
-          </Row>
+          <ProfileTabs
+            isOwnProfile={isOwnProfile}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
         </View>
 
-        <Animated.View style={[styles.postsFeed, inset, { opacity: tabOpacity }]}>
-          {activeTab === 'posts' ? postsContent : adsContent}
-        </Animated.View>
+        <View style={[styles.postsFeed, inset]}>
+          {activeTab === 'posts'
+            ? postsContent
+            : activeTab === 'ads'
+              ? adsContent
+              : activeTab === 'replies'
+                ? repliesContent
+                : activeTab === 'reposts'
+                  ? repostsContent
+                  : likesContent}
+        </View>
       </ScreenBody>
     </Screen>
   );
 }
 
-function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
+function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
   return StyleSheet.create({
     toolbar: {
       paddingTop: spacing.xs,
@@ -561,28 +533,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     tabsBar: {
       backgroundColor: 'transparent',
       marginTop: spacing.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
-    },
-    tabItem: {
-      flex: 1,
-      alignItems: 'center',
-      paddingTop: 10,
-      paddingBottom: 8,
-      position: 'relative',
-    },
-    tabLabelActive: {
-      color: scheme === 'dark' ? colors.textPrimary : colors.electric,
-    },
-    /** Symmetric inset under the active tab — direction-neutral. */
-    tabIndicator: {
-      position: 'absolute',
-      bottom: 0,
-      start: spacing.lg,
-      end: spacing.lg,
-      height: 3,
-      borderRadius: 2,
-      backgroundColor: colors.electric,
     },
     postsFeed: {
       paddingTop: spacing.sm,
