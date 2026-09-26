@@ -1,6 +1,8 @@
 import {
   cloudinaryVideoFirstFrameUrl,
   isListingVideoUri,
+  listingPhotoUris,
+  listingVideoUrl,
 } from '@/lib/listingMedia';
 
 export type FeedMediaKind = 'image' | 'video';
@@ -109,7 +111,12 @@ export function collectListingMedia(listing: {
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
 }): FeedMediaItem[] {
-  const items = collectPostMedia(listing.images, listing.videoUrl);
+  const photos = listingPhotoUris({ images: listing.images ?? [] });
+  const video = listingVideoUrl({
+    images: listing.images ?? [],
+    videoUrl: listing.videoUrl ?? undefined,
+  });
+  const items = collectPostMedia(photos, video);
   const thumb = trimUri(listing.thumbnailUrl);
   if (!thumb) return items;
   return items.map((item) =>

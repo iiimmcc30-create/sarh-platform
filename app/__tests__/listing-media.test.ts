@@ -251,6 +251,28 @@ describe('post feed Cloudinary delivery', () => {
   });
 });
 
+describe('listing detail media viewer hooks', () => {
+  const detail = readFileSync(path.join(root, 'app/listing/[id].tsx'), 'utf8');
+  const loadingGuard = detail.indexOf('if (loading && !listing)');
+
+  it('declares mediaItems and openMediaViewer before the loading early return', () => {
+    const mediaItemsAt = detail.indexOf('const mediaItems = useMemo');
+    const openMediaViewerAt = detail.indexOf('const openMediaViewer = useCallback');
+    expect(loadingGuard).toBeGreaterThan(0);
+    expect(mediaItemsAt).toBeGreaterThan(0);
+    expect(openMediaViewerAt).toBeGreaterThan(0);
+    expect(mediaItemsAt).toBeLessThan(loadingGuard);
+    expect(openMediaViewerAt).toBeLessThan(loadingGuard);
+  });
+
+  it('opens listing photos and video through one MediaViewerModal with safeIndex', () => {
+    expect(detail).toContain('MediaViewerModal');
+    expect(detail).toContain('openMediaViewer');
+    expect(detail).toContain('safeIndex');
+    expect(detail).not.toContain('ImageViewerModal');
+  });
+});
+
 describe('listing detail media presentation', () => {
   const detail = readFileSync(path.join(root, 'app/listing/[id].tsx'), 'utf8');
   const player = readFileSync(

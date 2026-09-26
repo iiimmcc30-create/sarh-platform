@@ -273,6 +273,7 @@ export function MediaViewerModal({
         <Animated.View style={[styles.backdropFill, { opacity: progress }]} />
         <View style={styles.heroLayer} pointerEvents="box-none">
           <Animated.ScrollView
+            key={`media-viewer-scroll-${initialIndex}-${items.length}`}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -302,29 +303,34 @@ export function MediaViewerModal({
           </Animated.ScrollView>
         </View>
 
-        <Animated.View style={[styles.chrome, { opacity: progress }]} pointerEvents="box-none">
+        <Animated.View
+          style={[styles.chrome, { opacity: overlayVisible ? progress : 0 }]}
+          pointerEvents={overlayVisible ? 'box-none' : 'none'}
+        >
           {overlayVisible ? (
-            <Pressable
-              onPress={requestClose}
-              style={[styles.closeBtn, { top: insets.top + 10 }]}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="إغلاق"
-            >
-              <AppIcon name="close" size={20} color="#fff" />
-            </Pressable>
-          ) : null}
+            <>
+              <Pressable
+                onPress={requestClose}
+                style={[styles.closeBtn, { top: insets.top + 10 }]}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="إغلاق"
+              >
+                <AppIcon name="close" size={20} color="#fff" />
+              </Pressable>
 
-          {overlayVisible && items.length > 1 ? (
-            <View style={[styles.counter, { top: insets.top + 16 }]} pointerEvents="none">
-              <AppText style={styles.counterText}>
-                {currentIndex + 1} / {items.length}
-              </AppText>
-            </View>
-          ) : null}
+              {items.length > 1 ? (
+                <View style={[styles.counter, { top: insets.top + 16 }]} pointerEvents="none">
+                  <AppText style={styles.counterText}>
+                    {currentIndex + 1} / {items.length}
+                  </AppText>
+                </View>
+              ) : null}
 
-          {overlay && overlayVisible ? (
-            <ViewerOverlay overlay={overlay} insetsBottom={insets.bottom} />
+              {overlay ? (
+                <ViewerOverlay overlay={overlay} insetsBottom={insets.bottom} />
+              ) : null}
+            </>
           ) : null}
         </Animated.View>
       </View>

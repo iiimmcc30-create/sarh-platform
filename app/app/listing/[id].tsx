@@ -30,8 +30,9 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
+import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
+import { collectListingMedia } from '@/lib/postMedia';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ListingCommentsSection } from '@/components/feature/ListingCommentsSection';
 import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
@@ -49,6 +50,11 @@ import {
 } from '@/lib/listingLimits';
 import { usePaidServices } from '@/hooks/usePaidServices';
 import { firstEnabledPromoteGoal, isPromoteGoalEnabled } from '@/services/paidServices';
+
+function safeIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return Math.min(Math.max(0, Math.floor(index)), length - 1);
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   camels: 'إبل',
@@ -86,6 +92,7 @@ export default function ListingDetailScreen() {
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
   const [imageViewerOrigin, setImageViewerOrigin] = useState<MediaOriginRect | null>(null);
   const imageRefs = useRef<Array<View | null>>([]);
+  const videoRef = useRef<View | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
 
   // Load local favorite state
@@ -216,6 +223,23 @@ export default function ListingDetailScreen() {
   useEffect(() => {
     void refreshSellerFollowState();
   }, [refreshSellerFollowState]);
+
+  const mediaItems = useMemo(
+    () => (listing ? collectListingMedia(listing) : []),
+    [listing],
+  );
+
+  const openMediaViewer = useCallback(
+    (index: number, source?: View | null) => {
+      const idx = safeIndex(index, mediaItems.length);
+      void measureMediaOrigin(source ?? null).then((origin) => {
+        setImageViewerOrigin(origin);
+        setImageViewerIndex(idx);
+        setImageViewerVisible(true);
+      });
+    },
+    [mediaItems],
+  );
 
   const openSellerChat = (draftMessage?: string) => {
     if (!listing || isManagedListing(listing) || !listing.seller.id) return;
@@ -591,9 +615,9 @@ export default function ListingDetailScreen() {
           ) : null}
         </View>
 
-        <ImageViewerModal
+        <MediaViewerModal
           visible={imageViewerVisible}
-          images={images}
+          items={mediaItems}
           initialIndex={imageViewerIndex}
           origin={imageViewerOrigin}
           onClose={() => setImageViewerVisible(false)}
@@ -639,14 +663,24 @@ export default function ListingDetailScreen() {
                 <AppText variant="bodySmall" color="textMuted">الفيديو</AppText>
               </View>
             </View>
-            <View style={styles.mediaBleed}>
+            <Pressable
+              ref={videoRef}
+              collapsable={false}
+              onPress={() => {
+                const idx = mediaItems.findIndex(
+                  (item) => item.kind === 'video' && item.uri === videoUri,
+                );
+                openMediaViewer(idx >= 0 ? idx : 0, videoRef.current);
+              }}
+              style={styles.mediaBleed}
+            >
               <ListingVideoPlayer
                 uri={videoUri}
                 posterUri={listing.thumbnailUrl}
                 height={galleryImageHeight}
                 style={styles.mediaPlayer}
               />
-            </View>
+            </Pressable>
           </View>
         ) : null}
 
@@ -667,11 +701,13 @@ export default function ListingDetailScreen() {
                 }}
                 collapsable={false}
                 onPress={() => {
-                  void measureMediaOrigin(imageRefs.current[index]).then((origin) => {
-                    setImageViewerOrigin(origin);
-                    setImageViewerIndex(index);
-                    setImageViewerVisible(true);
-                  });
+                  const mediaIndex = mediaItems.findIndex(
+                    (item) => item.kind === 'image' && item.uri === uri,
+                  );
+                  openMediaViewer(
+                    mediaIndex >= 0 ? mediaIndex : index,
+                    imageRefs.current[index],
+                  );
                 }}
                 style={styles.mediaBleed}
               >

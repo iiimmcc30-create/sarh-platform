@@ -73,6 +73,17 @@ describe('post media collection', () => {
       posterUri: 'https://cdn.example/thumb.jpg',
     });
   });
+
+  it('detects listing video when it only appears inside images[]', () => {
+    const items = collectListingMedia({
+      images: [
+        'https://cdn.example/cover.jpg',
+        'https://cdn.example/clip.mp4',
+      ],
+    });
+    expect(items.map((item) => item.kind)).toEqual(['image', 'video']);
+    expect(items[1].uri).toBe('https://cdn.example/clip.mp4');
+  });
 });
 
 describe('post share url', () => {
