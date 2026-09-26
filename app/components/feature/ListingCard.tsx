@@ -92,6 +92,7 @@ function ListingCardInner({
   const styles = useThemedStyles(({ colors: c, scheme: s }) => createStyles(c, s));
   const mediaItems = useMemo(() => collectListingMedia(listing), [listing]);
   const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerInitialIndex, setViewerInitialIndex] = useState(0);
   const [viewerOrigin, setViewerOrigin] = useState<MediaOriginRect | null>(null);
   const thumbRef = useRef<View>(null);
   const cardOverlay = imageCardOverlay(scheme);
@@ -190,8 +191,10 @@ function ListingCardInner({
             <Pressable
               style={styles.listVideoBadge}
               onPress={() => {
+                const videoIndex = mediaItems.findIndex((m) => m.kind === 'video');
                 void measureMediaOrigin(thumbRef.current).then((origin) => {
                   setViewerOrigin(origin);
+                  setViewerInitialIndex(videoIndex >= 0 ? videoIndex : 0);
                   setViewerVisible(true);
                 });
               }}
@@ -213,6 +216,7 @@ function ListingCardInner({
       <MediaViewerModal
         visible={viewerVisible}
         items={mediaItems}
+        initialIndex={viewerInitialIndex}
         origin={viewerOrigin}
         onClose={() => setViewerVisible(false)}
       />

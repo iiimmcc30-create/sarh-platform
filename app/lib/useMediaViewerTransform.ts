@@ -4,6 +4,7 @@ import {
   isZoomed,
   shouldDismissFromSwipe,
   VIEWER_MAX_SCALE,
+  VIEWER_SWIPE_AXIS_RATIO,
 } from '@/lib/mediaViewerGestures';
 import {
   mediaViewerVideoLayout,
@@ -23,6 +24,19 @@ type Box = { width: number; height: number };
 
 const SPRING = { damping: 22, stiffness: 280 };
 
+function clampPanForGesture(
+  tx: number,
+  ty: number,
+  nextScale: number,
+  bw: number,
+  bh: number,
+  fw: number,
+  fh: number,
+) {
+  'worklet';
+  return clampPan(tx, ty, nextScale, { width: bw, height: bh }, { width: fw, height: fh });
+}
+
 /** transform: images (Reanimated scale). nativeLayout: video (left/top/width/height only). */
 export type MediaViewerZoomStyle = 'transform' | 'nativeLayout';
 
@@ -33,10 +47,6 @@ export function useMediaViewerTransform(options: {
   onToggleOverlay: () => void;
   onDismiss: () => void;
   enabled: boolean;
-  /**
-   * Android VideoView stops updating when any Reanimated transform wraps it.
-   * Video slides use nativeLayout (plain View geometry, no transform on the player tree).
-   */
   zoomStyle?: MediaViewerZoomStyle;
 }) {
   const {
@@ -52,11 +62,16 @@ export function useMediaViewerTransform(options: {
   const scale = useSharedValue(1);
   const boxWidth = useSharedValue(box.width);
   const boxHeight = useSharedValue(box.height);
+  const frameWidth = useSharedValue(frame.width);
+  const frameHeight = useSharedValue(frame.height);
 
   useEffect(() => {
     boxWidth.value = box.width;
     boxHeight.value = box.height;
-  }, [box.height, box.width, boxHeight, boxWidth]);
+    frameWidth.value = frame.width;
+    frameHeight.value = frame.height;
+  }, [box.height, box.width, frame.height, frame.width, boxHeight, boxWidth, frameHeight, frameWidth]);
+
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const pinchStartScale = useSharedValue(1);
@@ -110,12 +125,14 @@ export function useMediaViewerTransform(options: {
         .onUpdate((e) => {
           const next = clampViewerScale(pinchStartScale.value * e.scale);
           scale.value = next;
-          const clamped = clampPan(
+          const clamped = clampPanForGesture(
             translateX.value,
             translateY.value,
             next,
-            box,
-            frame,
+            boxWidth.value,
+            boxHeight.value,
+            frameWidth.value,
+            frameHeight.value,
           );
           translateX.value = clamped.x;
           translateY.value = clamped.y;
@@ -124,34 +141,84 @@ export function useMediaViewerTransform(options: {
         .onEnd(() => {
           runOnJS(settleTransform)(scale.value, translateX.value, translateY.value);
         }),
-    [box, enabled, frame, notifyZoomed, pinchStartScale, scale, settleTransform, translateX, translateY],
+    [
+      boxHeight,
+      boxWidth,
+      enabled,
+      frameHeight,
+      frameWidth,
+      notifyZoomed,
+      pinchStartScale,
+      scale,
+      settleTransform,
+      translateX,
+      translateY,
+    ],
   );
 
-  const pan = useMemo(
+  const panZoomed = useMemo(
     () =>
       Gesture.Pan()
         .enabled(enabled)
         .minPointers(1)
         .maxPointers(1)
-        .activeOffsetY([-9999, 12])
+        .manualActivation(true)
+        .onTouchesMove((_, state) => {
+          if (isZoomed(scale.value)) {
+            state.activate();
+          } else {
+            state.fail();
+          }
+        })
         .onBegin(() => {
           panStartX.value = translateX.value;
           panStartY.value = translateY.value;
         })
         .onUpdate((e) => {
-          if (isZoomed(scale.value)) {
-            const clamped = clampPan(
-              panStartX.value + e.translationX,
-              panStartY.value + e.translationY,
-              scale.value,
-              box,
-              frame,
-            );
-            translateX.value = clamped.x;
-            translateY.value = clamped.y;
-            return;
-          }
-          if (e.translationY > 0 && e.translationY >= Math.abs(e.translationX)) {
+          const clamped = clampPanForGesture(
+            panStartX.value + e.translationX,
+            panStartY.value + e.translationY,
+            scale.value,
+            boxWidth.value,
+            boxHeight.value,
+            frameWidth.value,
+            frameHeight.value,
+          );
+          translateX.value = clamped.x;
+          translateY.value = clamped.y;
+        })
+        .onEnd(() => {
+          runOnJS(settleTransform)(scale.value, translateX.value, translateY.value);
+        }),
+    [
+      boxHeight,
+      boxWidth,
+      enabled,
+      frameHeight,
+      frameWidth,
+      panStartX,
+      panStartY,
+      scale,
+      settleTransform,
+      translateX,
+      translateY,
+    ],
+  );
+
+  const panDismiss = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(enabled)
+        .minPointers(1)
+        .maxPointers(1)
+        .activeOffsetY(12)
+        .failOffsetX([-28, 28])
+        .onBegin(() => {
+          panStartY.value = translateY.value;
+        })
+        .onUpdate((e) => {
+          if (isZoomed(scale.value)) return;
+          if (e.translationY > 0 && e.translationY >= Math.abs(e.translationX) * VIEWER_SWIPE_AXIS_RATIO) {
             translateY.value = e.translationY;
           }
         })
@@ -162,10 +229,10 @@ export function useMediaViewerTransform(options: {
           }
           runOnJS(settleTransform)(1, 0, e.translationY);
         }),
-    [enabled, frame, box, panStartX, panStartY, scale, settleTransform, translateX, translateY],
+    [enabled, panStartY, scale, settleTransform, translateX, translateY],
   );
 
-  const doubleTapBlocked = useMemo(
+  const tapToggle = useMemo(
     () =>
       Gesture.Tap()
         .enabled(enabled)
@@ -178,8 +245,12 @@ export function useMediaViewerTransform(options: {
   );
 
   const composed = useMemo(
-    () => Gesture.Simultaneous(pinch, Gesture.Race(pan, doubleTapBlocked)),
-    [pinch, pan, doubleTapBlocked],
+    () =>
+      Gesture.Simultaneous(
+        pinch,
+        Gesture.Race(panZoomed, panDismiss, tapToggle),
+      ),
+    [pinch, panDismiss, panZoomed, tapToggle],
   );
 
   const [videoLayout, setVideoLayout] = useState<MediaViewerVideoLayout>(() =>
@@ -207,25 +278,30 @@ export function useMediaViewerTransform(options: {
       bw: boxWidth.value,
       bh: boxHeight.value,
     }),
-    (cur) => {
+    (cur, prev) => {
       if (zoomStyle !== 'nativeLayout') return;
+      if (
+        prev &&
+        cur.s === prev.s &&
+        cur.tx === prev.tx &&
+        cur.ty === prev.ty &&
+        cur.bw === prev.bw &&
+        cur.bh === prev.bh
+      ) {
+        return;
+      }
       runOnJS(pushVideoLayout)(cur.s, cur.tx, cur.ty, cur.bw, cur.bh);
     },
     [zoomStyle, pushVideoLayout],
   );
 
-  const animatedStyle = useAnimatedStyle(() => {
-    if (zoomStyle === 'nativeLayout') {
-      return {};
-    }
-    return {
-      transform: [
-        { translateX: translateX.value },
-        { translateY: translateY.value },
-        { scale: scale.value },
-      ],
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   return {
     gesture: composed,

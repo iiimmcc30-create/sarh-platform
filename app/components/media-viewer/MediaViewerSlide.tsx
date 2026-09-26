@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   Image as RNImage,
   PixelRatio,
-  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
@@ -34,7 +33,6 @@ export function MediaViewerSlide({
   cachedRatio,
   overlayVisible,
   controlsBottomInset = 0,
-  /** Fullscreen media must letterbox — never cover/crop. */
   contentFit = 'contain',
   resizeMode = 'contain',
   onZoomedChange,
@@ -141,14 +139,11 @@ export function MediaViewerSlide({
       poster && resolved.layoutRatio && videoLayout ? (
         <Image
           source={uriSource(poster)}
-          style={{
-            width: videoLayout.width,
-            height: videoLayout.height,
-          }}
+          style={{ width: videoLayout.width, height: videoLayout.height }}
           contentFit="contain"
         />
       ) : null
-    ) : resolved.layoutRatio && videoLayout ? (
+    ) : resolved.layoutRatio && videoLayout && box.width > 0 ? (
       <View
         style={{
           width: videoLayout.width,
@@ -200,37 +195,37 @@ export function MediaViewerSlide({
 
   return (
     <View style={[styles.slide, { width: screenW, height: screenH }]}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onToggleOverlay} />
+      {isVideo && box.width > 0 && videoLayout ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.videoHost,
+            {
+              left: videoLayout.left,
+              top: videoLayout.top,
+              width: videoLayout.width,
+              height: videoLayout.height,
+            },
+          ]}
+          collapsable={false}
+        >
+          {videoSurface}
+        </View>
+      ) : (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.mediaCenter,
+            { width: screenW, height: screenH },
+            animatedStyle,
+          ]}
+        >
+          {imageBody}
+        </Animated.View>
+      )}
 
       <GestureDetector gesture={gesture}>
-        <View style={[styles.gestureStage, { width: screenW, height: screenH }]}>
-          {isVideo && box.width > 0 && videoLayout ? (
-            <View
-              style={[
-                styles.videoHost,
-                {
-                  left: videoLayout.left,
-                  top: videoLayout.top,
-                  width: videoLayout.width,
-                  height: videoLayout.height,
-                },
-              ]}
-              collapsable={false}
-            >
-              {videoSurface}
-            </View>
-          ) : (
-            <Animated.View
-              style={[
-                styles.mediaCenter,
-                { width: screenW, height: screenH },
-                animatedStyle,
-              ]}
-            >
-              {imageBody}
-            </Animated.View>
-          )}
-        </View>
+        <View style={styles.gestureCatcher} accessibilityRole="adjustable" />
       </GestureDetector>
 
       {item.kind === 'video' && active ? (
@@ -265,17 +260,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#000',
   },
-  gestureStage: {
-    position: 'relative',
+  gestureCatcher: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
   },
   videoHost: {
     position: 'absolute',
+    zIndex: 10,
     backgroundColor: '#000',
   },
   mediaCenter: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   mediaSurface: {
     backgroundColor: '#000',

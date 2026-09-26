@@ -30,15 +30,15 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
+import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ListingCommentsSection } from '@/components/feature/ListingCommentsSection';
 import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
 import { ListingFeePaymentSheet } from '@/components/listing/ListingFeePaymentSheet';
 import { ListingDeleteDialog } from '@/components/listing/ListingDeleteDialog';
-import { ListingVideoPlayer } from '@/components/listing/ListingVideoPlayer';
 import { listingPhotoUris, listingVideoUrl } from '@/lib/listingMedia';
+import { collectListingMedia } from '@/lib/postMedia';
 import { isManagedListing, managedSeller } from '@/lib/managedListing';
 import { isListingFavorited, toggleListingFavorite } from '@/lib/listingFavorite';
 import { resolveMediaUrl } from '@/services/media';
@@ -82,10 +82,11 @@ export default function ListingDetailScreen() {
   const [loading, setLoading] = useState(!cachedListing);
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [followLoading, setFollowLoading] = useState(false);
-  const [imageViewerVisible, setImageViewerVisible] = useState(false);
-  const [imageViewerIndex, setImageViewerIndex] = useState(0);
-  const [imageViewerOrigin, setImageViewerOrigin] = useState<MediaOriginRect | null>(null);
+  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+  const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
+  const [mediaViewerOrigin, setMediaViewerOrigin] = useState<MediaOriginRect | null>(null);
   const imageRefs = useRef<Array<View | null>>([]);
+  const videoPreviewRef = useRef<View | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
 
   // Load local favorite state
@@ -340,7 +341,19 @@ export default function ListingDetailScreen() {
       : null;
   const images = listingPhotoUris(listing);
   const videoUri = listingVideoUrl(listing);
+  const mediaItems = useMemo(() => collectListingMedia(listing), [listing]);
   const categoryLabel = CATEGORY_LABELS[listing.category] ?? '';
+
+  const openMediaViewer = useCallback(
+    (index: number, originNode: View | null) => {
+      void measureMediaOrigin(originNode).then((origin) => {
+        setMediaViewerOrigin(origin);
+        setMediaViewerIndex(index);
+        setMediaViewerVisible(true);
+      });
+    },
+    [],
+  );
 
   const handleStartLive = () => {
     Alert.alert('البث المباشر', 'قريباً 🔴\nميزة البث المباشر للإعلانات ستتوفر قريباً.');
@@ -591,12 +604,12 @@ export default function ListingDetailScreen() {
           ) : null}
         </View>
 
-        <ImageViewerModal
-          visible={imageViewerVisible}
-          images={images}
-          initialIndex={imageViewerIndex}
-          origin={imageViewerOrigin}
-          onClose={() => setImageViewerVisible(false)}
+        <MediaViewerModal
+          visible={mediaViewerVisible}
+          items={mediaItems}
+          initialIndex={mediaViewerIndex}
+          origin={mediaViewerOrigin}
+          onClose={() => setMediaViewerVisible(false)}
         />
 
         {(listing.arabicDescription || listing.description || categoryLabel || listing.breed || listing.age || weightLabel) ? (
@@ -639,14 +652,29 @@ export default function ListingDetailScreen() {
                 <AppText variant="bodySmall" color="textMuted">الفيديو</AppText>
               </View>
             </View>
-            <View style={styles.mediaBleed}>
-              <ListingVideoPlayer
-                uri={videoUri}
-                posterUri={listing.thumbnailUrl}
-                height={galleryImageHeight}
-                style={styles.mediaPlayer}
+            <Pressable
+              ref={videoPreviewRef}
+              collapsable={false}
+              style={styles.mediaBleed}
+              onPress={() => {
+                const videoIndex = mediaItems.findIndex((m) => m.kind === 'video');
+                openMediaViewer(videoIndex >= 0 ? videoIndex : 0, videoPreviewRef.current);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="فتح الفيديو"
+            >
+              <Image
+                source={uriSource(listing.thumbnailUrl || videoUri)}
+                style={{ width: '100%', height: galleryImageHeight }}
+                contentFit="cover"
+                transition={250}
               />
-            </View>
+              <View style={styles.videoPlayOverlay} pointerEvents="none">
+                <View style={styles.videoPlayBtn}>
+                  <AppIcon name="play" size={24} color="#fff" variant="sr" />
+                </View>
+              </View>
+            </Pressable>
           </View>
         ) : null}
 
@@ -667,11 +695,8 @@ export default function ListingDetailScreen() {
                 }}
                 collapsable={false}
                 onPress={() => {
-                  void measureMediaOrigin(imageRefs.current[index]).then((origin) => {
-                    setImageViewerOrigin(origin);
-                    setImageViewerIndex(index);
-                    setImageViewerVisible(true);
-                  });
+                  const mediaIndex = mediaItems.findIndex((m) => m.uri === uri);
+                  openMediaViewer(mediaIndex >= 0 ? mediaIndex : index, imageRefs.current[index]);
                 }}
                 style={styles.mediaBleed}
               >
@@ -837,6 +862,20 @@ function createStyles(colors: ThemeColors) {
     mediaPlayer: {
       borderRadius: 0,
       width: '100%',
+    },
+    videoPlayOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    videoPlayBtn: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingStart: 4,
     },
     priceSection: {
       gap: spacing.sm,

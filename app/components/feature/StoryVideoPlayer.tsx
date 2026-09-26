@@ -89,6 +89,7 @@ function StoryVideoPlayerNative({
 }: StoryVideoPlayerProps) {
   const { useVideoPlayer, VideoView } = getExpoVideoModule()!;
   const readyRef = useRef(false);
+  const initialPlayDoneRef = useRef(false);
   const [posterVisible, setPosterVisible] = useState(Boolean(posterUri));
 
   const explicit =
@@ -124,6 +125,7 @@ function StoryVideoPlayerNative({
 
   useEffect(() => {
     readyRef.current = false;
+    initialPlayDoneRef.current = false;
     setPosterVisible(Boolean(posterUri));
   }, [posterUri, uri]);
 
@@ -149,13 +151,19 @@ function StoryVideoPlayerNative({
 
     if (player.status === 'readyToPlay') {
       notifyReady();
-      start();
+      if (autoPlay && !initialPlayDoneRef.current) {
+        initialPlayDoneRef.current = true;
+        start();
+      }
     }
 
     const statusSub = player.addListener('statusChange', ({ status }) => {
       if (status === 'readyToPlay') {
         notifyReady();
-        if (autoPlay) start();
+        if (autoPlay && !initialPlayDoneRef.current) {
+          initialPlayDoneRef.current = true;
+          start();
+        }
       }
       if (status === 'error') {
         notifyReady();
@@ -182,8 +190,6 @@ function StoryVideoPlayerNative({
         emitNatural(videoTrack.size.width, videoTrack.size.height);
       }
     });
-
-    start();
 
     try {
       const size = (player as { size?: { width?: number; height?: number } }).size;

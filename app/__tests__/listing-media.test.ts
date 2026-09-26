@@ -261,8 +261,10 @@ describe('listing detail media presentation', () => {
   it('renders listing images and video at the same full width and a slightly taller media area', () => {
     expect(detail).toContain('screenWidth * 0.72');
     expect(detail).toContain("style={{ width: '100%', height: galleryImageHeight }}");
-    expect(detail).toContain('height={galleryImageHeight}');
     expect(detail).toContain('styles.mediaBleed');
+    expect(detail).toContain('MediaViewerModal');
+    expect(detail).toContain('collectListingMedia');
+    expect(detail).toContain('openMediaViewer');
     expect(player).toContain("width: '100%'");
     expect(player).toContain('alignSelf: \'stretch\'');
   });
