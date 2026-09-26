@@ -42,3 +42,28 @@ export function isExpoVideoNativeAvailable(): boolean {
 export function resetExpoVideoModuleCache(): void {
   cached = undefined;
 }
+
+/**
+ * True only while `player` is still the instance owned by this session.
+ * A released VideoPlayer stays a JS object (its shared-object id included),
+ * so identity plus generation is the lifetime check — not object presence.
+ */
+export function isSameVideoPlayerSession<T extends object>(
+  player: T | null,
+  generation: number,
+  playerRef: { readonly current: T | null },
+  generationRef: { readonly current: number },
+): player is T {
+  return player != null && playerRef.current === player && generationRef.current === generation;
+}
+
+export function removeVideoPlayerSubscription(
+  subscription: { remove: () => void } | null | undefined,
+): void {
+  if (!subscription) return;
+  try {
+    subscription.remove();
+  } catch {
+    // Native shared object was already released.
+  }
+}
