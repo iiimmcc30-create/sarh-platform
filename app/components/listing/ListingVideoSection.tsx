@@ -37,7 +37,7 @@ import {
   type ListingVideoMeta,
   validateListingVideo,
 } from '@/services/listingVideo';
-import { getExpoVideoModule } from '@/lib/expoVideo';
+import { getExpoVideoModule, type ExpoVideoPlayer } from '@/lib/expoVideo';
 
 export type ListingVideoState =
   | { status: 'idle' }
@@ -392,6 +392,7 @@ function VideoPreview({ localUri, thumbnailUri, aspectRatio, disabled }: VideoPr
 
   return (
     <NativeVideoPlayer
+      key={localUri}
       uri={localUri}
       containerStyle={containerStyle}
       onClose={() => setPlaying(false)}
@@ -409,25 +410,36 @@ function NativeVideoPlayer({ uri, containerStyle, onClose }: NativeVideoPlayerPr
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const mod = getExpoVideoModule()!;
   const { useVideoPlayer, VideoView } = mod;
+  const generationRef = useRef(0);
+  const playerRef = useRef<ExpoVideoPlayer | null>(null);
+  const sourceRef = useRef(uri);
+
+  if (sourceRef.current !== uri) {
+    sourceRef.current = uri;
+    generationRef.current += 1;
+    playerRef.current = null;
+  }
+
+  useEffect(() => {
+    return () => {
+      const current = playerRef.current;
+      generationRef.current += 1;
+      playerRef.current = null;
+      if (!current) return;
+      try {
+        current.pause();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = false;
     p.play();
   });
-
-  const playerRef = useRef(player);
   playerRef.current = player;
-
-  useEffect(() => {
-    return () => {
-      try {
-        playerRef.current.pause();
-      } catch {
-        // ignore
-      }
-    };
-  }, []);
 
   return (
     <View style={containerStyle}>
