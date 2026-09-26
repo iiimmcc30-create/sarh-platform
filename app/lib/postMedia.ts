@@ -69,6 +69,12 @@ function fromRecords(media: PostMediaRecord[]): FeedMediaItem[] {
 function fromLegacy(images?: string[] | null, video?: string | null): FeedMediaItem[] {
   const items: FeedMediaItem[] = [];
   const seen = new Set<string>();
+  // The dedicated `video` field is authoritative: it is a video even when the URL
+  // has no extension / `/video/` hint (e.g. `/uploads/abc` or an API stream URL).
+  // Re-detecting it by URL pattern used to turn it into `kind: 'image'`, which made
+  // the Media Viewer open the listing/post video as a still image.
+  const explicitVideo = trimUri(video);
+  if (explicitVideo) seen.add(explicitVideo);
 
   const push = (raw?: string | null) => {
     const uri = trimUri(raw);
@@ -86,7 +92,13 @@ function fromLegacy(images?: string[] | null, video?: string | null): FeedMediaI
   };
 
   for (const image of images ?? []) push(image);
-  push(video);
+  if (explicitVideo) {
+    items.push({
+      uri: explicitVideo,
+      kind: 'video',
+      posterUri: cloudinaryVideoFirstFrameUrl(explicitVideo),
+    });
+  }
 
   const firstImage = items.find((item) => item.kind === 'image');
   return items.map((item) =>
@@ -94,6 +106,16 @@ function fromLegacy(images?: string[] | null, video?: string | null): FeedMediaI
       ? { ...item, posterUri: firstImage.uri }
       : item,
   );
+}
+
+/** Viewer index for the listing video preview press (the video item, never a photo). */
+export function listingVideoViewerIndex(items: FeedMediaItem[], videoUri?: string | null): number {
+  const target = trimUri(videoUri);
+  const exact = target
+    ? items.findIndex((item) => item.kind === 'video' && item.uri === target)
+    : -1;
+  if (exact >= 0) return exact;
+  return items.findIndex((item) => item.kind === 'video');
 }
 
 /** Prefer ordered PostMedia. Legacy `images[]` / `video` remain for old posts. */

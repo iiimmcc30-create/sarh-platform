@@ -1,14 +1,14 @@
 import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
 import { MediaViewerControls } from '@/components/media-viewer/MediaViewerControls';
 import { Image, uriSource } from '@/components/ui/AppImage';
-import { resolveMediaLayoutRatio } from '@/lib/mediaAspectRatio';
+import { MEDIA_LOADING_FALLBACK_RATIO, resolveMediaLayoutRatio } from '@/lib/mediaAspectRatio';
 import { containSizeFromRatio, normalizeAspectRatio } from '@/lib/mediaContain';
 import type { FeedMediaItem } from '@/lib/postMedia';
 import { postDetailImageUrl } from '@/lib/listingMedia';
 import { useMediaViewerPlaybackOptional } from '@/lib/useMediaViewerPlayback';
 import { useMediaViewerTransform } from '@/lib/useMediaViewerTransform';
 import { resolveMediaUrl } from '@/services/media';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image as RNImage,
@@ -63,13 +63,21 @@ export function MediaViewerSlide({
   const [player, setPlayer] = useState<unknown>(null);
   const [muted, setMuted] = useState(false);
 
+  // Reset only when the item changes, never on mount. Passive effects run child
+  // first, so a mount-time reset here ran after StoryVideoPlayer had already
+  // reported its player (onPlayer) and nulled it: Play/Pause did nothing and the
+  // progress bar never received timeUpdate. The player itself is owned by
+  // StoryVideoPlayer, which reports null on unmount / source change.
+  const itemKey = `${item.kind}:${item.uri}`;
+  const itemKeyRef = useRef(itemKey);
   useEffect(() => {
+    if (itemKeyRef.current === itemKey) return;
+    itemKeyRef.current = itemKey;
     setNaturalRatio(null);
     setPosterRatio(null);
     setReady(false);
-    setPlayer(null);
     setMuted(false);
-  }, [item.uri, item.kind]);
+  }, [itemKey]);
 
   useEffect(() => {
     if (item.kind !== 'video' || !poster) return;
@@ -88,6 +96,10 @@ export function MediaViewerSlide({
     if (next) setNaturalRatio(next);
   }, []);
 
+  // Stable: an inline callback here re-created StoryVideoPlayer's notifyReady on
+  // every slide render (4x/s from playback timeUpdate) and re-ran its player effect.
+  const handleReady = useCallback(() => setReady(true), []);
+
   const resolved = resolveMediaLayoutRatio({
     naturalRatio,
     cachedRatio: cachedRatio ?? null,
@@ -96,14 +108,20 @@ export function MediaViewerSlide({
 
   const frame = useMemo(() => ({ width: screenW, height: screenH }), [screenW, screenH]);
 
+  const isVideo = item.kind === 'video';
+
+  // The natural video size only arrives from the mounted player (onNaturalSize).
+  // Without a poster/cached ratio the active video must still mount, so it gets a
+  // provisional 16:9 host until metadata arrives (otherwise it never mounts).
+  const layoutRatio =
+    resolved.layoutRatio ?? (isVideo && active ? MEDIA_LOADING_FALLBACK_RATIO : null);
+
   const box = useMemo(() => {
-    if (!resolved.layoutRatio) {
+    if (!layoutRatio) {
       return { width: 0, height: 0 };
     }
-    return containSizeFromRatio(resolved.layoutRatio, screenW, screenH);
-  }, [resolved.layoutRatio, screenW, screenH]);
-
-  const isVideo = item.kind === 'video';
+    return containSizeFromRatio(layoutRatio, screenW, screenH);
+  }, [layoutRatio, screenW, screenH]);
 
   const { gesture, animatedStyle, videoLayout, resetTransform } = useMediaViewerTransform({
     box: box.width > 0 ? box : { width: screenW, height: screenH * 0.3 },
@@ -136,14 +154,14 @@ export function MediaViewerSlide({
 
   const videoSurface =
     !active ? (
-      poster && resolved.layoutRatio && videoLayout ? (
+      poster && layoutRatio && videoLayout ? (
         <Image
           source={uriSource(poster)}
           style={{ width: videoLayout.width, height: videoLayout.height }}
           contentFit="contain"
         />
       ) : null
-    ) : resolved.layoutRatio && videoLayout && box.width > 0 ? (
+    ) : layoutRatio && videoLayout && box.width > 0 ? (
       <View
         style={{
           width: videoLayout.width,
@@ -152,11 +170,7 @@ export function MediaViewerSlide({
           backgroundColor: '#000',
         }}
       >
-        {!ready ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color="#fff" />
-          </View>
-        ) : null}
+        {/* Real video surface (VideoView). Poster shows only until the first frame. */}
         <StoryVideoPlayer
           uri={uri}
           posterUri={poster}
@@ -166,11 +180,17 @@ export function MediaViewerSlide({
           muted={muted}
           nativeControls={false}
           contentFit="contain"
+          surfaceType="textureView"
           hidePosterWhenPlaying
-          onReady={() => setReady(true)}
+          onReady={handleReady}
           onNaturalSize={applyNaturalSize}
           onPlayer={setPlayer}
         />
+        {!ready ? (
+          <View style={styles.loading} pointerEvents="none">
+            <ActivityIndicator color="#fff" />
+          </View>
+        ) : null}
       </View>
     ) : showLoading ? (
       <View style={styles.loading}>
@@ -235,6 +255,8 @@ export function MediaViewerSlide({
             start: 0,
             end: 0,
             bottom: controlsBottom,
+            // Above gestureCatcher (zIndex 20): controls are siblings drawn over the surface.
+            zIndex: 30,
           }}
           pointerEvents="box-none"
         >

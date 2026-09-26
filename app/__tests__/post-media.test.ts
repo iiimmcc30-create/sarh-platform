@@ -1,6 +1,11 @@
 import { readFileSync } from 'fs';
 import path from 'path';
-import { collectListingMedia, collectPostMedia, isFeedVideoUri } from '@/lib/postMedia';
+import {
+  collectListingMedia,
+  collectPostMedia,
+  isFeedVideoUri,
+  listingVideoViewerIndex,
+} from '@/lib/postMedia';
 import { postShareUrl } from '@/lib/postInteractions';
 
 const root = path.join(__dirname, '..');
@@ -83,6 +88,61 @@ describe('post media collection', () => {
     });
     expect(items.map((item) => item.kind)).toEqual(['image', 'video']);
     expect(items[1].uri).toBe('https://cdn.example/clip.mp4');
+  });
+
+  it('keeps an extensionless dedicated listing videoUrl as kind video (viewer opens a Video surface)', () => {
+    const items = collectListingMedia({
+      images: ['https://cdn.example/cover.jpg', 'https://api.example/uploads/abc123'],
+      videoUrl: 'https://api.example/uploads/abc123',
+      thumbnailUrl: 'https://cdn.example/thumb.jpg',
+    });
+    expect(items.map((item) => item.kind)).toEqual(['image', 'video']);
+    expect(items[1]).toMatchObject({
+      kind: 'video',
+      uri: 'https://api.example/uploads/abc123',
+      posterUri: 'https://cdn.example/thumb.jpg',
+    });
+    expect(items.filter((item) => item.uri === 'https://api.example/uploads/abc123')).toHaveLength(1);
+  });
+
+  it('keeps an extensionless dedicated post video as kind video', () => {
+    const items = collectPostMedia(['https://cdn.example/a.jpg'], 'https://api.example/stream/42');
+    expect(items.map((item) => item.kind)).toEqual(['image', 'video']);
+    expect(items[1].posterUri).toBe('https://cdn.example/a.jpg');
+  });
+});
+
+describe('listing video press path (API listing shape)', () => {
+  // Shape produced by app/listing/[id].tsx loadListing from GET /api/listings/:id
+  const listing = {
+    images: [
+      'https://res.cloudinary.com/demo/image/upload/v1/cover.jpg',
+      'https://res.cloudinary.com/demo/image/upload/v1/side.jpg',
+    ],
+    videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/clip.mp4',
+    thumbnailUrl: 'https://res.cloudinary.com/demo/image/upload/v1/cover.jpg',
+  };
+
+  it('opens the viewer at the video item on the video (custom Modal) path', () => {
+    const items = collectListingMedia(listing);
+    const index = listingVideoViewerIndex(items, listing.videoUrl);
+    expect(index).toBe(2);
+    expect(items[index]).toMatchObject({ kind: 'video', uri: listing.videoUrl });
+    // MediaViewerModal only uses ImageViewerModal when every item is an image.
+    expect(items.every((item) => item.kind === 'image')).toBe(false);
+  });
+
+  it('never resolves the video press to a photo index', () => {
+    expect(listingVideoViewerIndex([{ uri: 'a.jpg', kind: 'image' }], 'x')).toBe(-1);
+    expect(
+      listingVideoViewerIndex(
+        [
+          { uri: 'a.jpg', kind: 'image' },
+          { uri: 'https://api.example/uploads/v', kind: 'video' },
+        ],
+        'https://other.example/v',
+      ),
+    ).toBe(1);
   });
 });
 

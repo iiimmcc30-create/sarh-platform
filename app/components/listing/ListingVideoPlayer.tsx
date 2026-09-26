@@ -1,4 +1,15 @@
-import { Component, createElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Component,
+  createElement,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   Linking,
@@ -18,6 +29,7 @@ import {
   removeVideoPlayerSubscription,
   type ExpoVideoPlayer,
 } from '@/lib/expoVideo';
+import { claimFeedPlayback, releaseFeedPlayback } from '@/lib/feedVideoPlayback';
 import { resolveMediaUrl } from '@/services/media';
 
 type Props = {
@@ -26,6 +38,11 @@ type Props = {
   height?: number;
   aspectRatio?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Filled with a session-guarded pause() while the native preview is mounted, so
+   * the screen can stop the preview synchronously before opening the Media Viewer.
+   */
+  pauseRef?: MutableRefObject<(() => void) | null>;
 };
 
 const MEDIA_SURFACE = '#102633';
@@ -44,6 +61,7 @@ function ListingVideoPlayerInner({
   height,
   aspectRatio = 16 / 9,
   style,
+  pauseRef,
 }: Props) {
   const videoUri = resolveMediaUrl(uri) ?? uri;
   const poster = resolveMediaUrl(posterUri) ?? posterUri ?? undefined;
@@ -60,7 +78,15 @@ function ListingVideoPlayerInner({
   }
 
   if (isExpoVideoNativeAvailable()) {
-    return <NativeListingVideo key={videoUri} uri={videoUri} posterUri={poster} containerStyle={containerStyle} />;
+    return (
+      <NativeListingVideo
+        key={videoUri}
+        uri={videoUri}
+        posterUri={poster}
+        containerStyle={containerStyle}
+        pauseRef={pauseRef}
+      />
+    );
   }
 
   return <VideoOpenFallback uri={videoUri} posterUri={poster} style={containerStyle} />;
@@ -116,10 +142,12 @@ function NativeListingVideo({
   uri,
   posterUri,
   containerStyle,
+  pauseRef,
 }: {
   uri: string;
   posterUri?: string;
   containerStyle: StyleProp<ViewStyle>;
+  pauseRef?: MutableRefObject<(() => void) | null>;
 }) {
   const { useVideoPlayer, VideoView } = getExpoVideoModule()!;
   const [showPoster, setShowPoster] = useState(true);
@@ -128,6 +156,7 @@ function NativeListingVideo({
   const generationRef = useRef(0);
   const playerRef = useRef<ExpoVideoPlayer | null>(null);
   const sourceRef = useRef(uri);
+  const playbackId = useId();
 
   if (sourceRef.current !== uri) {
     sourceRef.current = uri;
@@ -135,8 +164,31 @@ function NativeListingVideo({
     playerRef.current = null;
   }
 
+  // Registered in the shared playback slot while playing, so opening the Media
+  // Viewer (pauseAllFeedPlayback) or another preview pauses this one first.
+  const pauseForHandoff = useCallback(() => {
+    const generation = generationRef.current;
+    const current = playerRef.current;
+    if (!isSameVideoPlayerSession(current, generation, playerRef, generationRef)) return;
+    try {
+      current.pause();
+    } catch {
+      /* released */
+    }
+    setPlaying(false);
+  }, []);
+
+  useEffect(() => {
+    if (!pauseRef) return;
+    pauseRef.current = pauseForHandoff;
+    return () => {
+      if (pauseRef.current === pauseForHandoff) pauseRef.current = null;
+    };
+  }, [pauseForHandoff, pauseRef]);
+
   useEffect(() => {
     return () => {
+      releaseFeedPlayback(playbackId);
       const current = playerRef.current;
       generationRef.current += 1;
       playerRef.current = null;
@@ -147,7 +199,7 @@ function NativeListingVideo({
         /* ignore */
       }
     };
-  }, []);
+  }, [playbackId]);
 
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = false;
@@ -196,7 +248,12 @@ function NativeListingVideo({
       playingSub = bound.addListener('playingChange', ({ isPlaying }) => {
         if (!live()) return;
         setPlaying(Boolean(isPlaying));
-        if (isPlaying) hidePoster();
+        if (isPlaying) {
+          hidePoster();
+          claimFeedPlayback(playbackId, pauseForHandoff);
+        } else {
+          releaseFeedPlayback(playbackId);
+        }
       });
     } catch {
       removeVideoPlayerSubscription(statusSub);
@@ -209,7 +266,7 @@ function NativeListingVideo({
       removeVideoPlayerSubscription(statusSub);
       removeVideoPlayerSubscription(playingSub);
     };
-  }, [hidePoster, player, uri]);
+  }, [hidePoster, pauseForHandoff, playbackId, player, uri]);
 
   const posterVisible = Boolean(posterUri) && (showPoster || loadFailed);
 

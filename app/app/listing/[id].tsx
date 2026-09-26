@@ -32,7 +32,8 @@ import {
 } from 'react-native';
 import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
-import { collectListingMedia } from '@/lib/postMedia';
+import { collectListingMedia, listingVideoViewerIndex } from '@/lib/postMedia';
+import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ListingCommentsSection } from '@/components/feature/ListingCommentsSection';
 import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
@@ -93,6 +94,7 @@ export default function ListingDetailScreen() {
   const [mediaViewerOrigin, setMediaViewerOrigin] = useState<MediaOriginRect | null>(null);
   const imageRefs = useRef<Array<View | null>>([]);
   const videoPreviewRef = useRef<View | null>(null);
+  const videoPreviewPauseRef = useRef<(() => void) | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
 
   // Load local favorite state
@@ -362,8 +364,12 @@ export default function ListingDetailScreen() {
     typeof listing.weightKg === 'number' && listing.weightKg > 0
       ? `${(listing.weightKg % 1 === 0 ? Math.round(listing.weightKg) : listing.weightKg).toLocaleString('ar-SA')} كجم`
       : null;
-  const images = listingPhotoUris(listing);
   const videoUri = listingVideoUrl(listing);
+  // A dedicated videoUrl without an extension is not filtered by listingPhotoUris.
+  const images = listingPhotoUris(listing).filter((uri) => uri.trim() !== videoUri);
+  const videoItem = mediaItems.find((item) => item.kind === 'video' && item.uri === videoUri)
+    ?? mediaItems.find((item) => item.kind === 'video');
+  const videoPosterUri = videoItem?.posterUri ?? listing.thumbnailUrl ?? undefined;
   const categoryLabel = CATEGORY_LABELS[listing.category] ?? '';
 
   const handleStartLive = () => {
@@ -668,10 +674,11 @@ export default function ListingDetailScreen() {
               collapsable={false}
               style={styles.mediaBleed}
               onPress={() => {
-                let videoIndex = mediaItems.findIndex(
-                  (item) => item.kind === 'video' && item.uri === videoUri,
-                );
-                if (videoIndex < 0) videoIndex = mediaItems.findIndex((item) => item.kind === 'video');
+                // 1) Stop the page preview now (session-guarded), before any viewer player exists.
+                videoPreviewPauseRef.current?.();
+                pauseAllFeedPlayback();
+                // 2) Open at the VIDEO item; the preview unmounts while the viewer is visible.
+                const videoIndex = listingVideoViewerIndex(mediaItems, videoUri);
                 openMediaViewer(videoIndex >= 0 ? videoIndex : 0, videoPreviewRef.current);
               }}
               accessibilityRole="button"
@@ -679,12 +686,26 @@ export default function ListingDetailScreen() {
             >
               {/* Preview only: taps go to the Pressable, which opens MediaViewerModal. */}
               <View pointerEvents="none">
-                <ListingVideoPlayer
-                  uri={videoUri}
-                  posterUri={listing.thumbnailUrl}
-                  height={galleryImageHeight}
-                  style={styles.mediaPlayer}
-                />
+                {mediaViewerVisible ? (
+                  // The viewer owns playback: unmount (pause + release) the preview player.
+                  <View style={[styles.videoPreviewPoster, { height: galleryImageHeight }]}>
+                    {videoPosterUri ? (
+                      <Image
+                        source={uriSource(resolveMediaUrl(videoPosterUri) ?? videoPosterUri)}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                      />
+                    ) : null}
+                  </View>
+                ) : (
+                  <ListingVideoPlayer
+                    uri={videoUri}
+                    posterUri={listing.thumbnailUrl}
+                    height={galleryImageHeight}
+                    style={styles.mediaPlayer}
+                    pauseRef={videoPreviewPauseRef}
+                  />
+                )}
               </View>
               <View style={styles.videoPlayOverlay} pointerEvents="none">
                 <View style={styles.videoPlayBtn}>
@@ -884,6 +905,11 @@ function createStyles(colors: ThemeColors) {
     mediaPlayer: {
       borderRadius: 0,
       width: '100%',
+    },
+    videoPreviewPoster: {
+      width: '100%',
+      backgroundColor: '#102633',
+      overflow: 'hidden',
     },
     videoPlayOverlay: {
       ...StyleSheet.absoluteFillObject,

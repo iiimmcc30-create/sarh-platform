@@ -33,9 +33,13 @@ type StoryVideoPlayerProps = {
   nativeControls?: boolean;
   /** Stories/feed tiles default to cover. Viewers must pass contain. */
   contentFit?: StoryVideoFit;
-  /** Android only. Feed keeps textureView for stacked tiles; viewer should use surfaceView. */
+  /**
+   * Android only. Defaults to textureView. Keep textureView inside RN <Modal> (Media
+   * Viewer): a SurfaceView sits behind the dialog window, so views drawn above it
+   * (poster) hide the frames while audio plays.
+   */
   surfaceType?: StoryVideoSurfaceType;
-  /** Hide poster after the first decoded frame so it cannot mask playback. */
+  /** Hide the poster at the first decoded frame (fallback: shortly after playback starts). */
   hidePosterWhenPlaying?: boolean;
   onReady?: () => void;
   onNaturalSize?: (width: number, height: number) => void;
@@ -99,10 +103,20 @@ function StoryVideoPlayerNative({
   const initialPlayDoneRef = useRef(false);
   const [posterVisible, setPosterVisible] = useState(Boolean(posterUri));
   const onPlayerRef = useRef(onPlayer);
+  // Callback props live in refs so parent re-renders (e.g. the viewer's 250ms
+  // timeUpdate state, or a rotation relayout) never re-run the player effect,
+  // bump the generation or detach/re-attach native listeners.
+  const onReadyRef = useRef(onReady);
+  const onNaturalSizeRef = useRef(onNaturalSize);
+  const hidePosterRef = useRef(hidePosterWhenPlaying);
+  const posterFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generationRef = useRef(0);
   const playerRef = useRef<ExpoVideoPlayer | null>(null);
   const sourceRef = useRef(uri);
   onPlayerRef.current = onPlayer;
+  onReadyRef.current = onReady;
+  onNaturalSizeRef.current = onNaturalSize;
+  hidePosterRef.current = hidePosterWhenPlaying;
 
   if (sourceRef.current !== uri) {
     sourceRef.current = uri;
@@ -117,6 +131,8 @@ function StoryVideoPlayerNative({
       generationRef.current += 1;
       playerRef.current = null;
       onPlayerRef.current?.(null);
+      if (posterFallbackTimer.current) clearTimeout(posterFallbackTimer.current);
+      posterFallbackTimer.current = null;
       if (!current) return;
       try {
         current.pause();
@@ -132,20 +148,26 @@ function StoryVideoPlayerNative({
   const notifyReady = useCallback(() => {
     if (readyRef.current) return;
     readyRef.current = true;
-    if (hidePosterWhenPlaying) {
-      setPosterVisible(false);
-    }
-    onReady?.();
-  }, [hidePosterWhenPlaying, onReady]);
+    onReadyRef.current?.();
+  }, []);
 
-  const emitNatural = useCallback(
-    (width: number, height: number) => {
-      const ratio = normalizeAspectRatio(width, height);
-      if (!ratio) return;
-      onNaturalSize?.(width, height);
-    },
-    [onNaturalSize],
-  );
+  // The poster stays under the VideoView until the first decoded frame.
+  const hidePoster = useCallback(() => {
+    if (posterFallbackTimer.current) clearTimeout(posterFallbackTimer.current);
+    posterFallbackTimer.current = null;
+    if (hidePosterRef.current) setPosterVisible(false);
+  }, []);
+
+  const handleFirstFrame = useCallback(() => {
+    hidePoster();
+    notifyReady();
+  }, [hidePoster, notifyReady]);
+
+  const emitNatural = useCallback((width: number, height: number) => {
+    const ratio = normalizeAspectRatio(width, height);
+    if (!ratio) return;
+    onNaturalSizeRef.current?.(width, height);
+  }, []);
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = loop;
@@ -264,7 +286,15 @@ function StoryVideoPlayerNative({
 
       playingSub = bound.addListener('playingChange', ({ isPlaying }) => {
         if (!live()) return;
-        if (isPlaying) notifyReady();
+        if (!isPlaying) return;
+        notifyReady();
+        // Fallback if onFirstFrameRender is not delivered: never keep the poster up.
+        if (hidePosterRef.current && !posterFallbackTimer.current) {
+          posterFallbackTimer.current = setTimeout(() => {
+            posterFallbackTimer.current = null;
+            if (live()) setPosterVisible(false);
+          }, 600);
+        }
       });
 
       sourceLoadSub = bound.addListener('sourceLoad', (payload) => {
@@ -294,6 +324,8 @@ function StoryVideoPlayerNative({
 
     return () => {
       generationRef.current += 1;
+      if (posterFallbackTimer.current) clearTimeout(posterFallbackTimer.current);
+      posterFallbackTimer.current = null;
       removeVideoPlayerSubscription(statusSub);
       removeVideoPlayerSubscription(playingSub);
       removeVideoPlayerSubscription(sourceLoadSub);
@@ -337,7 +369,7 @@ function StoryVideoPlayerNative({
         fullscreenOptions={{ enable: false }}
         useExoShutter={false}
         surfaceType={resolvedSurfaceType}
-        onFirstFrameRender={notifyReady}
+        onFirstFrameRender={handleFirstFrame}
       />
     </View>
   );

@@ -2,8 +2,10 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { formatViewerRemainingTime } from '@/lib/mediaViewerVideoLayout';
 import type { MediaViewerPlaybackState } from '@/lib/useMediaViewerPlayback';
+import { isHorizontalPagerRtl, seekRatioFromTouch } from '@/lib/mediaViewerPaging';
 import { getRtlRow } from '@/lib/rtl';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
 type Props = {
   playback: MediaViewerPlaybackState;
@@ -20,24 +22,64 @@ export function MediaViewerControls({
   playback,
   onTogglePlay,
   onReplay,
+  onSeek,
   visible,
   muted,
   onToggleMute,
   onToggleChrome,
 }: Props) {
+  const [scrub, setScrub] = useState<number | null>(null);
+  const trackWidth = useRef(0);
+  const grant = useRef({ locationX: 0, pageX: 0 });
+
   if (!visible) return null;
 
   const showReplay = playback.phase === 'ended';
   const remaining = formatViewerRemainingTime(playback.duration, playback.currentTime);
   const progress =
-    playback.duration > 0
+    scrub ??
+    (playback.duration > 0
       ? Math.min(1, Math.max(0, playback.currentTime / playback.duration))
-      : 0;
+      : 0);
+
+  const ratioAt = (e: GestureResponderEvent) =>
+    seekRatioFromTouch(
+      grant.current.locationX + (e.nativeEvent.pageX - grant.current.pageX),
+      trackWidth.current,
+      isHorizontalPagerRtl(),
+    );
+
+  const commitSeek = (ratio: number) => {
+    setScrub(null);
+    if (playback.duration > 0) onSeek(ratio * playback.duration);
+  };
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
-      <View style={styles.progressTrack} pointerEvents="none">
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      {/* Seek bar: its own responder (tap or drag), above the slide gesture layer. */}
+      <View
+        style={styles.seekHit}
+        onLayout={(e) => {
+          trackWidth.current = e.nativeEvent.layout.width;
+        }}
+        onStartShouldSetResponder={() => playback.duration > 0}
+        onMoveShouldSetResponder={() => playback.duration > 0}
+        onResponderTerminationRequest={() => false}
+        onResponderGrant={(e) => {
+          grant.current = { locationX: e.nativeEvent.locationX, pageX: e.nativeEvent.pageX };
+          setScrub(ratioAt(e));
+          // true = block the native pager from taking a horizontal drag.
+          return true;
+        }}
+        onResponderMove={(e) => setScrub(ratioAt(e))}
+        onResponderRelease={(e) => commitSeek(ratioAt(e))}
+        onResponderTerminate={() => setScrub(null)}
+        accessibilityRole="adjustable"
+        accessibilityLabel="شريط التقدم"
+      >
+        <View style={styles.progressTrack} pointerEvents="none">
+          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+        </View>
       </View>
       <View style={[styles.bar, getRtlRow()]} onStartShouldSetResponder={() => true}>
         {showReplay ? (
@@ -104,13 +146,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 95,
   },
+  seekHit: {
+    height: 22,
+    justifyContent: 'flex-end',
+    paddingBottom: 2,
+  },
   progressTrack: {
-    height: 2,
+    height: 3,
     backgroundColor: 'rgba(255,255,255,0.25)',
-    marginBottom: 2,
   },
   progressFill: {
-    height: 2,
+    height: 3,
     backgroundColor: '#fff',
   },
   bar: {

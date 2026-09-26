@@ -6,14 +6,13 @@ import type { ThemeColors } from '@/constants/theme';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   PixelRatio,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
-import { GestureDetector } from 'react-native-gesture-handler';
-import Animated from 'react-native-reanimated';
 
 type FeedVideoTileProps = {
   uri: string;
@@ -54,7 +53,7 @@ export function FeedVideoTile({
   const gesturesOn = typeof onToggleChrome === 'function';
 
   // Zoom resets when the page is inactive, the screen blurs, or the source changes.
-  const { gesture, animatedStyle, onLayout, resetZoom } = useFeedVideoGestures({
+  const { panHandlers, touchHandlers, animatedStyle, onLayout, resetZoom } = useFeedVideoGestures({
     enabled: gesturesOn,
     active: active && focused,
     resetKey: uri,
@@ -98,13 +97,31 @@ export function FeedVideoTile({
       <View
         ref={hostRef}
         style={styles.fill}
+        collapsable={false}
         onLayout={(e) => onLayout(e.nativeEvent.layout.width, e.nativeEvent.layout.height)}
       >
-        <GestureDetector gesture={gesture}>
-          <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]} collapsable={false}>
+        {/*
+          Gesture surface: this View hosts the rendered media, so it is the touch
+          target. Pinch / zoomed pan claim the responder here (capture phase, native
+          list blocked); taps are read from raw touch events. The media itself is
+          pointerEvents="none" so locationX/Y are in unscaled surface coordinates.
+        */}
+        <View
+          style={StyleSheet.absoluteFill}
+          collapsable={false}
+          testID="feed-video-gesture-surface"
+          {...panHandlers}
+          {...touchHandlers}
+        >
+          <Animated.View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, animatedStyle]}
+            collapsable={false}
+          >
             {media}
           </Animated.View>
-        </GestureDetector>
+        </View>
+        {/* Sibling, not a child: its taps never reach the surface handlers. */}
         <Pressable
           style={styles.playFab}
           onPress={onOpen}

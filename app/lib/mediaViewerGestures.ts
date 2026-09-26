@@ -111,3 +111,49 @@ export function pinchScale(startScale: number, distance: number, startDistance: 
   if (startDistance <= 0 || !Number.isFinite(distance)) return clampViewerScale(startScale);
   return clampViewerScale(startScale * (distance / startDistance));
 }
+
+/** Feed tile double tap: zoom in to 2x, or back to 1x when already zoomed. */
+export const FEED_DOUBLE_TAP_SCALE = 2;
+export const FEED_DOUBLE_TAP_MS = VIEWER_TAP_MS;
+export const FEED_DOUBLE_TAP_SLOP = 40;
+
+type TouchPoint = { pageX: number; pageY: number };
+
+export function touchDistance(a: TouchPoint, b: TouchPoint): number {
+  return Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY);
+}
+
+/**
+ * The feed tile claims the JS responder (and blocks the native list) only for a
+ * two-finger pinch or a pan while zoomed. A single finger at 1x stays with the list.
+ */
+export function shouldCaptureFeedGesture(touchCount: number, scale: number): boolean {
+  return touchCount >= 2 || isZoomed(scale);
+}
+
+export function nextDoubleTapScale(scale: number): number {
+  return isZoomed(scale) ? VIEWER_MIN_SCALE : FEED_DOUBLE_TAP_SCALE;
+}
+
+export function isDoubleTap(
+  previous: { at: number; x: number; y: number } | null,
+  current: { at: number; x: number; y: number },
+): boolean {
+  if (!previous || previous.at <= 0) return false;
+  if (current.at - previous.at > FEED_DOUBLE_TAP_MS) return false;
+  return Math.hypot(current.x - previous.x, current.y - previous.y) <= FEED_DOUBLE_TAP_SLOP;
+}
+
+/** Translate for a centre-origin scale so the tapped point stays under the finger. */
+export function focalZoomOffset(
+  locationX: number,
+  locationY: number,
+  width: number,
+  height: number,
+  scale: number,
+): { x: number; y: number } {
+  return {
+    x: (width / 2 - locationX) * (scale - 1),
+    y: (height / 2 - locationY) * (scale - 1),
+  };
+}

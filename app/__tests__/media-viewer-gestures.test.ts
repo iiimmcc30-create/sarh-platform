@@ -1,20 +1,32 @@
 import { containSize } from '@/lib/mediaContain';
 import { formatViewerRemainingTime, mediaViewerVideoLayout } from '@/lib/mediaViewerVideoLayout';
 import {
+  FEED_DOUBLE_TAP_MS,
+  FEED_DOUBLE_TAP_SCALE,
   VIEWER_MAX_SCALE,
   VIEWER_MIN_SCALE,
   clampPan,
   clampViewerScale,
   classifyViewerGesture,
+  focalZoomOffset,
+  isDoubleTap,
   isTapGesture,
   isZoomed,
+  nextDoubleTapScale,
   nextOverlayVisible,
   pinchScale,
   resetTransformWhenIdle,
   shouldCancelSwipe,
+  shouldCaptureFeedGesture,
   shouldDismissFromSwipe,
+  touchDistance,
   viewerContainBox,
 } from '@/lib/mediaViewerGestures';
+import {
+  pagerIndexForOffset,
+  pagerOffsetForIndex,
+  seekRatioFromTouch,
+} from '@/lib/mediaViewerPaging';
 import { readFileSync } from 'fs';
 import path from 'path';
 
@@ -128,5 +140,164 @@ describe('media viewer source contracts', () => {
     expect(viewer).not.toContain('heroFromScale');
     expect(viewer).not.toContain('c_fill');
     expect(viewer).not.toMatch(/style=\{\[styles\.heroLayer,\s*heroStyle\]\}/);
+  });
+});
+
+describe('feed video gestures (PanResponder + RN Animated)', () => {
+  it('claims the responder only for pinch or zoomed pan so the feed still scrolls at 1x', () => {
+    expect(shouldCaptureFeedGesture(1, 1)).toBe(false);
+    expect(shouldCaptureFeedGesture(2, 1)).toBe(true);
+    expect(shouldCaptureFeedGesture(1, 2)).toBe(true);
+  });
+
+  it('pinches from the two-finger distance', () => {
+    const start = touchDistance({ pageX: 100, pageY: 100 }, { pageX: 200, pageY: 100 });
+    const now = touchDistance({ pageX: 50, pageY: 100 }, { pageX: 250, pageY: 100 });
+    expect(start).toBe(100);
+    expect(pinchScale(1, now, start)).toBe(2);
+  });
+
+  it('double tap toggles 2x and back, and keeps the tapped point under the finger', () => {
+    expect(nextDoubleTapScale(1)).toBe(FEED_DOUBLE_TAP_SCALE);
+    expect(nextDoubleTapScale(2.5)).toBe(1);
+    expect(isDoubleTap({ at: 1000, x: 10, y: 10 }, { at: 1000 + FEED_DOUBLE_TAP_MS - 1, x: 14, y: 12 })).toBe(true);
+    expect(isDoubleTap({ at: 1000, x: 10, y: 10 }, { at: 1000 + FEED_DOUBLE_TAP_MS + 50, x: 10, y: 10 })).toBe(false);
+    expect(isDoubleTap({ at: 1000, x: 10, y: 10 }, { at: 1100, x: 200, y: 10 })).toBe(false);
+    expect(isDoubleTap(null, { at: 1100, x: 10, y: 10 })).toBe(false);
+    expect(focalZoomOffset(100, 50, 200, 100, 2)).toEqual({ x: 0, y: 0 });
+    expect(focalZoomOffset(0, 0, 200, 100, 2)).toEqual({ x: 100, y: 50 });
+  });
+
+  it('wires the handlers onto the View that renders the feed media surface', () => {
+    const tile = src('components/feature/FeedVideoTile.tsx');
+    const hook = src('lib/useFeedVideoGestures.ts');
+    const surfaceStart = tile.indexOf('testID="feed-video-gesture-surface"');
+    expect(surfaceStart).toBeGreaterThan(0);
+    const surface = tile.slice(surfaceStart, tile.indexOf('</View>', tile.indexOf('{media}', surfaceStart)));
+    expect(surface).toContain('{...panHandlers}');
+    expect(surface).toContain('{...touchHandlers}');
+    expect(surface).toContain('pointerEvents="none"');
+    expect(surface).toContain('animatedStyle');
+    expect(surface).toContain('{media}');
+    // The play FAB is a sibling after the surface, not a touch-swallowing overlay inside it.
+    expect(tile.indexOf('style={styles.playFab}')).toBeGreaterThan(tile.indexOf('{media}', surfaceStart));
+    expect(tile).not.toContain('GestureDetector');
+    expect(tile).not.toContain('react-native-reanimated');
+    expect(hook).toContain('PanResponder.create');
+    expect(hook).toContain('onStartShouldSetPanResponderCapture');
+    expect(hook).toContain('onMoveShouldSetPanResponderCapture');
+    expect(hook).toContain('onPanResponderTerminationRequest: () => false');
+    expect(hook).toContain('onShouldBlockNativeResponder: () => true');
+    expect(hook).not.toContain('react-native-reanimated');
+    expect(hook).not.toContain('react-native-gesture-handler');
+  });
+});
+
+describe('media viewer playback session contracts', () => {
+  it('gives slide gestures a root inside the Modal and keeps the page across relayout', () => {
+    const viewer = src('components/ui/MediaViewerModal.tsx');
+    expect(viewer).toContain('<GestureHandlerRootView');
+    expect(viewer).toContain('onMomentumScrollEnd={onPageSettled}');
+    expect(viewer).toContain('}, [visible, initialIndex, scrollX, positionPager]);');
+    expect(viewer).toContain('scrollRef.current?.scrollTo(');
+  });
+
+  it('does not recreate player listeners on slide re-render', () => {
+    const slide = src('components/media-viewer/MediaViewerSlide.tsx');
+    const player = src('components/feature/StoryVideoPlayer.tsx');
+    expect(slide).toContain('onReady={handleReady}');
+    expect(slide).not.toContain('onReady={() =>');
+    expect(slide).toContain('MEDIA_LOADING_FALLBACK_RATIO');
+    expect(player).toContain('onReadyRef.current?.()');
+    expect(player).toContain('onFirstFrameRender={handleFirstFrame}');
+    expect(player).toContain('isSameVideoPlayerSession');
+    expect(player).toContain('removeVideoPlayerSubscription');
+  });
+
+  it('releases the listing preview player while the viewer is open', () => {
+    const detail = src('app/listing/[id].tsx');
+    const guard = detail.indexOf('{mediaViewerVisible ? (');
+    expect(guard).toBeGreaterThan(0);
+    expect(detail.indexOf('<ListingVideoPlayer', guard)).toBeGreaterThan(guard);
+    const preview = src('components/listing/ListingVideoPlayer.tsx');
+    expect(preview).toContain('claimFeedPlayback(playbackId, pauseForHandoff)');
+    expect(preview).toContain('releaseFeedPlayback(playbackId)');
+  });
+});
+
+describe('media viewer RTL paging (listing video opened as the first photo)', () => {
+  const W = 400;
+
+  it('maps the listing video index to the physical RTL offset', () => {
+    // photos [0, 1] + video at index 2. Old math used index * width = 800,
+    // which in RTL is the right-most page = item 0 (the first photo).
+    const oldOffset = 2 * W;
+    expect(pagerIndexForOffset(oldOffset, 3, W, true)).toBe(0);
+    expect(pagerOffsetForIndex(2, 3, W, true)).toBe(0);
+    expect(pagerIndexForOffset(pagerOffsetForIndex(2, 3, W, true), 3, W, true)).toBe(2);
+    expect(pagerOffsetForIndex(0, 3, W, true)).toBe(800);
+  });
+
+  it('keeps LTR unchanged and clamps', () => {
+    expect(pagerOffsetForIndex(2, 3, W, false)).toBe(800);
+    expect(pagerIndexForOffset(800, 3, W, false)).toBe(2);
+    expect(pagerIndexForOffset(5000, 3, W, false)).toBe(2);
+    expect(pagerOffsetForIndex(9, 3, W, true)).toBe(0);
+    expect(pagerOffsetForIndex(0, 1, W, true)).toBe(0);
+  });
+
+  it('seeks from the inline start of the bar', () => {
+    expect(seekRatioFromTouch(100, 400, false)).toBe(0.25);
+    expect(seekRatioFromTouch(100, 400, true)).toBe(0.75);
+    expect(seekRatioFromTouch(-20, 400, false)).toBe(0);
+    expect(seekRatioFromTouch(10, 0, false)).toBe(0);
+  });
+
+  it('positions the viewer pager RTL-aware and starts no player before that', () => {
+    const viewer = src('components/ui/MediaViewerModal.tsx');
+    expect(viewer).toContain('pagerOffsetForIndex(');
+    expect(viewer).toContain('pagerIndexForOffset(');
+    expect(viewer).toContain('onLayout={positionPager}');
+    expect(viewer).toContain('onContentSizeChange={positionPager}');
+    expect(viewer).toContain('active={visible && positioned && idx === currentIndex}');
+    expect(viewer).not.toContain('initialIndex * screenW');
+  });
+});
+
+describe('media viewer controls routing and playback wiring', () => {
+  it('keeps the player reported by StoryVideoPlayer (no mount-time reset)', () => {
+    const slide = src('components/media-viewer/MediaViewerSlide.tsx');
+    expect(slide).not.toContain('setPlayer(null)');
+    expect(slide).toContain('onPlayer={setPlayer}');
+    expect(slide).toContain('if (itemKeyRef.current === itemKey) return;');
+  });
+
+  it('draws the controls above the slide gesture layer', () => {
+    const slide = src('components/media-viewer/MediaViewerSlide.tsx');
+    const catcherZ = Number(/gestureCatcher:\s*\{[^}]*zIndex:\s*(\d+)/.exec(slide)?.[1]);
+    const controlsZ = Number(/bottom: controlsBottom,[\s\S]*?zIndex:\s*(\d+)/.exec(slide)?.[1]);
+    expect(catcherZ).toBeGreaterThan(0);
+    expect(controlsZ).toBeGreaterThan(catcherZ);
+    const controls = src('components/media-viewer/MediaViewerControls.tsx');
+    expect(controls).toContain('onPress={onTogglePlay}');
+    expect(controls).toContain('onResponderRelease={(e) => commitSeek(ratioAt(e))}');
+    expect(controls).toContain('onResponderTerminationRequest={() => false}');
+  });
+
+  it('never captures a single-finger start on the feed surface', () => {
+    const hook = src('lib/useFeedVideoGestures.ts');
+    expect(hook).toContain('onStartShouldSetPanResponder: () => false');
+    expect(hook).toContain('shouldCaptureFeedGesture(touchCount(e), live.current.scale)');
+    expect(shouldCaptureFeedGesture(1, 1)).toBe(false);
+  });
+
+  it('stops the listing preview synchronously before opening the viewer', () => {
+    const detail = src('app/listing/[id].tsx');
+    const press = detail.indexOf('videoPreviewPauseRef.current?.();');
+    expect(press).toBeGreaterThan(0);
+    expect(detail.indexOf('pauseAllFeedPlayback();', press)).toBeGreaterThan(press);
+    expect(detail.indexOf('listingVideoViewerIndex(mediaItems, videoUri)', press)).toBeGreaterThan(press);
+    expect(detail).toContain('pauseRef={videoPreviewPauseRef}');
+    expect(src('components/listing/ListingVideoPlayer.tsx')).toContain('pauseRef.current = pauseForHandoff;');
   });
 });

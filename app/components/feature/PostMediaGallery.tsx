@@ -26,6 +26,7 @@ import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
 import { collectPostMedia, type FeedMediaItem, type PostMediaRecord } from '@/lib/postMedia';
 import { postDetailImageUrl, postFeedImageUrl } from '@/lib/listingMedia';
 import { recordPostView } from '@/lib/postEngagement';
+import { isHorizontalPagerRtl, pagerIndexForOffset } from '@/lib/mediaViewerPaging';
 
 const ASPECT_RATIO = 16 / 11;
 
@@ -250,11 +251,23 @@ export function PostMediaGallery({
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (!width) return;
-      const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+      // RTL: offsets are physical (from the left) while page 0 is on the right.
+      const idx = pagerIndexForOffset(
+        e.nativeEvent.contentOffset.x,
+        items.length,
+        width,
+        isHorizontalPagerRtl(),
+      );
       setActiveIndex(idx);
     },
-    [width],
+    [items.length, width],
   );
+
+  // Hooks before the empty early return (rules of hooks).
+  const cachedRatios = useMemo(() => {
+    if (!isDetail || !ratio || !activeItem) return undefined;
+    return { [activeItem.uri]: ratio };
+  }, [activeItem, isDetail, ratio]);
 
   if (items.length === 0) return null;
 
@@ -263,11 +276,6 @@ export function PostMediaGallery({
   const detailHeight = isDetail
     ? detailMediaHeight(ratio, pageWidth, detailMediaMaxHeight(windowH, pageWidth))
     : undefined;
-
-  const cachedRatios = useMemo(() => {
-    if (!isDetail || !ratio || !activeItem) return undefined;
-    return { [activeItem.uri]: ratio };
-  }, [activeItem, isDetail, ratio]);
 
   const containerStyle = isDetail
     ? [styles.detailContainer, { height: detailHeight }]

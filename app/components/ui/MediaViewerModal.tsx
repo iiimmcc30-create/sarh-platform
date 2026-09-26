@@ -7,9 +7,14 @@ import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
 export { containSizeFromRatio } from '@/lib/mediaContain';
 import { useHeroMediaTransition, type MediaOriginRect } from '@/lib/mediaOrigin';
 import { nextOverlayVisible } from '@/lib/mediaViewerGestures';
+import {
+  isHorizontalPagerRtl,
+  pagerIndexForOffset,
+  pagerOffsetForIndex,
+} from '@/lib/mediaViewerPaging';
 import { getRtlRow } from '@/lib/rtl';
 import type { FeedMediaItem } from '@/lib/postMedia';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
@@ -18,7 +23,11 @@ import {
   StyleSheet,
   View,
   useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type ScrollView,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
 
@@ -206,7 +215,38 @@ export function MediaViewerModal({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [overlayVisible, setOverlayVisible] = useState(true);
   const [zoomed, setZoomed] = useState(false);
-  const scrollX = useRef(new Animated.Value(initialIndex * screenW)).current;
+  // No slide is active (no player starts) until the pager shows the requested page.
+  const [positioned, setPositioned] = useState(false);
+  const rtl = isHorizontalPagerRtl();
+  const scrollX = useRef(
+    new Animated.Value(pagerOffsetForIndex(initialIndex, items.length, screenW, rtl)),
+  ).current;
+  const scrollRef = useRef<ScrollView | null>(null);
+  const currentIndexRef = useRef(initialIndex);
+  const screenWRef = useRef(screenW);
+  screenWRef.current = screenW;
+  const itemsLengthRef = useRef(items.length);
+  itemsLengthRef.current = items.length;
+  const rtlRef = useRef(rtl);
+  rtlRef.current = rtl;
+
+  /** Scroll the pager to the current page (RTL-aware) and then allow playback. */
+  const positionPager = useCallback(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    const x = pagerOffsetForIndex(
+      currentIndexRef.current,
+      itemsLengthRef.current,
+      screenWRef.current,
+      rtlRef.current,
+    );
+    scroll.scrollTo({ x, y: 0, animated: false });
+    scrollX.setValue(x);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ x, y: 0, animated: false });
+      setPositioned(true);
+    });
+  }, [scrollX]);
 
   const finishClose = useCallback(() => {
     pauseAllFeedPlayback();
@@ -219,14 +259,46 @@ export function MediaViewerModal({
     finishClose,
   );
 
+  // Open only: hand playback to the viewer. Must not depend on window size, or a
+  // rotation would pause/reset the session and jump back to initialIndex.
   useEffect(() => {
     if (!visible) return;
     pauseAllFeedPlayback();
+    currentIndexRef.current = initialIndex;
     setCurrentIndex(initialIndex);
     setOverlayVisible(true);
     setZoomed(false);
-    scrollX.setValue(initialIndex * screenW);
-  }, [visible, initialIndex, scrollX, screenW]);
+    setPositioned(false);
+    scrollX.setValue(
+      pagerOffsetForIndex(initialIndex, itemsLengthRef.current, screenWRef.current, rtlRef.current),
+    );
+    // Normally positioned from the pager's onLayout / onContentSizeChange.
+    const fallback = setTimeout(positionPager, 350);
+    return () => clearTimeout(fallback);
+  }, [visible, initialIndex, scrollX, positionPager]);
+
+  // Initial page only. A width-derived prop would snap back to initialIndex on rotation.
+  const initialOffset = useMemo(
+    () => ({
+      x: pagerOffsetForIndex(initialIndex, itemsLengthRef.current, screenWRef.current, rtlRef.current),
+      y: 0,
+    }),
+    [initialIndex],
+  );
+
+  // Rotation / resize: keep the current page (and its live player) in place.
+  const laidOutWidthRef = useRef(screenW);
+  useEffect(() => {
+    if (laidOutWidthRef.current === screenW) return;
+    laidOutWidthRef.current = screenW;
+    if (!visible) return;
+    const x = pagerOffsetForIndex(currentIndexRef.current, itemsLengthRef.current, screenW, rtlRef.current);
+    scrollX.setValue(x);
+    const frame = requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ x, y: 0, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [visible, screenW, scrollX]);
 
   const toggleOverlay = useCallback(() => {
     setOverlayVisible((prev) => nextOverlayVisible(prev));
@@ -234,17 +306,26 @@ export function MediaViewerModal({
 
   const onScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-    {
-      useNativeDriver: false,
-      listener: (event: { nativeEvent: { contentOffset: { x: number } } }) => {
-        const idx = Math.round(event.nativeEvent.contentOffset.x / screenW);
-        if (idx !== currentIndex && idx >= 0 && idx < items.length) {
-          setCurrentIndex(idx);
-          setZoomed(false);
-        }
-      },
-    },
+    { useNativeDriver: false },
   );
+
+  // The page only changes when a user swipe settles. Deriving it from every scroll
+  // offset let a relayout (old offset / new width) flip `active` off the video and
+  // unmount its player.
+  const onPageSettled = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const width = screenWRef.current;
+    if (width <= 0) return;
+    const idx = pagerIndexForOffset(
+      event.nativeEvent.contentOffset.x,
+      itemsLengthRef.current,
+      width,
+      rtlRef.current,
+    );
+    if (idx === currentIndexRef.current || idx < 0 || idx >= itemsLengthRef.current) return;
+    currentIndexRef.current = idx;
+    setCurrentIndex(idx);
+    setZoomed(false);
+  }, []);
 
   if (!items.length) return null;
 
@@ -271,77 +352,87 @@ export function MediaViewerModal({
       statusBarTranslucent
       onRequestClose={requestClose}
     >
-      <StatusBar hidden />
-      <View style={styles.shell}>
-        <Animated.View style={[styles.backdropFill, { opacity: progress }]} />
-        <View style={styles.heroLayer} pointerEvents="box-none">
-          <Animated.ScrollView
-            key={`media-viewer-scroll-${initialIndex}-${items.length}`}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEnabled={items.length > 1 && !zoomed}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            contentOffset={{ x: initialIndex * screenW, y: 0 }}
-            style={{ width: screenW, height: screenH }}
+      {/* RNGH needs its own root inside an RN Modal on Android, or the slide gestures get no touches. */}
+      <GestureHandlerRootView style={styles.gestureRoot}>
+        <StatusBar hidden />
+        <View style={styles.shell}>
+          <Animated.View style={[styles.backdropFill, { opacity: progress }]} />
+          <View style={styles.heroLayer} pointerEvents="box-none">
+            <Animated.ScrollView
+              ref={scrollRef}
+              key={`media-viewer-scroll-${initialIndex}-${items.length}`}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEnabled={items.length > 1 && !zoomed}
+              onScroll={onScroll}
+              onMomentumScrollEnd={onPageSettled}
+              onLayout={positionPager}
+              onContentSizeChange={positionPager}
+              scrollEventThrottle={16}
+              contentOffset={initialOffset}
+              style={{ width: screenW, height: screenH, direction: rtl ? 'rtl' : 'ltr' }}
+            >
+              {items.map((item, idx) => (
+                <MediaViewerSlide
+                  key={`${item.kind}-${item.uri}-${idx}`}
+                  item={item}
+                  active={visible && positioned && idx === currentIndex}
+                  screenW={screenW}
+                  screenH={screenH}
+                  cachedRatio={cachedRatios?.[item.uri] ?? null}
+                  overlayVisible={overlayVisible}
+                  controlsBottomInset={0}
+                  contentFit="contain"
+                  resizeMode="contain"
+                  onZoomedChange={setZoomed}
+                  onToggleOverlay={toggleOverlay}
+                  onDismiss={requestClose}
+                />
+              ))}
+            </Animated.ScrollView>
+          </View>
+
+          <Animated.View
+            style={[styles.chrome, { opacity: overlayVisible ? progress : 0 }]}
+            pointerEvents={overlayVisible ? 'box-none' : 'none'}
           >
-            {items.map((item, idx) => (
-              <MediaViewerSlide
-                key={`${item.kind}-${item.uri}-${idx}`}
-                item={item}
-                active={visible && idx === currentIndex}
-                screenW={screenW}
-                screenH={screenH}
-                cachedRatio={cachedRatios?.[item.uri] ?? null}
-                overlayVisible={overlayVisible}
-                controlsBottomInset={0}
-                contentFit="contain"
-                resizeMode="contain"
-                onZoomedChange={setZoomed}
-                onToggleOverlay={toggleOverlay}
-                onDismiss={requestClose}
-              />
-            ))}
-          </Animated.ScrollView>
+            {overlayVisible ? (
+              <>
+                <Pressable
+                  onPress={requestClose}
+                  style={[styles.closeBtn, { top: insets.top + 10 }]}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel="إغلاق"
+                >
+                  <AppIcon name="close" size={20} color="#fff" />
+                </Pressable>
+
+                {items.length > 1 ? (
+                  <View style={[styles.counter, { top: insets.top + 16 }]} pointerEvents="none">
+                    <AppText style={styles.counterText}>
+                      {currentIndex + 1} / {items.length}
+                    </AppText>
+                  </View>
+                ) : null}
+
+                {overlay ? (
+                  <ViewerOverlay overlay={overlay} insetsBottom={insets.bottom} />
+                ) : null}
+              </>
+            ) : null}
+          </Animated.View>
         </View>
-
-        <Animated.View
-          style={[styles.chrome, { opacity: overlayVisible ? progress : 0 }]}
-          pointerEvents={overlayVisible ? 'box-none' : 'none'}
-        >
-          {overlayVisible ? (
-            <>
-              <Pressable
-                onPress={requestClose}
-                style={[styles.closeBtn, { top: insets.top + 10 }]}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="إغلاق"
-              >
-                <AppIcon name="close" size={20} color="#fff" />
-              </Pressable>
-
-              {items.length > 1 ? (
-                <View style={[styles.counter, { top: insets.top + 16 }]} pointerEvents="none">
-                  <AppText style={styles.counterText}>
-                    {currentIndex + 1} / {items.length}
-                  </AppText>
-                </View>
-              ) : null}
-
-              {overlay ? (
-                <ViewerOverlay overlay={overlay} insetsBottom={insets.bottom} />
-              ) : null}
-            </>
-          ) : null}
-        </Animated.View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   shell: {
     flex: 1,
     backgroundColor: '#000',
