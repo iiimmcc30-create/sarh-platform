@@ -1,7 +1,10 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
+import { useFeedVideoGestures } from '@/lib/useFeedVideoGestures';
 import { postFeedImageUrl } from '@/lib/listingMedia';
 import type { ThemeColors } from '@/constants/theme';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   PixelRatio,
@@ -9,6 +12,8 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 
 type FeedVideoTileProps = {
   uri: string;
@@ -19,6 +24,8 @@ type FeedVideoTileProps = {
   contentFit?: 'cover' | 'contain';
   onOpen?: () => void;
   onNaturalSize?: (width: number, height: number) => void;
+  /** Feed posts only. Single tap toggles the post chrome. */
+  onToggleChrome?: () => void;
 };
 
 function posterDelivery(uri?: string): string | undefined {
@@ -28,21 +35,93 @@ function posterDelivery(uri?: string): string | undefined {
   return postFeedImageUrl(uri, screenW, dpr) ?? uri;
 }
 
-/** Feed video is preview-only; tap opens Media Viewer for playback. */
+/**
+ * Feed video is preview-only; tap opens Media Viewer for playback.
+ * With `onToggleChrome` (feed posts), the preview also gets single-tap chrome
+ * toggle and pinch / double-tap zoom; the play button still opens the viewer.
+ */
 export function FeedVideoTile({
+  uri,
   posterUri,
+  active = true,
   contentFit = 'cover',
   onOpen,
+  onToggleChrome,
 }: FeedVideoTileProps) {
+  const hostRef = useRef<View>(null);
+  const [focused, setFocused] = useState(true);
+  const [zoomed, setZoomed] = useState(false);
+  const gesturesOn = typeof onToggleChrome === 'function';
+
+  // Zoom resets when the page is inactive, the screen blurs, or the source changes.
+  const { gesture, animatedStyle, onLayout, resetZoom } = useFeedVideoGestures({
+    enabled: gesturesOn,
+    active: active && focused,
+    resetKey: uri,
+    onToggleChrome: onToggleChrome ?? noopToggle,
+    onZoomedChange: setZoomed,
+  });
+
   const poster = posterDelivery(posterUri);
+
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => {
+        setFocused(false);
+      };
+    }, []),
+  );
+
+  // Reset zoom once the tile is scrolled (almost) out of view.
+  useEffect(() => {
+    if (!gesturesOn || !zoomed) return;
+    const timer = setInterval(() => {
+      hostRef.current?.measureInWindow((_x, y, _w, h) => {
+        if (h <= 0) return;
+        const windowH = Dimensions.get('window').height;
+        const visible = Math.max(0, Math.min(windowH, y + h) - Math.max(0, y));
+        if (visible / h < 0.15) resetZoom();
+      });
+    }, 400);
+    return () => clearInterval(timer);
+  }, [gesturesOn, resetZoom, zoomed]);
+
+  const media = poster ? (
+    <Image source={uriSource(poster)} style={StyleSheet.absoluteFill} contentFit={contentFit} />
+  ) : (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
+  );
+
+  if (gesturesOn) {
+    return (
+      <View
+        ref={hostRef}
+        style={styles.fill}
+        onLayout={(e) => onLayout(e.nativeEvent.layout.width, e.nativeEvent.layout.height)}
+      >
+        <GestureDetector gesture={gesture}>
+          <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]} collapsable={false}>
+            {media}
+          </Animated.View>
+        </GestureDetector>
+        <Pressable
+          style={styles.playFab}
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel="فتح الفيديو"
+        >
+          <View style={styles.playBtn}>
+            <AppIcon name="play" size={22} color="#fff" variant="sr" />
+          </View>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.fill}>
-      {poster ? (
-        <Image source={uriSource(poster)} style={StyleSheet.absoluteFill} contentFit={contentFit} />
-      ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
-      )}
+      {media}
 
       <Pressable
         style={StyleSheet.absoluteFill}
@@ -60,6 +139,8 @@ export function FeedVideoTile({
   );
 }
 
+function noopToggle() {}
+
 const styles = StyleSheet.create({
   fill: {
     ...StyleSheet.absoluteFillObject,
@@ -68,6 +149,18 @@ const styles = StyleSheet.create({
   },
   playHit: {
     ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playFab: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 52,
+    height: 52,
+    marginTop: -26,
+    marginLeft: -26,
+    zIndex: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
