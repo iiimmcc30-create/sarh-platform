@@ -32,13 +32,14 @@ import {
 } from 'react-native';
 import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
+import { collectListingMedia } from '@/lib/postMedia';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ListingCommentsSection } from '@/components/feature/ListingCommentsSection';
 import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
 import { ListingFeePaymentSheet } from '@/components/listing/ListingFeePaymentSheet';
 import { ListingDeleteDialog } from '@/components/listing/ListingDeleteDialog';
+import { ListingVideoPlayer } from '@/components/listing/ListingVideoPlayer';
 import { listingPhotoUris, listingVideoUrl } from '@/lib/listingMedia';
-import { collectListingMedia } from '@/lib/postMedia';
 import { isManagedListing, managedSeller } from '@/lib/managedListing';
 import { isListingFavorited, toggleListingFavorite } from '@/lib/listingFavorite';
 import { resolveMediaUrl } from '@/services/media';
@@ -49,6 +50,11 @@ import {
 } from '@/lib/listingLimits';
 import { usePaidServices } from '@/hooks/usePaidServices';
 import { firstEnabledPromoteGoal, isPromoteGoalEnabled } from '@/services/paidServices';
+
+function safeIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return Math.min(Math.max(0, Math.floor(index)), length - 1);
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   camels: 'إبل',
@@ -218,6 +224,23 @@ export default function ListingDetailScreen() {
     void refreshSellerFollowState();
   }, [refreshSellerFollowState]);
 
+  const mediaItems = useMemo(
+    () => (listing ? collectListingMedia(listing) : []),
+    [listing],
+  );
+
+  const openMediaViewer = useCallback(
+    (index: number, source?: View | null) => {
+      const idx = safeIndex(index, mediaItems.length);
+      void measureMediaOrigin(source ?? null).then((origin) => {
+        setMediaViewerOrigin(origin);
+        setMediaViewerIndex(idx);
+        setMediaViewerVisible(true);
+      });
+    },
+    [mediaItems],
+  );
+
   const openSellerChat = (draftMessage?: string) => {
     if (!listing || isManagedListing(listing) || !listing.seller.id) return;
     if (!isAuthenticated) {
@@ -341,19 +364,7 @@ export default function ListingDetailScreen() {
       : null;
   const images = listingPhotoUris(listing);
   const videoUri = listingVideoUrl(listing);
-  const mediaItems = useMemo(() => collectListingMedia(listing), [listing]);
   const categoryLabel = CATEGORY_LABELS[listing.category] ?? '';
-
-  const openMediaViewer = useCallback(
-    (index: number, originNode: View | null) => {
-      void measureMediaOrigin(originNode).then((origin) => {
-        setMediaViewerOrigin(origin);
-        setMediaViewerIndex(index);
-        setMediaViewerVisible(true);
-      });
-    },
-    [],
-  );
 
   const handleStartLive = () => {
     Alert.alert('البث المباشر', 'قريباً 🔴\nميزة البث المباشر للإعلانات ستتوفر قريباً.');
@@ -657,18 +668,24 @@ export default function ListingDetailScreen() {
               collapsable={false}
               style={styles.mediaBleed}
               onPress={() => {
-                const videoIndex = mediaItems.findIndex((m) => m.kind === 'video');
+                let videoIndex = mediaItems.findIndex(
+                  (item) => item.kind === 'video' && item.uri === videoUri,
+                );
+                if (videoIndex < 0) videoIndex = mediaItems.findIndex((item) => item.kind === 'video');
                 openMediaViewer(videoIndex >= 0 ? videoIndex : 0, videoPreviewRef.current);
               }}
               accessibilityRole="button"
               accessibilityLabel="فتح الفيديو"
             >
-              <Image
-                source={uriSource(listing.thumbnailUrl || videoUri)}
-                style={{ width: '100%', height: galleryImageHeight }}
-                contentFit="cover"
-                transition={250}
-              />
+              {/* Preview only: taps go to the Pressable, which opens MediaViewerModal. */}
+              <View pointerEvents="none">
+                <ListingVideoPlayer
+                  uri={videoUri}
+                  posterUri={listing.thumbnailUrl}
+                  height={galleryImageHeight}
+                  style={styles.mediaPlayer}
+                />
+              </View>
               <View style={styles.videoPlayOverlay} pointerEvents="none">
                 <View style={styles.videoPlayBtn}>
                   <AppIcon name="play" size={24} color="#fff" variant="sr" />
@@ -695,8 +712,13 @@ export default function ListingDetailScreen() {
                 }}
                 collapsable={false}
                 onPress={() => {
-                  const mediaIndex = mediaItems.findIndex((m) => m.uri === uri);
-                  openMediaViewer(mediaIndex >= 0 ? mediaIndex : index, imageRefs.current[index]);
+                  const mediaIndex = mediaItems.findIndex(
+                    (item) => item.kind === 'image' && item.uri === uri,
+                  );
+                  openMediaViewer(
+                    mediaIndex >= 0 ? mediaIndex : index,
+                    imageRefs.current[index],
+                  );
                 }}
                 style={styles.mediaBleed}
               >
