@@ -1,6 +1,6 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import Slider from '@react-native-community/slider';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,7 +22,12 @@ import {
   storyTrimStartMax,
   trimStoryVideoClip,
 } from '@/lib/storyMedia';
-import { getExpoVideoModule } from '@/lib/expoVideo';
+import {
+  getExpoVideoModule,
+  isSameVideoPlayerSession,
+  removeVideoPlayerSubscription,
+  type ExpoVideoPlayer,
+} from '@/lib/expoVideo';
 import { StoryVideoPlayer } from './StoryVideoPlayer';
 
 type StoryVideoTrimmerProps = {
@@ -51,6 +56,22 @@ function TrimmerPreview({
   startSec: number;
   endSec: number;
 }) {
+  const generationRef = useRef(0);
+  const playerRef = useRef<ExpoVideoPlayer | null>(null);
+  const sourceRef = useRef(uri);
+  if (sourceRef.current !== uri) {
+    sourceRef.current = uri;
+    generationRef.current += 1;
+    playerRef.current = null;
+  }
+
+  useEffect(() => {
+    return () => {
+      generationRef.current += 1;
+      playerRef.current = null;
+    };
+  }, []);
+
   const expoVideo = getExpoVideoModule();
 
   if (!expoVideo) {
@@ -64,20 +85,49 @@ function TrimmerPreview({
     p.currentTime = startSec;
     p.play();
   });
+  playerRef.current = player;
 
   useEffect(() => {
-    player.currentTime = startSec;
-    if (!player.playing) player.play();
+    const generation = generationRef.current;
+    const bound = player;
+    const live = () => isSameVideoPlayerSession(bound, generation, playerRef, generationRef);
+    if (!live()) return;
+    try {
+      if (!live()) return;
+      bound.currentTime = startSec;
+      if (!live()) return;
+      if (!bound.playing) bound.play();
+    } catch {
+      // released
+    }
   }, [player, startSec]);
 
   useEffect(() => {
-    const sub = player.addListener('timeUpdate', ({ currentTime }) => {
-      if (typeof currentTime === 'number' && currentTime >= endSec - 0.05) {
-        player.currentTime = startSec;
-        player.play();
-      }
-    });
-    return () => sub.remove();
+    const generation = generationRef.current;
+    const bound = player;
+    const live = () => isSameVideoPlayerSession(bound, generation, playerRef, generationRef);
+    if (!live()) return;
+    let sub: { remove: () => void } | null = null;
+    try {
+      sub = bound.addListener('timeUpdate', ({ currentTime }) => {
+        if (!live()) return;
+        if (typeof currentTime !== 'number' || currentTime < endSec - 0.05) return;
+        try {
+          if (!live()) return;
+          bound.currentTime = startSec;
+          if (!live()) return;
+          bound.play();
+        } catch {
+          // released
+        }
+      });
+    } catch {
+      return;
+    }
+    return () => {
+      generationRef.current += 1;
+      removeVideoPlayerSubscription(sub);
+    };
   }, [player, startSec, endSec]);
 
   return (
@@ -136,7 +186,7 @@ export function StoryVideoTrimmer({
         </View>
 
         <View style={styles.previewBox}>
-          <TrimmerPreview uri={uri} startSec={startSec} endSec={endSec} />
+          <TrimmerPreview key={uri} uri={uri} startSec={startSec} endSec={endSec} />
         </View>
 
         <View style={styles.panel}>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   Platform,
   StyleSheet,
@@ -7,7 +8,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Image } from '@/components/ui/AppImage';
-import { getExpoVideoModule, isExpoVideoNativeAvailable } from '@/lib/expoVideo';
+import {
+  getExpoVideoModule,
+  isExpoVideoNativeAvailable,
+  isSameVideoPlayerSession,
+  removeVideoPlayerSubscription,
+  type ExpoVideoPlayer,
+} from '@/lib/expoVideo';
 import { normalizeAspectRatio } from '@/lib/mediaContain';
 
 type StoryVideoFit = 'cover' | 'contain';
@@ -82,6 +89,33 @@ function StoryVideoPlayerNative({
 }: StoryVideoPlayerProps) {
   const { useVideoPlayer, VideoView } = getExpoVideoModule()!;
   const readyRef = useRef(false);
+  const onPlayerRef = useRef(onPlayer);
+  const generationRef = useRef(0);
+  const playerRef = useRef<ExpoVideoPlayer | null>(null);
+  const sourceRef = useRef(uri);
+  onPlayerRef.current = onPlayer;
+
+  if (sourceRef.current !== uri) {
+    sourceRef.current = uri;
+    generationRef.current += 1;
+    playerRef.current = null;
+  }
+
+  // Registered before useVideoPlayer so unmount cleanup runs before its release().
+  useEffect(() => {
+    return () => {
+      const current = playerRef.current;
+      generationRef.current += 1;
+      playerRef.current = null;
+      onPlayerRef.current?.(null);
+      if (!current) return;
+      try {
+        current.pause();
+      } catch {
+        // already released
+      }
+    };
+  }, []);
 
   const explicit =
     layoutWidth != null && layoutHeight != null && layoutWidth > 0 && layoutHeight > 0;
@@ -106,97 +140,148 @@ function StoryVideoPlayerNative({
     p.muted = muted;
     p.keepScreenOnWhilePlaying = false;
   });
+  playerRef.current = player;
+
+  useFocusEffect(
+    useCallback(() => {
+      const generation = generationRef.current;
+      const current = playerRef.current;
+      if (autoPlay && isSameVideoPlayerSession(current, generation, playerRef, generationRef)) {
+        try {
+          if (isSameVideoPlayerSession(current, generation, playerRef, generationRef)) current.play();
+        } catch {
+          // released
+        }
+      }
+      return () => {
+        const blurGeneration = generationRef.current;
+        const bound = playerRef.current;
+        if (!isSameVideoPlayerSession(bound, blurGeneration, playerRef, generationRef)) return;
+        try {
+          if (!isSameVideoPlayerSession(bound, blurGeneration, playerRef, generationRef)) return;
+          bound.pause();
+        } catch {
+          // released
+        }
+      };
+    }, [autoPlay]),
+  );
 
   useEffect(() => {
-    onPlayer?.(player);
-  }, [onPlayer, player]);
+    const generation = generationRef.current;
+    const bound = player;
+    if (!isSameVideoPlayerSession(bound, generation, playerRef, generationRef)) return;
+    onPlayerRef.current?.(bound);
+    return () => {
+      generationRef.current += 1;
+      if (playerRef.current === bound) playerRef.current = null;
+      onPlayerRef.current?.(null);
+    };
+  }, [player]);
 
   useEffect(() => {
     readyRef.current = false;
   }, [uri]);
 
   useEffect(() => {
-    player.loop = loop;
-    player.muted = muted;
-    player.keepScreenOnWhilePlaying = false;
+    const generation = generationRef.current;
+    const bound = player;
+    const live = () => isSameVideoPlayerSession(bound, generation, playerRef, generationRef);
+    if (!live()) return;
+    try {
+      if (!live()) return;
+      bound.loop = loop;
+      bound.muted = muted;
+      bound.keepScreenOnWhilePlaying = false;
+    } catch {
+      // released
+    }
   }, [player, loop, muted]);
 
   useEffect(() => {
-    if (!autoPlay) {
-      player.pause();
-      return;
-    }
+    const generation = generationRef.current;
+    const bound = player;
+    const live = () => isSameVideoPlayerSession(bound, generation, playerRef, generationRef);
+    if (!live()) return;
 
     const start = () => {
+      if (!live()) return;
       try {
-        player.play();
+        if (!live()) return;
+        bound.play();
       } catch {
         // retry when the player becomes ready
       }
     };
 
-    if (player.status === 'readyToPlay') {
-      notifyReady();
-      start();
-    }
-
-    const statusSub = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') {
-        notifyReady();
-        if (autoPlay) start();
-      }
-      if (status === 'error') {
-        notifyReady();
-      }
-    });
-
-    const playingSub = player.addListener('playingChange', ({ isPlaying }) => {
-      if (isPlaying) notifyReady();
-    });
-
-    const sourceLoadSub = player.addListener('sourceLoad', (payload) => {
-      const tracks = (payload as { availableVideoTracks?: { size?: { width?: number; height?: number } }[] })
-        .availableVideoTracks;
-      const track = tracks?.[0];
-      if (track?.size?.width && track.size.height) {
-        emitNatural(track.size.width, track.size.height);
-      }
-    });
-
-    const trackSub = player.addListener('videoTrackChange', (payload) => {
-      const videoTrack = (payload as { videoTrack?: { size?: { width?: number; height?: number } } })
-        .videoTrack;
-      if (videoTrack?.size?.width && videoTrack.size.height) {
-        emitNatural(videoTrack.size.width, videoTrack.size.height);
-      }
-    });
-
-    start();
+    let statusSub: { remove: () => void } | null = null;
+    let playingSub: { remove: () => void } | null = null;
+    let sourceLoadSub: { remove: () => void } | null = null;
+    let trackSub: { remove: () => void } | null = null;
 
     try {
-      const size = (player as { size?: { width?: number; height?: number } }).size;
+      if (!live()) return;
+      if (!autoPlay) {
+        bound.pause();
+        return () => {
+          generationRef.current += 1;
+        };
+      }
+
+      if (bound.status === 'readyToPlay') {
+        notifyReady();
+        start();
+      }
+
+      statusSub = bound.addListener('statusChange', ({ status }) => {
+        if (!live()) return;
+        if (status === 'readyToPlay') {
+          notifyReady();
+          if (autoPlay) start();
+        }
+        if (status === 'error') notifyReady();
+      });
+
+      playingSub = bound.addListener('playingChange', ({ isPlaying }) => {
+        if (!live()) return;
+        if (isPlaying) notifyReady();
+      });
+
+      sourceLoadSub = bound.addListener('sourceLoad', (payload) => {
+        if (!live()) return;
+        const tracks = (payload as { availableVideoTracks?: { size?: { width?: number; height?: number } }[] })
+          .availableVideoTracks;
+        const track = tracks?.[0];
+        if (track?.size?.width && track.size.height) {
+          emitNatural(track.size.width, track.size.height);
+        }
+      });
+
+      trackSub = bound.addListener('videoTrackChange', (payload) => {
+        if (!live()) return;
+        const videoTrack = (payload as { videoTrack?: { size?: { width?: number; height?: number } } })
+          .videoTrack;
+        if (videoTrack?.size?.width && videoTrack.size.height) {
+          emitNatural(videoTrack.size.width, videoTrack.size.height);
+        }
+      });
+
+      start();
+
+      const size = (bound as { size?: { width?: number; height?: number } }).size;
       if (size?.width && size.height) emitNatural(size.width, size.height);
     } catch {
-      // optional
+      // released while attaching
     }
 
     return () => {
-      statusSub.remove();
-      playingSub.remove();
-      sourceLoadSub.remove();
-      trackSub.remove();
+      generationRef.current += 1;
+      removeVideoPlayerSubscription(statusSub);
+      removeVideoPlayerSubscription(playingSub);
+      removeVideoPlayerSubscription(sourceLoadSub);
+      removeVideoPlayerSubscription(trackSub);
     };
   }, [player, autoPlay, uri, notifyReady, emitNatural]);
-
-  useEffect(() => {
-    return () => {
-      try {
-        player.pause();
-      } catch {
-        // ignore cleanup errors
-      }
-    };
-  }, [player]);
 
   const wrapStyle = explicit
     ? [
@@ -245,7 +330,8 @@ export function StoryVideoPlayer({ posterUri, ...props }: StoryVideoPlayerProps)
   if (!isExpoVideoNativeAvailable()) {
     return <StoryVideoFallback {...props} posterUri={posterUri} />;
   }
-  return <StoryVideoPlayerNative {...props} posterUri={posterUri} />;
+  // Remount on a new source so VideoView is gone before the previous player is released.
+  return <StoryVideoPlayerNative key={props.uri} {...props} posterUri={posterUri} />;
 }
 
 const styles = StyleSheet.create({

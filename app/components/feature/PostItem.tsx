@@ -235,6 +235,28 @@ function PostItemComponent({
     setFollowBusy(false);
   }, [followBusy, following, isAuthenticated, post.author.id]);
 
+  const feedChrome = variant === 'feed';
+  const chromeOpacity = useRef(new Animated.Value(1)).current;
+  const chromeShownRef = useRef(true);
+  const [chromeInteractive, setChromeInteractive] = useState(true);
+
+  useEffect(() => {
+    chromeOpacity.setValue(1);
+    chromeShownRef.current = true;
+    setChromeInteractive(true);
+  }, [chromeOpacity, post.id]);
+
+  const toggleVideoChrome = useCallback(() => {
+    const next = !chromeShownRef.current;
+    chromeShownRef.current = next;
+    setChromeInteractive(next);
+    Animated.timing(chromeOpacity, {
+      toValue: next ? 1 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [chromeOpacity]);
+
   const gallery = (
     <PostMediaGallery
       images={images}
@@ -244,6 +266,8 @@ function PostItemComponent({
       scheme={scheme}
       postId={post.id}
       variant={variant === 'detail' ? 'detail' : 'feed'}
+      videoGestures={feedChrome}
+      onToggleVideoChrome={feedChrome ? toggleVideoChrome : undefined}
       overlay={{
         authorName: post.author.arabicName || post.author.displayName,
         username: post.author.username,
@@ -417,83 +441,129 @@ function PostItemComponent({
     );
   }
 
+  const hasMedia = images.length > 0 || !!post.video || !!(post.media && post.media.length > 0);
+  const longBody =
+    bodyText.split('\n').length > TEXT_COLLAPSE_LINES || bodyText.length > 400;
+
+  const authorMeta = (
+    <View style={[styles.metaLine, getRtlRow()]}>
+      <UserProfileLink userId={post.author.id} style={styles.metaInfo}>
+        <View style={[styles.nameRow, getRtlRow()]}>
+          <AppText style={styles.name} numberOfLines={1}>
+            {post.author.arabicName}
+          </AppText>
+          {post.author.verified ? <VerificationBadge size={14} /> : null}
+          {authorRating ? (
+            <View style={[styles.ratingMini, getRtlRow()]}>
+              <AppIcon name="star" size={11} color={colors.gold} />
+              <AppText style={styles.ratingMiniText}>{authorRating}</AppText>
+            </View>
+          ) : null}
+          {handle ? (
+            <AppText style={styles.handle} numberOfLines={1}>
+              {handle}
+            </AppText>
+          ) : null}
+          {timestamp ? (
+            <>
+              <AppText style={styles.metaDot}>·</AppText>
+              <AppText style={styles.metaMuted} numberOfLines={1}>
+                {timestamp}
+              </AppText>
+            </>
+          ) : null}
+        </View>
+      </UserProfileLink>
+
+      <Pressable
+        hitSlop={14}
+        onPress={onMenu}
+        accessibilityRole="button"
+        accessibilityLabel="المزيد"
+        style={({ pressed }) => [styles.menuBtn, pressed && styles.menuBtnPressed]}
+      >
+        <AppIcon name="ellipsis-vertical" size={18} color={colors.textMuted} />
+      </Pressable>
+    </View>
+  );
+
+  const caption = (
+    <>
+      <PostBody
+        text={bodyText}
+        style={styles.body}
+        lines={expanded ? undefined : TEXT_COLLAPSE_LINES}
+      />
+      {feedChrome && longBody ? (
+        !expanded ? (
+          <Pressable onPress={() => (onPress ? onPress() : setExpanded(true))} hitSlop={6}>
+            <AppText style={styles.showMore}>عرض المزيد</AppText>
+          </Pressable>
+        ) : (
+          <Pressable onPress={() => setExpanded(false)} hitSlop={6}>
+            <AppText style={styles.showMore}>عرض أقل</AppText>
+          </Pressable>
+        )
+      ) : null}
+    </>
+  );
+
+  const media = hasMedia ? <View style={styles.mediaWrap}>{gallery}</View> : null;
+  const chromePointer = chromeInteractive ? 'auto' : 'none';
+
+  if (!feedChrome) {
+    return (
+      <View style={styles.rowWrap}>
+        <View style={[styles.row, getRtlRow()]}>
+          <UserProfileLink userId={post.author.id}>
+            <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
+          </UserProfileLink>
+          <View style={styles.main}>
+            {authorMeta}
+            <Pressable
+              onPress={onPress}
+              disabled={!onPress}
+              style={({ pressed }) => [pressed && onPress ? styles.bodyPressed : null]}
+            >
+              {caption}
+              {media}
+            </Pressable>
+            {actions}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.rowWrap}>
       <View style={[styles.row, getRtlRow()]}>
-        <UserProfileLink userId={post.author.id}>
-          <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
-        </UserProfileLink>
+        <Animated.View style={{ opacity: chromeOpacity }} pointerEvents={chromePointer}>
+          <UserProfileLink userId={post.author.id}>
+            <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
+          </UserProfileLink>
+        </Animated.View>
 
         <View style={styles.main}>
-          <View style={[styles.metaLine, getRtlRow()]}>
-            <UserProfileLink userId={post.author.id} style={styles.metaInfo}>
-              <View style={[styles.nameRow, getRtlRow()]}>
-                <AppText style={styles.name} numberOfLines={1}>
-                  {post.author.arabicName}
-                </AppText>
-                {post.author.verified ? <VerificationBadge size={14} /> : null}
-                {authorRating ? (
-                  <View style={[styles.ratingMini, getRtlRow()]}>
-                    <AppIcon name="star" size={11} color={colors.gold} />
-                    <AppText style={styles.ratingMiniText}>{authorRating}</AppText>
-                  </View>
-                ) : null}
-                {handle ? (
-                  <AppText style={styles.handle} numberOfLines={1}>
-                    {handle}
-                  </AppText>
-                ) : null}
-                {timestamp ? (
-                  <>
-                    <AppText style={styles.metaDot}>·</AppText>
-                    <AppText style={styles.metaMuted} numberOfLines={1}>
-                      {timestamp}
-                    </AppText>
-                  </>
-                ) : null}
-              </View>
-            </UserProfileLink>
+          <Animated.View style={{ opacity: chromeOpacity }} pointerEvents={chromePointer}>
+            {authorMeta}
+          </Animated.View>
 
+          <Animated.View style={{ opacity: chromeOpacity }} pointerEvents={chromeInteractive ? 'box-none' : 'none'}>
             <Pressable
-              hitSlop={14}
-              onPress={onMenu}
-              accessibilityRole="button"
-              accessibilityLabel="المزيد"
-              style={({ pressed }) => [styles.menuBtn, pressed && styles.menuBtnPressed]}
+              onPress={onPress}
+              disabled={!onPress}
+              style={({ pressed }) => [pressed && onPress ? styles.bodyPressed : null]}
             >
-              <AppIcon name="ellipsis-vertical" size={18} color={colors.textMuted} />
+              {caption}
             </Pressable>
-          </View>
+          </Animated.View>
 
-          <Pressable
-            onPress={onPress}
-            disabled={!onPress}
-            style={({ pressed }) => [pressed && onPress ? styles.bodyPressed : null]}
-          >
-            <PostBody
-              text={bodyText}
-              style={styles.body}
-              lines={expanded ? undefined : TEXT_COLLAPSE_LINES}
-            />
-            {variant === 'feed' &&
-            (bodyText.split('\n').length > TEXT_COLLAPSE_LINES || bodyText.length > 400) ? (
-              !expanded ? (
-                <Pressable onPress={() => (onPress ? onPress() : setExpanded(true))} hitSlop={6}>
-                  <AppText style={styles.showMore}>عرض المزيد</AppText>
-                </Pressable>
-              ) : (
-                <Pressable onPress={() => setExpanded(false)} hitSlop={6}>
-                  <AppText style={styles.showMore}>عرض أقل</AppText>
-                </Pressable>
-              )
-            ) : null}
+          {media}
 
-            {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
-              <View style={styles.mediaWrap}>{gallery}</View>
-            ) : null}
-          </Pressable>
-
-          {actions}
+          <Animated.View style={{ opacity: chromeOpacity }} pointerEvents={chromePointer}>
+            {actions}
+          </Animated.View>
         </View>
       </View>
     </View>
@@ -696,6 +766,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     mediaWrap: {
       marginTop: 12,
       width: '100%',
+      overflow: 'hidden',
     },
     detailMeta: {
       alignItems: 'center',

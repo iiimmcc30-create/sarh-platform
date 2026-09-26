@@ -3,8 +3,10 @@ import { AppText } from '@/components/ui/AppText';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
 import { claimFeedPlayback, releaseFeedPlayback } from '@/lib/feedVideoPlayback';
+import { useFeedVideoGestures } from '@/lib/useFeedVideoGestures';
 import { postFeedImageUrl } from '@/lib/listingMedia';
 import type { ThemeColors } from '@/constants/theme';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +16,8 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 
 type FeedVideoTileProps = {
   uri: string;
@@ -24,6 +28,8 @@ type FeedVideoTileProps = {
   contentFit?: 'cover' | 'contain';
   onOpen?: () => void;
   onNaturalSize?: (width: number, height: number) => void;
+  /** Feed posts only. Single tap toggles the post chrome. */
+  onToggleChrome?: () => void;
 };
 
 function posterDelivery(uri?: string): string | undefined {
@@ -42,22 +48,65 @@ export function FeedVideoTile({
   contentFit = 'cover',
   onOpen,
   onNaturalSize,
+  onToggleChrome,
 }: FeedVideoTileProps) {
   const id = useId();
-  const [playing, setPlaying] = useState(false);
+  const hostRef = useRef<View>(null);
+  const [sessionUri, setSessionUri] = useState<string | null>(null);
+  const playing = active && sessionUri === uri;
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
-  const pauseRef = useRef(() => setPlaying(false));
-  pauseRef.current = () => setPlaying(false);
+  const [focused, setFocused] = useState(true);
+  const [zoomed, setZoomed] = useState(false);
+  const gesturesOn = typeof onToggleChrome === 'function';
+  const pauseRef = useRef(() => setSessionUri(null));
+  pauseRef.current = () => setSessionUri(null);
+
+  const { gesture, animatedStyle, onLayout, resetZoom } = useFeedVideoGestures({
+    enabled: gesturesOn,
+    active: active && focused,
+    resetKey: uri,
+    onToggleChrome: onToggleChrome ?? noopToggle,
+    onZoomedChange: setZoomed,
+  });
 
   const poster = posterDelivery(posterUri);
 
   useEffect(() => {
     if (!active) {
-      setPlaying(false);
+      setSessionUri(null);
       setReady(false);
     }
   }, [active]);
+
+  useEffect(() => {
+    setReady(false);
+    setFailed(false);
+  }, [uri]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => {
+        setFocused(false);
+        setSessionUri(null);
+        setReady(false);
+      };
+    }, []),
+  );
+
+  useEffect(() => {
+    if (!gesturesOn || !zoomed) return;
+    const timer = setInterval(() => {
+      hostRef.current?.measureInWindow((_x, y, _w, h) => {
+        if (h <= 0) return;
+        const windowH = Dimensions.get('window').height;
+        const visible = Math.max(0, Math.min(windowH, y + h) - Math.max(0, y));
+        if (visible / h < 0.15) resetZoom();
+      });
+    }, 400);
+    return () => clearInterval(timer);
+  }, [gesturesOn, resetZoom, zoomed]);
 
   useEffect(() => {
     if (!playing) {
@@ -72,8 +121,8 @@ export function FeedVideoTile({
     if (failed) return;
     setFailed(false);
     setReady(false);
-    setPlaying(true);
-  }, [failed]);
+    setSessionUri(uri);
+  }, [failed, uri]);
 
   if (failed) {
     return (
@@ -91,8 +140,8 @@ export function FeedVideoTile({
     );
   }
 
-  return (
-    <View style={styles.fill}>
+  const media = (
+    <>
       {poster ? (
         <Image source={uriSource(poster)} style={StyleSheet.absoluteFill} contentFit={contentFit} />
       ) : (
@@ -100,16 +149,18 @@ export function FeedVideoTile({
       )}
 
       {playing ? (
-        <StoryVideoPlayer
-          uri={uri}
-          posterUri={poster}
-          autoPlay
-          muted={false}
-          nativeControls={nativeControls}
-          contentFit={contentFit}
-          onReady={() => setReady(true)}
-          onNaturalSize={onNaturalSize}
-        />
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <StoryVideoPlayer
+            uri={uri}
+            posterUri={poster}
+            autoPlay
+            muted={false}
+            nativeControls={nativeControls}
+            contentFit={contentFit}
+            onReady={() => setReady(true)}
+            onNaturalSize={onNaturalSize}
+          />
+        </View>
       ) : null}
 
       {playing && !ready ? (
@@ -117,7 +168,40 @@ export function FeedVideoTile({
           <ActivityIndicator color="#fff" />
         </View>
       ) : null}
+    </>
+  );
 
+  if (gesturesOn) {
+    return (
+      <View
+        ref={hostRef}
+        style={styles.fill}
+        onLayout={(e) => onLayout(e.nativeEvent.layout.width, e.nativeEvent.layout.height)}
+      >
+        <GestureDetector gesture={gesture}>
+          <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]} collapsable={false}>
+            {media}
+          </Animated.View>
+        </GestureDetector>
+        {!playing ? (
+          <Pressable
+            style={styles.playFab}
+            onPress={startInline}
+            accessibilityRole="button"
+            accessibilityLabel="تشغيل الفيديو"
+          >
+            <View style={styles.playBtn}>
+              <AppIcon name="play" size={22} color="#fff" variant="sr" />
+            </View>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.fill}>
+      {media}
       {!playing ? (
         <>
           <Pressable style={StyleSheet.absoluteFill} onPress={onOpen} />
@@ -139,6 +223,8 @@ export function FeedVideoTile({
   );
 }
 
+function noopToggle() {}
+
 const styles = StyleSheet.create({
   fill: {
     ...StyleSheet.absoluteFillObject,
@@ -152,6 +238,18 @@ const styles = StyleSheet.create({
   },
   playHit: {
     ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playFab: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 52,
+    height: 52,
+    marginTop: -26,
+    marginLeft: -26,
+    zIndex: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

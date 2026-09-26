@@ -10,11 +10,13 @@ export const VIEWER_SWIPE_AXIS_RATIO = 1.15;
 export type ViewerGesture = 'pinch' | 'pan' | 'swipe-down' | 'tap' | 'none';
 
 export function clampViewerScale(scale: number): number {
+  'worklet';
   if (!Number.isFinite(scale)) return VIEWER_MIN_SCALE;
   return Math.min(VIEWER_MAX_SCALE, Math.max(VIEWER_MIN_SCALE, scale));
 }
 
 export function isZoomed(scale: number, epsilon = 0.02): boolean {
+  'worklet';
   return clampViewerScale(scale) > VIEWER_MIN_SCALE + epsilon;
 }
 
@@ -74,6 +76,7 @@ export function clampPan(
   box: { width: number; height: number },
   frame: { width: number; height: number },
 ): { x: number; y: number } {
+  'worklet';
   const used = clampViewerScale(scale);
   if (!isZoomed(used)) return { x: 0, y: 0 };
   const maxX = Math.max(0, (box.width * used - frame.width) / 2);

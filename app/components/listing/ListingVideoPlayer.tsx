@@ -1,4 +1,5 @@
-import { Component, createElement, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Component, createElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   Linking,
   Platform,
@@ -10,7 +11,13 @@ import {
 } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image } from '@/components/ui/AppImage';
-import { getExpoVideoModule, isExpoVideoNativeAvailable } from '@/lib/expoVideo';
+import {
+  getExpoVideoModule,
+  isExpoVideoNativeAvailable,
+  isSameVideoPlayerSession,
+  removeVideoPlayerSubscription,
+  type ExpoVideoPlayer,
+} from '@/lib/expoVideo';
 import { resolveMediaUrl } from '@/services/media';
 
 type Props = {
@@ -53,7 +60,7 @@ function ListingVideoPlayerInner({
   }
 
   if (isExpoVideoNativeAvailable()) {
-    return <NativeListingVideo uri={videoUri} posterUri={poster} containerStyle={containerStyle} />;
+    return <NativeListingVideo key={videoUri} uri={videoUri} posterUri={poster} containerStyle={containerStyle} />;
   }
 
   return <VideoOpenFallback uri={videoUri} posterUri={poster} style={containerStyle} />;
@@ -118,35 +125,89 @@ function NativeListingVideo({
   const [showPoster, setShowPoster] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const generationRef = useRef(0);
+  const playerRef = useRef<ExpoVideoPlayer | null>(null);
+  const sourceRef = useRef(uri);
+
+  if (sourceRef.current !== uri) {
+    sourceRef.current = uri;
+    generationRef.current += 1;
+    playerRef.current = null;
+  }
+
+  useEffect(() => {
+    return () => {
+      const current = playerRef.current;
+      generationRef.current += 1;
+      playerRef.current = null;
+      if (!current) return;
+      try {
+        current.pause();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
 
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = false;
     p.muted = false;
     p.keepScreenOnWhilePlaying = false;
   });
+  playerRef.current = player;
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        const generation = generationRef.current;
+        const current = playerRef.current;
+        if (!isSameVideoPlayerSession(current, generation, playerRef, generationRef)) return;
+        setPlaying(false);
+        try {
+          if (!isSameVideoPlayerSession(current, generation, playerRef, generationRef)) return;
+          current.pause();
+        } catch {
+          /* released */
+        }
+      };
+    }, []),
+  );
 
   const hidePoster = useCallback(() => setShowPoster(false), []);
 
   useEffect(() => {
+    const generation = generationRef.current;
+    const bound = player;
+    const live = () => isSameVideoPlayerSession(bound, generation, playerRef, generationRef);
+
     setShowPoster(true);
     setLoadFailed(false);
     setPlaying(false);
-    const statusSub = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') hidePoster();
-      if (status === 'error') setLoadFailed(true);
-    });
-    const playingSub = player.addListener('playingChange', ({ isPlaying }) => {
-      setPlaying(Boolean(isPlaying));
-      if (isPlaying) hidePoster();
-    });
+    if (!live()) return;
+
+    let statusSub: { remove: () => void } | null = null;
+    let playingSub: { remove: () => void } | null = null;
+    try {
+      statusSub = bound.addListener('statusChange', ({ status }) => {
+        if (!live()) return;
+        if (status === 'readyToPlay') hidePoster();
+        if (status === 'error') setLoadFailed(true);
+      });
+      playingSub = bound.addListener('playingChange', ({ isPlaying }) => {
+        if (!live()) return;
+        setPlaying(Boolean(isPlaying));
+        if (isPlaying) hidePoster();
+      });
+    } catch {
+      removeVideoPlayerSubscription(statusSub);
+      removeVideoPlayerSubscription(playingSub);
+      return;
+    }
+
     return () => {
-      statusSub.remove();
-      playingSub.remove();
-      try {
-        player.pause();
-      } catch {
-        /* ignore */
-      }
+      generationRef.current += 1;
+      removeVideoPlayerSubscription(statusSub);
+      removeVideoPlayerSubscription(playingSub);
     };
   }, [hidePoster, player, uri]);
 
@@ -177,8 +238,16 @@ function NativeListingVideo({
         <Pressable
           style={styles.playBtn}
           onPress={() => {
-            if (playing) player.pause();
-            else player.play();
+            const generation = generationRef.current;
+            const current = playerRef.current;
+            if (!isSameVideoPlayerSession(current, generation, playerRef, generationRef)) return;
+            try {
+              if (!isSameVideoPlayerSession(current, generation, playerRef, generationRef)) return;
+              if (playing) current.pause();
+              else current.play();
+            } catch {
+              /* released */
+            }
           }}
           accessibilityRole="button"
           accessibilityLabel={playing ? 'إيقاف فيديو الإعلان' : 'تشغيل فيديو الإعلان'}
