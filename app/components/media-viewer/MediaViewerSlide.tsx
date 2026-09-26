@@ -63,12 +63,14 @@ export function MediaViewerSlide({
   const [posterRatio, setPosterRatio] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
   const [player, setPlayer] = useState<unknown>(null);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     setNaturalRatio(null);
     setPosterRatio(null);
     setReady(false);
     setPlayer(null);
+    setMuted(false);
   }, [item.uri, item.kind]);
 
   useEffect(() => {
@@ -103,13 +105,16 @@ export function MediaViewerSlide({
     return containSizeFromRatio(resolved.layoutRatio, screenW, screenH);
   }, [resolved.layoutRatio, screenW, screenH]);
 
-  const { gesture, animatedStyle, resetTransform } = useMediaViewerTransform({
+  const isVideo = item.kind === 'video';
+
+  const { gesture, animatedStyle, videoLayout, resetTransform } = useMediaViewerTransform({
     box: box.width > 0 ? box : { width: screenW, height: screenH * 0.3 },
     frame,
     onZoomedChange,
     onToggleOverlay,
     onDismiss,
     enabled: active,
+    zoomStyle: isVideo ? 'nativeLayout' : 'transform',
   });
 
   useEffect(() => {
@@ -123,32 +128,35 @@ export function MediaViewerSlide({
 
   const showLoading = item.kind === 'video' && active && resolved.awaitingMetadata && !ready;
 
-  // Props from MediaViewerModal document the fullscreen contain contract.
-  // Cover is never applied here — letterbox only.
   void contentFit;
   void resizeMode;
+  void seekTo;
 
-  const mediaBody =
-    item.kind === 'image' ? (
-      <Animated.Image
-        source={{ uri: imageUri }}
-        style={[styles.mediaSurface, { width: box.width, height: box.height }]}
-        resizeMode="contain"
-        onLoad={(e) => {
-          const src = e.nativeEvent?.source;
-          if (src?.width && src.height) applyNaturalSize(src.width, src.height);
-        }}
-      />
-    ) : !active ? (
-      poster && resolved.layoutRatio ? (
+  const toggleMute = useCallback(() => {
+    setMuted((m) => !m);
+  }, []);
+
+  const videoSurface =
+    !active ? (
+      poster && resolved.layoutRatio && videoLayout ? (
         <Image
           source={uriSource(poster)}
-          style={{ width: box.width, height: box.height }}
+          style={{
+            width: videoLayout.width,
+            height: videoLayout.height,
+          }}
           contentFit="contain"
         />
       ) : null
-    ) : resolved.layoutRatio ? (
-      <View style={{ width: box.width, height: box.height }}>
+    ) : resolved.layoutRatio && videoLayout ? (
+      <View
+        style={{
+          width: videoLayout.width,
+          height: videoLayout.height,
+          overflow: 'hidden',
+          backgroundColor: '#000',
+        }}
+      >
         {!ready ? (
           <View style={styles.loading}>
             <ActivityIndicator color="#fff" />
@@ -157,12 +165,13 @@ export function MediaViewerSlide({
         <StoryVideoPlayer
           uri={uri}
           posterUri={poster}
-          layoutWidth={box.width}
-          layoutHeight={box.height}
+          layoutWidth={videoLayout.width}
+          layoutHeight={videoLayout.height}
           autoPlay={active}
-          muted={false}
+          muted={muted}
           nativeControls={false}
           contentFit="contain"
+          hidePosterWhenPlaying
           onReady={() => setReady(true)}
           onNaturalSize={applyNaturalSize}
           onPlayer={setPlayer}
@@ -174,21 +183,63 @@ export function MediaViewerSlide({
       </View>
     ) : null;
 
+  const imageBody =
+    item.kind === 'image' ? (
+      <Animated.Image
+        source={{ uri: imageUri }}
+        style={[styles.mediaSurface, { width: box.width, height: box.height }]}
+        resizeMode="contain"
+        onLoad={(e) => {
+          const src = e.nativeEvent?.source;
+          if (src?.width && src.height) applyNaturalSize(src.width, src.height);
+        }}
+      />
+    ) : null;
+
+  const controlsBottom = insets.bottom + controlsBottomInset;
+
   return (
     <View style={[styles.slide, { width: screenW, height: screenH }]}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onToggleOverlay} />
+
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.mediaCenter, animatedStyle]}>
-          {mediaBody}
-        </Animated.View>
+        <View style={[styles.gestureStage, { width: screenW, height: screenH }]}>
+          {isVideo && box.width > 0 && videoLayout ? (
+            <View
+              style={[
+                styles.videoHost,
+                {
+                  left: videoLayout.left,
+                  top: videoLayout.top,
+                  width: videoLayout.width,
+                  height: videoLayout.height,
+                },
+              ]}
+              collapsable={false}
+            >
+              {videoSurface}
+            </View>
+          ) : (
+            <Animated.View
+              style={[
+                styles.mediaCenter,
+                { width: screenW, height: screenH },
+                animatedStyle,
+              ]}
+            >
+              {imageBody}
+            </Animated.View>
+          )}
+        </View>
       </GestureDetector>
+
       {item.kind === 'video' && active ? (
         <View
           style={{
             position: 'absolute',
             start: 0,
             end: 0,
-            bottom: insets.bottom + controlsBottomInset,
+            bottom: controlsBottom,
           }}
           pointerEvents="box-none"
         >
@@ -198,6 +249,9 @@ export function MediaViewerSlide({
             onReplay={replay}
             onSeek={seekTo}
             visible={overlayVisible}
+            muted={muted}
+            onToggleMute={toggleMute}
+            onToggleChrome={onToggleOverlay}
           />
         </View>
       ) : null}
@@ -211,7 +265,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#000',
   },
+  gestureStage: {
+    position: 'relative',
+  },
+  videoHost: {
+    position: 'absolute',
+    backgroundColor: '#000',
+  },
   mediaCenter: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },

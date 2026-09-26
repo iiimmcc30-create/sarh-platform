@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -11,6 +11,7 @@ import { getExpoVideoModule, isExpoVideoNativeAvailable } from '@/lib/expoVideo'
 import { normalizeAspectRatio } from '@/lib/mediaContain';
 
 type StoryVideoFit = 'cover' | 'contain';
+type StoryVideoSurfaceType = 'textureView' | 'surfaceView';
 
 type StoryVideoPlayerProps = {
   uri: string;
@@ -25,6 +26,10 @@ type StoryVideoPlayerProps = {
   nativeControls?: boolean;
   /** Stories/feed tiles default to cover. Viewers must pass contain. */
   contentFit?: StoryVideoFit;
+  /** Android only. Feed keeps textureView for stacked tiles; viewer should use surfaceView. */
+  surfaceType?: StoryVideoSurfaceType;
+  /** Hide poster after the first decoded frame so it cannot mask playback. */
+  hidePosterWhenPlaying?: boolean;
   onReady?: () => void;
   onNaturalSize?: (width: number, height: number) => void;
   onPlayer?: (player: unknown) => void;
@@ -76,12 +81,15 @@ function StoryVideoPlayerNative({
   autoPlay = true,
   nativeControls = false,
   contentFit = 'cover',
+  surfaceType,
+  hidePosterWhenPlaying = false,
   onReady,
   onNaturalSize,
   onPlayer,
 }: StoryVideoPlayerProps) {
   const { useVideoPlayer, VideoView } = getExpoVideoModule()!;
   const readyRef = useRef(false);
+  const [posterVisible, setPosterVisible] = useState(Boolean(posterUri));
 
   const explicit =
     layoutWidth != null && layoutHeight != null && layoutWidth > 0 && layoutHeight > 0;
@@ -89,8 +97,11 @@ function StoryVideoPlayerNative({
   const notifyReady = useCallback(() => {
     if (readyRef.current) return;
     readyRef.current = true;
+    if (hidePosterWhenPlaying) {
+      setPosterVisible(false);
+    }
     onReady?.();
-  }, [onReady]);
+  }, [hidePosterWhenPlaying, onReady]);
 
   const emitNatural = useCallback(
     (width: number, height: number) => {
@@ -113,7 +124,8 @@ function StoryVideoPlayerNative({
 
   useEffect(() => {
     readyRef.current = false;
-  }, [uri]);
+    setPosterVisible(Boolean(posterUri));
+  }, [posterUri, uri]);
 
   useEffect(() => {
     player.loop = loop;
@@ -214,9 +226,12 @@ function StoryVideoPlayerNative({
     ? { width: layoutWidth, height: layoutHeight }
     : StyleSheet.absoluteFillObject;
 
+  const resolvedSurfaceType =
+    surfaceType ?? (Platform.OS === 'android' ? 'textureView' : undefined);
+
   return (
     <View style={wrapStyle}>
-      {posterUri ? (
+      {posterUri && posterVisible ? (
         <Image
           source={{ uri: posterUri }}
           style={surfaceStyle}
@@ -230,7 +245,7 @@ function StoryVideoPlayerNative({
         nativeControls={nativeControls}
         fullscreenOptions={{ enable: false }}
         useExoShutter={false}
-        surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+        surfaceType={resolvedSurfaceType}
         onFirstFrameRender={notifyReady}
       />
     </View>

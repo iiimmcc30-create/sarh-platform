@@ -5,10 +5,15 @@ import {
   shouldDismissFromSwipe,
   VIEWER_MAX_SCALE,
 } from '@/lib/mediaViewerGestures';
-import { useCallback, useMemo } from 'react';
+import {
+  mediaViewerVideoLayout,
+  type MediaViewerVideoLayout,
+} from '@/lib/mediaViewerVideoLayout';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import {
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -18,6 +23,9 @@ type Box = { width: number; height: number };
 
 const SPRING = { damping: 22, stiffness: 280 };
 
+/** transform: images (Reanimated scale). nativeLayout: video (left/top/width/height only). */
+export type MediaViewerZoomStyle = 'transform' | 'nativeLayout';
+
 export function useMediaViewerTransform(options: {
   box: Box;
   frame: Box;
@@ -25,10 +33,30 @@ export function useMediaViewerTransform(options: {
   onToggleOverlay: () => void;
   onDismiss: () => void;
   enabled: boolean;
+  /**
+   * Android VideoView stops updating when any Reanimated transform wraps it.
+   * Video slides use nativeLayout (plain View geometry, no transform on the player tree).
+   */
+  zoomStyle?: MediaViewerZoomStyle;
 }) {
-  const { box, frame, onZoomedChange, onToggleOverlay, onDismiss, enabled } = options;
+  const {
+    box,
+    frame,
+    onZoomedChange,
+    onToggleOverlay,
+    onDismiss,
+    enabled,
+    zoomStyle = 'transform',
+  } = options;
 
   const scale = useSharedValue(1);
+  const boxWidth = useSharedValue(box.width);
+  const boxHeight = useSharedValue(box.height);
+
+  useEffect(() => {
+    boxWidth.value = box.width;
+    boxHeight.value = box.height;
+  }, [box.height, box.width, boxHeight, boxWidth]);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const pinchStartScale = useSharedValue(1);
@@ -154,17 +182,55 @@ export function useMediaViewerTransform(options: {
     [pinch, pan, doubleTapBlocked],
   );
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-  }));
+  const [videoLayout, setVideoLayout] = useState<MediaViewerVideoLayout>(() =>
+    mediaViewerVideoLayout(box, frame, 1, 0, 0),
+  );
+
+  useEffect(() => {
+    setVideoLayout(mediaViewerVideoLayout(box, frame, 1, 0, 0));
+  }, [box.height, box.width, frame.height, frame.width]);
+
+  const pushVideoLayout = useCallback(
+    (nextScale: number, tx: number, ty: number, bw: number, bh: number) => {
+      setVideoLayout(
+        mediaViewerVideoLayout({ width: bw, height: bh }, frame, nextScale, tx, ty),
+      );
+    },
+    [frame],
+  );
+
+  useAnimatedReaction(
+    () => ({
+      s: scale.value,
+      tx: translateX.value,
+      ty: translateY.value,
+      bw: boxWidth.value,
+      bh: boxHeight.value,
+    }),
+    (cur) => {
+      if (zoomStyle !== 'nativeLayout') return;
+      runOnJS(pushVideoLayout)(cur.s, cur.tx, cur.ty, cur.bw, cur.bh);
+    },
+    [zoomStyle, pushVideoLayout],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => {
+    if (zoomStyle === 'nativeLayout') {
+      return {};
+    }
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { scale: scale.value },
+      ],
+    };
+  });
 
   return {
     gesture: composed,
     animatedStyle,
+    videoLayout: zoomStyle === 'nativeLayout' ? videoLayout : null,
     resetTransform,
     maxScale: VIEWER_MAX_SCALE,
   };
