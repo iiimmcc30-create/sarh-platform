@@ -1,16 +1,9 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
+import { formatViewerRemainingTime } from '@/lib/mediaViewerVideoLayout';
 import type { MediaViewerPlaybackState } from '@/lib/useMediaViewerPlayback';
-import Slider from '@react-native-community/slider';
+import { getRtlRow } from '@/lib/rtl';
 import { Pressable, StyleSheet, View } from 'react-native';
-
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-  const total = Math.floor(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 type Props = {
   playback: MediaViewerPlaybackState;
@@ -18,22 +11,35 @@ type Props = {
   onReplay: () => void;
   onSeek: (seconds: number) => void;
   visible: boolean;
+  muted: boolean;
+  onToggleMute: () => void;
+  onToggleChrome: () => void;
 };
 
 export function MediaViewerControls({
   playback,
   onTogglePlay,
   onReplay,
-  onSeek,
   visible,
+  muted,
+  onToggleMute,
+  onToggleChrome,
 }: Props) {
   if (!visible) return null;
 
   const showReplay = playback.phase === 'ended';
+  const remaining = formatViewerRemainingTime(playback.duration, playback.currentTime);
+  const progress =
+    playback.duration > 0
+      ? Math.min(1, Math.max(0, playback.currentTime / playback.duration))
+      : 0;
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
-      <View style={styles.bar} onStartShouldSetResponder={() => true}>
+      <View style={styles.progressTrack} pointerEvents="none">
+        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      </View>
+      <View style={[styles.bar, getRtlRow()]} onStartShouldSetResponder={() => true}>
         {showReplay ? (
           <Pressable
             onPress={onReplay}
@@ -41,14 +47,14 @@ export function MediaViewerControls({
             accessibilityRole="button"
             accessibilityLabel="إعادة التشغيل"
           >
-            <AppIcon name="refresh-cw" size={22} color="#fff" />
+            <AppIcon name="refresh-cw" size={20} color="#fff" />
             <AppText style={styles.replayText}>إعادة التشغيل</AppText>
           </Pressable>
         ) : (
           <>
             <Pressable
               onPress={onTogglePlay}
-              style={styles.playBtn}
+              style={styles.iconBtn}
               accessibilityRole="button"
               accessibilityLabel={playback.isPlaying ? 'إيقاف' : 'تشغيل'}
             >
@@ -59,20 +65,30 @@ export function MediaViewerControls({
                 variant="sr"
               />
             </Pressable>
-            <AppText style={styles.time}>{formatTime(playback.currentTime)}</AppText>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={1}
-              value={playback.progress}
-              onSlidingComplete={(v) => {
-                if (playback.duration > 0) onSeek(v * playback.duration);
-              }}
-              minimumTrackTintColor="#fff"
-              maximumTrackTintColor="rgba(255,255,255,0.35)"
-              thumbTintColor="#fff"
-            />
-            <AppText style={styles.time}>{formatTime(playback.duration)}</AppText>
+            <AppText style={styles.remaining}>{remaining}</AppText>
+            <AppText style={styles.speed}>1X</AppText>
+            <View style={styles.spacer} />
+            <Pressable
+              onPress={onToggleMute}
+              style={styles.iconBtn}
+              accessibilityRole="button"
+              accessibilityLabel={muted ? 'تشغيل الصوت' : 'كتم الصوت'}
+            >
+              <AppIcon
+                name={muted ? 'volume-mute' : 'volume-high'}
+                size={20}
+                color="#fff"
+                variant="sr"
+              />
+            </Pressable>
+            <Pressable
+              onPress={onToggleChrome}
+              style={styles.iconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="ملء الشاشة"
+            >
+              <AppIcon name="expand" size={20} color="#fff" variant="sr" />
+            </Pressable>
           </>
         )}
       </View>
@@ -87,33 +103,45 @@ const styles = StyleSheet.create({
     end: 0,
     bottom: 0,
     zIndex: 95,
-    paddingHorizontal: 12,
-    paddingBottom: 8,
+  },
+  progressTrack: {
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    marginBottom: 2,
+  },
+  progressFill: {
+    height: 2,
+    backgroundColor: '#fff',
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.42)',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  playBtn: {
-    width: 36,
-    height: 36,
+  iconBtn: {
+    minWidth: 36,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  time: {
+  remaining: {
     color: '#fff',
-    fontSize: 12,
-    minWidth: 36,
-    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
+    minWidth: 48,
   },
-  slider: {
+  speed: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    minWidth: 28,
+  },
+  spacer: {
     flex: 1,
-    height: 28,
   },
   replayBtn: {
     flex: 1,
@@ -121,7 +149,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   replayText: {
     color: '#fff',

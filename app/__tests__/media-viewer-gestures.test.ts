@@ -1,4 +1,5 @@
 import { containSize } from '@/lib/mediaContain';
+import { formatViewerRemainingTime, mediaViewerVideoLayout } from '@/lib/mediaViewerVideoLayout';
 import {
   VIEWER_MAX_SCALE,
   VIEWER_MIN_SCALE,
@@ -90,6 +91,25 @@ describe('media viewer swipe and overlay tap', () => {
   });
 });
 
+describe('media viewer video layout', () => {
+  it('formats remaining time like the reference control strip', () => {
+    expect(formatViewerRemainingTime(97, 60)).toBe('-0:37');
+    expect(formatViewerRemainingTime(0, 0)).toBe('-0:00');
+  });
+
+  it('positions video with layout props only (no transform)', () => {
+    const frame = { width: 390, height: 844 };
+    const box = { width: 390, height: 219 };
+    const at1 = mediaViewerVideoLayout(box, frame, 1, 0, 0);
+    expect(at1.left).toBe(0);
+    expect(at1.top).toBeCloseTo(312.5, 0);
+    const zoomed = mediaViewerVideoLayout(box, frame, 2, 10, -5);
+    expect(zoomed.width).toBe(780);
+    expect(zoomed.height).toBe(438);
+    expect(zoomed.left).toBe(-185);
+  });
+});
+
 describe('media viewer source contracts', () => {
   it('keeps video contain and does not size from the thumbnail hero scale', () => {
     const viewer = src('components/ui/MediaViewerModal.tsx');
@@ -102,6 +122,9 @@ describe('media viewer source contracts', () => {
     expect(src('lib/useMediaViewerTransform.ts')).toContain('shouldDismissFromSwipe');
     expect(viewer).toContain('nextOverlayVisible');
     expect(slide).toContain('nativeControls={false}');
+    expect(slide).toContain("'nativeLayout'");
+    expect(src('components/feature/FeedVideoTile.tsx')).toContain('onPress={onOpen}');
+    expect(src('components/feature/FeedVideoTile.tsx')).not.toContain('setPlaying(true)');
     expect(viewer).not.toContain('heroFromScale');
     expect(viewer).not.toContain('c_fill');
     expect(viewer).not.toMatch(/style=\{\[styles\.heroLayer,\s*heroStyle\]\}/);

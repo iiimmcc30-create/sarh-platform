@@ -105,7 +105,10 @@ function ViewerOverlay({
     : '';
 
   return (
-    <View style={[styles.overlayWrap, { paddingBottom: Math.max(insetsBottom, 12) }]} pointerEvents="box-none">
+    <View
+      style={[styles.overlayWrap, { paddingBottom: Math.max(insetsBottom, 12) + 56 }]}
+      pointerEvents="box-none"
+    >
       <View style={styles.overlayFade} pointerEvents="none" />
       <View style={styles.overlayInner}>
         <View style={[styles.overlayHeader, getRtlRow()]}>
@@ -291,7 +294,7 @@ export function MediaViewerModal({
                 screenH={screenH}
                 cachedRatio={cachedRatios?.[item.uri] ?? null}
                 overlayVisible={overlayVisible}
-                controlsBottomInset={overlay ? 168 : 0}
+                controlsBottomInset={0}
                 contentFit="contain"
                 resizeMode="contain"
                 onZoomedChange={setZoomed}
