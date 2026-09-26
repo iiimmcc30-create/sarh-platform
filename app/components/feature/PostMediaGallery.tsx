@@ -51,6 +51,9 @@ interface PostMediaGalleryProps {
   variant?: 'feed' | 'detail';
   overlay?: MediaViewerOverlay | null;
   onViewRecorded?: (views: number) => void;
+  /** Feed video clips: pinch, double-tap zoom, single-tap chrome toggle. */
+  videoGestures?: boolean;
+  onToggleVideoChrome?: () => void;
 }
 
 function MediaSkeleton({ colors }: { colors: ThemeColors }) {
@@ -120,6 +123,8 @@ function MediaPage({
   contentFit,
   onOpen,
   onNaturalSize,
+  videoGestures,
+  onToggleChrome,
 }: {
   item: FeedMediaItem;
   colors: ThemeColors;
@@ -127,6 +132,8 @@ function MediaPage({
   contentFit: 'cover' | 'contain';
   onOpen: () => void;
   onNaturalSize?: (width: number, height: number) => void;
+  videoGestures?: boolean;
+  onToggleChrome?: () => void;
 }) {
   if (item.kind === 'video') {
     return (
@@ -138,6 +145,7 @@ function MediaPage({
         contentFit={contentFit}
         onOpen={onOpen}
         onNaturalSize={onNaturalSize}
+        onToggleChrome={videoGestures ? onToggleChrome : undefined}
       />
     );
   }
@@ -201,6 +209,8 @@ export function PostMediaGallery({
   variant = 'feed',
   overlay,
   onViewRecorded,
+  videoGestures = false,
+  onToggleVideoChrome,
 }: PostMediaGalleryProps) {
   const items = useMemo(() => collectPostMedia(images, video, media), [images, video, media]);
   const [width, setWidth] = useState(0);
@@ -281,6 +291,8 @@ export function PostMediaGallery({
             contentFit={contentFit}
             onOpen={() => openViewer(0)}
             onNaturalSize={isDetail ? applySize : undefined}
+            videoGestures={videoGestures}
+            onToggleChrome={onToggleVideoChrome}
           />
         ) : (
           <>
@@ -302,6 +314,8 @@ export function PostMediaGallery({
                     contentFit={contentFit}
                     onOpen={() => openViewer(idx)}
                     onNaturalSize={isDetail && idx === activeIndex ? applySize : undefined}
+                    videoGestures={videoGestures}
+                    onToggleChrome={onToggleVideoChrome}
                   />
                 </View>
               ))}
