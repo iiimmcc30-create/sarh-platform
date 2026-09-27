@@ -9,6 +9,7 @@ import { AppText, SarhChip, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { compareListingBoostPriority, interleavePromotedListings } from '@/lib/listingSort';
+import { isListingFeaturedActive } from '@/lib/listingBoostState';
 import { listingMatchesMarketSelection } from '@/lib/marketCategoriesFallback';
 import { safePush } from '@/lib/safeNavigate';
 import { fetchMarketCategories } from '@/services/categories';
@@ -167,7 +168,7 @@ export default function MarketBrowseScreen() {
 
   const filtered = useMemo(() => {
     let list = items.filter((l) => {
-      if (showFeaturedOnly && !l.featured) return false;
+      if (showFeaturedOnly && !isListingFeaturedActive(l)) return false;
       return true;
     });
 

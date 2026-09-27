@@ -113,7 +113,10 @@ type BackendListing = {
   arabicDescription: string;
   featured?: boolean;
   pinned?: boolean;
+  featuredUntil?: string | null;
+  pinnedUntil?: string | null;
   promoted?: boolean;
+  promotedUntil?: string | null;
   promotionWeight?: number;
   createdAt: string;
   origin?: 'USER' | 'ADMIN_MANAGED';
@@ -195,7 +198,10 @@ function mapListingFromSearch(data: Record<string, unknown>): Listing | null {
     },
     featured: l.featured ?? false,
     pinned: l.pinned ?? false,
+    featuredUntil: l.featuredUntil ?? null,
+    pinnedUntil: l.pinnedUntil ?? null,
     promoted: l.promoted ?? false,
+    promotedUntil: l.promotedUntil ?? undefined,
     promotionWeight: l.promotionWeight,
     postedAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString('ar-SA') : '',
     createdAt: l.createdAt,

@@ -121,6 +121,7 @@ function RootNavigator() {
         />
         <Stack.Screen name="notifications/index" />
         <Stack.Screen name="favorites" />
+        <Stack.Screen name="bookmarks" />
         <Stack.Screen name="promote" />
         <Stack.Screen name="subscription" />
         <Stack.Screen name="payment" />

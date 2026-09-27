@@ -9,6 +9,37 @@ import {
 } from './lib/arabic-search.util';
 import { rankSearchResults, scoreSearchMatch } from './lib/search-ranking.util';
 import { UnifiedSearchRepository } from './repositories/unified-search.repository';
+import {
+  isFeaturedActive,
+  isPromotedActive,
+  withEffectiveBoostState,
+  type BoostFlagFields,
+} from '../listings/boost/boost-effective-state';
+
+/**
+ * Listing items keep their row (incl. featuredUntil / pinnedUntil /
+ * promotedUntil) in `data`, so a cached payload can be re-evaluated at read
+ * time: an expired boost never comes back as active from Redis.
+ */
+export function withEffectiveListingGroups(
+  groups: SearchGroup[],
+  now: Date = new Date(),
+): SearchGroup[] {
+  return groups.map((group) =>
+    group.type !== 'listings'
+      ? group
+      : {
+          ...group,
+          items: group.items.map((item) => ({
+            ...item,
+            data: withEffectiveBoostState(
+              (item.data ?? {}) as BoostFlagFields & Record<string, unknown>,
+              now,
+            ),
+          })),
+        },
+  );
+}
 
 export type SearchResultItem = {
   type: 'listings' | 'posts' | 'news' | 'services' | 'users';
@@ -67,7 +98,13 @@ export class UnifiedSearchService {
         groups: SearchGroup[];
         durationMs?: number;
       }>(cacheKey);
-      if (cached) return { ...cached, durationMs: Date.now() - started };
+      if (cached) {
+        return {
+          ...cached,
+          groups: withEffectiveListingGroups(cached.groups ?? []),
+          durationMs: Date.now() - started,
+        };
+      }
     }
 
     const typesToSearch: Array<Exclude<SearchType, 'all'>> =
@@ -230,7 +267,8 @@ export class UnifiedSearchService {
         category: row.marketCategory?.nameAr ?? row.category,
         keywords: [row.breed ?? ''].filter(Boolean),
         createdAt: row.createdAt,
-        boost: (row.featured ? 2 : 0) + (row.promoted ? 1 : 0),
+        boost:
+          (isFeaturedActive(row) ? 2 : 0) + (isPromotedActive(row) ? 1 : 0),
       });
       return {
         type: 'listings' as const,

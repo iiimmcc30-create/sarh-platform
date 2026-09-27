@@ -115,9 +115,16 @@ export class ListingPromotionService {
         where: { id: { in: expired.map((row) => row.id) } },
         data: { status: 'overdue' },
       }),
+      // Conditional (evaluated by the DB): a listing whose Promotion was
+      // re-purchased (promotedUntil moved into the future, or another paid
+      // promotion still running) keeps its active Promotion.
       ...listingIds.map((listingId) =>
-        this.prisma.listing.update({
-          where: { id: listingId },
+        this.prisma.listing.updateMany({
+          where: {
+            id: listingId,
+            OR: [{ promotedUntil: null }, { promotedUntil: { lte: now } }],
+            promotions: { none: { status: 'paid', expiresAt: { gt: now } } },
+          },
           data: {
             promoted: false,
             promotedUntil: null,
@@ -129,6 +136,8 @@ export class ListingPromotionService {
     ]);
 
     await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => {});
+    await this.cache.delPattern('search:explore:*').catch(() => {});
+    await this.cache.delPattern('search:unified:*').catch(() => {});
     for (const id of listingIds) {
       await this.cache.del(`listing:${id}`).catch(() => {});
     }

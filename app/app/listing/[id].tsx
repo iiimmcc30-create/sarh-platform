@@ -9,6 +9,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { formatRelativeTimeAr } from '@/lib/formatRelativeTime';
 import { useApp } from '@/hooks/useApp';
 import { type Listing } from '@/services/types';
+import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoostState';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchUserProfile, setFollowUser } from '@/services/users';
 import { openUserProfile } from '@/lib/openUserProfile';
@@ -184,6 +185,8 @@ export default function ListingDetailScreen() {
         },
         featured: raw.featured ?? false,
         pinned: raw.pinned ?? false,
+        featuredUntil: typeof raw.featuredUntil === 'string' ? raw.featuredUntil : null,
+        pinnedUntil: typeof raw.pinnedUntil === 'string' ? raw.pinnedUntil : null,
         postedAt: new Date(raw.createdAt).toLocaleDateString('ar-SA'),
         createdAt: raw.createdAt,
         editCount: typeof raw.editCount === 'number' ? raw.editCount : 0,
@@ -771,15 +774,15 @@ export default function ListingDetailScreen() {
               <AppText variant="price" style={styles.priceOnRequest}>السعر عند الطلب</AppText>
             </View>
           )}
-          {(listing.pinned || listing.featured) ? (
+          {(isListingPinnedActive(listing) || isListingFeaturedActive(listing)) ? (
             <Row wrap gap="sm" justify="end">
-              {listing.pinned ? (
+              {isListingPinnedActive(listing) ? (
                 <Row gap="xs" align="center" style={styles.pinned}>
                   <AppIcon name="pin" size={11} color="#fff" />
                   <AppText variant="caption" style={styles.pinnedText}>مثبّت</AppText>
                 </Row>
               ) : null}
-              {listing.featured ? (
+              {isListingFeaturedActive(listing) ? (
                 <Row gap="xs" align="center" style={styles.featured}>
                   <AppIcon name="star" size={11} color="#1A1300" />
                   <AppText variant="caption" style={styles.featuredText}>مميز</AppText>

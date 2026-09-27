@@ -7,6 +7,10 @@
  * without an end date (subscription plan quota at create / plan promote), which
  * has never had an expiry, so it stays active.
  *
+ * Promotion follows the same rule with `promoted` + `promotedUntil`: once
+ * the Until has passed the listing is no longer promoted (and its
+ * promotionWeight no longer counts), even before the expiry pass clears it.
+ *
  * Dependency-free on purpose so ranking utils, services and repositories can
  * share it without import cycles.
  */
@@ -15,6 +19,9 @@ export interface BoostFlagFields {
   featuredUntil?: Date | string | null;
   pinned?: boolean | null;
   pinnedUntil?: Date | string | null;
+  promoted?: boolean | null;
+  promotedUntil?: Date | string | null;
+  promotionWeight?: number | null;
 }
 
 function untilStillActive(
@@ -47,9 +54,29 @@ export function isPinnedActive(
   );
 }
 
+export function isPromotedActive(
+  listing: BoostFlagFields,
+  now: Date = new Date(),
+): boolean {
+  return (
+    listing.promoted === true &&
+    untilStillActive(listing.promotedUntil, now.getTime())
+  );
+}
+
+/** promotionWeight only counts while the Promotion itself is still active. */
+export function effectivePromotionWeight(
+  listing: BoostFlagFields,
+  now: Date = new Date(),
+): number {
+  if (listing.promoted === true && !isPromotedActive(listing, now)) return 0;
+  return listing.promotionWeight ?? 0;
+}
+
 /**
- * Same object with `featured` / `pinned` replaced by their effective values
- * (false once expired). Field names and the rest of the payload are unchanged.
+ * Same object with `featured` / `pinned` / `promoted` replaced by their
+ * effective values (false once expired; an expired Promotion also reports
+ * promotionWeight 0). Field names and the rest of the payload are unchanged.
  */
 export function withEffectiveBoostState<T extends BoostFlagFields>(
   listing: T,
@@ -59,11 +86,14 @@ export function withEffectiveBoostState<T extends BoostFlagFields>(
     listing.featured === true && !isFeaturedActive(listing, now);
   const pinnedExpired =
     listing.pinned === true && !isPinnedActive(listing, now);
-  if (!featuredExpired && !pinnedExpired) return listing;
+  const promotedExpired =
+    listing.promoted === true && !isPromotedActive(listing, now);
+  if (!featuredExpired && !pinnedExpired && !promotedExpired) return listing;
   return {
     ...listing,
     ...(featuredExpired ? { featured: false } : {}),
     ...(pinnedExpired ? { pinned: false } : {}),
+    ...(promotedExpired ? { promoted: false, promotionWeight: 0 } : {}),
   };
 }
 

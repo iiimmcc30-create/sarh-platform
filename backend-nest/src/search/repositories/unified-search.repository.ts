@@ -36,6 +36,7 @@ const LISTING_SELECT = {
   featuredUntil: true,
   pinnedUntil: true,
   promoted: true,
+  promotedUntil: true,
   promotionWeight: true,
   createdAt: true,
   seller: {

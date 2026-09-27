@@ -147,6 +147,7 @@ describe('every listings feed invalidator uses the shared v3 pattern', () => {
       },
       listing: {
         update: jest.fn().mockReturnValue('update'),
+        updateMany: jest.fn().mockReturnValue('updateMany'),
         findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn().mockResolvedValue([]),

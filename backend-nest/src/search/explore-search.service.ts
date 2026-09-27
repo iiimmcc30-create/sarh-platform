@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
 import { SearchService } from './search.service';
 import { SearchRepository } from './search.service';
+import {
+  rankByEffectiveBoost,
+  type BoostFlagFields,
+} from '../listings/boost/boost-effective-state';
 
 const EXPLORE_CACHE_TTL_SEC = 60;
 
@@ -19,6 +23,27 @@ export type ExploreSection = {
   items: unknown[];
 };
 
+/**
+ * Cached listing sections are re-evaluated at read time (flag + Until vs now),
+ * so an expired Featured/Pinned/Promoted never comes back as active from Redis.
+ */
+export function withEffectiveExploreSections(
+  sections: ExploreSection[],
+  now: Date = new Date(),
+): ExploreSection[] {
+  return sections.map((section) =>
+    section.type !== 'listings'
+      ? section
+      : {
+          ...section,
+          items: rankByEffectiveBoost(
+            section.items as BoostFlagFields[],
+            now,
+          ),
+        },
+  );
+}
+
 @Injectable()
 export class ExploreSearchService {
   constructor(
@@ -34,7 +59,12 @@ export class ExploreSearchService {
       const cached = await this.cache.get<{ sections: ExploreSection[] }>(
         cacheKey,
       );
-      if (cached?.sections) return cached;
+      if (cached?.sections) {
+        return {
+          ...cached,
+          sections: withEffectiveExploreSections(cached.sections),
+        };
+      }
     }
 
     const [trending, accounts, listings, news, categories, suppliers] =

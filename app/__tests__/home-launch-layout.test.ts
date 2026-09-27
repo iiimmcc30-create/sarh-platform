@@ -27,13 +27,15 @@ describe('home launch layout', () => {
     const catalog = src('lib/homeQuickAccess.ts');
     const quick = src('components/feature/HomeQuickAccess.tsx');
     expect(catalog).toContain("key: 'services'");
-    expect(catalog).toContain("key: 'favorites'");
+    expect(catalog).toContain("key: 'bookmarks'");
+    expect(catalog).not.toContain("key: 'favorites'");
     expect(catalog).toContain("key: 'feed-suppliers'");
     expect(catalog).toContain("label: 'الموردين'");
     expect(catalog).toContain("key: 'settings'");
     expect(catalog).toContain("pathname: '/ministry'");
     expect(catalog).toContain("tab: 'services'");
-    expect(catalog).toContain("href: '/favorites'");
+    expect(catalog).toContain("href: '/bookmarks'");
+    expect(catalog).not.toContain("href: '/favorites'");
     expect(catalog).toContain("href: '/feed-suppliers'");
     expect(catalog).toContain("href: '/settings'");
     expect(catalog).toContain('HOME_QUICK_ACCESS_ITEMS');

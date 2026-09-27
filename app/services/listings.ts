@@ -41,6 +41,8 @@ type BackendListing = {
   arabicDescription: string;
   featured?: boolean;
   pinned?: boolean;
+  featuredUntil?: string | null;
+  pinnedUntil?: string | null;
   promoted?: boolean;
   promotedUntil?: string;
   promotionWeight?: number;
@@ -130,8 +132,10 @@ function mapListing(l: BackendListing): Listing {
     },
     featured: l.featured ?? false,
     pinned: l.pinned ?? false,
+    featuredUntil: l.featuredUntil ?? null,
+    pinnedUntil: l.pinnedUntil ?? null,
     promoted: l.promoted ?? false,
-    promotedUntil: l.promotedUntil,
+    promotedUntil: l.promotedUntil ?? undefined,
     promotionWeight: l.promotionWeight,
     postedAt: new Date(l.createdAt).toLocaleDateString('ar-SA'),
     createdAt: l.createdAt,

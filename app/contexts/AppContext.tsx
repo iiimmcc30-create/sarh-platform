@@ -329,6 +329,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         : mapBackendUser(l.seller),
       featured: l.featured ?? false,
       pinned: l.pinned ?? false,
+      featuredUntil: typeof l.featuredUntil === 'string' ? l.featuredUntil : null,
+      pinnedUntil: typeof l.pinnedUntil === 'string' ? l.pinnedUntil : null,
       postedAt: new Date(l.createdAt).toLocaleDateString('ar-SA'),
       createdAt: l.createdAt,
       views: typeof l.views === 'number' ? l.views : undefined,

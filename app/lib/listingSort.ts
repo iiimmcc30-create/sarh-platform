@@ -1,4 +1,10 @@
 import type { Listing } from '@/services/types';
+import {
+  effectiveListingPromotionWeight,
+  isListingFeaturedActive,
+  isListingPinnedActive,
+  isListingPromotedActive,
+} from '@/lib/listingBoostState';
 
 export type MarketSortMode = 'newest' | 'oldest' | 'price_asc' | 'price_desc';
 
@@ -27,23 +33,25 @@ function byRecency(a: Listing, b: Listing): number {
   return tb - ta;
 }
 
+// Boost flags are the effective state (flag + Until in the future), so a stale
+// local copy of an expired boost ranks as a regular listing.
 function byFeaturedThenWeight(a: Listing, b: Listing): number {
-  const featuredDiff = Number(b.featured) - Number(a.featured);
+  const featuredDiff = Number(isListingFeaturedActive(b)) - Number(isListingFeaturedActive(a));
   if (featuredDiff !== 0) return featuredDiff;
-  const weightDiff = (b.promotionWeight ?? 0) - (a.promotionWeight ?? 0);
+  const weightDiff = effectiveListingPromotionWeight(b) - effectiveListingPromotionWeight(a);
   if (weightDiff !== 0) return weightDiff;
   return byRecency(a, b);
 }
 
 /** Pinned first, then featured, then subscriber priority, then promotion weight, then newest. */
 export function compareListingBoostPriority(a: Listing, b: Listing): number {
-  const pinnedDiff = Number(b.pinned) - Number(a.pinned);
+  const pinnedDiff = Number(isListingPinnedActive(b)) - Number(isListingPinnedActive(a));
   if (pinnedDiff !== 0) return pinnedDiff;
-  const featuredDiff = Number(b.featured) - Number(a.featured);
+  const featuredDiff = Number(isListingFeaturedActive(b)) - Number(isListingFeaturedActive(a));
   if (featuredDiff !== 0) return featuredDiff;
   const verifiedDiff = Number(b.seller?.verified) - Number(a.seller?.verified);
   if (verifiedDiff !== 0) return verifiedDiff;
-  const weightDiff = (b.promotionWeight ?? 0) - (a.promotionWeight ?? 0);
+  const weightDiff = effectiveListingPromotionWeight(b) - effectiveListingPromotionWeight(a);
   if (weightDiff !== 0) return weightDiff;
   return byRecency(a, b);
 }
@@ -52,10 +60,10 @@ export function compareListingBoostPriority(a: Listing, b: Listing): number {
 export function interleavePromotedListings(listings: Listing[]): Listing[] {
   if (listings.length <= 1) return listings;
 
-  const pinned = listings.filter((l) => l.pinned).sort(byFeaturedThenWeight);
-  const rest = listings.filter((l) => !l.pinned);
-  const promotedPool = rest.filter((l) => l.promoted).sort(byFeaturedThenWeight);
-  const regularPool = rest.filter((l) => !l.promoted).sort(byFeaturedThenWeight);
+  const pinned = listings.filter((l) => isListingPinnedActive(l)).sort(byFeaturedThenWeight);
+  const rest = listings.filter((l) => !isListingPinnedActive(l));
+  const promotedPool = rest.filter((l) => isListingPromotedActive(l)).sort(byFeaturedThenWeight);
+  const regularPool = rest.filter((l) => !isListingPromotedActive(l)).sort(byFeaturedThenWeight);
 
   if (promotedPool.length === 0) return [...pinned, ...regularPool];
 

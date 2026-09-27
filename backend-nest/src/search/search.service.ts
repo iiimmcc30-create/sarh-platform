@@ -96,6 +96,7 @@ export class SearchRepository {
         featuredUntil: true,
         pinnedUntil: true,
         promoted: true,
+        promotedUntil: true,
         promotionWeight: true,
         views: true,
         createdAt: true,

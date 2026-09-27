@@ -10,7 +10,7 @@ import { getListingFavoriteIds } from '@/lib/listingFavorite';
 import { formatListingPrice } from '@/lib/messageListingContext';
 import { postDetailHref } from '@/lib/openPost';
 import { getRtlDirection, getRtlRow } from '@/lib/rtl';
-import { closeThenPush } from '@/lib/safeNavigate';
+import { closeThenPush, safePush } from '@/lib/safeNavigate';
 import {
   SIDEBAR_BOOKMARK_SECTIONS,
   resolveBookmarked,
@@ -47,8 +47,14 @@ const ROW_HEIGHT = THUMB_HEIGHT + 44;
  * - المحفوظات: posts from the existing post bookmarks (AppContext bookmarkedPosts).
  * Items resolve from the in-memory cache first; only missing ids of the visible
  * section are fetched (existing GET endpoints), after the sidebar slide settles.
+ * `presentation="screen"` (the /bookmarks screen) opens items with a plain push;
+ * the sidebar closes itself first.
  */
-export function SidebarBookmarks() {
+export function SidebarBookmarks({
+  presentation = 'sidebar',
+}: {
+  presentation?: 'sidebar' | 'screen';
+} = {}) {
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const { listings, posts, bookmarkedPosts } = useApp();
@@ -152,12 +158,20 @@ export function SidebarBookmarks() {
   );
 
   const open = useCallback((item: SidebarBookmarkItem) => {
+    if (presentation === 'screen') {
+      safePush(
+        item.kind === 'listing'
+          ? { pathname: '/listing/[id]', params: { id: item.id } }
+          : postDetailHref(item.id),
+      );
+      return;
+    }
     if (item.kind === 'listing') {
       closeThenPush({ pathname: '/listing/[id]', params: { id: item.id } });
     } else {
       closeThenPush(postDetailHref(item.id));
     }
-  }, []);
+  }, [presentation]);
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<SidebarBookmarkItem>) => {

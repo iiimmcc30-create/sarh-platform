@@ -14,6 +14,11 @@ import { rtlForwardIcon } from '@/lib/rtl';
 import { listingThumbUri } from '@/lib/listingMedia';
 import { searchAllSellerListings } from '@/services/listings';
 import type { Listing } from '@/services/types';
+import {
+  isListingFeaturedActive,
+  isListingPinnedActive,
+  isListingPromotedActive,
+} from '@/lib/listingBoostState';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -157,7 +162,7 @@ export default function PromoteHubScreen() {
                           color={colors.textSubtle}
                         />
 
-                        {listing.promoted ? (
+                        {isListingPromotedActive(listing) ? (
                           <Pressable
                             style={styles.statsBtn}
                             onPress={(e) => {
@@ -177,8 +182,8 @@ export default function PromoteHubScreen() {
                           <View style={styles.textWrap}>
                             <View style={styles.titleRow}>
                               <ListingBoostTitleIcons
-                                pinned={listing.pinned}
-                                featured={listing.featured}
+                                pinned={isListingPinnedActive(listing)}
+                                featured={isListingFeaturedActive(listing)}
                               />
                               <AppText variant="label" color="textPrimary" numberOfLines={2} style={{ flexShrink: 1 }}>
                                 {title}
@@ -189,7 +194,7 @@ export default function PromoteHubScreen() {
                                 {metaParts.join(' · ')}
                               </AppText>
                             ) : null}
-                            {listing.promoted ? (
+                            {isListingPromotedActive(listing) ? (
                               <AppText variant="micro" style={styles.reachText}>ترويج نشط — زيادة ظهور</AppText>
                             ) : null}
                           </View>

@@ -26,6 +26,7 @@ import { Listing, getCountryInfo } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { isManagedListing, listingAdvertiserName } from '@/lib/managedListing';
 import { ListingBoostTitleIcons } from '@/components/listing/ListingBoostTitleIcons';
+import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoostState';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 
 interface ListingCardProps {
@@ -106,6 +107,10 @@ function ListingCardInner({
   const sellerName = listingAdvertiserName(listing);
   const sellerId = managed ? undefined : seller?.id;
   const photoCount = listingPhotoUris(listing).length;
+  // Re-checked against featuredUntil/pinnedUntil at render: a copy kept in memory
+  // or in the feed snapshot never shows a boost that has already expired.
+  const featuredActive = isListingFeaturedActive(listing);
+  const pinnedActive = isListingPinnedActive(listing);
 
   if (variant === 'list') {
     const showNew = isNewListing(listing);
@@ -129,8 +134,8 @@ function ListingCardInner({
                 {title}
               </Text>
             </View>
-            <ListingBoostTitleIcons pinned={listing.pinned} featured={listing.featured} />
-            {!listing.pinned && !listing.featured && showNew ? (
+            <ListingBoostTitleIcons pinned={pinnedActive} featured={featuredActive} />
+            {!pinnedActive && !featuredActive && showNew ? (
               <Text style={styles.listStatusNew}>جديد</Text>
             ) : null}
           </View>
@@ -246,7 +251,7 @@ function ListingCardInner({
             <Text style={styles.profileTitle} numberOfLines={2}>
               {listing.arabicTitle}
             </Text>
-            <ListingBoostTitleIcons pinned={listing.pinned} featured={listing.featured} size="md" />
+            <ListingBoostTitleIcons pinned={pinnedActive} featured={featuredActive} size="md" />
           </View>
           <Text style={styles.profilePrice}>
             {listing.price.toLocaleString('ar-SA')} {listing.currency}
@@ -276,7 +281,7 @@ function ListingCardInner({
             <Text style={[styles.featureTitle, compact && styles.featureTitleCompact]} numberOfLines={2}>
               {listing.arabicTitle}
             </Text>
-            <ListingBoostTitleIcons pinned={listing.pinned} featured={listing.featured} size="md" />
+            <ListingBoostTitleIcons pinned={pinnedActive} featured={featuredActive} size="md" />
           </View>
           <View style={[styles.row, getRtlRow()]}>
             <Text style={[styles.featurePrice, compact && styles.featurePriceCompact]}>
@@ -304,7 +309,7 @@ function ListingCardInner({
         <Text style={styles.harajTitle} numberOfLines={2}>
           {title}
         </Text>
-        <ListingBoostTitleIcons pinned={listing.pinned} featured={listing.featured} />
+        <ListingBoostTitleIcons pinned={pinnedActive} featured={featuredActive} />
       </View>
 
       <View style={[styles.harajMeta, getRtlRow()]}>
@@ -819,6 +824,8 @@ export const ListingCard = memo(ListingCardInner, (prev, next) =>
   prev.listing.price === next.listing.price &&
   prev.listing.featured === next.listing.featured &&
   prev.listing.pinned === next.listing.pinned &&
+  prev.listing.featuredUntil === next.listing.featuredUntil &&
+  prev.listing.pinnedUntil === next.listing.pinnedUntil &&
   prev.listing.images?.[0] === next.listing.images?.[0] &&
   prev.listing.arabicTitle === next.listing.arabicTitle &&
   prev.listing.views === next.listing.views,

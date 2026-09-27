@@ -110,6 +110,9 @@ export interface Listing {
   seller: User;
   featured: boolean;
   pinned: boolean;
+  /** Paid Featured/Pinned end time (ISO). Null/absent = no end date (plan-granted). */
+  featuredUntil?: string | null;
+  pinnedUntil?: string | null;
   promoted?: boolean;
   promotedUntil?: string;
   promotionWeight?: number;

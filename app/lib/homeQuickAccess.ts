@@ -27,11 +27,12 @@ export const HOME_QUICK_ACCESS_ITEMS: HomeQuickAccessItem[] = [
     logo: MEWA_FALLBACK_AVATAR,
   },
   {
-    key: 'favorites',
-    label: 'المفضلة',
-    href: '/favorites',
-    icon: 'heart',
-    iconTone: 'rose',
+    // Same save icon as the Feed's bookmark action (PostItem, not saved yet).
+    key: 'bookmarks',
+    label: 'المحفوظات',
+    href: '/bookmarks',
+    icon: 'bookmark-outline',
+    iconTone: 'primary',
   },
   {
     key: 'feed-suppliers',

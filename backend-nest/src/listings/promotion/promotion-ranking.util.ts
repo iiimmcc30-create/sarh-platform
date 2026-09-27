@@ -1,6 +1,8 @@
 import {
+  effectivePromotionWeight,
   isFeaturedActive,
   isPinnedActive,
+  isPromotedActive,
 } from '../boost/boost-effective-state';
 
 type RankableListing = {
@@ -10,6 +12,7 @@ type RankableListing = {
   pinnedUntil?: Date | string | null;
   featuredUntil?: Date | string | null;
   promoted?: boolean;
+  promotedUntil?: Date | string | null;
   promotionWeight?: number;
   createdAt?: Date | string;
 };
@@ -26,7 +29,8 @@ function byFeaturedThenWeight(now: Date) {
     const featuredDiff =
       Number(isFeaturedActive(b, now)) - Number(isFeaturedActive(a, now));
     if (featuredDiff !== 0) return featuredDiff;
-    const weightDiff = (b.promotionWeight ?? 0) - (a.promotionWeight ?? 0);
+    const weightDiff =
+      effectivePromotionWeight(b, now) - effectivePromotionWeight(a, now);
     if (weightDiff !== 0) return weightDiff;
     return byRecency(a, b);
   };
@@ -51,8 +55,13 @@ export function interleavePromotedListings<T extends RankableListing>(
     .sort(byFeatured);
   const rest = listings.filter((l) => !isPinnedActive(l, now));
 
-  const promotedPool = rest.filter((l) => l.promoted).sort(byFeatured);
-  const regularPool = rest.filter((l) => !l.promoted).sort(byFeatured);
+  // Promotion counts only while promotedUntil is in the future.
+  const promotedPool = rest
+    .filter((l) => isPromotedActive(l, now))
+    .sort(byFeatured);
+  const regularPool = rest
+    .filter((l) => !isPromotedActive(l, now))
+    .sort(byFeatured);
 
   if (promotedPool.length === 0) {
     return [...pinned, ...regularPool];

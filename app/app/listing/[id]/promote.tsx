@@ -10,6 +10,7 @@ import { launchPaymentCheckout } from '@/services/payments';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import type { Listing } from '@/services/types';
+import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoostState';
 import {
   buildPromoteCheckoutPayload,
   fetchPromoteQuote,
@@ -124,7 +125,10 @@ export default function ListingPromoteScreen() {
             seller: raw.seller,
             featured: raw.featured ?? false,
             pinned: raw.pinned ?? false,
+            featuredUntil: typeof raw.featuredUntil === 'string' ? raw.featuredUntil : null,
+            pinnedUntil: typeof raw.pinnedUntil === 'string' ? raw.pinnedUntil : null,
             promoted: raw.promoted ?? false,
+            promotedUntil: typeof raw.promotedUntil === 'string' ? raw.promotedUntil : undefined,
             postedAt: raw.createdAt,
             createdAt: raw.createdAt,
           } as Listing);
@@ -237,7 +241,10 @@ export default function ListingPromoteScreen() {
                     <AppText variant="bodyMedium" color="textPrimary" numberOfLines={2} style={styles.fill}>
                       {listingTitle}
                     </AppText>
-                    <ListingBoostTitleIcons pinned={listing?.pinned} featured={listing?.featured} />
+                    <ListingBoostTitleIcons
+                      pinned={listing ? isListingPinnedActive(listing) : false}
+                      featured={listing ? isListingFeaturedActive(listing) : false}
+                    />
                   </Row>
                   {listing?.price && listing.price > 0 ? (
                     <AppText variant="caption" style={styles.listingPrice}>

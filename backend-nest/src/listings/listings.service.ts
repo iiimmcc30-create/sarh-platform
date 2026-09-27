@@ -30,8 +30,10 @@ import {
   LISTINGS_FEED_CACHE_PATTERN,
 } from './listings-cache-keys';
 import {
+  effectivePromotionWeight,
   isFeaturedActive,
   isPinnedActive,
+  isPromotedActive,
   withEffectiveBoostState,
   type BoostFlagFields,
 } from './boost/boost-effective-state';
@@ -297,8 +299,8 @@ export class ListingsService {
       if (featuredDiff !== 0) return featuredDiff;
       if (search && search.length >= 2) {
         const promoDiff =
-          promotionSearchScore(b.promotionWeight) -
-          promotionSearchScore(a.promotionWeight);
+          promotionSearchScore(effectivePromotionWeight(b, now)) -
+          promotionSearchScore(effectivePromotionWeight(a, now));
         if (promoDiff !== 0) return promoDiff;
       }
       const priorityDiff =
@@ -321,7 +323,8 @@ export class ListingsService {
           },
         );
       if (priorityDiff !== 0) return priorityDiff;
-      const weightDiff = (b.promotionWeight ?? 0) - (a.promotionWeight ?? 0);
+      const weightDiff =
+        effectivePromotionWeight(b, now) - effectivePromotionWeight(a, now);
       if (weightDiff !== 0) return weightDiff;
       const createdDiff =
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -349,24 +352,22 @@ export class ListingsService {
     this.promotions.expireStalePromotions().catch(() => {});
 
     const cacheKey = `listing:${id}`;
-    const cached = await this.cache.get<{ promoted?: boolean }>(cacheKey);
+    const cached = await this.cache.get<BoostFlagFields>(cacheKey);
     if (cached) {
+      // Old Redis copies are re-evaluated at read time (Until vs now).
+      const effective = withEffectiveBoostState(cached);
       this.repo.incrementViews(id).catch(() => {});
-      if (cached.promoted) {
+      if (effective.promoted) {
         void this.promotions.trackPromotionEvent(id, 'view');
       }
-      return sanitizeListingMedia(
-        withEffectiveBoostState(
-          cached as { promoted?: boolean } & BoostFlagFields,
-        ),
-      );
+      return sanitizeListingMedia(effective);
     }
 
     const listing = await this.repo.findById(id);
     if (!listing) throwApi(404, 'not_found', 'الإعلان غير موجود');
 
     this.repo.incrementViews(id).catch(() => {});
-    if (listing.promoted) {
+    if (isPromotedActive(listing)) {
       void this.promotions.trackPromotionEvent(id, 'view');
     }
     await this.cache.set(cacheKey, listing, 300);
@@ -650,7 +651,7 @@ export class ListingsService {
     const updated = await this.repo.update(id, updateData);
     await this.cache.del(`listing:${id}`);
     await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
-    return sanitizeListingMedia(updated);
+    return sanitizeListingMedia(withEffectiveBoostState(updated));
   }
 
   async applyPlanPromotion(
@@ -712,7 +713,7 @@ export class ListingsService {
         },
         'Listing plan promotion applied',
       );
-      return sanitizeListingMedia(updated);
+      return sanitizeListingMedia(withEffectiveBoostState(updated));
     } catch (err: unknown) {
       const e = err as { code?: string; limit?: number };
       if (e.code === 'featured_limit' || e.code === 'pinned_limit') {
