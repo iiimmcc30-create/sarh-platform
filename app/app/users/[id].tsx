@@ -35,6 +35,8 @@ import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
 import { presentActionSheet, confirmDestructive, alertMessage } from '@/lib/actionSheet';
 import { showToast } from '@/lib/toast';
+import { resolveProfileBack } from '@/lib/profileHeader';
+import { safeReplace } from '@/lib/safeNavigate';
 import { SHARE_ICON } from '@/lib/interactionActions';
 
 /** Layout only — an empty tab still needs vertical presence in the feed. */
@@ -442,7 +444,11 @@ export default function UserProfileScreen() {
         user={profileUser}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        onBack={() => router.back()}
+        onBack={() => {
+          const action = resolveProfileBack(router.canGoBack());
+          if (action.kind === 'back') router.back();
+          else safeReplace(action.href, undefined, router);
+        }}
         onShare={handleShareProfile}
         onMenu={() => void handleMenu()}
         onFollowersPress={() => openConnections('followers')}

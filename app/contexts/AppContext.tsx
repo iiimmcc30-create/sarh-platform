@@ -27,9 +27,17 @@ import { resolveMediaUrl } from '@/services/media';
 import { prefetchRemoteImages } from '@/lib/prefetchRemoteImages';
 import {
   buildListingsFeedUrl,
+  forgetBootstrappedListing,
   getBootstrappedListingsPage,
   rememberListingsBootstrapPage,
 } from '@/services/listings';
+import { forgetCachedUserProfile } from '@/services/users';
+import {
+  applyDeletionToCounts,
+  emitContentDeleted,
+  withoutId,
+  type DeletedContent,
+} from '@/lib/contentDeletion';
 import {
   clearFeedSnapshot,
   feedSnapshotOwnerId,
@@ -37,6 +45,7 @@ import {
   patchFeedSnapshot,
   planFeedSnapshotHydration,
   readFeedSnapshot,
+  removeFromFeedSnapshot,
 } from '@/lib/feedSnapshot';
 import { runExclusive } from '@/lib/postEngagement';
 import {
@@ -193,6 +202,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   repostedPostsRef.current = repostedPosts;
   const bookmarkedPostsRef = useRef(bookmarkedPosts);
   bookmarkedPostsRef.current = bookmarkedPosts;
+  const meRef = useRef(me);
+  meRef.current = me;
+  const listingsStateRef = useRef(listingsState);
+  listingsStateRef.current = listingsState;
 
   // Bookmarks are device-local (no backend model yet) — restore on mount
   useEffect(() => {
@@ -970,7 +983,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }),
       });
       if (res.ok) {
+        // Only after a successful DELETE: drop this one listing everywhere it is cached.
+        const ownerId =
+          listingsStateRef.current.find((l) => l.id === listingId)?.seller?.id || meRef.current.id;
         setListingsState((prev) => prev.filter((l) => l.id !== listingId));
+        forgetBootstrappedListing(listingId);
+        forgetCachedUserProfile(ownerId);
+        void removeFromFeedSnapshot({ listingId }, feedSnapshotOwnerId(user?.id, isAuthenticated));
+        emitContentDeleted({ kind: 'listing', id: listingId, ownerId });
         return { ok: true };
       }
       return { ok: false, error: await parseApiError(res) };
@@ -981,7 +1001,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         error: err instanceof Error ? err.message : 'فشل حذف الإعلان',
       };
     }
-  }, [isAuthenticated, accessToken]);
+  }, [isAuthenticated, accessToken, user?.id]);
 
   const toggleLike = useCallback(async (
     postId: string,
@@ -1167,7 +1187,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         method: 'DELETE',
       });
       if (res.ok) {
+        // Only after a successful DELETE. Delete is offered to the author only, so
+        // an unknown author (post not in the feed) is the current user.
+        const ownerId =
+          postsRef.current.find((p) => p.id === postId)?.author?.id || meRef.current.id;
+        const event: DeletedContent = { kind: 'post', id: postId, ownerId };
         setPosts((prev) => prev.filter((p) => p.id !== postId));
+        postsCacheByFeed.forEach((list, key) => {
+          const next = withoutId(list, postId);
+          if (next !== list) postsCacheByFeed.set(key, next);
+        });
+        setBookmarkedPosts((prev) => {
+          if (!prev.has(postId)) return prev;
+          const next = new Set(prev);
+          next.delete(postId);
+          persistBookmarks(next);
+          return next;
+        });
+        setMe((prev) => applyDeletionToCounts(prev, event));
+        forgetCachedUserProfile(ownerId);
+        void removeFromFeedSnapshot({ postId }, feedSnapshotOwnerId(user?.id, isAuthenticated));
+        emitContentDeleted(event);
         setLikedPosts((prev) => {
           const next = new Set(prev);
           next.delete(postId);
@@ -1188,7 +1228,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         error: err instanceof Error ? err.message : 'فشل حذف المنشور',
       };
     }
-  }, [isAuthenticated, accessToken]);
+  }, [isAuthenticated, accessToken, persistBookmarks, user?.id]);
 
   const userValue = useMemo<AppUserContextValue>(
     () => ({ me, updateMe }),

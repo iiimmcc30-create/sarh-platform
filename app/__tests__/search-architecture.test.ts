@@ -111,7 +111,7 @@ describe('search architecture', () => {
     expect(hook).toContain('Animated.diffClamp');
     expect(hook).toContain('useNativeDriver: false');
     expect(hook).not.toContain('setState');
-    expect(tabs).toContain('if (tabBarForceHidden)');
+    expect(tabs).toContain('if (tabBarForceHidden || isTabBarHiddenForRoute(activeRoute))');
     expect(tabs).toContain('return null');
     expect(appBar).toContain('SHELL_IDENTITY_COLLAPSE_H');
     expect(appBar).toContain('collapseStyle');

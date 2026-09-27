@@ -30,13 +30,21 @@ export function bookmarkEmptyText(key: BookmarkTab): string {
 }
 
 /**
- * Page index from a horizontal pager offset. Uses the magnitude so a platform
- * that reports RTL offsets as negative still maps to the right page.
+ * Horizontal pager math, RTL-aware. In RTL, Yoga lays page 0 out on the RIGHT,
+ * but native contentOffset.x / scrollTo({ x }) stay physical (from the left).
+ * So in RTL page `i` sits at physical offset (count - 1 - i) * width.
+ * Tabs, indicator and visible content all derive from one index through these two.
  */
-export function pagerIndexFromOffset(offsetX: number, pageWidth: number, count: number): number {
-  if (!(pageWidth > 0) || count <= 0 || !Number.isFinite(offsetX)) return 0;
-  const index = Math.round(Math.abs(offsetX) / pageWidth);
-  return Math.max(0, Math.min(count - 1, index));
+export function bookmarkPagerOffset(index: number, pageWidth: number, count: number, rtl: boolean): number {
+  if (count <= 0 || !(pageWidth > 0) || !Number.isFinite(index)) return 0;
+  const safe = Math.min(Math.max(0, Math.round(index)), count - 1);
+  return (rtl ? count - 1 - safe : safe) * pageWidth;
+}
+
+export function bookmarkPagerIndex(offsetX: number, pageWidth: number, count: number, rtl: boolean): number {
+  if (count <= 0 || !(pageWidth > 0) || !Number.isFinite(offsetX)) return 0;
+  const physical = Math.min(Math.max(0, Math.round(Math.abs(offsetX) / pageWidth)), count - 1);
+  return rtl ? count - 1 - physical : physical;
 }
 
 /** Post bookmarks are kept in insertion order - newest last. Show newest first. */

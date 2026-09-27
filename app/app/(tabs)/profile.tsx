@@ -22,7 +22,8 @@ import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
 import type { ProfileTabKey } from '@/lib/profileTabs';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
-import { safePush } from '@/lib/safeNavigate';
+import { safePush, safeReplace } from '@/lib/safeNavigate';
+import { PROFILE_EDIT_ROUTE, resolveProfileBack } from '@/lib/profileHeader';
 import { fetchStoriesFeed, type StoryGroup } from '@/services/stories';
 import { shouldReuseFreshResult } from '@/services/requestCoordination';
 import type { Post } from '@/services/types';
@@ -168,6 +169,13 @@ export default function ProfileScreen() {
     });
   };
 
+  /** Back where the pencil was: history if any, else the home tab. */
+  const handleBack = useCallback(() => {
+    const action = resolveProfileBack(router.canGoBack());
+    if (action.kind === 'back') router.back();
+    else safeReplace(action.href, undefined, router);
+  }, [router]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -312,8 +320,10 @@ export default function ProfileScreen() {
       hasStoryRing={hasStories}
       refreshing={refreshing}
       onRefresh={onRefresh}
-      onEditProfile={() => safePush('/profile/edit', undefined, router)}
-      onEditAvatar={() => safePush('/profile/edit', undefined, router)}
+      onBack={handleBack}
+      onShare={handleShare}
+      onEditProfile={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}
+      onEditAvatar={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}
       onAvatarPress={() => {
         if (hasStories && myStoryGroup) {
           safePush(

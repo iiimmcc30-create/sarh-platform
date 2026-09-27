@@ -58,6 +58,12 @@ export function getCachedUserProfile(userId: string): PublicUserProfile | null {
   return publicProfileCache.get(id)?.profile ?? null;
 }
 
+/** Drop one user's cached profile (e.g. after they deleted a post) so counts refetch. */
+export function forgetCachedUserProfile(userId: string | null | undefined): void {
+  const id = userId?.trim();
+  if (id) publicProfileCache.delete(id);
+}
+
 export function peekUserProfileCachedAt(userId: string): number | undefined {
   const id = userId?.trim();
   if (!id) return undefined;

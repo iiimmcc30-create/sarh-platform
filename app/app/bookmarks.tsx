@@ -16,12 +16,13 @@ import {
   BOOKMARK_TABS,
   SAVED_SIGNED_OUT_TEXT,
   bookmarkEmptyText,
-  pagerIndexFromOffset,
+  bookmarkPagerIndex,
+  bookmarkPagerOffset,
   resolveBookmarked,
   savedPostIdsNewestFirst,
-  type BookmarkTabDef,
 } from '@/lib/bookmarks';
 import { getListingFavoriteIds } from '@/lib/listingFavorite';
+import { isHorizontalPagerRtl } from '@/lib/mediaViewerPaging';
 import { getRtlRow } from '@/lib/rtl';
 import { safePush } from '@/lib/safeNavigate';
 import { usePostFeedActions } from '@/lib/usePostFeedActions';
@@ -33,9 +34,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   ActivityIndicator,
   Animated,
-  FlatList,
   InteractionManager,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -46,40 +47,54 @@ import {
 
 /**
  * "العلامات المرجعية": two tabs (المفضلة / المحفوظات) over a horizontal pager.
- * Tap a tab or swipe the pager - both stay in sync. Each page is its own
+ * ONE state (`index`) drives the tab, the indicator and the pager position; a
+ * swipe maps the settled physical offset back to that index RTL-aware
+ * (lib/bookmarks bookmarkPagerIndex / bookmarkPagerOffset). Each page is its own
  * vertical list; listings and posts are never mixed.
  */
 export default function BookmarksScreen() {
   const { width } = useWindowDimensions();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
-  const pagerRef = useRef<FlatList<BookmarkTabDef>>(null);
+  const pagerRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
+  const indexRef = useRef(0);
+  indexRef.current = index;
+  const rtl = isHorizontalPagerRtl();
+  const count = BOOKMARK_TABS.length;
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(progress, { toValue: index, duration: 180, useNativeDriver: true }).start();
   }, [index, progress]);
 
-  const goTo = useCallback((next: number) => {
-    setIndex(next);
-    pagerRef.current?.scrollToIndex({ index: next, animated: true });
-  }, []);
+  /** Tap: select the tab and move the pager to that page's physical offset. */
+  const goTo = useCallback(
+    (next: number) => {
+      setIndex(next);
+      pagerRef.current?.scrollTo({ x: bookmarkPagerOffset(next, width, count, rtl), y: 0, animated: true });
+    },
+    [count, rtl, width],
+  );
 
+  /** Swipe: the settled offset decides the index (never an LTR-only formula). */
   const onMomentumScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setIndex(pagerIndexFromOffset(event.nativeEvent.contentOffset.x, width, BOOKMARK_TABS.length));
+      setIndex(bookmarkPagerIndex(event.nativeEvent.contentOffset.x, width, count, rtl));
     },
-    [width],
+    [count, rtl, width],
   );
 
-  const renderPage = useCallback(
-    ({ item }: ListRenderItemInfo<BookmarkTabDef>) => (
-      <View style={[styles.page, { width }]}>
-        {item.key === 'favorites' ? <FavoritesPage /> : <SavedPage />}
-      </View>
-    ),
-    [styles.page, width],
-  );
+  /** Layout / rotation: keep the pager on the selected page. */
+  const positionPager = useCallback(() => {
+    pagerRef.current?.scrollTo({
+      x: bookmarkPagerOffset(indexRef.current, width, count, rtl),
+      y: 0,
+      animated: false,
+    });
+  }, [count, rtl, width]);
+
+  // Initial position only; later moves go through positionPager / goTo.
+  const initialOffset = useRef({ x: bookmarkPagerOffset(0, width, count, rtl), y: 0 }).current;
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -116,22 +131,25 @@ export default function BookmarksScreen() {
           })}
         </View>
 
-        <FlatList
+        <ScrollView
           ref={pagerRef}
-          data={BOOKMARK_TABS}
-          keyExtractor={(tab) => tab.key}
-          renderItem={renderPage}
           horizontal
           pagingEnabled
           bounces={false}
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onMomentumScrollEnd}
-          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-          initialNumToRender={BOOKMARK_TABS.length}
-          windowSize={3}
-          removeClippedSubviews={false}
-          style={styles.pager}
-        />
+          onLayout={positionPager}
+          onContentSizeChange={positionPager}
+          contentOffset={initialOffset}
+          scrollEventThrottle={16}
+          style={[styles.pager, { direction: rtl ? 'rtl' : 'ltr' }]}
+        >
+          {BOOKMARK_TABS.map((tab) => (
+            <View key={tab.key} style={[styles.page, { width }]}>
+              {tab.key === 'favorites' ? <FavoritesPage /> : <SavedPage />}
+            </View>
+          ))}
+        </ScrollView>
       </ScreenBody>
     </Screen>
   );

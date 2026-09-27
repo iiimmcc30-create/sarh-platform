@@ -5,6 +5,7 @@ import {
   type ProfileActivityKind,
   type ProfileReply,
 } from '@/services/posts';
+import { onContentDeleted, withoutId } from '@/lib/contentDeletion';
 import type { Post } from '@/services/types';
 
 const ACTIVITY_TTL_MS = 60_000;
@@ -39,6 +40,29 @@ export function useProfileActivity(userId: string | null | undefined) {
     setFailed({});
     setLoading({});
   }, [userId]);
+
+  // A deleted post leaves reposts/likes and its replies, in state and in the cache.
+  useEffect(
+    () =>
+      onContentDeleted((event) => {
+        if (event.kind !== 'post') return;
+        const id = event.id;
+        const buckets = cacheRef.current;
+        (Object.keys(buckets) as ProfileActivityKind[]).forEach((kind) => {
+          const bucket = buckets[kind];
+          if (!bucket) return;
+          buckets[kind] = {
+            ...bucket,
+            posts: withoutId(bucket.posts, id),
+            replies: bucket.replies.filter((r) => r.postId !== id),
+          };
+        });
+        setReposts((prev) => withoutId(prev, id));
+        setLikes((prev) => withoutId(prev, id));
+        setReplies((prev) => (prev.some((r) => r.postId === id) ? prev.filter((r) => r.postId !== id) : prev));
+      }),
+    [],
+  );
 
   const load = useCallback(
     async (kind: ProfileActivityKind, force = false) => {

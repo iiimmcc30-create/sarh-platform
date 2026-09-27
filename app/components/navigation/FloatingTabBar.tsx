@@ -9,6 +9,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { isNavigationLocked, safeNavigateTab } from '@/lib/safeNavigate';
 import { HOME_TAB_RESELECT_EVENT } from '@/lib/homeQuickAccess';
+import { isTabBarHiddenForRoute } from '@/lib/tabBarVisibility';
 import {
   TAB_ACTIVATE_SCALE,
   TAB_PRESS_IN_MS,
@@ -90,7 +91,8 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
     outputRange: [hideDistance, 0],
   });
 
-  if (tabBarForceHidden) {
+  // Route-based hide (e.g. the profile tab): comes back as soon as another tab is active.
+  if (tabBarForceHidden || isTabBarHiddenForRoute(activeRoute)) {
     return null;
   }
 

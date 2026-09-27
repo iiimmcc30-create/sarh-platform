@@ -113,6 +113,38 @@ export async function patchFeedSnapshot(
   }
 }
 
+/** Snapshot without one deleted post / listing. Same object when nothing matches. */
+export function withoutFeedItems(
+  snapshot: FeedSnapshot,
+  ids: { postId?: string; listingId?: string },
+): FeedSnapshot {
+  const posts = ids.postId ? snapshot.posts.filter((p) => p.id !== ids.postId) : snapshot.posts;
+  const listings = ids.listingId
+    ? snapshot.listings.filter((l) => l.id !== ids.listingId)
+    : snapshot.listings;
+  if (posts.length === snapshot.posts.length && listings.length === snapshot.listings.length) {
+    return snapshot;
+  }
+  // savedAt is kept: removing a row must not make the snapshot look network-fresh.
+  return { ...snapshot, posts, listings };
+}
+
+/** Drop a deleted post / listing from this owner's disk snapshot only. */
+export async function removeFromFeedSnapshot(
+  ids: { postId?: string; listingId?: string },
+  ownerId: string,
+): Promise<void> {
+  try {
+    const prev = await readFeedSnapshot(ownerId);
+    if (!prev) return;
+    const next = withoutFeedItems(prev, ids);
+    if (next === prev) return;
+    await AsyncStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function clearFeedSnapshot(): Promise<void> {
   try {
     await AsyncStorage.removeItem(FEED_SNAPSHOT_KEY);

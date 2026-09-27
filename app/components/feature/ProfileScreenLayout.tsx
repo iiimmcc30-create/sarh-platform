@@ -11,6 +11,7 @@ import {
   SarhBackButton,
   SarhButton,
   SarhIconButton,
+  resolveSarhButtonColorsForScheme,
 } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { duration } from '@/design-system/tokens';
@@ -20,6 +21,16 @@ import { useLayout } from '@/hooks/useLayout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { type ProfileTabKey } from '@/lib/profileTabs';
+import { SHARE_LABEL } from '@/lib/interactionActions';
+import {
+  PROFILE_ACTION_PILL_GAP,
+  PROFILE_ACTION_PILL_HEIGHT,
+  PROFILE_ACTION_PILL_SHAPE,
+  PROFILE_ACTION_PILL_VARIANT,
+  PROFILE_BACK_BUTTON_SIZE,
+  PROFILE_BACK_LABEL,
+  PROFILE_EDIT_LABEL,
+} from '@/lib/profileHeader';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
 
 export type { ProfileTabKey };
@@ -104,7 +115,7 @@ export function ProfileScreenLayout({
   onMenu,
   onSettings,
   onBack,
-  onShare: _onShare,
+  onShare,
   onEditProfile,
   onEditAvatar,
   onAvatarPress,
@@ -216,21 +227,14 @@ export function ProfileScreenLayout({
         >
           <Row align="center" justify="between" style={[styles.toolbar, inset]}>
             <Row gap="xs" align="center" style={styles.toolbarSide}>
-              {mode === 'own' && onEditProfile ? (
-                <SarhIconButton
-                  icon="pencil"
-                  chrome="ghost"
-                  size="sm"
-                  onPress={onEditProfile}
-                  accessibilityLabel="تعديل الملف"
-                />
-              ) : null}
-              {mode === 'visitor' && onBack ? (
+              {/* Back sits at the inline start (right in Arabic); the shared back button flips the chevron. */}
+              {onBack ? (
                 <SarhBackButton
-                  chrome="ghost"
                   size="sm"
                   onPress={onBack}
-                  accessibilityLabel="رجوع"
+                  color={themeColors.textPrimary}
+                  accessibilityLabel={PROFILE_BACK_LABEL}
+                  style={styles.backCircle}
                 />
               ) : null}
             </Row>
@@ -381,19 +385,38 @@ export function ProfileScreenLayout({
             </Pressable>
           </Row>
 
-          {mode === 'visitor' && (onFollow || onMessage) ? (
-            <Row gap="sm" align="center" style={[styles.actionsRow, inset]}>
-              {onMessage ? (
+          {/* Equal outline pills above the tabs: Share + Edit (own) / Share + existing actions (visitor). */}
+          {onShare || (isOwnProfile && onEditProfile) || (!isOwnProfile && (onFollow || onMessage)) ? (
+            <Row gap="md" align="center" style={[styles.actionsRow, inset]}>
+              {onShare ? (
+                <SarhButton
+                  title={SHARE_LABEL}
+                  variant={PROFILE_ACTION_PILL_VARIANT}
+                  shape={PROFILE_ACTION_PILL_SHAPE}
+                  onPress={onShare}
+                  style={styles.pill}
+                />
+              ) : null}
+              {isOwnProfile && onEditProfile ? (
+                <SarhButton
+                  title={PROFILE_EDIT_LABEL}
+                  variant={PROFILE_ACTION_PILL_VARIANT}
+                  shape={PROFILE_ACTION_PILL_SHAPE}
+                  onPress={onEditProfile}
+                  style={styles.pill}
+                />
+              ) : null}
+              {!isOwnProfile && onMessage ? (
                 <SarhButton
                   title="مراسلة"
                   variant="secondary"
                   shape="pill"
                   leftIcon="chatbubble-outline"
                   onPress={onMessage}
-                  style={styles.actionBtnFlex}
+                  style={styles.pill}
                 />
               ) : null}
-              {onFollow ? (
+              {!isOwnProfile && onFollow ? (
                 <SarhButton
                   title={isFollowing ? 'متابَع' : 'متابعة'}
                   variant={isFollowing ? 'secondary' : 'primary'}
@@ -401,7 +424,7 @@ export function ProfileScreenLayout({
                   leftIcon={isFollowing ? 'checkmark-circle-outline' : 'person-add-outline'}
                   onPress={onFollow}
                   loading={followLoading}
-                  style={styles.actionBtnFlex}
+                  style={styles.pill}
                 />
               ) : null}
             </Row>
@@ -432,7 +455,9 @@ export function ProfileScreenLayout({
   );
 }
 
-function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
+function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
+  /** Same border/background as the DS secondary (outline) button used by the pills. */
+  const outline = resolveSarhButtonColorsForScheme(scheme, PROFILE_ACTION_PILL_VARIANT, 'default');
   return StyleSheet.create({
     toolbar: {
       paddingTop: spacing.xs,
@@ -441,6 +466,14 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     },
     toolbarSide: {
       minWidth: ds.iconBtn.md,
+    },
+    backCircle: {
+      width: PROFILE_BACK_BUTTON_SIZE,
+      height: PROFILE_BACK_BUTTON_SIZE,
+      borderRadius: PROFILE_BACK_BUTTON_SIZE / 2,
+      borderWidth: 1,
+      borderColor: outline.borderColor,
+      backgroundColor: outline.backgroundColor,
     },
     nameRow: {
       flexWrap: 'nowrap',
@@ -525,10 +558,15 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     },
     actionsRow: {
       paddingTop: spacing.md,
+      gap: PROFILE_ACTION_PILL_GAP,
     },
-    actionBtnFlex: {
+    /** Equal-width outline pill (radius = height / 2 via shape="pill"). */
+    pill: {
       flexGrow: 1,
-      flexShrink: 0,
+      flexShrink: 1,
+      flexBasis: 0,
+      minHeight: PROFILE_ACTION_PILL_HEIGHT,
+      paddingHorizontal: spacing.md,
     },
     tabsBar: {
       backgroundColor: 'transparent',

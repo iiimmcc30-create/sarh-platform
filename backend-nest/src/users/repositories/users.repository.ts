@@ -41,7 +41,13 @@ const profileSelect = {
     select: { id: true },
   },
   _count: {
-    select: { followers: true, following: true, listings: true, posts: true },
+    select: {
+      followers: true,
+      following: true,
+      listings: true,
+      // Posts are soft-deleted (deletedAt): count only live ones so the profile drops after a delete.
+      posts: { where: { deletedAt: null } },
+    },
   },
 } satisfies Prisma.UserSelect;
 

@@ -59,6 +59,8 @@ export type SellerListingsPager = {
     sellerId?: string | null;
     accessToken?: string | null;
   }): Promise<void>;
+  /** Drop one listing (deleted elsewhere) without refetching. */
+  removeListing(listingId: string): void;
   dispose(): void;
 };
 
@@ -166,6 +168,10 @@ export function createSellerListingsPager(deps?: { searchPage?: SearchPage }): S
       } finally {
         if (inflightCursor === cursor) inflightCursor = null;
       }
+    },
+    removeListing(listingId) {
+      if (!listingId || !state.listings.some((l) => l.id === listingId)) return;
+      emit({ listings: state.listings.filter((l) => l.id !== listingId) });
     },
     dispose() {
       cancelled = true;

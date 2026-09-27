@@ -7,7 +7,8 @@ import {
   BOOKMARK_TABS,
   SAVED_SIGNED_OUT_TEXT,
   bookmarkEmptyText,
-  pagerIndexFromOffset,
+  bookmarkPagerIndex,
+  bookmarkPagerOffset,
   resolveBookmarked,
   savedPostIdsNewestFirst,
 } from '@/lib/bookmarks';
@@ -50,36 +51,78 @@ describe('/bookmarks page - two tabs over a horizontal pager', () => {
   });
 
   it('uses a horizontal paging pager without a scrollbar, synced with the tabs', () => {
-    const pager = jsx(page, 'FlatList');
+    const start = page.search(/<ScrollView\s/);
+    expect(start).toBeGreaterThan(-1);
+    const pager = page.slice(start, page.indexOf('>', page.indexOf('style=', start)) + 1).replace(/\s+/g, ' ');
     for (const prop of [
       'horizontal',
       'pagingEnabled',
       'showsHorizontalScrollIndicator={false}',
       'onMomentumScrollEnd={onMomentumScrollEnd}',
-      'getItemLayout=',
+      'onLayout={positionPager}',
+      'contentOffset={initialOffset}',
     ]) {
       expect(pager).toContain(prop);
     }
-    // Tap -> scroll the pager; swipe -> select the tab.
-    expect(page).toContain('pagerRef.current?.scrollToIndex({ index: next, animated: true })');
-    expect(page).toContain('setIndex(pagerIndexFromOffset(event.nativeEvent.contentOffset.x, width, BOOKMARK_TABS.length))');
     expect(page).toContain('getRtlRow()');
     expect(page).not.toMatch(/(margin|padding)(Left|Right)/);
   });
 
+  it('derives tab, indicator and pager position from ONE RTL-aware index', () => {
+    // Tap -> same index scrolls the pager to that page's physical offset.
+    expect(page).toContain('setIndex(next);');
+    expect(page).toContain('scrollTo({ x: bookmarkPagerOffset(next, width, count, rtl), y: 0, animated: true })');
+    // Swipe -> settled physical offset maps back to the index (RTL-aware).
+    expect(page).toContain('setIndex(bookmarkPagerIndex(event.nativeEvent.contentOffset.x, width, count, rtl))');
+    expect(page).toContain('const rtl = isHorizontalPagerRtl();');
+    // No LTR-only mapping or logical-offset scrolling left.
+    expect(page).not.toContain('pagerIndexFromOffset');
+    expect(page).not.toContain('scrollToIndex');
+    expect(page).not.toContain('getItemLayout');
+    // Indicator + active label read the same index.
+    expect(page).toContain('const active = index === i;');
+    expect(page).toContain('toValue: index');
+    // Each page renders its own content, keyed by its tab.
+    expect(page).toContain("{tab.key === 'favorites' ? <FavoritesPage /> : <SavedPage />}");
+  });
   it('animates with RN Animated only (native driver, no Reanimated)', () => {
     expect(page).toContain("Animated,");
     expect(page).toContain('useNativeDriver: true');
     expect(page).not.toContain('react-native-reanimated');
   });
 
-  it('maps pager offsets to the right page, RTL-safe', () => {
-    expect(pagerIndexFromOffset(0, 400, 2)).toBe(0);
-    expect(pagerIndexFromOffset(400, 400, 2)).toBe(1);
-    expect(pagerIndexFromOffset(-400, 400, 2)).toBe(1);
-    expect(pagerIndexFromOffset(260, 400, 2)).toBe(1);
-    expect(pagerIndexFromOffset(9999, 400, 2)).toBe(1);
-    expect(pagerIndexFromOffset(100, 0, 2)).toBe(0);
+  it('maps index <-> offset in RTL (page 0 on the right) and LTR', () => {
+    const W = 400;
+    // RTL: المفضلة (0) sits at physical x=400, المحفوظات (1) at x=0.
+    expect(bookmarkPagerOffset(0, W, 2, true)).toBe(400);
+    expect(bookmarkPagerOffset(1, W, 2, true)).toBe(0);
+    expect(bookmarkPagerIndex(400, W, 2, true)).toBe(0);
+    expect(bookmarkPagerIndex(0, W, 2, true)).toBe(1);
+    expect(bookmarkPagerIndex(260, W, 2, true)).toBe(0);
+    expect(bookmarkPagerIndex(120, W, 2, true)).toBe(1);
+    // LTR: natural order.
+    expect(bookmarkPagerOffset(0, W, 2, false)).toBe(0);
+    expect(bookmarkPagerOffset(1, W, 2, false)).toBe(400);
+    expect(bookmarkPagerIndex(0, W, 2, false)).toBe(0);
+    expect(bookmarkPagerIndex(400, W, 2, false)).toBe(1);
+    // Guards and clamping.
+    expect(bookmarkPagerIndex(9999, W, 2, false)).toBe(1);
+    expect(bookmarkPagerIndex(9999, W, 2, true)).toBe(0);
+    expect(bookmarkPagerIndex(100, 0, 2, true)).toBe(0);
+    expect(bookmarkPagerOffset(5, W, 2, false)).toBe(400);
+    expect(bookmarkPagerOffset(-1, W, 2, true)).toBe(400);
+  });
+
+  it('round-trips every tab so indicator = section = content (tap and swipe)', () => {
+    const W = 390;
+    for (const rtl of [true, false]) {
+      BOOKMARK_TABS.forEach((tab, i) => {
+        const x = bookmarkPagerOffset(i, W, BOOKMARK_TABS.length, rtl);
+        expect(BOOKMARK_TABS[bookmarkPagerIndex(x, W, BOOKMARK_TABS.length, rtl)].key).toBe(tab.key);
+      });
+    }
+    // The old LTR-only formula picked the wrong tab in RTL: x=0 showed المحفوظات.
+    expect(BOOKMARK_TABS[bookmarkPagerIndex(0, W, 2, true)].key).toBe('saved');
   });
 });
 
@@ -140,7 +183,7 @@ describe('المحفوظات uses the Community feed PostItem exactly', () => {
 
 describe('never mixed, lazy, with simple empty/loading states', () => {
   it('each page renders only its own kind', () => {
-    expect(page).toContain("{item.key === 'favorites' ? <FavoritesPage /> : <SavedPage />}");
+    expect(page).toContain("{tab.key === 'favorites' ? <FavoritesPage /> : <SavedPage />}");
   });
 
   it('resolves from cache first, fetches only missing ids, one page at a time', () => {

@@ -5,6 +5,7 @@ import {
   type SellerListingsPager,
   type SellerListingsPagerState,
 } from '@/services/sellerListingsPager';
+import { onContentDeleted } from '@/lib/contentDeletion';
 
 export function useSellerListingsPager(opts: {
   sellerId?: string | null;
@@ -32,6 +33,15 @@ export function useSellerListingsPager(opts: {
       if (pagerRef.current === pager) pagerRef.current = null;
     };
   }, []);
+
+  // A listing deleted anywhere leaves this seller list at once (no stale card on return).
+  useEffect(
+    () =>
+      onContentDeleted((event) => {
+        if (event.kind === 'listing') pagerRef.current?.removeListing(event.id);
+      }),
+    [],
+  );
 
   const loadFirstPage = useCallback(async () => {
     const pager = pagerRef.current;

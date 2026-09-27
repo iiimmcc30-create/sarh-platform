@@ -608,5 +608,7 @@ export class PostsService {
     await this.cache.del(this.cache.keys.post(postId));
     await this.cache.del('posts:feed:first');
     await this.cache.del(`posts:user:${authorId}:first`);
+    // Profile postsCount lives in the cached profile (users.service getUser); this author only.
+    await this.cache.del(`user:${authorId}`, `user:${authorId}:base`);
   }
 }

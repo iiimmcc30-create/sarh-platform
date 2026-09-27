@@ -194,6 +194,17 @@ export function rememberListingsBootstrapPage(
   };
 }
 
+/** Remove one deleted listing from the in-memory bootstrap page (no refetch). */
+export function forgetBootstrappedListing(listingId: string): void {
+  if (!listingsBootstrap || !listingId) return;
+  const listings = listingsBootstrap.page.listings;
+  if (!listings.some((l) => l.id === listingId)) return;
+  listingsBootstrap = {
+    ...listingsBootstrap,
+    page: { ...listingsBootstrap.page, listings: listings.filter((l) => l.id !== listingId) },
+  };
+}
+
 /** Fresh unfiltered first page from AppContext bootstrap, or null. */
 export function getBootstrappedListingsPage(
   accessToken?: string | null,
