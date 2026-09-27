@@ -24,6 +24,7 @@ import {
 } from './promotion-tiers.config';
 import { lookupPromotePrice } from '../promote-catalog';
 import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
+import { expireStaleBoostFlags } from '../boost/boost-expiry';
 import { PaidServicesService } from '../../settings/paid-services.service';
 
 type InitiatePromotionOptions = {
@@ -62,12 +63,43 @@ export class ListingPromotionService {
 
   private lastExpireAt = 0;
 
+  /**
+   * Paid Featured/Pinned boost expiry. Runs inside the existing throttled
+   * promotion-expiry pass (same trigger, same 60s throttle) and never throws,
+   * so it cannot block promotion expiry or the feed request that triggered it.
+   */
+  private async expireStaleBoostFlags(now: Date) {
+    try {
+      const result = await expireStaleBoostFlags(this.prisma, now);
+      if (result.changedListingIds.length === 0) return;
+      await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => {});
+      await this.cache.delPattern('search:explore:*').catch(() => {});
+      await this.cache.delPattern('search:unified:*').catch(() => {});
+      for (const id of result.changedListingIds) {
+        await this.cache.del(`listing:${id}`).catch(() => {});
+      }
+      this.logger.info(
+        {
+          featuredCleared: result.featuredCleared,
+          pinnedCleared: result.pinnedCleared,
+          featuredExtended: result.featuredExtended,
+          pinnedExtended: result.pinnedExtended,
+        },
+        'Expired featured/pinned boosts',
+      );
+    } catch (err) {
+      this.logger.error({ err }, 'Featured/pinned boost expiry failed');
+    }
+  }
+
   async expireStalePromotions() {
     const started = Date.now();
     if (started - this.lastExpireAt < 60_000) return;
     this.lastExpireAt = started;
 
     const now = new Date();
+    await this.expireStaleBoostFlags(now);
+
     const expired = await this.prisma.listingPromotion.findMany({
       where: { status: 'paid', expiresAt: { lt: now } },
       select: { id: true, listingId: true },

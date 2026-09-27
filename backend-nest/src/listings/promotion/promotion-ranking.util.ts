@@ -1,7 +1,14 @@
+import {
+  isFeaturedActive,
+  isPinnedActive,
+} from '../boost/boost-effective-state';
+
 type RankableListing = {
   id: string;
   pinned?: boolean;
   featured?: boolean;
+  pinnedUntil?: Date | string | null;
+  featuredUntil?: Date | string | null;
   promoted?: boolean;
   promotionWeight?: number;
   createdAt?: Date | string;
@@ -13,17 +20,22 @@ function byRecency(a: RankableListing, b: RankableListing): number {
   return tb - ta;
 }
 
-function byFeaturedThenWeight(a: RankableListing, b: RankableListing): number {
-  const featuredDiff = Number(b.featured) - Number(a.featured);
-  if (featuredDiff !== 0) return featuredDiff;
-  const weightDiff = (b.promotionWeight ?? 0) - (a.promotionWeight ?? 0);
-  if (weightDiff !== 0) return weightDiff;
-  return byRecency(a, b);
+/** Featured (effective: flag + Until in the future) first, then weight, then recency. */
+function byFeaturedThenWeight(now: Date) {
+  return (a: RankableListing, b: RankableListing): number => {
+    const featuredDiff =
+      Number(isFeaturedActive(b, now)) - Number(isFeaturedActive(a, now));
+    if (featuredDiff !== 0) return featuredDiff;
+    const weightDiff = (b.promotionWeight ?? 0) - (a.promotionWeight ?? 0);
+    if (weightDiff !== 0) return weightDiff;
+    return byRecency(a, b);
+  };
 }
 
 /**
  * Interleave promoted listings every 6–8 regular items without hoarding top slots.
- * Pinned listings always stay at the top.
+ * Pinned listings always stay at the top. Pinned/Featured use the effective
+ * state (flag + Until in the future), so expired boosts rank as regular items.
  */
 export function interleavePromotedListings<T extends RankableListing>(
   listings: T[],
@@ -32,15 +44,15 @@ export function interleavePromotedListings<T extends RankableListing>(
 ): T[] {
   if (listings.length <= 1) return listings;
 
-  const pinned = listings.filter((l) => l.pinned).sort(byFeaturedThenWeight);
-  const rest = listings.filter((l) => !l.pinned);
+  const now = new Date();
+  const byFeatured = byFeaturedThenWeight(now);
+  const pinned = listings
+    .filter((l) => isPinnedActive(l, now))
+    .sort(byFeatured);
+  const rest = listings.filter((l) => !isPinnedActive(l, now));
 
-  const promotedPool = rest
-    .filter((l) => l.promoted)
-    .sort(byFeaturedThenWeight);
-  const regularPool = rest
-    .filter((l) => !l.promoted)
-    .sort(byFeaturedThenWeight);
+  const promotedPool = rest.filter((l) => l.promoted).sort(byFeatured);
+  const regularPool = rest.filter((l) => !l.promoted).sort(byFeatured);
 
   if (promotedPool.length === 0) {
     return [...pinned, ...regularPool];

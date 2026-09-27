@@ -115,7 +115,7 @@ describe('every listings feed invalidator uses the shared v3 pattern', () => {
     ['listings.service.ts', 6],
     [join('..', 'admin', 'admin.service.ts'), 1],
     [join('boost', 'listing-boost.service.ts'), 1],
-    [join('promotion', 'listing-promotion.service.ts'), 2],
+    [join('promotion', 'listing-promotion.service.ts'), 3],
     [join('..', 'payments', 'payments.service.ts'), 1],
   ];
 
@@ -145,7 +145,10 @@ describe('every listings feed invalidator uses the shared v3 pattern', () => {
         findMany: jest.fn().mockResolvedValue([{ id: 'p1', listingId: 'l1' }]),
         updateMany: jest.fn().mockReturnValue('updateMany'),
       },
-      listing: { update: jest.fn().mockReturnValue('update') },
+      listing: {
+        update: jest.fn().mockReturnValue('update'),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $transaction: jest.fn().mockResolvedValue([]),
     };
     const promotions = new ListingPromotionService(

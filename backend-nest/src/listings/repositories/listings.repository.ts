@@ -95,6 +95,8 @@ export class ListingsRepository {
         videoUrl: true,
         pinned: true,
         featured: true,
+        pinnedUntil: true,
+        featuredUntil: true,
         editCount: true,
         marketCategory: { select: { requiresWeight: true, slug: true } },
       },
@@ -245,8 +247,16 @@ export class ListingsRepository {
       }
 
       const listingUpdate: Prisma.ListingUpdateInput = {};
-      if (params.setFeatured) listingUpdate.featured = true;
-      if (params.setPinned) listingUpdate.pinned = true;
+      // Plan-granted flags have no end date; drop any expired paid Until so the
+      // flag is not treated as expired (and not cleared by the boost expiry).
+      if (params.setFeatured) {
+        listingUpdate.featured = true;
+        listingUpdate.featuredUntil = null;
+      }
+      if (params.setPinned) {
+        listingUpdate.pinned = true;
+        listingUpdate.pinnedUntil = null;
+      }
 
       const updated = await tx.listing.update({
         where: { id: params.listingId },

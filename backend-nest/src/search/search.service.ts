@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { notDeleted } from '../common/utils/soft-delete.util';
+import { rankByEffectiveBoost } from '../listings/boost/boost-effective-state';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
 import {
   applyAntiDomination,
@@ -70,8 +71,8 @@ export class SearchRepository {
     });
   }
 
-  findExploreListings(take: number) {
-    return this.prisma.listing.findMany({
+  async findExploreListings(take: number) {
+    const rows = await this.prisma.listing.findMany({
       where: { status: 'active', ...notDeleted },
       select: {
         id: true,
@@ -92,6 +93,8 @@ export class SearchRepository {
         thumbnailUrl: true,
         featured: true,
         pinned: true,
+        featuredUntil: true,
+        pinnedUntil: true,
         promoted: true,
         promotionWeight: true,
         views: true,
@@ -123,6 +126,8 @@ export class SearchRepository {
       ],
       take,
     });
+    // Pinned/Featured by effective state (expired boosts rank as regular).
+    return rankByEffectiveBoost(rows);
   }
 
   findExploreNews(take: number) {

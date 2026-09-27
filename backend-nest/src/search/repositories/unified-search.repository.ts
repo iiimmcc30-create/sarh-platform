@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { notDeleted } from '../../common/utils/soft-delete.util';
+import { rankByEffectiveBoost } from '../../listings/boost/boost-effective-state';
 import { searchTextVariants } from '../lib/arabic-search.util';
 
 export type ListingSearchFilters = {
@@ -32,6 +33,8 @@ const LISTING_SELECT = {
   thumbnailUrl: true,
   featured: true,
   pinned: true,
+  featuredUntil: true,
+  pinnedUntil: true,
   promoted: true,
   promotionWeight: true,
   createdAt: true,
@@ -77,7 +80,7 @@ function listingTokenConditions(tokens: string[]): Prisma.ListingWhereInput[] {
 export class UnifiedSearchRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  searchListings(
+  async searchListings(
     tokens: string[],
     filters: ListingSearchFilters,
     skip: number,
@@ -128,7 +131,7 @@ export class UnifiedSearchRepository {
       where.AND = andFilters;
     }
 
-    return this.prisma.listing.findMany({
+    const rows = await this.prisma.listing.findMany({
       where,
       select: LISTING_SELECT,
       skip,
@@ -140,6 +143,8 @@ export class UnifiedSearchRepository {
         { id: 'desc' },
       ],
     });
+    // Pinned/Featured by effective state (expired boosts rank as regular).
+    return rankByEffectiveBoost(rows);
   }
 
   searchPosts(tokens: string[], skip: number, take: number) {

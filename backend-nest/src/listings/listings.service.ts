@@ -29,6 +29,12 @@ import {
   listingsFeedCacheKey,
   LISTINGS_FEED_CACHE_PATTERN,
 } from './listings-cache-keys';
+import {
+  isFeaturedActive,
+  isPinnedActive,
+  withEffectiveBoostState,
+  type BoostFlagFields,
+} from './boost/boost-effective-state';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { ListingPromotionService } from './promotion/listing-promotion.service';
 import {
@@ -208,7 +214,9 @@ export class ListingsService {
         return {
           ...cached,
           listings: cached.listings.map((item) =>
-            sanitizeListingMedia((item ?? {}) as object),
+            sanitizeListingMedia(
+              withEffectiveBoostState((item ?? {}) as BoostFlagFields),
+            ),
           ),
         };
       }
@@ -222,6 +230,12 @@ export class ListingsService {
     if (sellerId) where.sellerId = sellerId;
 
     const andFilters: Prisma.ListingWhereInput[] = [];
+    if (featured) {
+      // Only listings whose Featured is still in effect (paid Until in the future, or no Until).
+      andFilters.push({
+        OR: [{ featuredUntil: null }, { featuredUntil: { gt: new Date() } }],
+      });
+    }
     if (subcategoryId) {
       andFilters.push({ subcategoryId });
     } else if (categoryId) {
@@ -270,11 +284,16 @@ export class ListingsService {
     const items = hasMore ? listings.slice(0, PAGE_SIZE) : listings;
     const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
 
+    // Pinned/Featured rank by their effective state (flag + Until in the future).
+    const now = new Date();
+
     // Oldest-first keeps the database order; ranking only applies to the default feed.
     const sorted = oldestFirst ? items : [...items].sort((a, b) => {
-      const pinnedDiff = Number(b.pinned) - Number(a.pinned);
+      const pinnedDiff =
+        Number(isPinnedActive(b, now)) - Number(isPinnedActive(a, now));
       if (pinnedDiff !== 0) return pinnedDiff;
-      const featuredDiff = Number(b.featured) - Number(a.featured);
+      const featuredDiff =
+        Number(isFeaturedActive(b, now)) - Number(isFeaturedActive(a, now));
       if (featuredDiff !== 0) return featuredDiff;
       if (search && search.length >= 2) {
         const promoDiff =
@@ -314,7 +333,9 @@ export class ListingsService {
       suggested || promoted || oldestFirst
         ? sorted
         : interleavePromotedListings(sorted);
-    const publicListings = ranked.map((item) => sanitizeListingMedia(item));
+    const publicListings = ranked.map((item) =>
+      sanitizeListingMedia(withEffectiveBoostState(item, now)),
+    );
 
     const result = { listings: publicListings, nextCursor, hasMore };
 
@@ -334,7 +355,11 @@ export class ListingsService {
       if (cached.promoted) {
         void this.promotions.trackPromotionEvent(id, 'view');
       }
-      return sanitizeListingMedia(cached);
+      return sanitizeListingMedia(
+        withEffectiveBoostState(
+          cached as { promoted?: boolean } & BoostFlagFields,
+        ),
+      );
     }
 
     const listing = await this.repo.findById(id);
@@ -345,7 +370,7 @@ export class ListingsService {
       void this.promotions.trackPromotionEvent(id, 'view');
     }
     await this.cache.set(cacheKey, listing, 300);
-    return sanitizeListingMedia(listing);
+    return sanitizeListingMedia(withEffectiveBoostState(listing));
   }
 
   async create(user: JwtPayload, dto: CreateListingDto) {
@@ -642,8 +667,9 @@ export class ListingsService {
       throwApi(403, 'forbidden', 'غير مسموح');
     }
 
-    const wantsFeatured = Boolean(dto.featured) && !listing.featured;
-    const wantsPinned = Boolean(dto.pinned) && !listing.pinned;
+    // An expired paid boost (flag still set until the cleanup runs) must not block plan use.
+    const wantsFeatured = Boolean(dto.featured) && !isFeaturedActive(listing);
+    const wantsPinned = Boolean(dto.pinned) && !isPinnedActive(listing);
 
     const flags = await this.paidServices.getFlags();
     if (wantsFeatured && !flags.featureEnabled) {
