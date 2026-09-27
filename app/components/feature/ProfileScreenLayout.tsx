@@ -3,8 +3,9 @@ import { Image, uriSource } from '@/components/ui/AppImage';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ProfileTabs } from '@/components/feature/ProfileTabs';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Animated, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { ds } from '@/constants/designSystem';
 import {
   AppText,
@@ -18,9 +19,10 @@ import { duration } from '@/design-system/tokens';
 import { spacing, type ThemeColors } from '@/constants/theme';
 import { useAppChromeScroll } from '@/hooks/useAppChrome';
 import { useLayout } from '@/hooks/useLayout';
+import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
-import { type ProfileTabKey } from '@/lib/profileTabs';
+import { getProfileTabs, type ProfileTabKey } from '@/lib/profileTabs';
 import { SHARE_LABEL } from '@/lib/interactionActions';
 import {
   PROFILE_ACTION_PILL_GAP,
@@ -134,7 +136,20 @@ export function ProfileScreenLayout({
   const { gutter } = useLayout();
   const { onChromeScroll } = useAppChromeScroll();
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
-  const [activeTab, setActiveTab] = useState<ProfileTabKey>(initialTab);
+  const { width: windowWidth } = useWindowDimensions();
+  const profileTabs = useMemo(() => getProfileTabs(mode === 'own'), [mode]);
+  /** Same swipe pager as /bookmarks: one index drives tab strip, indicator and page. */
+  const tabPager = useSwipeTabPager({
+    count: profileTabs.length,
+    width: windowWidth,
+    initialIndex: Math.max(0, profileTabs.findIndex((tab) => tab.key === initialTab)),
+  });
+  const activeTab: ProfileTabKey = profileTabs[tabPager.index]?.key ?? 'posts';
+  const { goTo: goToTab, jumpTo: jumpToTab } = tabPager;
+  const selectTab = useCallback(
+    (key: ProfileTabKey) => goToTab(Math.max(0, profileTabs.findIndex((tab) => tab.key === key))),
+    [goToTab, profileTabs],
+  );
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerTranslate = useRef(new Animated.Value(12)).current;
   const isOwnProfile = mode === 'own';
@@ -151,10 +166,9 @@ export function ProfileScreenLayout({
   }, [headerOpacity, headerTranslate]);
 
   useEffect(() => {
-    if (!isOwnProfile && activeTab === 'likes') {
-      setActiveTab('posts');
-    }
-  }, [activeTab, isOwnProfile]);
+    // Visitors have no likes tab: an out-of-range index falls back to posts.
+    if (tabPager.index >= profileTabs.length) jumpToTab(0);
+  }, [jumpToTab, profileTabs.length, tabPager.index]);
 
   useEffect(() => {
     onTabChange?.(activeTab);
@@ -441,21 +455,27 @@ export function ProfileScreenLayout({
           <ProfileTabs
             isOwnProfile={isOwnProfile}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={selectTab}
           />
         </View>
 
-        <View style={[styles.postsFeed, inset]}>
-          {activeTab === 'posts'
-            ? postsContent
-            : activeTab === 'ads'
-              ? adsContent
-              : activeTab === 'replies'
-                ? repliesContent
-                : activeTab === 'reposts'
-                  ? repostsContent
-                  : likesContent}
-        </View>
+        <SwipeTabPager
+          pager={tabPager}
+          fit="content"
+          pageStyle={[styles.postsFeed, inset]}
+          renderPage={(page) => {
+            const key = profileTabs[page]?.key;
+            return key === 'posts'
+              ? postsContent
+              : key === 'ads'
+                ? adsContent
+                : key === 'replies'
+                  ? repliesContent
+                  : key === 'reposts'
+                    ? repostsContent
+                    : likesContent;
+          }}
+        />
       </ScreenBody>
     </Screen>
   );

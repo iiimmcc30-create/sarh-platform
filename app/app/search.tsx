@@ -53,6 +53,8 @@ import { ambientShadow, ds } from '@/constants/designSystem';
 import { functional, space } from '@/design-system';
 import { type ThemeColors } from '@/constants/theme';
 import { useCollapsibleSearchHeader } from '@/hooks/useCollapsibleSearchHeader';
+import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
+import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,6 +66,7 @@ import {
   Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -143,7 +146,15 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     return isTab ? 'home' : 'mode';
   });
   const debouncedQuery = useDebouncedValue(query.trim(), 350);
-  const [filter, setFilter] = useState<SearchFilter>('all');
+  const { width: windowWidth } = useWindowDimensions();
+  /**
+   * Result tabs ride the /bookmarks swipe pager: one index = the selected filter.
+   * A swipe settles once (onMomentumScrollEnd) exactly like a tab press, so the
+   * query, debounce and results are kept and no extra request is made mid-swipe.
+   */
+  const resultPager = useSwipeTabPager({ count: RESULT_SECTIONS.length, width: windowWidth });
+  const { goTo: goToResultTab, jumpTo: jumpToResultTab } = resultPager;
+  const filter: SearchFilter = RESULT_SECTIONS[resultPager.index]?.id ?? 'all';
   const [page, setPage] = useState(1);
 
   const selectSection = useCallback((next: ExploreSection) => {
@@ -409,14 +420,14 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     setSuggestions([]);
     setGroups([]);
     setError(null);
-    setFilter('all');
+    jumpToResultTab(0);
     setPage(1);
     setLoading(false);
     setLoadingMore(false);
     loadingMoreRef.current = false;
     resetCollapse();
     Keyboard.dismiss();
-  }, [resetCollapse]);
+  }, [jumpToResultTab, resetCollapse]);
 
   const enterMode = useCallback(() => {
     setPhase((current) => (current === 'home' ? 'mode' : current));
@@ -754,12 +765,12 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
 
   const resultTabs = (
     <SarhChipRow contentPaddingHorizontal={gutter} style={styles.filterRowWrap}>
-      {RESULT_SECTIONS.map((item) => {
+      {RESULT_SECTIONS.map((item, index) => {
         const active = filter === item.id;
         return (
           <Pressable
             key={item.id}
-            onPress={() => setFilter(item.id)}
+            onPress={() => goToResultTab(index)}
             style={styles.resultTab}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
@@ -1135,98 +1146,107 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
         ) : phase === 'mode' ? (
           modeIdle
         ) : (
-          <Stack gap="md">
-            {query.trim().length > 0 && query.trim().length < MIN_QUERY ? (
-              <AppText
-                variant="caption"
-                color="textMuted"
-                align="center"
-                style={{ paddingHorizontal: gutter }}
-              >
-                اكتب {MIN_QUERY} أحرف على الأقل للبحث
-              </AppText>
-            ) : null}
+          <SwipeTabPager
+            pager={resultPager}
+            fit="content"
+            renderPage={(_page, active) =>
+              // Results belong to the selected filter only; neighbours stay empty (no eager lists).
+              active ? (
+              <Stack gap="md">
+                {query.trim().length > 0 && query.trim().length < MIN_QUERY ? (
+                  <AppText
+                    variant="caption"
+                    color="textMuted"
+                    align="center"
+                    style={{ paddingHorizontal: gutter }}
+                  >
+                    اكتب {MIN_QUERY} أحرف على الأقل للبحث
+                  </AppText>
+                ) : null}
 
-            {canSearch && suggestions.length > 0 && totalResults === 0 && !loading ? (
-              <Stack gap="none" style={{ paddingHorizontal: gutter }}>
-                {suggestions.map((s) => (
-                  <Pressable key={`${s.kind}-${s.text}`} onPress={() => applyQuery(s.text)}>
-                    <Row gap="sm" align="center" style={styles.suggestRow}>
-                      <AppIcon name="search" size={14} color={colors.textMuted} />
-                      <AppText variant="body" color="textSecondary" style={styles.flex}>
-                        {s.text}
-                      </AppText>
-                    </Row>
-                  </Pressable>
-                ))}
+                {canSearch && suggestions.length > 0 && totalResults === 0 && !loading ? (
+                  <Stack gap="none" style={{ paddingHorizontal: gutter }}>
+                    {suggestions.map((s) => (
+                      <Pressable key={`${s.kind}-${s.text}`} onPress={() => applyQuery(s.text)}>
+                        <Row gap="sm" align="center" style={styles.suggestRow}>
+                          <AppIcon name="search" size={14} color={colors.textMuted} />
+                          <AppText variant="body" color="textSecondary" style={styles.flex}>
+                            {s.text}
+                          </AppText>
+                        </Row>
+                      </Pressable>
+                    ))}
+                  </Stack>
+                ) : null}
+
+                {loading && totalResults === 0 ? (
+                  <Stack gap="md" align="center" style={[styles.loadingBox, { paddingHorizontal: gutter }]}>
+                    <ActivityIndicator color={colors.glow} />
+                    <AppText variant="caption" color="textMuted">جاري البحث...</AppText>
+                  </Stack>
+                ) : null}
+
+                {error && totalResults === 0 ? (
+                  <Stack gap="sm" align="center" style={[styles.hintBox, { paddingHorizontal: gutter }]}>
+                    <AppText variant="body" color="danger" align="center">{error}</AppText>
+                    <Pressable onPress={retrySearch} accessibilityRole="button" accessibilityLabel="إعادة المحاولة">
+                      <AppText variant="body" color="primary">إعادة المحاولة</AppText>
+                    </Pressable>
+                  </Stack>
+                ) : null}
+
+                {error && totalResults > 0 ? (
+                  <AppText
+                    variant="caption"
+                    color="danger"
+                    align="center"
+                    style={{ paddingHorizontal: gutter }}
+                  >
+                    {error}
+                  </AppText>
+                ) : null}
+
+                {canSearch && resultItems.length > 0 ? (
+                  <Stack gap="none">
+                    {resultItems.map((item) => {
+                      const node = renderResult(item);
+                      if (!node) return null;
+                      return (
+                        <View key={`${item.type}-${item.id}`} style={resultFrame(item.type)}>
+                          {node}
+                        </View>
+                      );
+                    })}
+                  </Stack>
+                ) : null}
+
+                {loadingMore ? (
+                  <ActivityIndicator color={colors.electricBright} />
+                ) : null}
+
+                {!loading && !error && canSearch && totalResults === 0 ? (
+                  <Stack gap="sm" align="center" style={[styles.noResults, { paddingHorizontal: gutter }]}>
+                    <AppText variant="heading3" align="center">
+                      لا توجد نتائج لـ "{debouncedQuery}"
+                    </AppText>
+                    <AppText variant="body" color="textMuted" align="center">
+                      جرّب:
+                    </AppText>
+                    <AppText variant="caption" color="textMuted" align="center">
+                      • كلمة أقصر
+                    </AppText>
+                    <AppText variant="caption" color="textMuted" align="center">
+                      • كتابة مختلفة
+                    </AppText>
+                    <AppText variant="caption" color="textMuted" align="center">
+                      • إزالة بعض الكلمات
+                    </AppText>
+                  </Stack>
+                ) : null}
               </Stack>
-            ) : null}
-
-            {loading && totalResults === 0 ? (
-              <Stack gap="md" align="center" style={[styles.loadingBox, { paddingHorizontal: gutter }]}>
-                <ActivityIndicator color={colors.glow} />
-                <AppText variant="caption" color="textMuted">جاري البحث...</AppText>
-              </Stack>
-            ) : null}
-
-            {error && totalResults === 0 ? (
-              <Stack gap="sm" align="center" style={[styles.hintBox, { paddingHorizontal: gutter }]}>
-                <AppText variant="body" color="danger" align="center">{error}</AppText>
-                <Pressable onPress={retrySearch} accessibilityRole="button" accessibilityLabel="إعادة المحاولة">
-                  <AppText variant="body" color="primary">إعادة المحاولة</AppText>
-                </Pressable>
-              </Stack>
-            ) : null}
-
-            {error && totalResults > 0 ? (
-              <AppText
-                variant="caption"
-                color="danger"
-                align="center"
-                style={{ paddingHorizontal: gutter }}
-              >
-                {error}
-              </AppText>
-            ) : null}
-
-            {canSearch && resultItems.length > 0 ? (
-              <Stack gap="none">
-                {resultItems.map((item) => {
-                  const node = renderResult(item);
-                  if (!node) return null;
-                  return (
-                    <View key={`${item.type}-${item.id}`} style={resultFrame(item.type)}>
-                      {node}
-                    </View>
-                  );
-                })}
-              </Stack>
-            ) : null}
-
-            {loadingMore ? (
-              <ActivityIndicator color={colors.electricBright} />
-            ) : null}
-
-            {!loading && !error && canSearch && totalResults === 0 ? (
-              <Stack gap="sm" align="center" style={[styles.noResults, { paddingHorizontal: gutter }]}>
-                <AppText variant="heading3" align="center">
-                  لا توجد نتائج لـ "{debouncedQuery}"
-                </AppText>
-                <AppText variant="body" color="textMuted" align="center">
-                  جرّب:
-                </AppText>
-                <AppText variant="caption" color="textMuted" align="center">
-                  • كلمة أقصر
-                </AppText>
-                <AppText variant="caption" color="textMuted" align="center">
-                  • كتابة مختلفة
-                </AppText>
-                <AppText variant="caption" color="textMuted" align="center">
-                  • إزالة بعض الكلمات
-                </AppText>
-              </Stack>
-            ) : null}
-          </Stack>
+              ) : null
+            }
+          />
         )}
       </ScreenBody>
       </Animated.View>

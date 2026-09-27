@@ -34,18 +34,9 @@ export function bookmarkEmptyText(key: BookmarkTab): string {
  * but native contentOffset.x / scrollTo({ x }) stay physical (from the left).
  * So in RTL page `i` sits at physical offset (count - 1 - i) * width.
  * Tabs, indicator and visible content all derive from one index through these two.
+ * Shared with every swipe-tab pager via lib/tabPager (same implementation).
  */
-export function bookmarkPagerOffset(index: number, pageWidth: number, count: number, rtl: boolean): number {
-  if (count <= 0 || !(pageWidth > 0) || !Number.isFinite(index)) return 0;
-  const safe = Math.min(Math.max(0, Math.round(index)), count - 1);
-  return (rtl ? count - 1 - safe : safe) * pageWidth;
-}
-
-export function bookmarkPagerIndex(offsetX: number, pageWidth: number, count: number, rtl: boolean): number {
-  if (count <= 0 || !(pageWidth > 0) || !Number.isFinite(offsetX)) return 0;
-  const physical = Math.min(Math.max(0, Math.round(Math.abs(offsetX) / pageWidth)), count - 1);
-  return rtl ? count - 1 - physical : physical;
-}
+export { tabPagerIndex as bookmarkPagerIndex, tabPagerOffset as bookmarkPagerOffset } from './tabPager';
 
 /** Post bookmarks are kept in insertion order - newest last. Show newest first. */
 export function savedPostIdsNewestFirst(ids: Iterable<string>): string[] {

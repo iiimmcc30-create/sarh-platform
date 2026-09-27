@@ -10,8 +10,10 @@ import {
   RefreshControl,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { AppFlatList } from '@/components/ui/AppFlatList';
+import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { AppChromeLayer } from '@/components/navigation/AppChromeLayer';
 import { HomeAppBar, shellIdentityStackH } from '@/components/ui/HomeAppBar';
 import { ds } from '@/constants/designSystem';
@@ -21,6 +23,7 @@ import { AppText, SarhButton } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { PostItem } from '@/components/feature/PostItem';
@@ -33,6 +36,9 @@ import type { Post } from '@/services/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type FeedTab = 'for_you' | 'following';
+
+const FEED_TABS: readonly FeedTab[] = ['for_you', 'following'];
+const FOLLOWING_AUTH_ACTION = 'عرض منشورات المتابَعين';
 
 export default function PostsScreen() {
   const router = useRouter();
@@ -60,7 +66,15 @@ export default function PostsScreen() {
       }
     },
   ).current;
-  const [feedTab, setFeedTab] = useState<FeedTab>('for_you');
+  const { width: windowWidth } = useWindowDimensions();
+  /** Same swipe pager as /bookmarks: one index drives the tab, indicator and page. */
+  const feedPager = useSwipeTabPager({
+    count: FEED_TABS.length,
+    width: windowWidth,
+    // A signed-out swipe to "following" gets the same sign-in prompt as a tap and snaps back.
+    canSelect: (i) => FEED_TABS[i] !== 'following' || requireAuth(isAuthenticated, FOLLOWING_AUTH_ACTION),
+  });
+  const feedTab: FeedTab = FEED_TABS[feedPager.index] ?? 'for_you';
   const [headerH, setHeaderH] = useState(() => shellIdentityStackH(insets.top) + space[32]);
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,10 +136,10 @@ export default function PostsScreen() {
 
   const switchTab = (tab: FeedTab) => {
     if (tab === 'following' && !isAuthenticated) {
-      requireAuth(false, 'عرض منشورات المتابَعين');
+      requireAuth(false, FOLLOWING_AUTH_ACTION);
       return;
     }
-    setFeedTab(tab);
+    feedPager.goTo(FEED_TABS.indexOf(tab));
   };
 
   const openSidebar = useCallback(() => {
@@ -175,7 +189,7 @@ export default function PostsScreen() {
           onAvatarPress={openSidebar}
         >
           <Row gap="sm">
-            {(['for_you', 'following'] as const).map((tab) => {
+            {FEED_TABS.map((tab) => {
               const active = feedTab === tab;
               return (
                 <Pressable
@@ -197,32 +211,40 @@ export default function PostsScreen() {
       </AppChromeLayer>
 
       <ScreenBody scroll={false} gutter={false} bottomInset="tabBar">
-        {loadingFeed && posts.length === 0 ? (
-          <Stack gap="md" align="center" fill style={[styles.empty, { paddingTop: headerH }]}>
-            <ActivityIndicator color={colors.electricBright} />
-          </Stack>
-        ) : (
-          <AppFlatList
-            data={posts}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            contentContainerStyle={[styles.scroll, { paddingTop: headerH }]}
-            ListEmptyComponent={ListEmpty}
-            ListFooterComponent={<View style={styles.listFooter} />}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => void loadFeed(feedTab, { refresh: true })}
-                tintColor={colors.electricBright}
-              />
-            }
-            initialNumToRender={6}
-            maxToRenderPerBatch={4}
-            windowSize={7}
-            viewabilityConfig={viewabilityConfig}
-            onViewableItemsChanged={onViewableItemsChanged}
-          />
-        )}
+        <SwipeTabPager
+          pager={feedPager}
+          renderPage={(_page, active) =>
+            // Both tabs share the one AppContext feed: only the selected page mounts the list.
+            active ? (
+              loadingFeed && posts.length === 0 ? (
+                <Stack gap="md" align="center" fill style={[styles.empty, { paddingTop: headerH }]}>
+                  <ActivityIndicator color={colors.electricBright} />
+                </Stack>
+              ) : (
+                <AppFlatList
+                  data={posts}
+                  renderItem={renderItem}
+                  keyExtractor={keyExtractor}
+                  contentContainerStyle={[styles.scroll, { paddingTop: headerH }]}
+                  ListEmptyComponent={ListEmpty}
+                  ListFooterComponent={<View style={styles.listFooter} />}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={() => void loadFeed(feedTab, { refresh: true })}
+                      tintColor={colors.electricBright}
+                    />
+                  }
+                  initialNumToRender={6}
+                  maxToRenderPerBatch={4}
+                  windowSize={7}
+                  viewabilityConfig={viewabilityConfig}
+                  onViewableItemsChanged={onViewableItemsChanged}
+                />
+              )
+            ) : null
+          }
+        />
       </ScreenBody>
 
       <CreatePostFab mode="fixed" />
