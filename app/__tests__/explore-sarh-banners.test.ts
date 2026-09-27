@@ -9,14 +9,14 @@ import {
 import { resetRequestCoordination } from '../services/requestCoordination';
 
 describe('exploreSarhBanners mapping', () => {
-  it('keeps the local fallback banners in order without malahem', () => {
+  it('keeps the local fallback banners in order', () => {
     expect(FALLBACK_EXPLORE_SARH_BANNERS.map((b) => b.href)).toEqual([
       '/feed-suppliers',
       '/ministry',
     ]);
   });
 
-  it('maps valid remote rows and rejects butcher or bad href/image', () => {
+  it('maps valid remote rows and rejects bad href/image', () => {
     expect(
       mapRemoteExploreSarhBanner({
         id: '1',
@@ -34,15 +34,7 @@ describe('exploreSarhBanners mapping', () => {
       mapRemoteExploreSarhBanner({
         id: '1',
         imageUrl: 'https://cdn.example/a.jpg',
-        accessibilityLabel: 'ملاحم',
-        href: '/butchers',
-      }),
-    ).toBeNull();
-    expect(
-      mapRemoteExploreSarhBanner({
-        id: '1',
-        imageUrl: 'https://cdn.example/a.jpg',
-        accessibilityLabel: 'ملاحم',
+        accessibilityLabel: 'external',
         href: 'https://evil.example',
       }),
     ).toBeNull();

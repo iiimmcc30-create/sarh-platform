@@ -13,7 +13,6 @@ import {
   updateSupportTicket,
 } from '@/services/support.service';
 import { useAdminSupportTicketSocket } from '@/hooks/useAdminSupportTicketSocket';
-import { formatOrderQuantityLabel } from '@/lib/butcherOrderQuantityDisplay';
 
 const STATUS_LABEL: Record<string, string> = {
   OPEN: 'جديدة',
@@ -76,10 +75,8 @@ export default function SupportTicketDetailPage() {
   }
 
   const messages = (ticket.messages as Record<string, unknown>[] | undefined) ?? [];
-  const order = ticket.order as Record<string, unknown> | null | undefined;
   const metadata = (ticket.metadata as Record<string, unknown> | null | undefined) ?? {};
   const reporter = ticket.reporter as Record<string, unknown> | undefined;
-  const orderItems = (order?.items as Record<string, unknown>[] | undefined) ?? [];
 
   const authorLabel = (msg: Record<string, unknown>) => {
     if (msg.authorKind === 'SARHAN') return 'سرحان';
@@ -148,27 +145,6 @@ export default function SupportTicketDetailPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
-          {order ? (
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2 text-sm text-slate-300">
-              <p className="font-semibold text-white">تفاصيل الطلب (للعرض فقط — لا يمكن التعديل من هنا)</p>
-              <p>رقم الطلب: {String(order.orderNumber)}</p>
-              <p>حالة الطلب: {String(order.status)}</p>
-              <p>حالة الدفع: {String(order.paymentStatus)}</p>
-              <p>الإجمالي: {String(order.totalPrice)} {String(order.currency ?? 'SAR')}</p>
-              <ul className="list-disc pr-5">
-                {orderItems.map((item) => {
-                  const product = item.product as Record<string, unknown> | undefined;
-                  return (
-                    <li key={String(item.id)}>
-                      {String(product?.nameAr ?? item.cutType)} —{' '}
-                      {formatOrderQuantityLabel(item.weightKg as number, product) ||
-                        String(item.weightKg)}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
           <label className="text-sm text-slate-400">الحالة</label>
           <select
             value={status}

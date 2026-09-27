@@ -65,7 +65,6 @@ npm.cmd run dev            # http://localhost:3000
 | `GET/PATCH/DELETE /api/admin/listings` | الإعلانات |
 | `GET/PATCH/DELETE /api/admin/reports` | البلاغات |
 | `GET/POST/DELETE /api/admin/livestreams` | البث |
-| `GET/PATCH /api/admin/butchers` | الملاحم |
 | `GET/PUT /api/admin/settings` | Feature Flags |
 | `GET/POST/PATCH/DELETE /api/admin/sections` | المحتوى |
 

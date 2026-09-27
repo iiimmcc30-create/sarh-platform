@@ -5,10 +5,9 @@ function src(rel: string) {
   return readFileSync(path.join(__dirname, rel), 'utf8');
 }
 
-describe('Payment core remains independent of malahem removal', () => {
-  it('does not import ButchersModule into PaymentsModule', () => {
+describe('Payment core after legacy marketplace removal', () => {
+  it('keeps the payments module wiring', () => {
     const mod = src('./payments.module.ts');
-    expect(mod).not.toContain('ButchersModule');
     expect(mod).toContain('PaymentsController');
     expect(mod).toContain('payments/webhook');
     expect(mod).toContain('IntegrationsModule');
@@ -22,12 +21,16 @@ describe('Payment core remains independent of malahem removal', () => {
     expect(repo).toContain('featuredUntil');
   });
 
-  it('keeps historical butcher payment branches for webhook fulfillment', () => {
-    const service = src('./payments.service.ts');
-    const dto = src('./dto/payments.dto.ts');
-    expect(dto).toContain('butcher_order');
-    expect(dto).toContain('butcher_checkout');
-    expect(service).toContain("type === 'butcher_checkout'");
-    expect(service).toContain("type === 'butcher_order'");
+  it('has no legacy marketplace payment branches left', () => {
+    const legacy = /butcher|order_commission|capturedAfterCancel/i;
+    for (const rel of [
+      './payments.service.ts',
+      './payments.controller.ts',
+      './payment-redirect.controller.ts',
+      './dto/payments.dto.ts',
+      './repositories/payments.repository.ts',
+    ]) {
+      expect(src(rel)).not.toMatch(legacy);
+    }
   });
 });

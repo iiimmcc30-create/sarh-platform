@@ -150,22 +150,6 @@ function createMockApi(): Express {
     });
   });
 
-  app.post('/api/butchers/orders/:id/status', authed, (req, res) => {
-    const next = req.body?.status;
-    if (
-      !['confirmed', 'cancelled', 'delivered', 'preparing', 'ready'].includes(
-        next,
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        error: 'invalid_transition',
-        messageAr: 'انتقال غير مسموح',
-      });
-    }
-    return res.status(200).json({ success: true, data: { status: next } });
-  });
-
   app.get('/api/admin/users', authed, (req, res) => {
     if (req.headers.authorization !== 'Bearer admin') {
       return res.status(403).json({
@@ -306,14 +290,6 @@ describe('API integration (mock server) — status matrix', () => {
       .post('/api/payments/boom/sync')
       .set('Authorization', 'Bearer tok');
     expect(res.status).toBe(500);
-  });
-
-  it('order status invalid → 400', async () => {
-    const res = await request(app)
-      .post('/api/butchers/orders/o1/status')
-      .set('Authorization', 'Bearer tok')
-      .send({ status: 'delivered_from_pending' });
-    expect(res.status).toBe(400);
   });
 
   it('admin without role → 403', async () => {

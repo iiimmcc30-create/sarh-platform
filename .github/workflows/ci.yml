@@ -104,24 +104,3 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
-
-  butcher-dashboard:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: butcher-dashboard
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: butcher-dashboard/package-lock.json
-      - run: npm ci
-      - run: npm test
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run build
-        env:
-          NEXT_PUBLIC_API_URL: https://sarhsa.online
-          NEXT_PUBLIC_SOCKET_URL: https://sarhsa.online

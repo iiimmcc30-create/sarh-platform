@@ -13,7 +13,6 @@ describe('E2E user journeys (contract server)', () => {
   const sessions = new Map<string, { userId: string }>();
   let listingId = '';
   let paymentId = '';
-  let orderId = '';
 
   app.post('/api/auth/register', (req, res) => {
     if (!req.body?.phone || !req.body?.username) {
@@ -109,21 +108,6 @@ describe('E2E user journeys (contract server)', () => {
     });
   });
 
-  app.post('/api/butchers/orders', requireAuth, (req, res) => {
-    orderId = 'order-e2e';
-    return res.status(201).json({
-      success: true,
-      data: { id: orderId, status: 'pending', paymentStatus: 'unpaid' },
-    });
-  });
-
-  app.post('/api/butchers/orders/:id/status', requireAuth, (req, res) => {
-    return res.status(200).json({
-      success: true,
-      data: { id: req.params.id, status: req.body.status },
-    });
-  });
-
   it('journey: register → login → create listing with plan pin → logout', async () => {
     const reg = await request(app)
       .post('/api/auth/register')
@@ -182,28 +166,6 @@ describe('E2E user journeys (contract server)', () => {
       .set('Authorization', 'Bearer access-e2e');
     expect(expire.body.data.niState).toBe('EXPIRED');
     expect(expire.body.data.outcome).toBe('failed');
-  });
-
-  it('journey: butcher order create → accept → deliver', async () => {
-    sessions.set('access-e2e', { userId: 'u-e2e' });
-    const created = await request(app)
-      .post('/api/butchers/orders')
-      .set('Authorization', 'Bearer access-e2e')
-      .send({ items: [{ productId: 'p1', qty: 1 }] });
-    expect(created.status).toBe(201);
-
-    const accepted = await request(app)
-      .post(`/api/butchers/orders/${orderId}/status`)
-      .set('Authorization', 'Bearer access-e2e')
-      .send({ status: 'confirmed' });
-    expect(accepted.status).toBe(200);
-
-    const delivered = await request(app)
-      .post(`/api/butchers/orders/${orderId}/status`)
-      .set('Authorization', 'Bearer access-e2e')
-      .send({ status: 'delivered' });
-    expect(delivered.status).toBe(200);
-    expect(delivered.body.data.status).toBe('delivered');
   });
 
   it('journey: password reset requires token', async () => {

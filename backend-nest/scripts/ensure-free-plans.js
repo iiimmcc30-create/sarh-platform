@@ -1,5 +1,5 @@
 /**
- * One-off: ensure free USER/BUTCHER plans exist on the connected DB.
+ * One-off: ensure the free USER plan exists on the connected DB.
  * Run with DATABASE_URL set.
  */
 const { PrismaClient } = require('@prisma/client');
@@ -18,32 +18,17 @@ const USER_FEATURES = [
   { key: 'canCreateLive', value: 'false', valueType: 'BOOLEAN' },
 ];
 
-const BUTCHER_FEATURES = [
-  { key: 'storeEnabled', value: 'true', valueType: 'BOOLEAN' },
-  { key: 'receiveOrders', value: 'true', valueType: 'BOOLEAN' },
-  { key: 'analyticsDashboard', value: 'true', valueType: 'BOOLEAN' },
-  { key: 'storeCommission', value: '5', valueType: 'NUMBER' },
-  { key: 'monthlyLiveHours', value: '0', valueType: 'NUMBER' },
-  { key: 'verifiedBadge', value: 'false', valueType: 'BOOLEAN' },
-  { key: 'prioritySupport', value: 'false', valueType: 'BOOLEAN' },
-  { key: 'prioritySearch', value: 'false', valueType: 'BOOLEAN' },
-  { key: 'canCreateLive', value: 'false', valueType: 'BOOLEAN' },
-];
-
 async function ensureFree(audience) {
   const existing = await prisma.plan.findUnique({
     where: { slug_audience: { slug: 'free', audience } },
   });
   if (!existing) {
-    const features = audience === 'USER' ? USER_FEATURES : BUTCHER_FEATURES;
+    const features = USER_FEATURES;
     const created = await prisma.plan.create({
       data: {
         slug: 'free',
         name: 'مجاني',
-        description:
-          audience === 'USER'
-            ? 'ابدأ التداول في سرح مجاناً'
-            : 'باقة مجانية للملاحم',
+        description: 'ابدأ التداول في سرح مجاناً',
         audience,
         monthlyPrice: 0,
         yearlyPrice: 0,
@@ -84,7 +69,6 @@ async function main() {
   );
 
   await ensureFree('USER');
-  await ensureFree('BUTCHER');
 
   await prisma.plan.updateMany({
     where: { slug: { not: 'free' }, sortOrder: 0 },

@@ -19,7 +19,6 @@ const createFaqSchema = z.object({
     'BUY_SELL',
     'PAYMENT',
     'VERIFICATION',
-    'BUTCHERS',
     'TECHNICAL',
     'GENERAL',
   ]),

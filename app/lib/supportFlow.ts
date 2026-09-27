@@ -4,14 +4,13 @@ import {
   type SupportTicketStatus,
 } from '@/services/support';
 
-export type SupportFlowHelpKind = 'ORDER_HELP' | 'OTHER_HELP';
+export type SupportFlowHelpKind = 'OTHER_HELP';
 
 export type SupportFlowChoice = {
   id: string;
   helpKind: SupportFlowHelpKind;
   category: SupportTicketCategory;
   label: string;
-  needsOrder: boolean;
 };
 
 /**
@@ -20,60 +19,40 @@ export type SupportFlowChoice = {
  */
 export const SUPPORT_FLOW_CHOICES: SupportFlowChoice[] = [
   {
-    id: 'ORDER_HELP',
-    helpKind: 'ORDER_HELP',
-    category: 'ORDER_HELP',
-    label: TICKET_CATEGORY_LABEL_AR.ORDER_HELP,
-    needsOrder: true,
-  },
-  {
     id: 'ACCOUNT',
     helpKind: 'OTHER_HELP',
     category: 'ACCOUNT',
     label: 'مشكلة في حسابي',
-    needsOrder: false,
   },
   {
     id: 'ADS',
     helpKind: 'OTHER_HELP',
     category: 'ADS',
     label: 'مشكلة في إعلان',
-    needsOrder: false,
   },
   {
     id: 'BUY_SELL',
     helpKind: 'OTHER_HELP',
     category: 'BUY_SELL',
     label: 'مشكلة في معاملة',
-    needsOrder: false,
   },
   {
     id: 'PAYMENT',
     helpKind: 'OTHER_HELP',
     category: 'PAYMENT',
     label: TICKET_CATEGORY_LABEL_AR.PAYMENT,
-    needsOrder: false,
-  },
-  {
-    id: 'BUTCHERS',
-    helpKind: 'OTHER_HELP',
-    category: 'BUTCHERS',
-    label: TICKET_CATEGORY_LABEL_AR.BUTCHERS,
-    needsOrder: false,
   },
   {
     id: 'TECHNICAL',
     helpKind: 'OTHER_HELP',
     category: 'TECHNICAL',
     label: TICKET_CATEGORY_LABEL_AR.TECHNICAL,
-    needsOrder: false,
   },
   {
     id: 'OTHER',
     helpKind: 'OTHER_HELP',
     category: 'OTHER',
     label: TICKET_CATEGORY_LABEL_AR.OTHER_HELP,
-    needsOrder: false,
   },
 ];
 

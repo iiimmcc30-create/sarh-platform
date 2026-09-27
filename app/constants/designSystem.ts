@@ -87,7 +87,7 @@ export const ds = {
     fabSize: 22,
     fabLift: 0,
     marginH: 0,
-    /** Minimum safe-area padding — matches ButchersTabBar. */
+    /** Minimum safe-area padding — matches FloatingTabBar. */
     marginBottom: sarh.space.sm,
   },
 

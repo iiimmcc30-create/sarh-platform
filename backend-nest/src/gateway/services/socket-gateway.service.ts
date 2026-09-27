@@ -14,7 +14,6 @@ import {
   ChatSendDto,
   ChatTypingDto,
   LiveCommentDto,
-  OrderStatusDto,
   SupportSendDto,
 } from '../dto/socket-events.dto';
 import { SocketRepository } from '../repositories/socket.repository';
@@ -190,8 +189,6 @@ export class SocketGatewayService {
       await this.messagingPolicy.assertCanSendMessage({
         senderId: user.userId,
         receiverId: data.receiverId,
-        type: thread.type,
-        butcherId: thread.butcherId,
       });
     } catch (err) {
       return this.policyError(err);
@@ -205,7 +202,6 @@ export class SocketGatewayService {
         text: data.text,
         imageUrl: data.imageUrl,
         videoUrl: data.videoUrl,
-        orderId: data.orderId,
       });
 
       const preview = data.text?.slice(0, 60)
@@ -238,7 +234,6 @@ export class SocketGatewayService {
           senderId: user.userId,
           actorId: user.userId,
           actorAvatar: message.sender.avatar ?? undefined,
-          ...(data.orderId ? { orderId: data.orderId } : {}),
           ...(data.imageUrl ? { imageUrl: data.imageUrl } : {}),
           ...(data.videoUrl ? { videoUrl: data.videoUrl } : {}),
         },
@@ -397,13 +392,6 @@ export class SocketGatewayService {
       likes: updated.likes,
     });
     this.emitService.emitToStream(streamId, 'live:likes', updated.likes);
-  }
-
-  async handleOrderStatus(
-    _user: JwtPayload,
-    _data: OrderStatusDto,
-  ): Promise<SocketError | null> {
-    return { code: 'gone', message: 'Butcher orders are no longer available' };
   }
 
   onPresencePing(userId: string, socketId: string): void {

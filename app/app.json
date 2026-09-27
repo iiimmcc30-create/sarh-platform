@@ -72,7 +72,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "نحتاج موقعك لتحديد مكان الملحمة على الخريطة"
+          "locationAlwaysAndWhenInUsePermission": "نحتاج موقعك لتحديد الموقع على الخريطة"
         }
       ],
       [

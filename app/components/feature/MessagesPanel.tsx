@@ -9,7 +9,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   StyleSheet,
   View,
@@ -152,11 +151,6 @@ export function MessagesPanel({
     if (menu) return;
     const p = chat.participant;
     if (!p) return;
-    const isButcher = chat.type === 'BUTCHER';
-    if (isButcher) {
-      Alert.alert('المحادثة', 'التواصل المباشر مع الملحمة غير متاح');
-      return;
-    }
     const listing = listingByPeer[p.id];
     router.push({
       pathname: '/chat',
@@ -214,7 +208,7 @@ export function MessagesPanel({
   };
 
   const listData = useMemo(
-    () => filteredChats.filter((chat) => Boolean(chat.participant) && chat.type !== 'BUTCHER'),
+    () => filteredChats.filter((chat) => Boolean(chat.participant)),
     [filteredChats],
   );
 
@@ -222,7 +216,6 @@ export function MessagesPanel({
     ({ item: chat }: { item: MessageThreadItem }) => {
       const p = chat.participant;
       if (!p) return null;
-      const isButcher = chat.type === 'BUTCHER';
       const title = p.arabicName;
       const avatarUri = p.avatar;
       const listing = resolveListingPreview(chat);
@@ -256,26 +249,16 @@ export function MessagesPanel({
           >
           <Row gap="md" align="center">
             <Row gap="sm" align="center">
-              {isButcher ? (
+              <UserProfileLink userId={p.id} disabled={menuOpen}>
                 <View style={styles.avatarWrap}>
                   <Image
                     source={{ uri: avatarUri }}
                     style={styles.avatar}
                     contentFit="cover"
                   />
+                  <View style={styles.onlineDot} />
                 </View>
-              ) : (
-                <UserProfileLink userId={p.id} disabled={menuOpen}>
-                  <View style={styles.avatarWrap}>
-                    <Image
-                      source={{ uri: avatarUri }}
-                      style={styles.avatar}
-                      contentFit="cover"
-                    />
-                    <View style={styles.onlineDot} />
-                  </View>
-                </UserProfileLink>
-              )}
+              </UserProfileLink>
               {listing?.image ? (
                 <Image
                   source={uriSource(cloudinaryFitUrl(listing.image, 'row'))}
@@ -294,7 +277,7 @@ export function MessagesPanel({
                   <AppText variant="label" numberOfLines={1} style={styles.flex}>
                     {title}
                   </AppText>
-                  {!isButcher && p.verified ? (
+                  {p.verified ? (
                     <AppIcon
                       name="checkmark-circle"
                       size={14}
@@ -312,10 +295,6 @@ export function MessagesPanel({
                   {listing.title}
                   {' · '}
                   {formatListingPrice(listing.price, listing.currency)}
-                </AppText>
-              ) : showListingMeta && listing.title && isButcher ? (
-                <AppText variant="caption" color="success" numberOfLines={1}>
-                  {listing.title}
                 </AppText>
               ) : null}
 

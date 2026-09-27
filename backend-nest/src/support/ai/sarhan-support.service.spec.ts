@@ -6,24 +6,11 @@ import type { SupportAiContext } from './ai-provider';
 function baseContext(over: Partial<SupportAiContext> = {}): SupportAiContext {
   return {
     ticketNumber: 'SRH-2026-000010',
-    category: 'ORDER_HELP',
+    category: 'OTHER_HELP',
     customerFirstName: 'متعب',
     customerDescription: 'مشكلة',
     missingInformation: [],
     recentMessages: [{ authorKind: 'CUSTOMER', body: 'طلبي ما وصل' }],
-    order: {
-      orderId: 'ord-a',
-      orderNumber: 'BO-1',
-      status: 'preparing',
-      paymentStatus: 'paid',
-      totalPrice: 120,
-      currency: 'SAR',
-      createdAt: '2026-09-01T00:00:00.000Z',
-      deliveryType: 'delivery',
-      items: [
-        { cutType: 'whole', weightKg: 2, linePrice: 120, nameAr: 'خروف' },
-      ],
-    },
     ...over,
   };
 }
@@ -32,16 +19,8 @@ describe('HeuristicAiProvider / SarhanSupportService', () => {
   const logger = { info: jest.fn(), warn: jest.fn() };
   const heuristic = new HeuristicAiProvider();
   const sarhan = new SarhanSupportService(heuristic, logger as never);
-
-  it('classifies a not-received order with known order context and hands off', async () => {
+  it('asks for confirmation on a not-received order', async () => {
     const turn = await sarhan.nextTurn(baseContext(), {});
-    expect(turn.escalate).toBe(true);
-    expect(turn.issueType).toBe('ORDER_NOT_RECEIVED');
-    expect(turn.replyAr).toContain('الفريق المختص');
-  });
-
-  it('asks for confirmation only when the order is not already attached', async () => {
-    const turn = await sarhan.nextTurn(baseContext({ order: null }), {});
     expect(turn.escalate).toBe(false);
     expect(turn.issueType).toBe('ORDER_NOT_RECEIVED');
     expect(turn.replyAr).toContain('لم يصل');
@@ -113,32 +92,21 @@ describe('HeuristicAiProvider / SarhanSupportService', () => {
   });
 });
 
-describe('SupportAiContextService order isolation', () => {
-  it('loads order context only when the ticket reporter owns the order', async () => {
-    const prisma = {
-      user: { findUnique: jest.fn() },
-      butcherOrder: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        update: jest.fn(),
-      },
-    };
+describe('SupportAiContextService', () => {
+  it('builds ticket context from the reporter and metadata only', async () => {
+    const prisma = { user: { findUnique: jest.fn() } };
     const svc = new SupportAiContextService(prisma as never);
     const ctx = await svc.build({
       ticketNumber: 'SRH-2026-000099',
-      category: 'ORDER_HELP',
+      category: 'OTHER_HELP',
       description: 'x',
       reporterId: 'cust-a',
-      orderId: 'ord-b',
-      metadata: {},
-      reporter: { arabicName: 'متعب', displayName: 'M' },
+      metadata: { issueType: 'OTHER' },
+      reporter: { arabicName: 'M', displayName: 'M' },
       messages: [],
     });
-    expect(prisma.butcherOrder.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'ord-b', customerId: 'cust-a' },
-      }),
-    );
-    expect(ctx.order).toBeNull();
-    expect(prisma.butcherOrder.update).not.toHaveBeenCalled();
+    expect(ctx.ticketNumber).toBe('SRH-2026-000099');
+    expect(ctx.issueType).toBe('OTHER');
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 });

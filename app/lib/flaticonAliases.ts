@@ -192,7 +192,7 @@ export const FLATICON_ALIASES: Record<string, string> = {
   'food-apple-outline': 'apple-whole',
   gavel: 'gavel',
 
-  // Animals (butcher categories)
+  // Animals (livestock categories)
   cow: 'cow',
   sheep: 'sheep',
   horse: 'horse',

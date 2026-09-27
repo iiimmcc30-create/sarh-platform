@@ -121,7 +121,7 @@ export class ListingsService {
 
   private sellerPriorityBoost(
     seller?: {
-      subscription?: { planId?: string; planAudience?: 'USER' | 'BUTCHER' };
+      subscription?: { planId?: string; planAudience?: 'USER' };
       verified?: boolean;
     } | null,
   ): number {
@@ -308,7 +308,7 @@ export class ListingsService {
           b.seller as {
             subscription?: {
               planId?: string;
-              planAudience?: 'USER' | 'BUTCHER';
+              planAudience?: 'USER';
             };
             verified?: boolean;
           },
@@ -317,7 +317,7 @@ export class ListingsService {
           a.seller as {
             subscription?: {
               planId?: string;
-              planAudience?: 'USER' | 'BUTCHER';
+              planAudience?: 'USER';
             };
             verified?: boolean;
           },

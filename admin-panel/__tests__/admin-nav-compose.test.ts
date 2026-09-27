@@ -10,7 +10,7 @@ describe('admin production compose auth wiring', () => {
   const adminBlock = (() => {
     const start = compose.indexOf('\n  admin:');
     expect(start).toBeGreaterThanOrEqual(0);
-    const next = compose.indexOf('\n  butcher:', start + 1);
+    const next = compose.indexOf('\n  web:', start + 1);
     return next > start ? compose.slice(start, next) : compose.slice(start);
   })();
 
@@ -51,7 +51,6 @@ describe('admin sidebar routes stay under /admin basePath', () => {
     expect(sidebar).not.toContain('href={withAdminBase(href)}');
     expect(nav).toContain("href: '/users'");
     expect(nav).toContain("href: '/listings'");
-    expect(nav).toContain("href: '/orders'");
     expect(nav).toContain("href: '/payments'");
   });
 

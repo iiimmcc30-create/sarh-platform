@@ -22,14 +22,6 @@ else
   echo "Repair: ./scripts/hostinger/07-repair-ssl.sh"
 fi
 
-echo "=== Public butcher join page ==="
-if curl -fsS --max-time 12 "https://sarhsa.online/join" | grep -q 'انضمام الملاحم'; then
-  echo "https://sarhsa.online/join OK"
-else
-  echo "WARN: /join is not the registration page — nginx is still sending it to Expo web"
-  echo "Fix: git pull && ./scripts/hostinger/04-deploy.sh && docker compose -f docker-compose.prod.yml -f docker-compose.prod.ssl.yml --env-file .env.production up -d --force-recreate nginx"
-fi
-
 echo "=== Admin panel trailing-slash (must not loop) ==="
 admin_code=$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 12 "https://sarhsa.online/admin" || echo 000)
 admin_slash_code=$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 12 "https://sarhsa.online/admin/" || echo 000)

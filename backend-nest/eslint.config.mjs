@@ -9,7 +9,6 @@ export default tseslint.config(
     ignores: [
       'eslint.config.mjs',
       'dist/**',
-      'src/butcher-applications/__tests__/**',
       'src/shared/**',
     ],
   },

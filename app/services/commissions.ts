@@ -9,7 +9,7 @@ export type ListingCategory =
   | 'birds'
   | 'feed'
   | 'equipment'
-  | 'store';    // متجر / ملحمة → 5% بدون اشتراك، صفر مع اشتراك
+  | 'store';    // متجر → 5% بدون اشتراك، صفر مع اشتراك
 
 export function isStoreExempt(permissions?: Record<string, unknown>): boolean {
   const v = permissions?.storeCommission;

@@ -48,27 +48,23 @@ describe('message thread filters', () => {
     },
     {
       id: '2',
-      type: 'BUTCHER' as const,
+      type: 'DIRECT' as const,
       participant: {
         id: 'u2',
-        displayName: 'Shop',
-        arabicName: 'ملحمة',
+        displayName: 'Seller',
+        arabicName: 'Seller',
         verified: false,
       },
-      butcher: { id: 'b1', nameAr: 'ملحمة النور' },
-      lastMessage: 'تم قبول الطلب',
+      lastMessage: 'ok',
       lastMessageAt: '2026-08-16T11:00:00.000Z',
       unread: 0,
     },
   ];
 
-  it('filters unread and transactions without a search tab', () => {
+  it('filters unread without a search tab', () => {
     expect(filterMessageThreads(threads, 'unread', '', {}).map((t) => t.id)).toEqual([
       '1',
     ]);
-    expect(
-      filterMessageThreads(threads, 'transactions', '', {}).map((t) => t.id),
-    ).toEqual(['2']);
   });
 
   it('searches listing titles from a single search bar', () => {

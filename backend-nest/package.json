@@ -128,7 +128,6 @@
     "moduleNameMapper": {
       "^@/lib/(.*)$": "<rootDir>/shared/lib/$1",
       "^@/middleware/(.*)$": "<rootDir>/shared/middleware/$1",
-      "^@/butcher-applications/(.*)$": "<rootDir>/butcher-applications/$1",
       "^@/(.*)$": "<rootDir>/$1"
     },
     "transform": {
@@ -149,9 +148,7 @@
       "common/utils/soft-delete.util.ts",
       "common/exceptions/api.exception.ts",
       "common/dto/api-response.dto.ts",
-      "listings/listing-categories.ts",
-      "butchers/lib/**/*.ts",
-      "butchers/services/order-state-machine.service.ts"
+      "listings/listing-categories.ts"
     ],
     "coverageDirectory": "../coverage",
     "coverageReporters": [

@@ -14,11 +14,11 @@ describe('scoreSearchMatch', () => {
   });
 
   it('bonuses results matching all tokens', () => {
-    const both = scoreSearchMatch('ملاحم الدمام', ['ملاحم', 'الدمام'], {
-      title: 'ملاحم الدمام',
+    const both = scoreSearchMatch('مواشي الدمام', ['مواشي', 'الدمام'], {
+      title: 'مواشي الدمام',
     });
-    const one = scoreSearchMatch('ملاحم الدمام', ['ملاحم', 'الدمام'], {
-      title: 'ملاحم',
+    const one = scoreSearchMatch('مواشي الدمام', ['مواشي', 'الدمام'], {
+      title: 'مواشي',
       description: 'الرياض',
     });
     expect(both).toBeGreaterThan(one);

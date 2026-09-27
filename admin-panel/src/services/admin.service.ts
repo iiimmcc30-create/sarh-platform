@@ -193,84 +193,6 @@ export async function deleteLiveStream(id: string) {
   return unwrap(res);
 }
 
-export async function fetchButchers(params: ListParams = {}) {
-  const res = await apiClient.get("/admin/butchers", {
-    params: cleanListParams(params),
-  });
-  return unwrap<Paginated<Record<string, unknown>>>(res);
-}
-
-export async function fetchButcher(id: string) {
-  const res = await apiClient.get(`/admin/butchers/${id}`);
-  return unwrap<{
-    butcher: Record<string, unknown>;
-    user: Record<string, unknown>;
-  }>(res);
-}
-
-export async function updateButcher(id: string, data: Record<string, unknown>) {
-  const res = await apiClient.patch(`/admin/butchers/${id}`, data);
-  return unwrap(res);
-}
-
-export async function deleteButcher(id: string) {
-  const res = await apiClient.delete(`/admin/butchers/${id}`);
-  return unwrap<{ deleted: boolean; archived: boolean }>(res);
-}
-
-export async function fetchOrders(
-  params: ListParams & {
-    status?: string;
-    butcherId?: string;
-    customerId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    orderNumber?: string;
-  } = {},
-) {
-  const res = await apiClient.get("/admin/orders", {
-    params: cleanListParams(params),
-  });
-  return unwrap<Paginated<Record<string, unknown>>>(res);
-}
-
-export async function fetchOrder(id: string) {
-  const res = await apiClient.get(`/admin/orders/${id}`);
-  return unwrap<{ order: Record<string, unknown> }>(res);
-}
-
-export async function fetchApplications(params: Record<string, string> = {}) {
-  const res = await apiClient.get("/admin/butcher-applications", { params });
-  return unwrap(res);
-}
-
-export async function fetchApplication(id: string) {
-  const res = await apiClient.get(`/admin/butcher-applications/${id}`);
-  return unwrap<Record<string, unknown>>(res);
-}
-
-export async function approveApplication(id: string, comment?: string) {
-  const res = await apiClient.post(
-    `/admin/butcher-applications/${id}/approve`,
-    {
-      ...(comment?.trim() ? { comment: comment.trim() } : {}),
-    },
-  );
-  return unwrap(res);
-}
-
-export async function rejectApplication(
-  id: string,
-  rejectionReason: string,
-  comment?: string,
-) {
-  const res = await apiClient.post(`/admin/butcher-applications/${id}/reject`, {
-    rejectionReason: rejectionReason.trim(),
-    ...(comment?.trim() ? { comment: comment.trim() } : {}),
-  });
-  return unwrap(res);
-}
-
 export async function fetchSettings() {
   const res = await apiClient.get("/admin/settings");
   return unwrap<{ settings: Record<string, unknown>[] }>(res);
@@ -353,7 +275,7 @@ export type AdminPlan = {
   slug: string;
   name: string;
   description: string;
-  audience: "USER" | "BUTCHER";
+  audience: "USER";
   monthlyPrice: number;
   yearlyPrice: number;
   currency: string;
@@ -373,11 +295,11 @@ export type PlanFeatureCatalogItem = {
   labelAr: string;
   descriptionAr: string;
   valueType: "BOOLEAN" | "NUMBER" | "STRING" | "JSON";
-  audiences: Array<"USER" | "BUTCHER">;
+  audiences: Array<"USER">;
   suggestedValue?: string;
 };
 
-export async function fetchPlans(audience?: "USER" | "BUTCHER") {
+export async function fetchPlans(audience?: "USER") {
   const res = await apiClient.get("/admin/plans", {
     params: audience ? { audience } : undefined,
   });
@@ -389,7 +311,7 @@ export async function fetchPlan(id: string) {
   return unwrap<{ plan: AdminPlan }>(res);
 }
 
-export async function fetchPlanFeatureCatalog(audience?: "USER" | "BUTCHER") {
+export async function fetchPlanFeatureCatalog(audience?: "USER") {
   const res = await apiClient.get("/admin/plans/feature-catalog/list", {
     params: audience ? { audience } : undefined,
   });
@@ -419,112 +341,4 @@ export async function duplicatePlan(id: string) {
 export async function deletePlan(id: string) {
   const res = await apiClient.delete(`/admin/plans/${id}`);
   return unwrap(res);
-}
-
-export type DaftraStatus = {
-  butcherId: string;
-  status: "NOT_CONFIGURED" | "CONNECTED" | "CONNECTION_FAILED" | "DISABLED";
-  accountIdentifier: string | null;
-  apiKeyMasked: string | null;
-  lastConnectionTestAt: string | null;
-  lastConnectionError: string | null;
-  daftraLoginEmail: string | null;
-  daftraLoginUrl: string | null;
-  configured: boolean;
-};
-
-export async function fetchDaftraStatus(butcherId: string) {
-  const res = await apiClient.get(`/admin/butchers/${butcherId}/daftra`);
-  return unwrap<DaftraStatus>(res);
-}
-
-export async function saveDaftraConfig(
-  butcherId: string,
-  data: {
-    accountIdentifier: string;
-    apiKey?: string;
-    daftraLoginEmail?: string | null;
-    daftraLoginUrl?: string | null;
-  },
-) {
-  const res = await apiClient.put(`/admin/butchers/${butcherId}/daftra`, data);
-  return unwrap<DaftraStatus>(res);
-}
-
-export async function testDaftraConnection(
-  butcherId: string,
-  data: { sendInvite?: boolean; invitePassword?: string } = {},
-) {
-  const res = await apiClient.post(
-    `/admin/butchers/${butcherId}/daftra/test`,
-    data,
-  );
-  return unwrap<{
-    status: DaftraStatus;
-    messageAr: string;
-    connected: boolean;
-    reason?: string;
-  }>(res);
-}
-
-export async function disableDaftra(butcherId: string) {
-  const res = await apiClient.post(
-    `/admin/butchers/${butcherId}/daftra/disable`,
-  );
-  return unwrap<DaftraStatus>(res);
-}
-
-export type DaftraCatalogProduct = {
-  id: number;
-  name: string;
-  sku: string | null;
-  price: number | null;
-  quantity: number | null;
-};
-
-export async function fetchDaftraProducts(butcherId: string) {
-  const res = await apiClient.get(
-    `/admin/butchers/${butcherId}/daftra/products`,
-    {
-      params: { page: 1, limit: 20 },
-    },
-  );
-  return unwrap<{
-    items: DaftraCatalogProduct[];
-    page: number;
-    totalResults: number;
-  }>(res);
-}
-
-export async function fetchDaftraInventory(butcherId: string) {
-  const res = await apiClient.get(
-    `/admin/butchers/${butcherId}/daftra/inventory`,
-    {
-      params: { page: 1, limit: 20 },
-    },
-  );
-  return unwrap<{
-    items: Array<{
-      productId: number;
-      name: string | null;
-      quantity: number | null;
-    }>;
-    totalResults: number;
-  }>(res);
-}
-
-export type DaftraProductSyncResult = {
-  fetched: number;
-  created: number;
-  updated: number;
-  skipped: number;
-  pages: number;
-  errors: Array<{ daftraProductId: number | null; message: string }>;
-};
-
-export async function syncDaftraProducts(butcherId: string) {
-  const res = await apiClient.post(
-    `/admin/butchers/${butcherId}/daftra/products/sync`,
-  );
-  return unwrap<DaftraProductSyncResult>(res);
 }

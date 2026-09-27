@@ -37,7 +37,6 @@ import {
 import { IntegrationCheckoutService } from '../integrations/services/integration-checkout.service';
 import { redactSensitive } from '../integrations/utils/redact.util';
 import { PaidServicesService } from '../settings/paid-services.service';
-import { SocketEmitService } from '../gateway/services/socket-emit.service';
 import {
   calculateListingFeeAmount,
   parsePositiveMoneyAmount,
@@ -89,17 +88,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function reconciliationFlags(metadata: unknown): {
-  capturedAfterCancel?: boolean;
-  needsReconciliation?: boolean;
-} {
-  const meta = (metadata ?? {}) as Record<string, unknown>;
-  if (meta.capturedAfterCancel === true || meta.needsReconciliation === true) {
-    return { capturedAfterCancel: true, needsReconciliation: true };
-  }
-  return {};
-}
-
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000; // every 5 min
 const STALE_AFTER_MINUTES = 10; // payments older than 10 min
 /** Crash window: pending row exists but checkout URL was never written. */
@@ -131,81 +119,9 @@ export class PaymentsService
     private readonly plans: PlansService,
     private readonly cache: RedisCacheService,
     private readonly paidServices: PaidServicesService,
-    private readonly sockets: SocketEmitService,
     @Inject(forwardRef(() => IntegrationCheckoutService))
     private readonly integrationCheckout: IntegrationCheckoutService,
   ) {}
-
-  private emitPaidButcherOrderCreated(order: {
-    id: string;
-    orderNumber: string;
-    butcherId: string;
-    customerId: string;
-    butcherUserId: string;
-  }) {
-    this.sockets.emitToUser(order.customerId, 'order.created', {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      status: 'pending',
-      paymentStatus: 'paid',
-      butcherId: order.butcherId,
-      customerId: order.customerId,
-    });
-    this.sockets.emitToUser(order.butcherUserId, 'order.created', {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      status: 'pending',
-      paymentStatus: 'paid',
-      butcherId: order.butcherId,
-      customerId: order.customerId,
-    });
-    this.sockets.getServer()?.emit('admin.order.created', {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      status: 'pending',
-      paymentStatus: 'paid',
-      butcherId: order.butcherId,
-      customerId: order.customerId,
-    });
-  }
-
-  private async notifyPaidButcherOrder(order: {
-    id: string;
-    orderNumber: string;
-    butcherId: string;
-    customerId: string;
-    butcherUserId: string;
-  }) {
-    this.emitPaidButcherOrderCreated(order);
-    await Promise.all([
-      this.notifications.notifyUser({
-        userId: order.customerId,
-        type: 'order_update',
-        titleAr: `طلب ${order.orderNumber}`,
-        bodyAr: 'تم الدفع بنجاح ووصل طلبك للملحمة',
-        data: {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          paymentStatus: 'paid',
-          status: 'pending',
-          butcherId: order.butcherId,
-        },
-      }),
-      this.notifications.notifyUser({
-        userId: order.butcherUserId,
-        type: 'system',
-        titleAr: 'طلب مدفوع جديد',
-        bodyAr: `وصلك طلب مدفوع رقم ${order.orderNumber}`,
-        data: {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          paymentStatus: 'paid',
-          status: 'pending',
-          butcherId: order.butcherId,
-        },
-      }),
-    ]);
-  }
 
   private async invalidateListingCaches(listingId?: string) {
     await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => {});
@@ -270,51 +186,6 @@ export class PaymentsService
           400,
           'amount_mismatch',
           `المبلغ غير مطابق. المبلغ الصحيح: ${payable} ريال`,
-        );
-      }
-      return;
-    }
-
-    if (type === 'order_commission') {
-      throwApi(
-        400,
-        'invalid_type',
-        'عمولة الطلب دفتر داخلي ولا تُبدأ من بوابة الدفع',
-      );
-    }
-
-    if (type === 'butcher_order') {
-      const order = await this.repo.findUnpaidButcherOrder(referenceId, userId);
-      if (!order) {
-        throwApi(404, 'order_not_found', 'الطلب غير موجود أو تم سداده مسبقاً');
-      }
-      if (!sameMoneyAmount(order.totalPrice, amount)) {
-        throwApi(
-          400,
-          'amount_mismatch',
-          `المبلغ غير مطابق. المبلغ الصحيح: ${order.totalPrice} ${order.currency}`,
-        );
-      }
-      return;
-    }
-
-    if (type === 'butcher_checkout') {
-      const checkout = await this.repo.findPayableButcherCheckout(
-        referenceId,
-        userId,
-      );
-      if (!checkout) {
-        throwApi(
-          404,
-          'checkout_not_found',
-          'محاولة الدفع غير موجودة أو انتهت صلاحيتها',
-        );
-      }
-      if (!sameMoneyAmount(checkout.totalPrice, amount)) {
-        throwApi(
-          400,
-          'amount_mismatch',
-          `المبلغ غير مطابق. المبلغ الصحيح: ${checkout.totalPrice} ${checkout.currency}`,
         );
       }
       return;
@@ -584,18 +455,8 @@ export class PaymentsService
     const isDev = isNiSandboxMockMode();
     let checkoutUrl: string;
     const appUrl = process.env.APP_URL ?? 'https://sarhsa.online';
-    const context =
-      type === 'butcher_checkout'
-        ? 'butcher_checkout'
-        : type === 'butcher_order'
-          ? 'butcher_order'
-          : type;
-    const cancelUrl =
-      type === 'butcher_checkout' && referenceId
-        ? `${appUrl}/payment/cancel?context=butcher_checkout&checkoutId=${encodeURIComponent(referenceId)}&paymentId=${encodeURIComponent(payment.id)}`
-        : type === 'butcher_order' && referenceId
-          ? `${appUrl}/payment/cancel?context=butcher_order&orderId=${encodeURIComponent(referenceId)}`
-          : `${appUrl}/payment/cancel`;
+    const context = type;
+    const cancelUrl = `${appUrl}/payment/cancel`;
     const redirectUrl = `${appUrl}/payment/result?paymentId=${encodeURIComponent(payment.id)}&context=${encodeURIComponent(context)}`;
 
     if (isDev) {
@@ -1074,25 +935,6 @@ export class PaymentsService
           );
         }
       }
-      // Reverse accrued butcher order commission ledger if the order payment refunds.
-      if (type === 'butcher_order' && referenceId) {
-        await this.repo.markOrderCommissionRefunded(referenceId, {
-          refundedAt: new Date().toISOString(),
-          refundEvent: eventType,
-          sourcePaymentId: payment.id,
-        });
-      }
-      if (type === 'butcher_checkout' && referenceId) {
-        const paidOrderId =
-          await this.repo.findOrderIdByCheckoutId(referenceId);
-        if (paidOrderId) {
-          await this.repo.markOrderCommissionRefunded(paidOrderId, {
-            refundedAt: new Date().toISOString(),
-            refundEvent: eventType,
-            sourcePaymentId: payment.id,
-          });
-        }
-      }
       await this.subscriptionCache.invalidate(userId);
       await this.notifications.notifyUser({
         userId,
@@ -1146,19 +988,6 @@ export class PaymentsService
         storedMeta,
       });
 
-      if (fulfillment.capturedAfterCancel) {
-        this.logger.error(
-          {
-            paymentId: payment.id,
-            type,
-            referenceId,
-            niTransactionId,
-          },
-          'NI captured payment for a cancelled butcher order — recorded without fulfillment; NI refund API is not implemented in this codebase (needsReconciliation)',
-        );
-        return;
-      }
-
       if (fulfillment.processed) {
         await this.subscriptionCache.invalidate(userId);
 
@@ -1176,8 +1005,6 @@ export class PaymentsService
             payment.amount,
             payment.currency,
           );
-        } else if (fulfillment.butcherOrder) {
-          await this.notifyPaidButcherOrder(fulfillment.butcherOrder);
         } else if (fulfillment.boost) {
           const b = fulfillment.boost;
           const boostCopy =
@@ -1318,28 +1145,12 @@ export class PaymentsService
     if (!payment) throwApi(404, 'not_found', 'الدفعة غير موجودة');
 
     if (payment.status === 'paid') {
-      const flags = reconciliationFlags(payment.metadata);
-      const butcherOrder = flags.needsReconciliation
-        ? null
-        : await this.repo.findButcherOrderByPaymentId(payment.id);
       return {
         paymentId: payment.id,
         status: 'paid',
         outcome: 'success',
         synced: false,
-        messageAr: flags.needsReconciliation
-          ? 'تم تأكيد الدفع من N-Genius دون إنشاء طلب للملحمة. الحالة تحتاج مطابقة.'
-          : niOrderStateLabelAr('success'),
-        ...flags,
-        butcherOrder: butcherOrder
-          ? {
-              id: butcherOrder.id,
-              orderNumber: butcherOrder.orderNumber,
-              butcherId: butcherOrder.butcherId,
-              paymentStatus: butcherOrder.paymentStatus,
-              status: butcherOrder.status,
-            }
-          : undefined,
+        messageAr: niOrderStateLabelAr('success'),
       };
     }
     if (payment.status === 'refunded') {
@@ -1421,37 +1232,19 @@ export class PaymentsService
         (payment.status !== 'pending' && payment.status !== 'failed')
       ) {
         const terminalStatus = payment?.status ?? 'unknown';
-        const flags = reconciliationFlags(payment?.metadata);
         const terminalOutcome =
           terminalStatus === 'paid'
             ? 'success'
             : terminalStatus === 'failed'
               ? 'failed'
               : 'processing';
-        const butcherOrder =
-          terminalStatus === 'paid' && !flags.needsReconciliation
-            ? await this.repo.findButcherOrderByPaymentId(paymentId)
-            : null;
         return {
           paymentId,
           status: terminalStatus,
           outcome: terminalOutcome,
           synced: false,
           niState: state,
-          messageAr:
-            terminalStatus === 'paid' && flags.needsReconciliation
-              ? 'تم تأكيد الدفع من N-Genius دون إنشاء طلب للملحمة. الحالة تحتاج مطابقة.'
-              : niOrderStateLabelAr(terminalOutcome),
-          ...flags,
-          butcherOrder: butcherOrder
-            ? {
-                id: butcherOrder.id,
-                orderNumber: butcherOrder.orderNumber,
-                butcherId: butcherOrder.butcherId,
-                paymentStatus: butcherOrder.paymentStatus,
-                status: butcherOrder.status,
-              }
-            : undefined,
+          messageAr: niOrderStateLabelAr(terminalOutcome),
         };
       }
 
@@ -1482,34 +1275,6 @@ export class PaymentsService
 
         const latest = await this.repo.findPaymentByIdFull(paymentId);
         const dbStatus = latest?.status ?? payment.status;
-        const flags = {
-          ...reconciliationFlags(latest?.metadata),
-          ...(fulfillment.capturedAfterCancel
-            ? { capturedAfterCancel: true, needsReconciliation: true }
-            : {}),
-        };
-
-        if (fulfillment.capturedAfterCancel || flags.needsReconciliation) {
-          this.logger.error(
-            { paymentId, orderRef, state, type, referenceId, dbStatus },
-            'NI captured payment for a cancelled butcher order — recorded without fulfillment; NI refund API is not implemented in this codebase (needsReconciliation)',
-          );
-          return {
-            paymentId,
-            status: dbStatus,
-            outcome: dbStatus === 'paid' ? 'success' : 'failed',
-            synced: dbStatus === 'paid',
-            capturedAfterCancel: true,
-            needsReconciliation: true,
-            niState: state,
-            messageAr:
-              dbStatus === 'paid'
-                ? 'تم تأكيد الدفع من N-Genius دون إنشاء طلب للملحمة. الحالة تحتاج مطابقة.'
-                : niOrderStateLabelAr('failed'),
-            butcherOrder: undefined,
-          };
-        }
-
         if (dbStatus !== 'paid') {
           this.logger.warn(
             { paymentId, orderRef, state, dbStatus, type, referenceId },
@@ -1524,7 +1289,6 @@ export class PaymentsService
             messageAr: niOrderStateLabelAr(
               dbStatus === 'failed' ? 'failed' : 'processing',
             ),
-            butcherOrder: undefined,
           };
         }
 
@@ -1554,8 +1318,6 @@ export class PaymentsService
                 boostType: b.boostType,
               },
             });
-          } else if (fulfillment.butcherOrder) {
-            await this.notifyPaidButcherOrder(fulfillment.butcherOrder);
           } else {
             await this.notifications.notifyUser({
               userId,
@@ -1578,15 +1340,6 @@ export class PaymentsService
           synced: fulfillment.processed,
           niState: state,
           messageAr: niOrderStateLabelAr('success'),
-          butcherOrder: fulfillment.butcherOrder
-            ? {
-                id: fulfillment.butcherOrder.id,
-                orderNumber: fulfillment.butcherOrder.orderNumber,
-                butcherId: fulfillment.butcherOrder.butcherId,
-                paymentStatus: 'paid',
-                status: 'pending',
-              }
-            : undefined,
           boost: fulfillment.boost
             ? {
                 boostType: fulfillment.boost.boostType,
@@ -1696,7 +1449,7 @@ export class PaymentsService
       payment.referenceId ?? (storedMeta.referenceId as string | undefined);
     const niTransactionId = `DEV-${payment.orderId}`;
 
-    const fulfillment = await this.repo.processSuccessfulPayment({
+    await this.repo.processSuccessfulPayment({
       paymentId: payment.id,
       niTransactionId,
       type,
@@ -1708,22 +1461,9 @@ export class PaymentsService
       storedMeta,
     });
 
-    if (fulfillment.processed && fulfillment.butcherOrder) {
-      await this.notifyPaidButcherOrder(fulfillment.butcherOrder);
-    }
-
     return {
       paymentId: payment.id,
       status: 'paid' as const,
-      butcherOrder: fulfillment.butcherOrder
-        ? {
-            id: fulfillment.butcherOrder.id,
-            orderNumber: fulfillment.butcherOrder.orderNumber,
-            butcherId: fulfillment.butcherOrder.butcherId,
-            paymentStatus: 'paid' as const,
-            status: 'pending' as const,
-          }
-        : undefined,
     };
   }
 }

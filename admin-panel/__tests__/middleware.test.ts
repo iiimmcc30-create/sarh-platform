@@ -40,7 +40,7 @@ describe('admin middleware auth gate', () => {
       expiresInSec: -10,
     });
     const res = await middleware(
-      request('/orders', `admin_token=${encodeURIComponent(token)}`),
+      request('/plans', `admin_token=${encodeURIComponent(token)}`),
     );
     expect(res.status).toBe(307);
   });
@@ -90,7 +90,7 @@ describe('admin middleware auth gate', () => {
 
   it('allows section routes with a valid cookie when JWT_SECRET is set', async () => {
     const token = await signAdminAccessToken({ secret, role: 'ADMIN' });
-    for (const path of ['/users', '/listings', '/orders', '/payments']) {
+    for (const path of ['/users', '/listings', '/plans', '/payments']) {
       const res = await middleware(
         request(path, `admin_token=${encodeURIComponent(token)}`),
       );

@@ -13,7 +13,7 @@ import {
 } from '@/services/support.service';
 
 const CATEGORIES = [
-  'ACCOUNT', 'ADS', 'MARKET', 'BUY_SELL', 'PAYMENT', 'VERIFICATION', 'BUTCHERS', 'TECHNICAL', 'GENERAL',
+  'ACCOUNT', 'ADS', 'MARKET', 'BUY_SELL', 'PAYMENT', 'VERIFICATION', 'TECHNICAL', 'GENERAL',
 ];
 
 export default function SupportFaqsPage() {

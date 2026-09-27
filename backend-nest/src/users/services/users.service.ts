@@ -530,8 +530,7 @@ export class UsersService {
 
   private resolveAccountType(
     user: ProfileUser,
-  ): 'USER' | 'BUTCHER' | 'LIVESTOCK_TRADER' {
-    if (user.role === 'BUTCHER' || user.butcherProfile) return 'BUTCHER';
+  ): 'USER' | 'LIVESTOCK_TRADER' {
     if (user._count.listings > 0) return 'LIVESTOCK_TRADER';
     return 'USER';
   }

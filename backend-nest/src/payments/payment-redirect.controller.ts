@@ -87,13 +87,6 @@ function bridgeHtml(opts: {
 
 function verificationMessage(context?: string): string {
   if (
-    context === 'butcher_order' ||
-    context === 'butcher_checkout' ||
-    context === 'butcher'
-  ) {
-    return 'تمت إعادتك من بوابة الدفع. جارٍ التحقق من حالة الدفع، ولن يُرسل الطلب للملحمة قبل تأكيد N-Genius.';
-  }
-  if (
     context === 'boost' ||
     context === 'promotion' ||
     context === 'promoted_ad'
@@ -126,8 +119,6 @@ export class PaymentRedirectController {
     @Query('ref') ref: string | undefined,
     @Query('type') type: string | undefined,
     @Query('context') context: string | undefined,
-    @Query('orderId') orderId: string | undefined,
-    @Query('checkoutId') checkoutId: string | undefined,
     @Res() res: Response,
   ) {
     const resolvedContext = context || type;
@@ -136,16 +127,12 @@ export class PaymentRedirectController {
       ref,
       type,
       context: resolvedContext,
-      orderId,
-      checkoutId,
     });
     const intentLink = `intent://payment/result?${new URLSearchParams({
       ...(paymentId ? { paymentId } : {}),
       ...(ref ? { ref } : {}),
       ...(type ? { type } : {}),
       ...(resolvedContext ? { context: resolvedContext } : {}),
-      ...(orderId ? { orderId } : {}),
-      ...(checkoutId ? { checkoutId } : {}),
     }).toString()}#Intent;scheme=${APP_SCHEME};package=${ANDROID_PACKAGE};end`;
 
     res
@@ -166,36 +153,25 @@ export class PaymentRedirectController {
   @Header('Cache-Control', 'no-store')
   cancel(
     @Query('context') context: string | undefined,
-    @Query('orderId') orderId: string | undefined,
-    @Query('checkoutId') checkoutId: string | undefined,
     @Query('paymentId') paymentId: string | undefined,
     @Res() res: Response,
   ) {
     const deepLink = buildDeepLink('payment/cancel', {
       context,
-      orderId,
-      checkoutId,
       paymentId,
     });
     const intentQs = new URLSearchParams({
       ...(context ? { context } : {}),
-      ...(orderId ? { orderId } : {}),
-      ...(checkoutId ? { checkoutId } : {}),
       ...(paymentId ? { paymentId } : {}),
     }).toString();
     const intentLink = `intent://payment/cancel${intentQs ? `?${intentQs}` : ''}#Intent;scheme=${APP_SCHEME};package=${ANDROID_PACKAGE};end`;
-    const isButcher =
-      context === 'butcher_order' || context === 'butcher_checkout';
-
     res
       .status(200)
       .type('html')
       .send(
         bridgeHtml({
           title: 'تم إلغاء الدفع',
-          message: isButcher
-            ? 'لم تُخصم أي مبالغ ولم يُنشأ طلب للملحمة. يمكنك المحاولة مرة أخرى.'
-            : 'لم تُخصم أي مبالغ. اضغط لفتح التطبيق والعودة.',
+          message: 'لم تُخصم أي مبالغ. اضغط لفتح التطبيق والعودة.',
           deepLink,
           intentLink,
         }),

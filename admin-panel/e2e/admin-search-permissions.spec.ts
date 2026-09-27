@@ -25,15 +25,7 @@ test.describe('Admin panel — search, filters, permissions (§24)', () => {
     }
   });
 
-  test('orders page exposes status filters', async ({ page }) => {
-    await loginAsAdmin(page);
-    await page.getByRole('link', { name: 'الطلبات', exact: true }).click();
-    await expect(page.getByText('إدارة الطلبات')).toBeVisible({ timeout: 20_000 });
-    // Filter controls should render (selects / inputs)
-    await expect(page.locator('select, input').first()).toBeVisible();
-  });
-
-  test('plans page exposes audience filter (USER/BUTCHER)', async ({ page }) => {
+  test('plans page loads', async ({ page }) => {
     await loginAsAdmin(page);
     await page.getByRole('link', { name: 'الباقات', exact: true }).click();
     await expect(page.getByText('إدارة الباقات')).toBeVisible({ timeout: 20_000 });

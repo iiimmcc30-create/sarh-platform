@@ -1,6 +1,6 @@
 /**
  * §14 Real payment gateway (Network International / N-Genius) verification
- * across the three money flows: promotion page, fee payment, butcher order.
+ * across the money flows: promotion page and fee payment.
  *
  * These assert the flows are REALLY wired to the NI gateway and behave
  * correctly regardless of merchant-outlet activation state:
@@ -40,7 +40,7 @@ function assertWiredToGateway(res: request.Response) {
   }
 }
 
-describe('§14 Real payment gateway (NI) — promote, fees, butcher', () => {
+describe('§14 Real payment gateway (NI) — promote, fees', () => {
   let live = false;
   let user: TestUser;
   let listingId = '';
@@ -121,24 +121,6 @@ describe('§14 Real payment gateway (NI) — promote, fees, butcher', () => {
         });
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('fee_not_found');
-    },
-  );
-
-  // ── Butcher order payment (§12/§14) ─────────────────────────
-  t(
-    'butcher payment: unknown order reference is rejected before charging (404)',
-    async () => {
-      const res = await request(API)
-        .post('/api/payments/initiate')
-        .set(authHeader(user.accessToken))
-        .send({
-          amount: 100,
-          method: 'visa',
-          type: 'butcher_order',
-          referenceId: '00000000-0000-0000-0000-000000000000',
-        });
-      expect(res.status).toBe(404);
-      expect(res.body.error).toBe('order_not_found');
     },
   );
 

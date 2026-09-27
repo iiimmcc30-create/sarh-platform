@@ -1,5 +1,3 @@
-import { readFileSync } from 'fs';
-import path from 'path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { QueueModule } from './queue.module';
 import { WorkerModule } from './worker.module';
@@ -21,8 +19,4 @@ describe('WorkerModule import graph', () => {
     expect(imports).toContain(QueueModule);
   });
 
-  it('does not import butcher Daftra into the worker graph', () => {
-    const src = readFileSync(path.join(__dirname, 'worker.module.ts'), 'utf8');
-    expect(src).not.toContain('DaftraModule');
-  });
 });

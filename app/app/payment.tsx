@@ -126,7 +126,7 @@ export default function PaymentScreen() {
   const { subscription, refetchSubscription } = useSubscription();
   const planAudience = useSubscriptionAudience();
   const { plans, getPlanBySlug } = usePlans(planAudience);
-  const paidFallback = planAudience === 'BUTCHER' ? 'nom-pro' : 'sarh-pro';
+  const paidFallback = 'sarh-pro';
   const defaultPaidSlug = plans.find((p) => p.monthlyPrice > 0)?.slug ?? paidFallback;
   const slug = normalizeSlug(planId ?? defaultPaidSlug);
   const plan = getPlanBySlug(slug);

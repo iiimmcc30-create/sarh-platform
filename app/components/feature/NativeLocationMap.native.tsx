@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { colors } from '@/constants/theme';
-import { COUNTRY_MAP_CENTER } from '@/lib/butcherLocation';
+import { COUNTRY_MAP_CENTER } from '@/lib/mapLocation';
 
 export interface NativeLocationMapProps {
   lat: number;

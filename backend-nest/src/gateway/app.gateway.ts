@@ -17,7 +17,6 @@ import {
   ChatSendDto,
   ChatTypingDto,
   LiveCommentDto,
-  OrderStatusDto,
   SupportJoinDto,
   SupportSendDto,
 } from './dto/socket-events.dto';
@@ -221,22 +220,6 @@ export class AppGateway
     if (!parsed) return;
 
     await this.socketService.handleLiveLike(parsed, client.data.user!);
-  }
-
-  @SubscribeMessage('order:status')
-  async onOrderStatus(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() raw: unknown,
-  ) {
-    const data = this.socketService.validateDto(OrderStatusDto, raw);
-    if (!data)
-      return this.emitErr(client, 'invalid_input', 'Invalid order data');
-
-    const err = await this.socketService.handleOrderStatus(
-      client.data.user!,
-      data,
-    );
-    if (err) this.emitErr(client, err.code, err.message);
   }
 
   @SubscribeMessage('presence:ping')

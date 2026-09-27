@@ -7,9 +7,6 @@ const { PrismaClient } = require('@prisma/client');
       SELECT column_name FROM information_schema.columns
       WHERE table_name = 'Listing' AND column_name = 'weightKg'
     `;
-    const items = await prisma.$queryRaw`
-      SELECT to_regclass('public."ButcherOrderItem"')::text AS table_name
-    `;
     const failed = await prisma.$queryRaw`
       SELECT migration_name, finished_at, rolled_back_at, logs
       FROM "_prisma_migrations"
@@ -17,10 +14,7 @@ const { PrismaClient } = require('@prisma/client');
       ORDER BY started_at DESC
       LIMIT 5
     `;
-    const orderItemsCount = await prisma.$queryRaw`
-      SELECT COUNT(*)::int AS count FROM "ButcherOrderItem"
-    `.catch(() => [{ count: -1 }]);
-    console.log(JSON.stringify({ weightKg: cols, butcherOrderItem: items, failed, orderItemsCount }, null, 2));
+    console.log(JSON.stringify({ weightKg: cols, failed }, null, 2));
   } finally {
     await prisma.$disconnect();
   }

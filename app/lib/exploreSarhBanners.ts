@@ -10,10 +10,6 @@ export type ExploreSarhBannerView = {
   image: ImageSourcePropType;
 };
 
-function isMalahemHref(href: string): boolean {
-  return href === '/butchers' || href.startsWith('/butchers/');
-}
-
 /** Temporary offline/API-failure fallback — Sarh Core destinations only. */
 export const FALLBACK_EXPLORE_SARH_BANNERS: ExploreSarhBannerView[] = [
   {
@@ -42,7 +38,6 @@ export function mapRemoteExploreSarhBanner(raw: {
     typeof raw.accessibilityLabel === 'string' ? raw.accessibilityLabel.trim() : '';
   const href = typeof raw.href === 'string' ? raw.href.trim() : '';
   if (!id || !imageUrl || !accessibilityLabel || !href.startsWith('/')) return null;
-  if (isMalahemHref(href)) return null;
   return {
     id,
     accessibilityLabel,

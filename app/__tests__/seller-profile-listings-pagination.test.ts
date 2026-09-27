@@ -312,7 +312,7 @@ describe('P1-4 seller/profile listing callers', () => {
     expect(src('app/promote.tsx')).toContain('searchAllSellerListings');
   });
 
-  it('does not change market, browse, or butcher listing loaders', () => {
+  it('does not change market or browse listing loaders', () => {
     expect(src('components/market/MarketListingsFeed.tsx')).toContain('onEndReached');
     expect(src('app/market/browse.tsx')).toContain('onEndReached');
     expect(src('app/(tabs)/market.tsx')).not.toContain('useSellerListingsPager');

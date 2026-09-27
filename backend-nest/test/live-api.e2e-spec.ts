@@ -99,7 +99,7 @@ describe('LIVE API journeys (real backend)', () => {
     expect(stats.body.data.listings.total).toBeGreaterThanOrEqual(0);
   });
 
-  itLive('admin can list users, posts, listings, orders, plans', async () => {
+  itLive('admin can list users, posts, listings, plans', async () => {
     expect(adminToken).toBeTruthy();
     const auth = { Authorization: `Bearer ${adminToken}` };
 
@@ -122,17 +122,11 @@ describe('LIVE API journeys (real backend)', () => {
       .query({ page: 1 });
     expect(listings.status).toBe(200);
 
-    const orders = await request(API)
-      .get('/api/admin/orders')
-      .set(auth)
-      .query({ page: 1 });
-    expect(orders.status).toBe(200);
-
     const plans = await request(API).get('/api/admin/plans').set(auth);
     expect(plans.status).toBe(200);
   });
 
-  itLive('admin support tickets + butchers + applications', async () => {
+  itLive('admin support tickets', async () => {
     expect(adminToken).toBeTruthy();
     const auth = { Authorization: `Bearer ${adminToken}` };
 
@@ -141,16 +135,6 @@ describe('LIVE API journeys (real backend)', () => {
       .set(auth);
     expect(tickets.status).toBe(200);
 
-    const butchers = await request(API)
-      .get('/api/admin/butchers')
-      .set(auth)
-      .query({ page: 1 });
-    expect(butchers.status).toBe(200);
-
-    const apps = await request(API)
-      .get('/api/admin/butcher-applications')
-      .set(auth);
-    expect(apps.status).toBe(200);
   });
 
   itLive('admin editorial stories + official services + settings', async () => {

@@ -7,7 +7,6 @@ import * as admin from "@/services/admin.service";
 import * as dashboard from "@/services/dashboard.service";
 import * as support from "@/services/support.service";
 import * as editorial from "@/services/editorial-stories.service";
-import * as butcherBanners from "@/services/butcher-banners.service";
 import * as exploreSarhBanners from "@/services/explore-sarh-banners.service";
 import * as knowledge from "@/services/knowledge.service";
 import * as official from "@/services/official-services.service";
@@ -131,48 +130,6 @@ describe("admin feature API wiring — login to every section", () => {
     expect(apiClient.post).toHaveBeenCalledWith("/admin/livestreams/ls1");
   });
 
-  it("butchers + applications", async () => {
-    (apiClient.get as jest.Mock)
-      .mockResolvedValueOnce(
-        ok({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }),
-      )
-      .mockResolvedValueOnce(ok({ butcher: {}, user: {} }))
-      .mockResolvedValueOnce(ok({ items: [] }))
-      .mockResolvedValueOnce(ok({ id: "app1" }));
-    await admin.fetchButchers();
-    await admin.fetchButcher("b1");
-    await admin.updateButcher("b1", { nameAr: "ملحمة", isOpen: false });
-    await admin.deleteButcher("b1");
-    await admin.fetchApplications({ status: "PENDING" });
-    await admin.fetchApplication("app1");
-    await admin.approveApplication("app1", "ok");
-    await admin.rejectApplication("app1", "incomplete");
-    expect(apiClient.patch).toHaveBeenCalledWith(
-      "/admin/butchers/b1",
-      expect.objectContaining({ nameAr: "ملحمة" }),
-    );
-    expect(apiClient.delete).toHaveBeenCalledWith("/admin/butchers/b1");
-    expect(apiClient.post).toHaveBeenCalledWith(
-      "/admin/butcher-applications/app1/approve",
-      expect.any(Object),
-    );
-    expect(apiClient.post).toHaveBeenCalledWith(
-      "/admin/butcher-applications/app1/reject",
-      expect.objectContaining({ rejectionReason: "incomplete" }),
-    );
-  });
-
-  it("orders", async () => {
-    (apiClient.get as jest.Mock)
-      .mockResolvedValueOnce(
-        ok({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }),
-      )
-      .mockResolvedValueOnce(ok({ order: { id: "o1" } }));
-    await admin.fetchOrders({ status: "pending" });
-    await admin.fetchOrder("o1");
-    expect(apiClient.get).toHaveBeenCalledWith("/admin/orders/o1");
-  });
-
   it("plans (payments/subscriptions)", async () => {
     (apiClient.get as jest.Mock)
       .mockResolvedValueOnce(ok({ plans: [] }))
@@ -256,16 +213,6 @@ describe("admin feature API wiring — login to every section", () => {
     );
   });
 
-  it("butcher market banners", async () => {
-    (apiClient.get as jest.Mock).mockResolvedValueOnce(ok({ banners: [] }));
-    await butcherBanners.fetchButcherBannersAdmin();
-    await butcherBanners.updateButcherBanner("b1", { titleAr: "عنوان" });
-    expect(apiClient.get).toHaveBeenCalledWith("/admin/butcher-banners");
-    expect(apiClient.patch).toHaveBeenCalledWith("/admin/butcher-banners/b1", {
-      titleAr: "عنوان",
-    });
-  });
-
   it("explore sarh banners", async () => {
     (apiClient.get as jest.Mock).mockResolvedValueOnce(ok({ banners: [] }));
     (apiClient.post as jest.Mock).mockResolvedValueOnce(
@@ -273,8 +220,8 @@ describe("admin feature API wiring — login to every section", () => {
         banner: {
           id: "e1",
           imageUrl: "https://cdn.example/e.jpg",
-          accessibilityLabel: "ملاحم",
-          href: "/butchers",
+          accessibilityLabel: "السوق",
+          href: "/market",
           sortOrder: 0,
           isActive: true,
         },
@@ -283,8 +230,8 @@ describe("admin feature API wiring — login to every section", () => {
     await exploreSarhBanners.fetchExploreSarhBannersAdmin();
     await exploreSarhBanners.createExploreSarhBanner({
       imageUrl: "https://cdn.example/e.jpg",
-      accessibilityLabel: "ملاحم",
-      href: "/butchers",
+      accessibilityLabel: "السوق",
+      href: "/market",
     });
     await exploreSarhBanners.updateExploreSarhBanner("e1", { isActive: false });
     await exploreSarhBanners.reorderExploreSarhBanners(["e1"]);
@@ -292,8 +239,8 @@ describe("admin feature API wiring — login to every section", () => {
     expect(apiClient.get).toHaveBeenCalledWith("/admin/explore-sarh-banners");
     expect(apiClient.post).toHaveBeenCalledWith("/admin/explore-sarh-banners", {
       imageUrl: "https://cdn.example/e.jpg",
-      accessibilityLabel: "ملاحم",
-      href: "/butchers",
+      accessibilityLabel: "السوق",
+      href: "/market",
     });
     expect(apiClient.patch).toHaveBeenCalledWith(
       "/admin/explore-sarh-banners/e1",

@@ -47,12 +47,6 @@ export class SubscriptionLifecycleRepository {
     });
   }
 
-  findUserRole(userId: string) {
-    return this.prisma.user
-      .findUnique({ where: { id: userId }, select: { role: true } })
-      .then((u) => u?.role ?? 'USER');
-  }
-
   findExpirablePaidSubscriptions(now: Date) {
     return this.prisma.subscription.findMany({
       take: 500,
@@ -144,8 +138,6 @@ export class SubscriptionLifecycleRepository {
         true,
       );
 
-      // Butcher visibility is earned through ranking only — not subscriptions.
-
       return { previousPlanId };
     });
   }
@@ -199,7 +191,6 @@ export class SubscriptionLifecycleRepository {
           });
         }
 
-        // Butcher paid plans no longer affect search visibility or ranking.
       }
     });
   }

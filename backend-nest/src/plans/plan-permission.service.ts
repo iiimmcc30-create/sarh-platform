@@ -89,32 +89,10 @@ export class PlanPermissionService {
     return permissionBoolean(permissions, 'verifiedBadge');
   }
 
-  storeCommission(permissions: PlanPermissions): number {
-    // Default > 0 means not exempt; numeric rate lives in lib/commissions.ts
-    return permissionNumber(permissions, 'storeCommission', 1);
-  }
-
-  isStoreEnabled(permissions: PlanPermissions): boolean {
-    return permissionBoolean(permissions, 'storeEnabled', true);
-  }
-
-  canReceiveOrders(permissions: PlanPermissions): boolean {
-    return permissionBoolean(permissions, 'receiveOrders', true);
-  }
-
-  hasAnalyticsDashboard(permissions: PlanPermissions): boolean {
-    return permissionBoolean(permissions, 'analyticsDashboard', false);
-  }
-
   priorityBoost(permissions: PlanPermissions): number {
     if (!this.hasPrioritySearch(permissions)) return 0;
     if (this.hasPriorityHome(permissions)) return 3;
     if (this.hasVerifiedBadge(permissions)) return 2;
     return 1;
-  }
-
-  isStoreExempt(permissions: PlanPermissions): boolean {
-    const commission = this.storeCommission(permissions);
-    return commission <= 0;
   }
 }

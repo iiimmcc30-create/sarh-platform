@@ -18,7 +18,6 @@ import {
   adminLoginSchema,
   createSectionSchema,
   paginationQuerySchema,
-  updateButcherSchema,
   updateListingSchema,
   createManagedListingSchema,
   updateManagedListingSchema,
@@ -427,78 +426,6 @@ export class AdminService {
     return { deleted: true, archived: true };
   }
 
-  listButchers(query: Record<string, unknown>) {
-    return this.repo.listButchers(this.parsePagination(query));
-  }
-
-  async updateButcher(id: string, body: Record<string, unknown>) {
-    const parsed = updateButcherSchema.safeParse(body);
-    if (!parsed.success) {
-      throwApi(
-        400,
-        'validation_error',
-        'بيانات غير صحيحة',
-        parsed.error.flatten(),
-      );
-    }
-    const existing = await this.repo.findButcherById(id);
-    if (!existing) throwApi(404, 'not_found', 'المسلخ غير موجود');
-    return this.repo
-      .updateButcher(id, parsed.data)
-      .then((butcher) => ({ butcher }));
-  }
-
-  async deleteButcher(id: string) {
-    const existing = await this.repo.findButcherById(id);
-    if (!existing) throwApi(404, 'not_found', 'المسلخ غير موجود');
-    await this.repo.softDeleteButcher(id);
-    return { deleted: true, archived: true };
-  }
-
-  async getButcher(id: string) {
-    const butcher = await this.repo.findButcherById(id);
-    if (!butcher) throwApi(404, 'not_found', 'المسلخ غير موجود');
-    return { butcher, user: butcher.user };
-  }
-
-  listOrders(query: Record<string, unknown>) {
-    const parsed = this.parsePagination(query);
-    return this.repo.listOrders({
-      ...parsed,
-      status: typeof query.status === 'string' ? query.status : undefined,
-      butcherId:
-        typeof query.butcherId === 'string' ? query.butcherId : undefined,
-      customerId:
-        typeof query.customerId === 'string' ? query.customerId : undefined,
-      dateFrom: typeof query.dateFrom === 'string' ? query.dateFrom : undefined,
-      dateTo: typeof query.dateTo === 'string' ? query.dateTo : undefined,
-      orderNumber:
-        typeof query.orderNumber === 'string' ? query.orderNumber : undefined,
-    });
-  }
-
-  async getOrder(orderId: string) {
-    const order = await this.repo.getOrderById(orderId);
-    if (!order) throwApi(404, 'not_found', 'الطلب غير موجود');
-    const payment =
-      await this.repo.findPaymentIntegrationForButcherOrder(orderId);
-    return {
-      order: {
-        ...order,
-        paymentIntegration: payment?.integrationOrder ?? null,
-        payment: payment
-          ? {
-              id: payment.id,
-              merchantOrderReference: payment.orderId,
-              status: payment.status,
-              amount: payment.amount,
-              niOrderUuid: payment.transactionId,
-            }
-          : null,
-      },
-    };
-  }
-
   async listSettings() {
     await this.repo.ensureDefaultSettings();
     const settings = await this.repo.listSettings();
@@ -734,13 +661,12 @@ export class AdminService {
   async runCleanup() {
     const now = new Date();
     this.logger.info({}, 'Running scheduled cleanup');
-    const [sessions, notifications, stories, offers] =
+    const [sessions, notifications, stories] =
       await this.repo.runCleanup(now);
     const stats = {
       expiredSessions: sessions.count,
       oldNotifications: notifications.count,
       expiredStories: stories.count,
-      expiredOffers: offers.count,
     };
     this.logger.info({ stats }, 'Cleanup complete');
     return stats;

@@ -5,11 +5,9 @@ const UPLOAD_FOLDERS = [
   'avatars',
   'listings',
   'stories',
-  'butchers',
   'posts',
   'temp',
   'messages',
-  'butcher-applications',
   'support',
 ] as const;
 

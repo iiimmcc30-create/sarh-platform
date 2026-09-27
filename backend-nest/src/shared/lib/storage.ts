@@ -16,11 +16,9 @@ export type UploadFolder =
   | 'avatars'
   | 'listings'
   | 'stories'
-  | 'butchers'
   | 'posts'
   | 'temp'
   | 'messages'
-  | 'butcher-applications'
   | 'support';
 
 export interface UploadResult {
@@ -179,7 +177,7 @@ export function getAllowedUploadOrigins(): string[] {
 }
 
 function cloudinaryFolder(folder: UploadFolder, userId?: string): string {
-  if (folder === 'butcher-applications' || folder === 'support') {
+  if (folder === 'support') {
     if (!userId)
       throw new Error(`userId is required for ${folder} uploads`);
     return `${CLOUDINARY_BASE_FOLDER}/${folder}/${userId}`;
@@ -188,7 +186,7 @@ function cloudinaryFolder(folder: UploadFolder, userId?: string): string {
 }
 
 function objectKeyPrefix(folder: UploadFolder, userId?: string): string {
-  if (folder === 'butcher-applications' || folder === 'support') {
+  if (folder === 'support') {
     if (!userId)
       throw new Error(`userId is required for ${folder} uploads`);
     return `${folder}/${userId}`;
@@ -282,9 +280,6 @@ export async function getPresignedUploadUrl(
   options?: PresignOptions,
 ): Promise<UploadSlot> {
   const userId = options?.userId;
-  if (folder === 'butcher-applications' && !userId) {
-    throw new Error('userId is required for butcher-applications uploads');
-  }
 
   const provider = getStorageProvider();
 
@@ -412,7 +407,7 @@ const SIGNED_GET_EXPIRES_SECONDS = 900;
 
 /**
  * Resolves a stored object key to a URL the current provider can serve.
- * Cloudinary keys from butcher-applications are stored without the base folder
+ * Cloudinary keys from user-scoped folders are stored without the base folder
  * prefix; this prepends it. S3 uses a short-lived signed GET when possible.
  * Local files are served from /uploads and are not newly made public beyond
  * the existing static mount.

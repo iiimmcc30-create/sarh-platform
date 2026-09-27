@@ -73,11 +73,6 @@ describe('design-system unification — allowed redesigns only', () => {
     );
   });
 
-  it('does not keep a butcher storefront after malahem removal', () => {
-    expect(() => src('app/butchers/[id].tsx')).toThrow();
-    expect(() => src('components/butcher/ButcherCategoryBar.tsx')).toThrow();
-  });
-
   it('removes the unused PrimaryButton adapter', () => {
     expect(() => src('components/ui/PrimaryButton.tsx')).toThrow();
   });

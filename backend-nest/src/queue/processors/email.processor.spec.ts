@@ -61,9 +61,9 @@ describe('EmailProcessor', () => {
     await processor.process(
       job({
         to: 'buyer@sarhsa.online',
-        subject: 'order',
-        template: 'order_update',
-        variables: { status: '<script>alert(1)</script>' },
+        subject: 'welcome',
+        template: 'welcome',
+        variables: { name: '<script>alert(1)</script>' },
       }),
     );
     const html = String(sendMail.mock.calls[0][0].html);

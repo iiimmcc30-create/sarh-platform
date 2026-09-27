@@ -178,15 +178,15 @@ describe('cloudinaryListThumbUrl', () => {
 describe('cloudinaryFitUrl', () => {
   it('sizes row/card/wide independently without stacking widths', () => {
     const bare =
-      'https://res.cloudinary.com/demo/image/upload/v1/sarh/butchers/cover.jpg';
+      'https://res.cloudinary.com/demo/image/upload/v1/sarh/listings/cover.jpg';
     expect(cloudinaryFitUrl(bare, 'row')).toBe(
-      'https://res.cloudinary.com/demo/image/upload/w_200,c_fill,q_auto,f_auto/v1/sarh/butchers/cover.jpg',
+      'https://res.cloudinary.com/demo/image/upload/w_200,c_fill,q_auto,f_auto/v1/sarh/listings/cover.jpg',
     );
     expect(cloudinaryFitUrl(bare, 'card')).toBe(
-      'https://res.cloudinary.com/demo/image/upload/w_480,c_fill,q_auto,f_auto/v1/sarh/butchers/cover.jpg',
+      'https://res.cloudinary.com/demo/image/upload/w_480,c_fill,q_auto,f_auto/v1/sarh/listings/cover.jpg',
     );
     expect(cloudinaryFitUrl(bare, 'wide')).toBe(
-      'https://res.cloudinary.com/demo/image/upload/w_800,c_fill,q_auto,f_auto/v1/sarh/butchers/cover.jpg',
+      'https://res.cloudinary.com/demo/image/upload/w_800,c_fill,q_auto,f_auto/v1/sarh/listings/cover.jpg',
     );
   });
 

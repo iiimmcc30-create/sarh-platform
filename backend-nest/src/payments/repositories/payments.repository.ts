@@ -3,10 +3,6 @@ import { PaymentReferenceType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPermissions, normalizePlanSlug } from '../../plans/plan.types';
 import {
-  fulfillPaidCheckout,
-  releaseCheckoutReservations,
-} from '../../butchers/lib/butcher-checkout.lifecycle';
-import {
   HOUR_MS,
   extendBoostUntil,
   extendUntil,
@@ -86,107 +82,6 @@ export class PaymentsRepository {
         },
       },
     });
-  }
-
-  findUnpaidButcherOrder(referenceId: string, userId: string) {
-    return this.prisma.butcherOrder.findFirst({
-      where: {
-        id: referenceId,
-        customerId: userId,
-        status: 'pending',
-        paymentStatus: { in: ['unpaid', 'failed'] },
-      },
-      select: {
-        id: true,
-        totalPrice: true,
-        currency: true,
-        orderNumber: true,
-        butcherId: true,
-        status: true,
-        paymentStatus: true,
-        butcher: { select: { userId: true, nameAr: true } },
-      },
-    });
-  }
-
-  findPayableButcherCheckout(referenceId: string, userId: string) {
-    return this.prisma.butcherCheckout.findFirst({
-      where: {
-        id: referenceId,
-        userId,
-        status: 'pending',
-        expiresAt: { gt: new Date() },
-      },
-      select: {
-        id: true,
-        totalPrice: true,
-        currency: true,
-        status: true,
-        expiresAt: true,
-        butcherId: true,
-        paymentId: true,
-      },
-    });
-  }
-
-  private async findFulfilledButcherOrder(
-    tx: Prisma.TransactionClient,
-    params: {
-      paymentId: string;
-      type: string | undefined;
-      referenceId: string | undefined;
-    },
-  ) {
-    if (params.type === 'butcher_checkout' && params.referenceId) {
-      const order = await tx.butcherOrder.findFirst({
-        where: {
-          OR: [
-            { paymentId: params.paymentId },
-            { checkoutId: params.referenceId },
-          ],
-        },
-        select: {
-          id: true,
-          orderNumber: true,
-          butcherId: true,
-          customerId: true,
-          butcher: { select: { userId: true, nameAr: true } },
-        },
-      });
-      if (!order) return undefined;
-      return {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        butcherId: order.butcherId,
-        customerId: order.customerId,
-        butcherUserId: order.butcher.userId,
-        nameAr: order.butcher.nameAr,
-      };
-    }
-
-    if (params.type === 'butcher_order' && params.referenceId) {
-      const order = await tx.butcherOrder.findUnique({
-        where: { id: params.referenceId },
-        select: {
-          id: true,
-          orderNumber: true,
-          butcherId: true,
-          customerId: true,
-          butcher: { select: { userId: true, nameAr: true } },
-        },
-      });
-      if (!order) return undefined;
-      return {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        butcherId: order.butcherId,
-        customerId: order.customerId,
-        butcherUserId: order.butcher.userId,
-        nameAr: order.butcher.nameAr,
-      };
-    }
-
-    return undefined;
   }
 
   findUserContact(userId: string) {
@@ -426,15 +321,6 @@ export class PaymentsRepository {
   }): Promise<{
     processed: boolean;
     subscription?: { targetPlanId: string; newRenewDate: Date };
-    capturedAfterCancel?: boolean;
-    butcherOrder?: {
-      id: string;
-      orderNumber: string;
-      butcherId: string;
-      customerId: string;
-      butcherUserId: string;
-      nameAr: string;
-    };
     boost?: {
       id: string;
       boostType: string;
@@ -448,56 +334,6 @@ export class PaymentsRepository {
     };
   }> {
     return this.prisma.$transaction(async (tx) => {
-      if (params.type === 'butcher_checkout' && params.referenceId) {
-        return this.fulfillButcherCheckoutAfterNiSuccess(tx, {
-          paymentId: params.paymentId,
-          niTransactionId: params.niTransactionId,
-          type: params.type,
-          referenceId: params.referenceId,
-          userId: params.userId,
-          storedMeta: params.storedMeta,
-        });
-      }
-
-      if (params.type === 'butcher_order' && params.referenceId) {
-        const existingOrder = await tx.butcherOrder.findUnique({
-          where: { id: params.referenceId },
-          select: { id: true, status: true },
-        });
-        if (!existingOrder) {
-          throw new Error('Butcher order not found for payment fulfillment');
-        }
-        if (existingOrder.status === 'cancelled') {
-          const current = await tx.payment.findUnique({
-            where: { id: params.paymentId },
-            select: { status: true, metadata: true },
-          });
-          if (current?.status === 'paid' || current?.status === 'refunded') {
-            return { processed: false, capturedAfterCancel: true };
-          }
-          const prevMeta = (current?.metadata ?? {}) as Record<string, unknown>;
-          await tx.payment.updateMany({
-            where: {
-              id: params.paymentId,
-              status: { in: ['pending', 'failed'] },
-            },
-            data: {
-              status: 'paid',
-              transactionId: params.niTransactionId,
-              paidAt: new Date(),
-              metadata: {
-                ...prevMeta,
-                ...params.storedMeta,
-                capturedAfterCancel: true,
-                needsReconciliation: true,
-                capturedAfterCancelAt: new Date().toISOString(),
-              } as Prisma.InputJsonValue,
-            },
-          });
-          return { processed: false, capturedAfterCancel: true };
-        }
-      }
-
       const updated = await tx.payment.updateMany({
         where: { id: params.paymentId, status: 'pending' },
         data: {
@@ -507,15 +343,7 @@ export class PaymentsRepository {
         },
       });
       if (updated.count === 0) {
-        const existingPaidOrder = await this.findFulfilledButcherOrder(tx, {
-          paymentId: params.paymentId,
-          type: params.type,
-          referenceId: params.referenceId,
-        });
-        return {
-          processed: false,
-          butcherOrder: existingPaidOrder,
-        };
+        return { processed: false };
       }
 
       let subscriptionResult:
@@ -568,8 +396,6 @@ export class PaymentsRepository {
               })
               .catch(() => {});
           }
-
-          // Butcher subscription payments no longer affect listing visibility.
         }
 
         const updateData: Prisma.SubscriptionUpdateInput = {
@@ -635,52 +461,6 @@ export class PaymentsRepository {
             },
           });
         }
-      }
-
-      let butcherOrder:
-        | {
-            id: string;
-            orderNumber: string;
-            butcherId: string;
-            customerId: string;
-            butcherUserId: string;
-            nameAr: string;
-          }
-        | undefined;
-
-      if (params.type === 'butcher_order' && params.referenceId) {
-        const order = await tx.butcherOrder.findUnique({
-          where: { id: params.referenceId },
-          select: {
-            id: true,
-            orderNumber: true,
-            butcherId: true,
-            customerId: true,
-            paymentStatus: true,
-            butcher: { select: { userId: true, nameAr: true } },
-          },
-        });
-        if (!order) {
-          throw new Error('Butcher order not found for payment fulfillment');
-        }
-        if (order.paymentStatus !== 'paid') {
-          await tx.butcherOrder.update({
-            where: { id: params.referenceId },
-            data: {
-              paymentStatus: 'paid',
-              paidAt: new Date(),
-              paymentId: params.paymentId,
-            },
-          });
-        }
-        butcherOrder = {
-          id: order.id,
-          orderNumber: order.orderNumber,
-          butcherId: order.butcherId,
-          customerId: order.customerId,
-          butcherUserId: order.butcher.userId,
-          nameAr: order.butcher.nameAr,
-        };
       }
 
       // ── Custom commission payment — no side-effects needed ───────────────
@@ -817,114 +597,13 @@ export class PaymentsRepository {
       return {
         processed: true,
         subscription: subscriptionResult,
-        butcherOrder,
         boost,
         promotion,
       };
     });
   }
 
-  /**
-   * NI confirmed a butcher_checkout payment. Allow pending|failed → paid in
-   * one transaction, then create a Final Order only from a still-held reservation.
-   * Never re-reserves stock after release; stamps needsReconciliation instead.
-   */
-  private async fulfillButcherCheckoutAfterNiSuccess(
-    tx: Prisma.TransactionClient,
-    params: {
-      paymentId: string;
-      niTransactionId: string;
-      type: string | undefined;
-      referenceId: string;
-      userId: string;
-      storedMeta: Record<string, unknown>;
-    },
-  ): Promise<{
-    processed: boolean;
-    capturedAfterCancel?: boolean;
-    butcherOrder?: {
-      id: string;
-      orderNumber: string;
-      butcherId: string;
-      customerId: string;
-      butcherUserId: string;
-      nameAr: string;
-    };
-  }> {
-    const existingOrder = await this.findFulfilledButcherOrder(tx, {
-      paymentId: params.paymentId,
-      type: params.type,
-      referenceId: params.referenceId,
-    });
-    if (existingOrder) {
-      return { processed: false, butcherOrder: existingOrder };
-    }
-
-    const current = await tx.payment.findUnique({
-      where: { id: params.paymentId },
-      select: { status: true, metadata: true },
-    });
-    if (current?.status === 'refunded') {
-      return { processed: false };
-    }
-
-    const updated = await tx.payment.updateMany({
-      where: {
-        id: params.paymentId,
-        status: { in: ['pending', 'failed'] },
-      },
-      data: {
-        status: 'paid',
-        transactionId: params.niTransactionId,
-        paidAt: new Date(),
-      },
-    });
-    if (updated.count === 0 && current?.status !== 'paid') {
-      return { processed: false };
-    }
-
-    const fulfilled = await fulfillPaidCheckout(tx, {
-      checkoutId: params.referenceId,
-      paymentId: params.paymentId,
-      userId: params.userId,
-    });
-    if (fulfilled.butcherOrder) {
-      return {
-        processed: Boolean(fulfilled.created),
-        butcherOrder: fulfilled.butcherOrder,
-      };
-    }
-
-    const latest = await tx.payment.findUnique({
-      where: { id: params.paymentId },
-      select: { metadata: true },
-    });
-    const prevMeta = (latest?.metadata ?? current?.metadata ?? {}) as Record<
-      string,
-      unknown
-    >;
-    await tx.payment.update({
-      where: { id: params.paymentId },
-      data: {
-        metadata: {
-          ...prevMeta,
-          ...params.storedMeta,
-          capturedAfterCancel: true,
-          needsReconciliation: true,
-          capturedAfterCancelAt:
-            typeof prevMeta.capturedAfterCancelAt === 'string'
-              ? prevMeta.capturedAfterCancelAt
-              : new Date().toISOString(),
-        } as Prisma.InputJsonValue,
-      },
-    });
-    return { processed: false, capturedAfterCancel: true };
-  }
-
-  /**
-   * Idempotent refund: Payment → refunded, and butcher order paymentStatus → refunded.
-   * Does not change ButcherOrder.status (cancelled/delivered stays as-is).
-   */
+  /** Idempotent refund: Payment → refunded. */
   markPaymentRefunded(paymentId: string, metadata: Record<string, unknown>) {
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({
@@ -957,59 +636,7 @@ export class PaymentsRepository {
         newlyRefunded = updated.count > 0;
       }
 
-      if (payment.referenceType === 'butcher_order' && payment.referenceId) {
-        await tx.butcherOrder.updateMany({
-          where: {
-            id: payment.referenceId,
-            paymentStatus: { not: 'refunded' },
-          },
-          data: { paymentStatus: 'refunded' },
-        });
-      }
-
-      if (payment.referenceType === 'butcher_checkout' && payment.referenceId) {
-        await tx.butcherOrder.updateMany({
-          where: {
-            checkoutId: payment.referenceId,
-            paymentStatus: { not: 'refunded' },
-          },
-          data: { paymentStatus: 'refunded' },
-        });
-      }
-
       return { id: paymentId, status: 'refunded' as const, newlyRefunded };
-    });
-  }
-
-  /**
-   * Reverse butcher order commission ledger (referenceType=commission)
-   * when the underlying butcher_order payment is refunded. Idempotent.
-   */
-  async markOrderCommissionRefunded(
-    butcherOrderId: string,
-    extraMetadata: Record<string, unknown>,
-  ) {
-    const existing = await this.prisma.payment.findFirst({
-      where: {
-        referenceType: { in: ['order_commission', 'commission'] },
-        referenceId: butcherOrderId,
-        status: 'paid',
-      },
-      select: { id: true, metadata: true },
-    });
-    if (!existing) return null;
-
-    const prevMeta = (existing.metadata ?? {}) as Record<string, unknown>;
-    return this.prisma.payment.update({
-      where: { id: existing.id },
-      data: {
-        status: 'refunded',
-        metadata: {
-          ...prevMeta,
-          ...extraMetadata,
-          commissionReversed: true,
-        } as Prisma.InputJsonValue,
-      },
     });
   }
 
@@ -1019,26 +646,7 @@ export class PaymentsRepository {
         where: { id: paymentId, status: 'pending' },
         data: { status: 'failed' },
       });
-      if (!failed.count) return failed;
-
-      const payment = await tx.payment.findUnique({
-        where: { id: paymentId },
-        select: { referenceType: true, referenceId: true },
-      });
-      if (
-        payment?.referenceType === 'butcher_checkout' &&
-        payment.referenceId
-      ) {
-        await releaseCheckoutReservations(tx, payment.referenceId, 'failed');
-      }
       return failed;
-    });
-  }
-
-  markButcherOrderPaymentFailed(orderId: string) {
-    return this.prisma.butcherOrder.updateMany({
-      where: { id: orderId, paymentStatus: 'unpaid' },
-      data: { paymentStatus: 'failed' },
     });
   }
 
@@ -1051,28 +659,6 @@ export class PaymentsRepository {
   findPaymentByIdFull(paymentId: string) {
     return this.prisma.payment.findUnique({
       where: { id: paymentId },
-    });
-  }
-
-  findOrderIdByCheckoutId(checkoutId: string) {
-    return this.prisma.butcherOrder
-      .findUnique({
-        where: { checkoutId },
-        select: { id: true },
-      })
-      .then((row) => row?.id ?? null);
-  }
-
-  findButcherOrderByPaymentId(paymentId: string) {
-    return this.prisma.butcherOrder.findUnique({
-      where: { paymentId },
-      select: {
-        id: true,
-        orderNumber: true,
-        butcherId: true,
-        status: true,
-        paymentStatus: true,
-      },
     });
   }
 

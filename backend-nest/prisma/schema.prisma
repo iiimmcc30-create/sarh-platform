@@ -51,10 +51,6 @@ model User {
   activityTargets                     Activity[]                        @relation("ActivityTarget")
   reviewsReceived                     UserReview[]                      @relation("UserReviewsReceived")
   reviewsGiven                        UserReview[]                      @relation("UserReviewsGiven")
-  butcherProfile                      Butcher?
-  butcherOrders                       ButcherOrder[]
-  butcherCheckouts                    ButcherCheckout[]
-  butcherCheckoutReservations         ButcherCheckoutReservation[]
   following                           Follow[]                          @relation("Followers")
   followers                           Follow[]                          @relation("Following")
   blocksInitiated                     UserBlock[]                       @relation("BlocksInitiated")
@@ -79,11 +75,6 @@ model User {
   storyReactions                      StoryReaction[]
   subscription                        Subscription?
   sessions                            UserSession[]
-  butcherReviews                      ButcherReview[]
-  butcherFavorites                    ButcherFavorite[]
-  butcherApplications                 ButcherApplication[]
-  butcherApplicationTimelineEvents    ButcherApplicationTimelineEvent[]
-  verifiedButcherApplicationDocuments ButcherApplicationDocument[]      @relation("DocumentVerifiedBy")
   supportTickets                      SupportTicket[]
   assignedSupportTickets              SupportTicket[]                   @relation("TicketAssignee")
   supportTicketMessages               SupportTicketMessage[]
@@ -237,8 +228,6 @@ model Payment {
   subscription      Subscription?      @relation(fields: [subscriptionId], references: [id])
   user              User               @relation(fields: [userId], references: [id])
   integrationOrder  IntegrationOrder?
-  butcherCheckout   ButcherCheckout?
-  butcherOrder      ButcherOrder?      @relation("ButcherOrderPayment")
 
   @@index([userId])
   @@index([status])
@@ -717,7 +706,6 @@ model Message {
   text       String?
   imageUrl   String?
   videoUrl   String?
-  orderId    String?
   isRead     Boolean       @default(false)
   readAt     DateTime?
   createdAt  DateTime      @default(now())
@@ -736,21 +724,18 @@ model MessageThread {
   participant1  String
   participant2  String
   type          MessageThreadType @default(DIRECT)
-  butcherId     String?
-  /// Unique conversation scope: "direct" or "butcher:{butcherId}"
+  /// Unique conversation scope ("direct").
   scopeKey      String            @default("direct")
   lastMessageAt DateTime          @default(now())
   createdAt     DateTime          @default(now())
   messages      Message[]
   states        MessageThreadState[]
-  butcher       Butcher?          @relation(fields: [butcherId], references: [id], onDelete: SetNull)
 
   @@unique([participant1, participant2, scopeKey])
   @@index([participant1])
   @@index([participant2])
   @@index([lastMessageAt])
   @@index([type])
-  @@index([butcherId])
 }
 
 model MessageThreadState {
@@ -799,293 +784,6 @@ model Activity {
   @@index([targetUserId])
 }
 
-model Butcher {
-  id                  String              @id @default(uuid())
-  userId              String              @unique
-  nameAr              String
-  nameEn              String
-  logo                String?
-  cover               String?
-  type                ButcherType         @default(regular)
-  country             Country
-  city                String
-  cityAr              String
-  address             String
-  addressAr           String
-  lat                 Float?
-  lng                 Float?
-  phone               String
-  bioAr               String?
-  bioEn               String?
-  specialties         String[]
-  commercialReg       String?
-  subscriptionActive  Boolean             @default(false)
-  subscriptionExpiry  DateTime?
-  rating              Float               @default(0)
-  reviewCount         Int                 @default(0)
-  orderCompletionRate Float               @default(100)
-  activityScore       Int                 @default(50)
-  profileViews        Int                 @default(0)
-  totalOrders         Int                 @default(0)
-  completedOrdersCount Int                @default(0)
-  favoritesCount      Int                 @default(0)
-  avgAcceptMinutes    Float?
-  avgPrepMinutes      Float?
-  avgCompleteMinutes  Float?
-  rankingScore        Float               @default(0)
-  normalizedOrders    Float               @default(0)
-  normalizedRating    Float               @default(0)
-  normalizedFavorites Float               @default(0)
-  normalizedDistance  Float               @default(50)
-  normalizedSpeed     Float               @default(0)
-  newButcherBoost     Float               @default(0)
-  lastRankingUpdate   DateTime?
-  openTime            String              @default("06:00")
-  closeTime           String              @default("22:00")
-  closedDays          String[]
-  isOpen              Boolean             @default(true)
-  sourceApplicationId String?             @unique
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  deletedAt           DateTime?
-  user                User                @relation(fields: [userId], references: [id])
-  sourceApplication   ButcherApplication? @relation("ButcherSourceApplication", fields: [sourceApplicationId], references: [id])
-  daftraIntegration   ButcherDaftraIntegration?
-  daftraProductLinks  ButcherDaftraProduct[]
-  offers              ButcherOffer[]
-  orders              ButcherOrder[]
-  checkouts           ButcherCheckout[]
-  products            ButcherProduct[]
-  reviews             ButcherReview[]
-  stories             ButcherStory[]
-  messageThreads      MessageThread[]
-  favorites           ButcherFavorite[]
-
-  @@index([country])
-  @@index([subscriptionActive])
-  @@index([rating])
-  @@index([country, subscriptionActive, rating])
-  @@index([deletedAt])
-  @@index([rankingScore])
-  @@index([completedOrdersCount])
-  @@index([favoritesCount])
-  @@index([createdAt])
-  @@index([lat, lng])
-}
-
-model ButcherProduct {
-  id                String         @id @default(uuid())
-  butcherId         String
-  nameAr            String
-  nameEn            String
-  category          MeatCategory
-  images            String[]
-  pricePerKg        Float?
-  priceFixed        Float?
-  pricingNoteAr     String?
-  availableCuts     String[]
-  weightMin         Float?
-  weightMax         Float?
-  availableQuantity Float          @default(0)
-  reservedQuantity  Float          @default(0)
-  inStock           Boolean        @default(true)
-  freshness         String         @default("fresh")
-  descriptionAr     String
-  descriptionEn     String
-  country           Country
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  deletedAt         DateTime?
-  orderItems             ButcherOrder[]
-  lineItems              ButcherOrderItem[]
-  checkoutReservations   ButcherCheckoutReservation[]
-  butcher                Butcher        @relation(fields: [butcherId], references: [id])
-  daftraLink        ButcherDaftraProduct?
-
-  @@index([butcherId])
-  @@index([inStock])
-  @@index([deletedAt])
-}
-
-model ButcherOffer {
-  id              String    @id @default(uuid())
-  butcherId       String
-  titleAr         String
-  titleEn         String
-  descriptionAr   String
-  descriptionEn   String
-  discountPercent Float?
-  originalPrice   Float?
-  offerPrice      Float?
-  image           String
-  validUntil      DateTime
-  country         Country
-  createdAt       DateTime  @default(now())
-  deletedAt       DateTime?
-  butcher         Butcher   @relation(fields: [butcherId], references: [id])
-
-  @@index([butcherId])
-  @@index([validUntil])
-  @@index([deletedAt])
-}
-
-model ButcherStory {
-  id        String    @id @default(uuid())
-  butcherId String
-  thumbnail String
-  caption   String?
-  captionAr String?
-  mediaUrl  String?
-  duration  Int       @default(15)
-  type      StoryType
-  seen      Boolean   @default(false)
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
-  deletedAt DateTime?
-  butcher   Butcher   @relation(fields: [butcherId], references: [id])
-
-  @@index([butcherId])
-  @@index([expiresAt])
-  @@index([deletedAt])
-}
-
-model ButcherOrder {
-  id                 String             @id @default(uuid())
-  orderNumber        String             @unique
-  butcherId          String
-  customerId         String
-  productId          String
-  cutType            String
-  weightKg           Float
-  reservedQuantity   Float              @default(0)
-  deliveryType       String             @default("pickup")
-  deliveryAddress    String?
-  status             OrderStatus        @default(pending)
-  paymentStatus      OrderPaymentStatus @default(unpaid)
-  paidAt             DateTime?
-  totalPrice         Float
-  currency           String             @default("SAR")
-  notes              String?
-  cancelledBy        String?
-  cancellationReason String?
-  cancelledAt        DateTime?
-  checkoutId         String?            @unique
-  paymentId          String?            @unique
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  butcher            Butcher            @relation(fields: [butcherId], references: [id])
-  customer           User               @relation(fields: [customerId], references: [id])
-  product            ButcherProduct     @relation(fields: [productId], references: [id])
-  checkout           ButcherCheckout?   @relation(fields: [checkoutId], references: [id])
-  payment            Payment?           @relation("ButcherOrderPayment", fields: [paymentId], references: [id])
-  items              ButcherOrderItem[]
-  timeline           OrderTimeline[]
-  audits             OrderStatusAudit[]
-  supportTickets     SupportTicket[]
-
-  @@index([butcherId])
-  @@index([customerId])
-  @@index([status])
-  @@index([butcherId, status])
-  @@index([orderNumber])
-  @@index([paymentStatus])
-}
-
-/// Temporary payment-first checkout. Final ButcherOrder is created only after N-Genius confirmation.
-model ButcherCheckout {
-  id              String                        @id @default(uuid())
-  userId          String
-  butcherId       String
-  paymentId       String?                       @unique
-  status          ButcherCheckoutStatus         @default(pending)
-  expiresAt       DateTime
-  deliveryType    String                        @default("pickup")
-  deliveryAddress String?
-  notes           String?
-  currency        String                        @default("SAR")
-  totalPrice      Float
-  itemsSnapshot   Json
-  createdAt       DateTime                      @default(now())
-  updatedAt       DateTime                      @updatedAt
-  user            User                          @relation(fields: [userId], references: [id])
-  butcher         Butcher                       @relation(fields: [butcherId], references: [id])
-  payment         Payment?                      @relation(fields: [paymentId], references: [id])
-  order           ButcherOrder?
-  reservations    ButcherCheckoutReservation[]
-
-  @@index([userId, status])
-  @@index([butcherId, status])
-  @@index([status, expiresAt])
-}
-
-model ButcherCheckoutReservation {
-  id          String                       @id @default(uuid())
-  checkoutId  String
-  userId      String
-  productId   String
-  quantity    Float
-  status      ButcherReservationStatus     @default(held)
-  expiresAt   DateTime
-  releasedAt  DateTime?
-  createdAt   DateTime                     @default(now())
-  checkout    ButcherCheckout              @relation(fields: [checkoutId], references: [id], onDelete: Cascade)
-  user        User                         @relation(fields: [userId], references: [id])
-  product     ButcherProduct               @relation(fields: [productId], references: [id])
-
-  @@index([checkoutId])
-  @@index([userId, status])
-  @@index([productId, status])
-  @@index([status, expiresAt])
-}
-
-model ButcherOrderItem {
-  id               String         @id @default(uuid())
-  orderId          String
-  productId        String
-  cutType          String
-  weightKg         Float
-  linePrice        Float
-  reservedQuantity Float          @default(0)
-  createdAt        DateTime       @default(now())
-  order            ButcherOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product          ButcherProduct @relation(fields: [productId], references: [id])
-
-  @@index([orderId])
-  @@index([productId])
-}
-
-model OrderTimeline {
-  id        String       @id @default(uuid())
-  orderId   String
-  status    OrderStatus
-  note      String?
-  createdBy String
-  createdAt DateTime     @default(now())
-  order     ButcherOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  @@index([orderId, createdAt])
-}
-
-model OrderStatusAudit {
-  id             String       @id @default(uuid())
-  orderId        String
-  previousStatus OrderStatus
-  newStatus      OrderStatus
-  changedBy      String
-  changedAt      DateTime     @default(now())
-  order          ButcherOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  @@index([orderId, changedAt])
-  @@index([changedBy, changedAt])
-}
-
-model OrderNumberSequence {
-  id         String   @id @default(uuid())
-  year       Int      @unique
-  lastNumber Int      @default(0)
-  updatedAt  DateTime @updatedAt
-}
-
 // General account rating — any user can rate any other user's account once (editable).
 model UserReview {
   id         String   @id @default(uuid())
@@ -1102,135 +800,6 @@ model UserReview {
   @@index([reviewerId])
 }
 
-model ButcherReview {
-  id         String   @id @default(uuid())
-  butcherId  String
-  reviewerId String
-  orderId    String?
-  rating     Int
-  comment    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  butcher    Butcher  @relation(fields: [butcherId], references: [id])
-  reviewer   User     @relation(fields: [reviewerId], references: [id])
-
-  @@unique([butcherId, reviewerId])
-  @@index([butcherId])
-  @@index([reviewerId])
-  @@index([orderId])
-}
-
-model ButcherFavorite {
-  id        String   @id @default(uuid())
-  butcherId String
-  userId    String
-  createdAt DateTime @default(now())
-  butcher   Butcher  @relation(fields: [butcherId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([butcherId, userId])
-  @@index([butcherId])
-  @@index([userId])
-}
-
-model ButcherApplication {
-  id                String                   @id @default(uuid())
-  userId            String
-  applicationNumber Int
-  status            ButcherApplicationStatus @default(DRAFT)
-
-  nameAr        String?
-  nameEn        String?
-  shopPhone     String?
-  commercialReg String?
-  country       Country?
-  city          String?
-  cityAr        String?
-  address       String?
-  addressAr     String?
-  lat           Float?
-  lng           Float?
-  bioAr         String?
-  bioEn         String?
-  specialties   String[] @default([])
-  /// Application layer must validate HH:mm (24-hour), e.g. "06:00", "22:30".
-  openTime      String   @default("06:00")
-  /// Application layer must validate HH:mm (24-hour), e.g. "06:00", "22:30".
-  closeTime     String   @default("22:00")
-
-  /// Login username for the butcher account created on approve. Not the applicant.
-  accountUsername     String?
-  /// Optional login email for the butcher account created on approve.
-  accountEmail        String?
-  /// bcrypt hash of the butcher-account password. Never returned by APIs.
-  accountPasswordHash String?
-
-  rejectionReason String?
-  acceptedTermsAt DateTime?
-  submittedAt     DateTime?
-  approvedAt      DateTime?
-  rejectedAt      DateTime?
-  withdrawnAt     DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user           User                              @relation(fields: [userId], references: [id])
-  sourcedButcher Butcher?                          @relation("ButcherSourceApplication")
-  documents      ButcherApplicationDocument[]
-  timelineEvents ButcherApplicationTimelineEvent[]
-
-  @@unique([userId, applicationNumber])
-  @@index([userId, status])
-  @@index([status, submittedAt])
-  @@index([status, createdAt])
-  @@index([country, status])
-  @@index([userId, createdAt])
-}
-
-model ButcherApplicationDocument {
-  id               String                           @id @default(uuid())
-  applicationId    String
-  type             ButcherApplicationDocumentType
-  fileKey          String?
-  status           ButcherApplicationDocumentStatus @default(UPLOADED)
-  notes            String?
-  originalFileName String?
-  mimeType         String?
-  fileSizeBytes    Int?
-  verifiedBy       String?
-  verifiedAt       DateTime?
-  createdAt        DateTime                         @default(now())
-  updatedAt        DateTime                         @updatedAt
-
-  application ButcherApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
-  verifier    User?              @relation("DocumentVerifiedBy", fields: [verifiedBy], references: [id], onDelete: Restrict)
-
-  @@index([applicationId])
-  @@index([applicationId, type])
-  @@index([status])
-  @@index([verifiedBy])
-}
-
-model ButcherApplicationTimelineEvent {
-  id            String                           @id @default(uuid())
-  applicationId String
-  action        ButcherApplicationTimelineAction
-  comment       String?
-  /// Null for automated system events (e.g. Daftra product poll). Real admin/user events keep a User.id.
-  createdBy     String?
-  /// Defaults to {} so timeline rows always carry a JSON object; app may merge transition context.
-  metadata      Json                             @default("{}")
-  createdAt     DateTime                         @default(now())
-
-  application ButcherApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
-  actor       User?              @relation(fields: [createdBy], references: [id], onDelete: Restrict)
-
-  @@index([applicationId, createdAt])
-  @@index([createdBy])
-  @@index([action])
-}
-
 enum Country {
   SA
   AE
@@ -1243,19 +812,16 @@ enum Country {
 
 enum Role {
   USER
-  BUTCHER
   ADMIN
   MODERATOR
 }
 
 enum PlanAudience {
   USER
-  BUTCHER
 }
 
 enum MessageThreadType {
   DIRECT
-  BUTCHER
 }
 
 enum FeatureValueType {
@@ -1293,15 +859,6 @@ enum ListingOrigin {
   ADMIN_MANAGED
 }
 
-enum OrderStatus {
-  pending
-  confirmed
-  preparing
-  ready
-  delivered
-  cancelled
-}
-
 enum FeeStatus {
   pending
   paid
@@ -1313,40 +870,16 @@ enum PaymentReferenceType {
   subscription
   fee
   listing_fee
-  butcher_order
-  butcher_checkout
   featured_ad
   pinned_ad
   promoted_ad
   commission
-  order_commission
-}
-
-enum ButcherCheckoutStatus {
-  pending
-  paid
-  failed
-  cancelled
-  expired
-}
-
-enum ButcherReservationStatus {
-  held
-  converted
-  released
 }
 
 enum BoostType {
   featured
   pinned
   both
-}
-
-enum OrderPaymentStatus {
-  unpaid
-  paid
-  failed
-  refunded
 }
 
 enum PaymentMethod {
@@ -1383,7 +916,6 @@ enum NotificationType {
   comment
   repost
   offer
-  order_update
   fee_due
   subscription_renew
   new_message
@@ -1393,131 +925,9 @@ enum NotificationType {
   story_reply
 }
 
-enum ButcherType {
-  regular
-  verified
-}
-
-enum MeatCategory {
-  whole_livestock
-  lamb
-  beef
-  camel
-  chicken
-  goat
-  special_orders
-}
-
 enum PostMediaType {
   IMAGE
   VIDEO
-}
-
-enum StoryType {
-  daily_slaughter
-  offer
-  new_stock
-  update
-}
-
-enum ButcherApplicationStatus {
-  DRAFT
-  SUBMITTED
-  APPROVED
-  REJECTED
-  WITHDRAWN
-}
-
-enum ButcherApplicationDocumentType {
-  commercial_license
-  national_id
-  municipal_permit
-  shop_photo
-  other
-}
-
-enum ButcherApplicationDocumentStatus {
-  UPLOADED
-  APPROVED
-  REJECTED
-}
-
-enum ButcherApplicationTimelineAction {
-  CREATE
-  UPDATE
-  SUBMIT
-  APPROVE
-  REJECT
-  WITHDRAW
-  COMMENT
-}
-
-enum DaftraIntegrationStatus {
-  NOT_CONFIGURED
-  CONNECTED
-  CONNECTION_FAILED
-  DISABLED
-}
-
-/// How Sarh authenticates to Daftra for this butcher.
-enum DaftraAuthMethod {
-  API_KEY
-  OAUTH
-  BOTH
-}
-
-model ButcherDaftraIntegration {
-  id                   String                   @id @default(uuid())
-  butcherId            String                   @unique
-  /// Daftra account/subdomain identifier used to build https://{account}.daftra.com
-  accountIdentifier    String
-  /// API key fields — required for API_KEY / BOTH; null when OAuth-only.
-  apiKeyCiphertext     String?
-  apiKeyIv             String?
-  apiKeyTag            String?
-  apiKeyLast4          String?
-  authMethod           DaftraAuthMethod         @default(API_KEY)
-  /// OAuth provider label (currently only "daftra").
-  oauthProvider        String?
-  accessTokenCiphertext String?
-  accessTokenIv         String?
-  accessTokenTag        String?
-  refreshTokenCiphertext String?
-  refreshTokenIv         String?
-  refreshTokenTag        String?
-  accessTokenExpiresAt   DateTime?
-  /// Space-separated scopes as returned/stored; never invent scopes.
-  oauthScopes            String?
-  oauthConnectedAt       DateTime?
-  status               DaftraIntegrationStatus  @default(NOT_CONFIGURED)
-  lastConnectionTestAt DateTime?
-  lastConnectionError  String?
-  daftraLoginEmail     String?
-  daftraLoginUrl       String?
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
-  butcher              Butcher                  @relation(fields: [butcherId], references: [id], onDelete: Cascade)
-
-  @@index([status])
-  @@index([oauthProvider])
-}
-
-model ButcherDaftraProduct {
-  id                String   @id @default(uuid())
-  butcherId         String
-  sarhProductId     String?  @unique
-  daftraProductId   Int
-  daftraProductCode String?
-  daftraSaleUnit    String?
-  lastKnownQuantity Float?
-  lastSyncedAt      DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  butcher           Butcher         @relation(fields: [butcherId], references: [id], onDelete: Cascade)
-  sarhProduct       ButcherProduct? @relation(fields: [sarhProductId], references: [id], onDelete: SetNull)
-
-  @@unique([butcherId, daftraProductId])
-  @@index([butcherId])
 }
 
 model SupportTicket {
@@ -1533,7 +943,6 @@ model SupportTicket {
   adminNotes   String?
   reporterId   String?
   assignedToId String?
-  orderId      String?
   metadata     Json?
   createdAt    DateTime                  @default(now())
   updatedAt    DateTime                  @updatedAt
@@ -1541,7 +950,6 @@ model SupportTicket {
   deletedAt    DateTime?
   reporter     User?                     @relation(fields: [reporterId], references: [id], onDelete: SetNull)
   assignedTo   User?                     @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  order        ButcherOrder?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
   messages     SupportTicketMessage[]
   attachments  SupportTicketAttachment[]
 
@@ -1553,7 +961,6 @@ model SupportTicket {
   @@index([deletedAt])
   @@index([reporterId])
   @@index([assignedToId])
-  @@index([orderId])
   @@index([handlerMode])
 }
 
@@ -1789,7 +1196,6 @@ enum FaqCategory {
   BUY_SELL
   PAYMENT
   VERIFICATION
-  BUTCHERS
   TECHNICAL
   GENERAL
 }
@@ -1932,21 +1338,6 @@ enum FeedProductCategory {
   poultry
   hay
   barley
-}
-
-/// Admin-managed promotional banners on the butchers market home slider (3 slots).
-model ButcherMarketBanner {
-  id         String   @id @default(uuid())
-  slot       Int      @unique
-  titleAr    String
-  subtitleAr String
-  captionAr  String   @default("")
-  imageUrl   String
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([isActive, slot])
 }
 
 /// Admin-managed image banners for the home “استكشف سرح” slider (independent of home-explore destinations).

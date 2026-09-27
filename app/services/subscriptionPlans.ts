@@ -1,6 +1,6 @@
 // API-driven subscription plan types (no hardcoded catalog)
 
-export type PlanAudience = 'USER' | 'BUTCHER';
+export type PlanAudience = 'USER';
 export type BillingCycle = 'monthly' | 'yearly';
 export type PlanSlug = string;
 
@@ -35,22 +35,16 @@ export type SubscriptionPlan = {
 export const PLAN_ICONS: Record<string, string> = {
   free: 'gift-outline',
   'sarh-pro': 'diamond-outline',
-  growth: 'trending-up-outline',
-  'nom-pro': 'trending-up-outline',
 };
 
 export const PLAN_NAMES_AR: Record<string, string> = {
   free: 'مجاني',
   'sarh-pro': 'سرح برو',
-  growth: 'نمو',
-  'nom-pro': 'نمو',
 };
 
 export const PLAN_DESC_AR: Record<string, string> = {
   free: 'ابدأ التداول في سرح مجاناً',
   'sarh-pro': 'الباقة المميزة للمتداولين والمربين النشطين',
-  growth: 'باقة النمو للملاحم والمتاجر الموثّقة',
-  'nom-pro': 'باقة النمو للملاحم والمتاجر الموثّقة',
 };
 
 /** Plan features hidden from user-facing UI */

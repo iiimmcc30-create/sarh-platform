@@ -219,8 +219,6 @@ export class RedisCacheService {
     listings: (page: number, filters: string) => `listings:${page}:${filters}`,
     post: (id: string) => `post:${id}`,
     posts: (page: number) => `posts:${page}`,
-    butcher: (id: string) => `butcher:${id}`,
-    butchers: (country: string, page: number) => `butchers:${country}:${page}`,
     userFeed: (userId: string, page: number) => `feed:${userId}:${page}`,
     liveStreams: () => 'streams:live',
   };

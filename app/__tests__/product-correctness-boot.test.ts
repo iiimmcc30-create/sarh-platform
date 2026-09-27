@@ -131,21 +131,21 @@ describe('M1 single boot navigation source', () => {
     ).toEqual({ type: 'stay' });
   });
 
-  it('treats leftover /join URLs as the normal unauthenticated path', () => {
+  it('treats unknown legacy URLs as the normal unauthenticated path', () => {
     expect(
       resolveBootNavigation({
         ...base,
-        firstSegment: 'join',
+        firstSegment: 'legacy-route',
       }),
     ).toEqual({ type: 'replace', href: '/auth/welcome' });
   });
 
-  it('does not keep a public butcher join exception before onboarding', () => {
+  it('does not keep a public legacy-route exception before onboarding', () => {
     expect(
       resolveBootNavigation({
         ...base,
         onboardingComplete: false,
-        firstSegment: 'join',
+        firstSegment: 'legacy-route',
       }),
     ).toEqual({ type: 'replace', href: '/onboarding' });
   });
@@ -162,8 +162,8 @@ describe('M1 single boot navigation source', () => {
 });
 
 describe('M2 activeMode persist/restore', () => {
-  it('restores BUTCHER', () => {
-    expect(parseActiveMode('BUTCHER')).toBe('BUTCHER');
+  it('resolves retired stored modes to USER', () => {
+    expect(parseActiveMode('STORE')).toBe('USER');
   });
 
   it('restores USER', () => {

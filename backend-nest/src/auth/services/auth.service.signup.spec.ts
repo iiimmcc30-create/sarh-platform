@@ -435,24 +435,6 @@ describe('AuthService signup uniqueness', () => {
     });
   });
 
-  it('join purpose still issues token for existing phone (butcher flow untouched)', async () => {
-    const { service } = makeService({
-      findUserByPhone: jest.fn().mockResolvedValue({
-        id: 'user-a',
-        username: 'existing',
-        phone: PHONE_A,
-      }),
-    });
-    const result = await service.verifyOtp(
-      { phone: PHONE_A, code: '123456', purpose: 'join' },
-      req,
-    );
-    expect(result).toMatchObject({
-      purpose: 'join',
-      is_new_user: false,
-      phone_token: expect.any(String),
-    });
-  });
 });
 
 describe('AuthService Google identity hardening', () => {

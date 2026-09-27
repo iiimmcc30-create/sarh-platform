@@ -1,6 +1,9 @@
 import { SupportTicketsService } from './support-tickets.service';
 import { ApiException } from '../../common/exceptions/api.exception';
-import { sarhanWelcome } from '../constants/support.constants';
+import {
+  sarhanWelcome,
+  SUPPORT_TICKET_CATEGORY_LABEL_AR,
+} from '../constants/support.constants';
 import type { JwtPayload } from '../../common/types/jwt-payload.interface';
 
 function user(id: string, role: JwtPayload['role'] = 'USER'): JwtPayload {
@@ -15,9 +18,6 @@ describe('SupportTicketsService', () => {
     createTicket: jest.fn(),
     updateTicket: jest.fn(),
     createMessage: jest.fn(),
-    findOwnedButcherOrder: jest.fn(),
-    findButcherOrderById: jest.fn(),
-    listCustomerHelpOrders: jest.fn(),
     findUserNames: jest.fn(),
     findLatestSrhTicketNumber: jest.fn(),
     isUniqueConstraint: jest.fn(
@@ -35,7 +35,6 @@ describe('SupportTicketsService', () => {
   };
   const prisma = {
     user: { findMany: jest.fn() },
-    butcherOrder: { update: jest.fn() },
   };
   const logger = { info: jest.fn(), warn: jest.fn() };
   const sockets = { emitToTicket: jest.fn() };
@@ -67,12 +66,11 @@ describe('SupportTicketsService', () => {
     });
     aiContext.build.mockResolvedValue({
       ticketNumber: 'SRH-2026-000001',
-      category: 'ORDER_HELP',
+      category: 'OTHER_HELP',
       customerFirstName: 'متعب',
       customerDescription: 'طلبي ما وصل',
       missingInformation: [],
       recentMessages: [],
-      order: { orderId: 'ord-a', status: 'preparing' },
     });
     service = new SupportTicketsService(
       repo as never,
@@ -85,11 +83,7 @@ describe('SupportTicketsService', () => {
     );
   });
 
-  it('creates an ORDER_HELP ticket with a server SRH number and welcome from backend first name', async () => {
-    repo.findOwnedButcherOrder.mockResolvedValue({
-      id: 'ord-a',
-      customerId: 'cust-a',
-    });
+  it('creates a help ticket with a server SRH number and welcome from backend first name', async () => {
     repo.createTicket.mockResolvedValue({
       id: 't1',
       ticketNumber: 'SRH-2026-000001',
@@ -114,15 +108,14 @@ describe('SupportTicketsService', () => {
     });
 
     const result = await service.createTicket(user('cust-a'), {
-      helpKind: 'ORDER_HELP',
-      orderId: 'ord-a',
+      helpKind: 'OTHER_HELP',
       description: 'طلبي ما وصل',
     });
 
     expect(result.ticket.ticketNumber).toMatch(/^SRH-\d{4}-\d{6}$/);
     expect(repo.createTicket).toHaveBeenCalledWith(
       expect.objectContaining({
-        category: 'ORDER_HELP',
+        category: 'OTHER_HELP',
         handlerMode: 'AI_ACTIVE',
         status: 'AI_ASSISTING',
       }),
@@ -130,11 +123,10 @@ describe('SupportTicketsService', () => {
     expect(repo.createMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         authorKind: 'SARHAN',
-        body: sarhanWelcome('متعب', 'مشكلة في الطلب'),
+        body: sarhanWelcome('متعب', SUPPORT_TICKET_CATEGORY_LABEL_AR.OTHER_HELP),
       }),
     );
     expect(sarhan.nextTurn).toHaveBeenCalled();
-    expect(prisma.butcherOrder.update).not.toHaveBeenCalled();
   });
 
   it('creates an OTHER_HELP ticket with null order', async () => {
@@ -164,7 +156,6 @@ describe('SupportTicketsService', () => {
       description: 'استفسار عن الحساب',
     });
 
-    expect(repo.findOwnedButcherOrder).not.toHaveBeenCalled();
     expect(repo.createTicket.mock.calls[0][0].order).toBeUndefined();
   });
 
@@ -242,23 +233,6 @@ describe('SupportTicketsService', () => {
       service.getUserTicket(user('cust-a'), 't-b'),
     ).rejects.toBeInstanceOf(ApiException);
   });
-
-  it('forbids creating ORDER_HELP on another customer order', async () => {
-    repo.findOwnedButcherOrder.mockResolvedValue(null);
-    repo.findButcherOrderById.mockResolvedValue({
-      id: 'ord-b',
-      customerId: 'cust-b',
-    });
-    await expect(
-      service.createTicket(user('cust-a'), {
-        helpKind: 'ORDER_HELP',
-        orderId: 'ord-b',
-        description: 'مشكلة في الطلب هذا',
-      }),
-    ).rejects.toMatchObject({ status: 403, error: 'forbidden' });
-    expect(repo.createTicket).not.toHaveBeenCalled();
-  });
-
   it('allows a customer to send a support message on their ticket', async () => {
     repo.findUserTicket.mockResolvedValue({
       id: 't1',
@@ -302,10 +276,10 @@ describe('SupportTicketsService', () => {
     expect(notifications.notifyStaffReply).toHaveBeenCalled();
   });
 
-  it('does not let a butcher role access another customer ticket via socket helper', async () => {
+  it('does not let another customer access a ticket via socket helper', async () => {
     repo.findUserTicket.mockResolvedValue(null);
     await expect(
-      service.getTicketForSocket(user('butcher-user', 'BUTCHER'), 't-a'),
+      service.getTicketForSocket(user('other-user'), 't-a'),
     ).resolves.toBeNull();
   });
 
@@ -376,38 +350,6 @@ describe('SupportTicketsService', () => {
       expect.objectContaining({ authorKind: 'CUSTOMER', isStaffReply: false }),
     );
   });
-
-  it('allows owned order help and never mutates the order', async () => {
-    repo.findOwnedButcherOrder.mockResolvedValue({
-      id: 'ord-a',
-      customerId: 'cust-a',
-    });
-    repo.createTicket.mockResolvedValue({
-      id: 't5',
-      ticketNumber: 'SRH-2026-000005',
-      status: 'AI_ASSISTING',
-      handlerMode: 'AI_ACTIVE',
-      subject: 'مشكلة في الطلب',
-      createdAt: new Date(),
-    });
-    repo.findTicketById.mockResolvedValue({
-      id: 't5',
-      ticketNumber: 'SRH-2026-000005',
-      handlerMode: 'AI_ACTIVE',
-      status: 'AI_ASSISTING',
-      metadata: {},
-    });
-    repo.findUserTicket.mockResolvedValue({ id: 't5' });
-
-    await service.createTicket(user('cust-a'), {
-      helpKind: 'ORDER_HELP',
-      orderId: 'ord-a',
-      description: 'الطلب وصل ناقص',
-    });
-    expect(repo.findOwnedButcherOrder).toHaveBeenCalledWith('ord-a', 'cust-a');
-    expect(prisma.butcherOrder.update).not.toHaveBeenCalled();
-  });
-
   it('escalates via Sarhan into WAITING_FOR_SUPPORT + HUMAN_ACTIVE without MessageThread', async () => {
     repo.findUserTicket.mockResolvedValue({
       id: 't1',

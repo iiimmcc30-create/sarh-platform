@@ -16,7 +16,6 @@ type TicketRow = {
   updatedAt?: string;
   assignedTo?: { arabicName?: string; displayName?: string; username?: string } | null;
   reporter?: { arabicName?: string; displayName?: string; username?: string } | null;
-  order?: { orderNumber?: string } | null;
 };
 
 const statusTone = (s: string) => {
@@ -39,7 +38,6 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
-  ORDER_HELP: 'مشكلة في الطلب',
   OTHER_HELP: 'مساعدة في شيء آخر',
 };
 
@@ -74,7 +72,7 @@ export default function SupportTicketsPage() {
   return (
     <ResourcePage<TicketRow>
       title="البلاغات"
-      description="بلاغات العملاء عبر سرحان وخدمة العملاء — بدون تواصل مع الملحمة"
+      description="بلاغات العملاء عبر سرحان وخدمة العملاء"
       fetchPage={fetchPage}
       filters={
         <div className="flex flex-wrap gap-2 text-sm">
@@ -108,11 +106,6 @@ export default function SupportTicketsPage() {
           key: 'category',
           label: 'نوع المساعدة',
           render: (r) => CATEGORY_LABEL[r.category] ?? r.category,
-        },
-        {
-          key: 'order',
-          label: 'الطلب',
-          render: (r) => r.order?.orderNumber ?? '—',
         },
         {
           key: 'status',

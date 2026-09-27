@@ -8,16 +8,10 @@ export const LISTING_OWNER_EDIT_LIMIT = 1;
 
 export function resolveListingCreateDailyLimit(
   role: string | undefined,
-  planLimit: number,
+  _planLimit: number,
 ): { unlimited: boolean; limit: number } {
   if (role === 'ADMIN') {
     return { unlimited: true, limit: -1 };
   }
-  if (role !== 'BUTCHER') {
-    return { unlimited: false, limit: 1 };
-  }
-  if (planLimit < 0) {
-    return { unlimited: true, limit: planLimit };
-  }
-  return { unlimited: false, limit: planLimit };
+  return { unlimited: false, limit: 1 };
 }

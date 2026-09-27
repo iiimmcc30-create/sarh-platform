@@ -12,7 +12,6 @@ async function main() {
     { key: 'maintenanceMode', value: false, labelAr: 'وضع الصيانة', category: 'system' },
     { key: 'allowRegistration', value: true, labelAr: 'السماح بالتسجيل', category: 'auth' },
     { key: 'liveStreamsEnabled', value: true, labelAr: 'تفعيل البث المباشر', category: 'features' },
-    { key: 'butcherApplicationsEnabled', value: true, labelAr: 'طلبات الملاحم', category: 'features' },
     {
       key: 'features.paidPromotionEnabled',
       value: true,

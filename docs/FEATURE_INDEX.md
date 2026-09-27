@@ -49,8 +49,6 @@
 | Butchers | [butchers.md](./butchers.md) | Shop profiles, discovery | `GET /api/butchers` | `Butcher` | 90% |
 | Butcher Products | [butcher-products.md](./butcher-products.md) | Product catalog + inventory | `POST /api/butchers/products` | `ButcherProduct` | 91% |
 | Butcher Offers | [butcher-offers.md](./butcher-offers.md) | Promotional offers | `POST /api/butchers/offers` | `ButcherOffer` | 85% |
-| Orders | [orders.md](./orders.md) | Order lifecycle, inventory | `POST/PUT /api/butchers/orders` | `ButcherOrder`, `OrderTimeline`, `OrderStatusAudit` | 91% |
-| Reviews | [reviews.md](./reviews.md) | Butcher reviews | `POST /api/butchers/:id/reviews` | `ButcherReview` | 85% |
 | Butcher Applications | [butcher-applications.md](./butcher-applications.md) | Onboarding workflow | `POST /api/butcher-applications` | `ButcherApplication` | 88% |
 | Analytics Dashboard | [analytics.md](./analytics.md) | Butcher stats (plan-gated) | `GET /api/butchers/stats` | Aggregations | 75% |
 

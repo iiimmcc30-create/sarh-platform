@@ -23,8 +23,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@/lib/*": ["src/shared/lib/*"],
-      "@/middleware/*": ["src/shared/middleware/*"],
-      "@/butcher-applications/*": ["src/butcher-applications/*"]
+      "@/middleware/*": ["src/shared/middleware/*"]
     }
   }
 }

@@ -12,7 +12,6 @@ sarh.app/
   app/                 Expo Router (جوال)
   backend-nest/        NestJS API + worker + socket + Prisma
   admin-panel/         Next.js إدارة
-  butcher-dashboard/   Next.js ملحمة
   nginx/               إعدادات الوكيل
   scripts/hostinger/   نشر / SSL / نسخ احتياطي (موثَّق، غير مُعاد تشغيله)
   docker-compose.prod.yml
@@ -49,7 +48,7 @@ Prisma على PostgreSQL. بادئة REST `/api`.
 
 ## Roles
 
-`USER` · `BUTCHER` · `ADMIN` · `MODERATOR` (`schema.prisma`).
+`USER` · `ADMIN` · `MODERATOR` (`schema.prisma`).
 
 ---
 
@@ -95,10 +94,4 @@ Boost/promotion لها متحكمات تحت `/api/listings`.
 
 ## Admin
 
-`admin-panel` على `/admin`. API تحت `/api/admin/*` (مستخدمون، منشورات، إعلانات، بلاغات، جزارون، إعدادات، محتوى، دعم، …).
-
----
-
-## Butcher dashboard
-
-`butcher-dashboard` على `/butcher`. API تحت `/api/butchers/*` و`/api/butcher-applications/*` وتكامل Daftra في `/api/butchers/daftra` و`/api/admin/butchers/:id/daftra`.
+`admin-panel` على `/admin`. API تحت `/api/admin/*` (مستخدمون، منشورات، إعلانات، بلاغات، إعدادات، محتوى، دعم، …).

@@ -1,5 +1,6 @@
-export type AppActiveMode = 'USER' | 'BUTCHER';
+export type AppActiveMode = 'USER';
 
-export function parseActiveMode(value: unknown): AppActiveMode {
-  return value === 'BUTCHER' ? 'BUTCHER' : 'USER';
+/** Sarh has a single app mode; any stored legacy value resolves to USER. */
+export function parseActiveMode(_value: unknown): AppActiveMode {
+  return 'USER';
 }

@@ -126,10 +126,10 @@ export class SendOtpDto {
   @IsEnum(['sms', 'whatsapp'])
   channel: 'sms' | 'whatsapp' = 'sms';
 
-  /** login = default; signup = create account (reject if phone exists); join = butcher join */
+  /** login = default; signup = create account (reject if phone exists) */
   @IsOptional()
-  @IsEnum(['login', 'signup', 'join', 'reset_password'])
-  purpose?: 'login' | 'signup' | 'join' | 'reset_password' = 'login';
+  @IsEnum(['login', 'signup', 'reset_password'])
+  purpose?: 'login' | 'signup' | 'reset_password' = 'login';
 }
 
 export class VerifyOtpDto {
@@ -142,8 +142,8 @@ export class VerifyOtpDto {
   code!: string;
 
   @IsOptional()
-  @IsEnum(['login', 'reset_password', 'join', 'signup'])
-  purpose: 'login' | 'reset_password' | 'join' | 'signup' = 'login';
+  @IsEnum(['login', 'reset_password', 'signup'])
+  purpose: 'login' | 'reset_password' | 'signup' = 'login';
 }
 
 /** Early uniqueness check for signup UX (phone / username). */

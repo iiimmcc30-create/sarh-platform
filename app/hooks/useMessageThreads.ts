@@ -3,9 +3,9 @@ import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { dedupeInflight, shouldReuseFreshResult } from '@/services/requestCoordination';
 
-export type MessageThreadType = 'DIRECT' | 'BUTCHER';
+export type MessageThreadType = 'DIRECT';
 
-export type MessageThreadFilter = 'all' | 'unread' | 'transactions' | 'requests';
+export type MessageThreadFilter = 'all' | 'unread' | 'requests';
 
 /** Same window as Home — skip a focus refetch when the inbox is still fresh. */
 export const MESSAGES_REFRESH_TTL_MS = 60_000;
@@ -13,13 +13,6 @@ export const MESSAGES_REFRESH_TTL_MS = 60_000;
 export interface MessageThreadItem {
   id: string;
   type: MessageThreadType;
-  butcherId?: string | null;
-  butcher?: {
-    id: string;
-    nameAr: string;
-    nameEn?: string;
-    logo?: string | null;
-  } | null;
   participant: {
     id: string;
     displayName: string;
@@ -58,15 +51,6 @@ function mapThread(t: any, fallbackType: MessageThreadType): MessageThreadItem {
   return {
     id: t.id,
     type: (t.type as MessageThreadType) || fallbackType,
-    butcherId: t.butcherId ?? null,
-    butcher: t.butcher
-      ? {
-          id: t.butcher.id,
-          nameAr: t.butcher.nameAr,
-          nameEn: t.butcher.nameEn,
-          logo: t.butcher.logo,
-        }
-      : null,
     participant: t.participant
       ? {
           id: t.participant.id,
@@ -147,8 +131,6 @@ export type InboxThreadPreviewPatch = {
   isMine?: boolean;
   type?: MessageThreadType;
   participant?: MessageThreadItem['participant'];
-  butcherId?: string | null;
-  butcher?: MessageThreadItem['butcher'];
 };
 
 function applyPreviewToThreads(
@@ -175,13 +157,11 @@ function applyPreviewToThreads(
     ]);
   }
 
-  if (!patch.participant && !patch.butcher) return threads;
+  if (!patch.participant) return threads;
 
   const created: MessageThreadItem = {
     id: patch.threadId,
     type: patch.type ?? 'DIRECT',
-    butcherId: patch.butcherId ?? null,
-    butcher: patch.butcher ?? null,
     participant: patch.participant ?? null,
     lastMessage: patch.lastMessage ?? null,
     lastMessageAt: patch.lastMessageAt ?? new Date().toISOString(),
@@ -198,7 +178,7 @@ export function applyInboxThreadPreview(
   patch: InboxThreadPreviewPatch,
 ): MessageThreadItem[] | null {
   if (inboxCache.size === 0) {
-    if (!patch.participant && !patch.butcher) return null;
+    if (!patch.participant) return null;
     inboxCache.set('ALL', {
       threads: applyPreviewToThreads([], patch),
       at: 0,
@@ -283,14 +263,7 @@ async function loadInbox(
 ): Promise<MessageThreadItem[]> {
   const next =
     type === 'ALL'
-      ? sortThreads(
-          (
-            await Promise.all([
-              fetchType(accessToken, 'DIRECT'),
-              fetchType(accessToken, 'BUTCHER'),
-            ])
-          ).flat(),
-        )
+      ? sortThreads(await fetchType(accessToken, 'DIRECT'))
       : await fetchType(accessToken, type);
   if (inboxOwnerToken === accessToken) {
     inboxCache.set(type, { threads: next, at: Date.now() });
@@ -456,18 +429,15 @@ export function filterMessageThreads(
 
   return threads.filter((t) => {
     if (filter === 'unread' && t.unread <= 0) return false;
-    if (filter === 'transactions' && t.type !== 'BUTCHER') return false;
     if (filter === 'requests' && t.type !== 'DIRECT') return false;
 
     if (!q) return true;
 
     const p = t.participant;
-    const butcherName = t.butcher?.nameAr ?? '';
     const listingTitle = p?.id ? listingTitlesByPeer[p.id] ?? '' : '';
     const haystack = [
       p?.displayName ?? '',
       p?.arabicName ?? '',
-      butcherName,
       t.lastMessage ?? '',
       listingTitle,
     ]

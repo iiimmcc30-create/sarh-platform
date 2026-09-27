@@ -43,9 +43,8 @@ interface AuthContextValue {
   accessToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  // TODO(Migration): replace activeMode with capability-based navigation after Butcher Application workflow.
-  activeMode: 'USER' | 'BUTCHER';
-  switchMode: (mode: 'USER' | 'BUTCHER') => void;
+  activeMode: 'USER';
+  switchMode: (mode: 'USER') => void;
   // OTP flow
   sendOtp:   (
     phone: string,
@@ -118,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [lastAuthOkAt, setLastAuthOkAt] = useState<number | null>(null);
   const [isLoading, setIsLoading]     = useState(true);
-  const [activeMode, setActiveMode]   = useState<'USER' | 'BUTCHER'>('USER');
+  const [activeMode, setActiveMode]   = useState<'USER'>('USER');
   const accessTokenRef = useRef<string | null>(null);
   accessTokenRef.current = accessToken;
   /** Single-flight lock — concurrent callers await the same refresh promise. */
@@ -284,7 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [markAuthOk]);
 
   // ── تبديل الوضع ────────────────────────────────────────────────────────────
-  const switchMode = useCallback(async (mode: 'USER' | 'BUTCHER') => {
+  const switchMode = useCallback(async (mode: 'USER') => {
     setActiveMode(mode);
     await AsyncStorage.setItem('safat_active_mode', mode);
   }, []);

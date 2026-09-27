@@ -11,8 +11,7 @@ describe('admin support ticket UI hardening', () => {
     'utf8',
   );
 
-  it('keeps order details read-only and wires support socket rooms', () => {
-    expect(detail).toContain('للعرض فقط');
+  it('has no order actions and wires support socket rooms', () => {
     expect(detail).not.toMatch(/updateOrder|refund|تعديل الطلب|إلغاء الطلب/);
     expect(detail).toContain('useAdminSupportTicketSocket');
     expect(hook).toContain("support:join");

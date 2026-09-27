@@ -46,14 +46,14 @@ describe('ExploreSarhBannersService', () => {
     prisma.exploreSarhBanner.create.mockResolvedValueOnce({ id: 'n' });
     await service.create({
       imageUrl: 'https://cdn.example/b.jpg',
-      accessibilityLabel: 'ملاحم',
-      href: '/butchers',
+      accessibilityLabel: 'مواشي',
+      href: '/market',
     });
     expect(prisma.exploreSarhBanner.create).toHaveBeenCalledWith({
       data: {
         imageUrl: 'https://cdn.example/b.jpg',
-        accessibilityLabel: 'ملاحم',
-        href: '/butchers',
+        accessibilityLabel: 'مواشي',
+        href: '/market',
         isActive: true,
         sortOrder: 3,
       },

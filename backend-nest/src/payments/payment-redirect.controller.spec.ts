@@ -23,38 +23,30 @@ describe('PaymentRedirectController context-aware copy', () => {
       undefined,
       'subscription',
       'subscription',
-      undefined,
-      undefined,
       cap.res as never,
     );
     expect(cap.html()).toContain('لا يُفعَّل الاشتراك قبل التأكيد');
   });
 
-  it('does not mention subscription for butcher checkout returns', () => {
+  it('keeps the promotion context in the deep link without order params', () => {
     const cap = captureHtml();
     controller.result(
       'pay-1',
       undefined,
-      'butcher_checkout',
-      'butcher_checkout',
-      undefined,
-      'chk-1',
+      'promoted_ad',
+      'promoted_ad',
       cap.res as never,
     );
-    expect(cap.html()).not.toContain('اشتراك');
-    expect(cap.html()).toContain('لن يُرسل الطلب للملحمة');
-    expect(cap.html()).toContain('context=butcher_checkout');
+    expect(cap.html()).toContain('context=promoted_ad');
+    expect(cap.html()).not.toContain('orderId');
+    expect(cap.html()).not.toContain('checkoutId');
   });
 
-  it('cancel copy for butcher checkout does not imply an unpaid order exists', () => {
+  it('cancel bridge only forwards context and paymentId', () => {
     const cap = captureHtml();
-    controller.cancel(
-      'butcher_checkout',
-      undefined,
-      'chk-1',
-      'pay-1',
-      cap.res as never,
-    );
-    expect(cap.html()).toContain('ولم يُنشأ طلب للملحمة');
+    controller.cancel('promoted_ad', 'pay-1', cap.res as never);
+    expect(cap.html()).toContain('payment/cancel');
+    expect(cap.html()).toContain('paymentId=pay-1');
+    expect(cap.html()).not.toContain('checkoutId');
   });
 });

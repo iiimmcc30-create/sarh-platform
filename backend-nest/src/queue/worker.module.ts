@@ -12,8 +12,7 @@ import { WorkerCronService } from './services/worker-cron.service';
 import { WorkerHeartbeatService } from './services/worker-heartbeat.service';
 
 /**
- * Standalone worker process graph. Kept out of queue.module.ts so
- * QueueModule stays free of butcher Daftra imports.
+ * Standalone worker process graph. Kept out of queue.module.ts.
  */
 @Module({
   imports: [QueueModule, SubscriptionsModule, KnowledgeModule],

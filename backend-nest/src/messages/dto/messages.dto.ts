@@ -6,7 +6,6 @@ import {
   IsUrl,
   IsUUID,
   MaxLength,
-  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MessageThreadType } from '@prisma/client';
@@ -26,10 +25,6 @@ export class SendMessageDto {
   @IsEnum(MessageThreadType)
   type?: MessageThreadType;
 
-  @ValidateIf((o: SendMessageDto) => o.type === 'BUTCHER' || !!o.butcherId)
-  @IsUUID()
-  butcherId?: string;
-
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -44,9 +39,6 @@ export class SendMessageDto {
   @IsUrl(MEDIA_URL_OPTS)
   videoUrl?: string;
 
-  @IsOptional()
-  @IsUUID()
-  orderId?: string;
 }
 
 export class ThreadMessagesQueryDto {

@@ -36,12 +36,8 @@ describe('admin navigation & feature routes inventory', () => {
       '/reports',
       '/support',
       '/live',
-      '/butchers',
-      '/butcher-banners',
       '/explore-sarh-banners',
       '/feed-suppliers',
-      '/applications',
-      '/orders',
       '/plans',
       '/content',
       '/home-explore',
@@ -101,8 +97,8 @@ describe('cleanListParams', () => {
       cleanListParams({
         page: 2.9,
         pageSize: 25,
-        search: 'ملحمة',
+        search: 'غنم',
       }),
-    ).toEqual({ page: 2, pageSize: 25, search: 'ملحمة' });
+    ).toEqual({ page: 2, pageSize: 25, search: 'غنم' });
   });
 });

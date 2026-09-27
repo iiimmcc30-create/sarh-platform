@@ -57,14 +57,6 @@ export class SarhanSupportService {
       summary: decision.summary ?? existingMeta.summary ?? null,
       customerDescription: context.customerDescription,
       missingInformation: decision.missingInformation ?? [],
-      orderContext: context.order
-        ? {
-            orderId: context.order.orderId,
-            status: context.order.status,
-            paymentStatus: context.order.paymentStatus,
-            totalPrice: context.order.totalPrice,
-          }
-        : (existingMeta.orderContext ?? null),
     };
 
     this.logger.info(

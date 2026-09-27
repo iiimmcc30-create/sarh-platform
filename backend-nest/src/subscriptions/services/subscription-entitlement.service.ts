@@ -29,9 +29,9 @@ export class SubscriptionEntitlementService {
     private readonly planResolver: PlanResolverService,
   ) {}
 
-  async getAudienceForUser(userId: string): Promise<PlanAudience> {
-    const role = await this.repo.findUserRole(userId);
-    return role === 'BUTCHER' ? 'BUTCHER' : 'USER';
+  /** All accounts use the USER plan catalog. */
+  async getAudienceForUser(_userId: string): Promise<PlanAudience> {
+    return 'USER';
   }
 
   async getEffectiveContextForUser(userId: string) {

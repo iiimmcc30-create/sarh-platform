@@ -37,9 +37,6 @@ const profileSelect = {
   showFollowingList: true,
   createdAt: true,
   lastSeenAt: true,
-  butcherProfile: {
-    select: { id: true },
-  },
   _count: {
     select: {
       followers: true,

@@ -1,6 +1,6 @@
 /**
  * Domain scenario matrix — documents expected outcomes for auth, social,
- * listings, payments, butcher orders, subscriptions, stories, messaging.
+ * listings, payments, subscriptions, stories, messaging.
  * Pure contract tests (no DB / no HTTP). Keeps business rules locked.
  */
 
@@ -105,26 +105,6 @@ describe('Messaging + notifications', () => {
   });
 });
 
-describe('Butcher shop + orders', () => {
-  it.each([
-    ['create butcher profile', 201],
-    ['update butcher', 200],
-    ['add product', 201],
-    ['update product', 200],
-    ['delete product', 200],
-    ['update stock', 200],
-    ['update price', 200],
-    ['create order', 201],
-    ['accept order', 200],
-    ['reject order', 200],
-    ['cancel order', 200],
-    ['deliver order', 200],
-    ['track order', 200],
-    ['invalid transition', 400],
-  ] as const)('%s → %i', (_name, status) => {
-    expect([200, 201, 400]).toContain(status);
-  });
-});
 
 describe('Payments — success / fail / cancel / expire', () => {
   const cases: Array<{

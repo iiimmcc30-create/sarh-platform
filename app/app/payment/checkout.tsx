@@ -36,10 +36,6 @@ export default function PaymentCheckoutScreen() {
     paymentId?: string | string[];
     context?: string | string[];
     listingId?: string | string[];
-    orderId?: string | string[];
-    orderNumber?: string | string[];
-    butcherId?: string | string[];
-    checkoutId?: string | string[];
     boostType?: string | string[];
     durationDays?: string | string[];
   }>();
@@ -48,10 +44,6 @@ export default function PaymentCheckoutScreen() {
   const paymentId = pickParam(params.paymentId);
   const context = pickParam(params.context) || 'generic';
   const listingId = pickParam(params.listingId);
-  const orderId = pickParam(params.orderId);
-  const orderNumber = pickParam(params.orderNumber);
-  const butcherId = pickParam(params.butcherId);
-  const checkoutId = pickParam(params.checkoutId);
   const boostType = pickParam(params.boostType);
   const durationDays = pickParam(params.durationDays);
 
@@ -65,24 +57,10 @@ export default function PaymentCheckoutScreen() {
       context,
       gatewayReturn: '1',
       ...(listingId ? { listingId } : {}),
-      ...(orderId ? { orderId } : {}),
-      ...(orderNumber ? { orderNumber } : {}),
-      ...(butcherId ? { butcherId } : {}),
-      ...(checkoutId ? { checkoutId } : {}),
       ...(boostType ? { boostType } : {}),
       ...(durationDays ? { durationDays } : {}),
     }),
-    [
-      paymentId,
-      context,
-      listingId,
-      orderId,
-      orderNumber,
-      butcherId,
-      checkoutId,
-      boostType,
-      durationDays,
-    ],
+    [paymentId, context, listingId, boostType, durationDays],
   );
 
   const finish = useCallback(

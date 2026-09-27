@@ -24,9 +24,6 @@ docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" build api
 echo "Building admin panel image..."
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" build admin
 
-echo "Building butcher dashboard image..."
-docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" build butcher
-
 echo "Building Expo web image..."
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" build web
 
@@ -39,16 +36,6 @@ for i in $(seq 1 90); do
     echo "API health OK"
     curl -s http://127.0.0.1:3001/api/health | head -c 500
     echo
-    if curl -sf http://127.0.0.1:3001/join | grep -q 'انضمام الملاحم'; then
-      echo "GET /join OK (dark butcher registration page)"
-    else
-      echo "WARN: API /join did not return the butcher registration page"
-    fi
-    if curl -sf https://sarhsa.online/join | grep -q 'انضمام الملاحم'; then
-      echo "https://sarhsa.online/join OK"
-    else
-      echo "WARN: public /join still hits Expo — recreate nginx: docker compose ... up -d --force-recreate nginx"
-    fi
     exit 0
   fi
   sleep 3

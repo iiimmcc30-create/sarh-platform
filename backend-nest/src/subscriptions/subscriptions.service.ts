@@ -17,13 +17,6 @@ export class SubscriptionsService {
   ) {}
 
   async getMine(user: JwtPayload) {
-    const audienceSynced = await this.repo.syncPlanAudienceForButcherAccount(
-      user.userId,
-    );
-    if (audienceSynced) {
-      await this.cache.del(`subscription:${user.userId}`);
-    }
-
     let subscription = await this.repo.findByUserId(user.userId);
     if (!subscription) {
       subscription = await this.repo.upsertFree(user.userId);

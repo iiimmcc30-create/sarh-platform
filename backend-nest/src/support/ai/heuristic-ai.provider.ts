@@ -67,17 +67,6 @@ export class HeuristicAiProvider implements AiProvider {
     }
 
     if (NOT_RECEIVED.test(text)) {
-      if (context.order) {
-        return {
-          replyAr:
-            'سجّلت أن الطلب لم يصل، وسأحوّل الحالة للفريق المختص لمتابعتها.',
-          issueType: 'ORDER_NOT_RECEIVED',
-          escalate: true,
-          missingInformation: [],
-          summary: 'الطلب لم يصل',
-          metadataPatch: { issueType: 'ORDER_NOT_RECEIVED' },
-        };
-      }
       return {
         replyAr:
           'أفهمك، خلني أتأكد من تفاصيل طلبك.\nهل المشكلة أن الطلب لم يصل حتى الآن؟',

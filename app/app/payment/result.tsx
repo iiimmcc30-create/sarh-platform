@@ -63,18 +63,6 @@ const CONTEXT_COPY: Record<PaymentContext, ContextCopy> = {
     pendingSubtitle: 'العملية قيد المعالجة. اضغط «إعادة التحقق» إذا لم تُفعَّل الترقية.',
     primaryLabel: 'عرض الإعلان',
   },
-  butcher_order: {
-    successTitle: 'تم الدفع بنجاح',
-    successSubtitle: 'تم تأكيد عملية الدفع من N-Genius.',
-    pendingSubtitle: 'العملية قيد المعالجة. اضغط «إعادة التحقق» إذا لم يُحدَّث الطلب.',
-    primaryLabel: 'الرئيسية',
-  },
-  butcher_checkout: {
-    successTitle: 'تم الدفع بنجاح',
-    successSubtitle: 'تم تأكيد عملية الدفع من N-Genius.',
-    pendingSubtitle: 'العملية قيد المعالجة. اضغط «إعادة التحقق» إذا لم يُحدَّث الطلب.',
-    primaryLabel: 'الرئيسية',
-  },
   generic: {
     successTitle: 'تم الدفع بنجاح!',
     successSubtitle: 'تم تأكيد عملية الدفع من N-Genius.',
@@ -91,8 +79,6 @@ function normalizeContext(raw?: string): PaymentContext {
     'commission',
     'boost',
     'promotion',
-    'butcher_order',
-    'butcher_checkout',
     'generic',
   ];
   if (raw && allowed.includes(raw as PaymentContext)) {
@@ -121,10 +107,6 @@ export default function PaymentResultScreen() {
     paymentId?: string;
     context?: string;
     listingId?: string;
-    orderId?: string;
-    orderNumber?: string;
-    butcherId?: string;
-    checkoutId?: string;
     boostType?: string;
     durationDays?: string;
     gatewayReturn?: string;
@@ -133,10 +115,6 @@ export default function PaymentResultScreen() {
     paymentId,
     context: rawContext,
     listingId,
-    orderId,
-    orderNumber,
-    butcherId,
-    checkoutId: _checkoutId,
     boostType: paramBoostType,
     durationDays: paramDurationDays,
   } = params;
@@ -149,27 +127,13 @@ export default function PaymentResultScreen() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [boostExpiry, setBoostExpiry] = useState<string | null>(null);
   const [resolvedBoostType, setResolvedBoostType] = useState<string | null>(null);
-  const [paidOrderId, setPaidOrderId] = useState<string>(orderId ?? '');
-  const [paidOrderNumber, setPaidOrderNumber] = useState<string>(orderNumber ?? '');
-  const [paidButcherId, setPaidButcherId] = useState<string>(butcherId ?? '');
   const [retrying, setRetrying] = useState(false);
   const syncInflightRef = useRef(false);
   const initialSyncDoneRef = useRef(false);
 
-  const isButcherContext = context === 'butcher_order' || context === 'butcher_checkout';
-
   const applyPaidSideEffects = useCallback(
     async (result: PaymentSyncResult) => {
       await refetchSubscription();
-      if (result.butcherOrder?.id) {
-        setPaidOrderId(result.butcherOrder.id);
-        if (result.butcherOrder.orderNumber) {
-          setPaidOrderNumber(result.butcherOrder.orderNumber);
-        }
-        if (result.butcherOrder.butcherId) {
-          setPaidButcherId(result.butcherOrder.butcherId);
-        }
-      }
       if (context === 'boost' || context === 'promotion') {
         await refetchData();
         if (result.boost?.expiresAt) {
@@ -267,22 +231,14 @@ export default function PaymentResultScreen() {
           router.replace('/promote' as never);
         }
         break;
-      case 'butcher_order':
-      case 'butcher_checkout':
-        router.replace('/(tabs)' as never);
-        break;
       default:
         router.replace('/(tabs)/profile' as never);
     }
-  }, [context, listingId, paidOrderId, paidOrderNumber, paidButcherId, router, syncState]);
+  }, [context, listingId, router]);
 
   const goSecondary = useCallback(() => {
     if (context === 'subscription') {
       router.replace('/subscription' as never);
-      return;
-    }
-    if (context === 'butcher_order' || context === 'butcher_checkout') {
-      router.replace('/(tabs)' as never);
       return;
     }
     if (context === 'boost' || context === 'promotion') {
@@ -306,11 +262,9 @@ export default function PaymentResultScreen() {
           <ActivityIndicator size="large" color={colors.electricBright} />
           <AppText variant="heading2" align="center">جارٍ التحقق من N-Genius...</AppText>
           <AppText variant="body" color="textSecondary" align="center">
-            {isButcherContext
-              ? 'جارٍ التحقق من حالة العملية في N-Genius'
-              : context === 'subscription'
-                ? 'لا يُفعَّل الاشتراك قبل تأكيد بوابة الدفع'
-                : 'جارٍ التحقق من حالة العملية في N-Genius'}
+            {context === 'subscription'
+              ? 'لا يُفعَّل الاشتراك قبل تأكيد بوابة الدفع'
+              : 'جارٍ التحقق من حالة العملية في N-Genius'}
           </AppText>
         </>
       );

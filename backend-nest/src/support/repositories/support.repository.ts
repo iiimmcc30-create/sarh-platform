@@ -29,41 +29,10 @@ const AUTHOR_SELECT = {
   role: true,
 } as const;
 
-const ORDER_SELECT = {
-  id: true,
-  orderNumber: true,
-  status: true,
-  paymentStatus: true,
-  totalPrice: true,
-  currency: true,
-  createdAt: true,
-  deliveryType: true,
-  deliveryAddress: true,
-  customerId: true,
-  items: {
-    select: {
-      id: true,
-      cutType: true,
-      weightKg: true,
-      linePrice: true,
-      product: {
-        select: {
-          id: true,
-          nameAr: true,
-          nameEn: true,
-          daftraLink: { select: { daftraSaleUnit: true } },
-        },
-      },
-    },
-  },
-  butcher: { select: { id: true, nameAr: true, nameEn: true } },
-} as const;
-
 const TICKET_INCLUDE = {
   reporter: { select: AUTHOR_SELECT },
   assignedTo: { select: AUTHOR_SELECT },
   attachments: true,
-  order: { select: ORDER_SELECT },
   messages: {
     orderBy: { createdAt: 'asc' as const },
     include: {
@@ -114,7 +83,6 @@ export class SupportRepository {
           status: true,
           handlerMode: true,
           subject: true,
-          orderId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -194,14 +162,6 @@ export class SupportRepository {
         include: {
           reporter: { select: AUTHOR_SELECT },
           assignedTo: { select: AUTHOR_SELECT },
-          order: {
-            select: {
-              id: true,
-              orderNumber: true,
-              status: true,
-              paymentStatus: true,
-            },
-          },
         },
       }),
       this.prisma.supportTicket.count({ where }),
@@ -244,38 +204,6 @@ export class SupportRepository {
       include: {
         author: { select: AUTHOR_SELECT },
         attachments: true,
-      },
-    });
-  }
-
-  findOwnedButcherOrder(orderId: string, customerId: string) {
-    return this.prisma.butcherOrder.findFirst({
-      where: { id: orderId, customerId },
-      select: ORDER_SELECT,
-    });
-  }
-
-  findButcherOrderById(orderId: string) {
-    return this.prisma.butcherOrder.findFirst({
-      where: { id: orderId },
-      select: { id: true, customerId: true },
-    });
-  }
-
-  listCustomerHelpOrders(customerId: string) {
-    return this.prisma.butcherOrder.findMany({
-      where: { customerId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      select: {
-        id: true,
-        orderNumber: true,
-        status: true,
-        paymentStatus: true,
-        totalPrice: true,
-        currency: true,
-        createdAt: true,
-        butcher: { select: { nameAr: true } },
       },
     });
   }

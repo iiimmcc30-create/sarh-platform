@@ -9,10 +9,8 @@ export type SupportTicketCategory =
   | 'BUY_SELL'
   | 'PAYMENT'
   | 'VERIFICATION'
-  | 'BUTCHERS'
   | 'TECHNICAL'
   | 'OTHER'
-  | 'ORDER_HELP'
   | 'OTHER_HELP';
 
 export type SupportTicketStatus =
@@ -33,7 +31,6 @@ export type FaqCategory =
   | 'BUY_SELL'
   | 'PAYMENT'
   | 'VERIFICATION'
-  | 'BUTCHERS'
   | 'TECHNICAL'
   | 'GENERAL';
 
@@ -73,27 +70,8 @@ export type SupportTicketDetail = SupportTicketSummary & {
   description: string;
   handlerMode?: 'AI_ACTIVE' | 'HUMAN_ACTIVE';
   metadata?: Record<string, unknown> | null;
-  order?: {
-    id: string;
-    orderNumber: string;
-    status: string;
-    paymentStatus: string;
-    totalPrice: number;
-    currency?: string;
-  } | null;
   attachments?: SupportTicketAttachment[];
   messages?: SupportTicketMessage[];
-};
-
-export type HelpOrderSummary = {
-  id: string;
-  orderNumber: string;
-  status: string;
-  paymentStatus: string;
-  totalPrice: number;
-  currency: string;
-  createdAt: string;
-  butcher?: { nameAr?: string | null } | null;
 };
 
 export type FaqItem = {
@@ -181,19 +159,11 @@ export async function fetchTicket(id: string): Promise<SupportTicketDetail | nul
   return json.success ? json.data.ticket : null;
 }
 
-export async function fetchMyHelpOrders(): Promise<{ orders: HelpOrderSummary[] } | null> {
-  const res = await authFetch(`${API_BASE}/api/support/help-orders`);
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json.success ? json.data : null;
-}
-
 export async function createTicket(payload: {
   category?: SupportTicketCategory;
   subject?: string;
   description: string;
-  helpKind?: 'ORDER_HELP' | 'OTHER_HELP';
-  orderId?: string;
+  helpKind?: 'OTHER_HELP';
   attachments?: { fileUrl: string; fileName?: string; mimeType?: string; fileSizeBytes?: number }[];
 }): Promise<{ ok: boolean; ticket?: { id: string; ticketNumber: string }; error?: string }> {
   const res = await authFetch(`${API_BASE}/api/support/tickets`, {
@@ -306,7 +276,6 @@ export const FAQ_CATEGORY_LABEL_AR: Record<FaqCategory, string> = {
   BUY_SELL: 'البيع والشراء',
   PAYMENT: 'الدفع',
   VERIFICATION: 'التوثيق',
-  BUTCHERS: 'الملاحم',
   TECHNICAL: 'المشاكل التقنية',
   GENERAL: 'عام',
 };
@@ -318,9 +287,7 @@ export const TICKET_CATEGORY_LABEL_AR: Record<SupportTicketCategory, string> = {
   BUY_SELL: 'البيع والشراء',
   PAYMENT: 'الدفع',
   VERIFICATION: 'التوثيق',
-  BUTCHERS: 'الملاحم',
   TECHNICAL: 'المشاكل التقنية',
   OTHER: 'أخرى',
-  ORDER_HELP: 'مشكلة في الطلب',
   OTHER_HELP: 'مساعدة في شيء آخر',
 };

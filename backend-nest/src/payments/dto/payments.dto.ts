@@ -22,10 +22,7 @@ const PAYMENT_TYPES = [
   'subscription',
   'fee',
   'listing_fee',
-  'butcher_order',
-  'butcher_checkout',
   'commission',
-  'order_commission',
 ] as const;
 const BILLING_CYCLES = ['monthly', 'yearly'] as const;
 

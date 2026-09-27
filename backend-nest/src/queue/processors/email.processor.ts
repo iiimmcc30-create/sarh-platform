@@ -10,8 +10,6 @@ import {
   isSafeEmailAddress,
   sanitizeEmailVariable,
   sanitizeHeaderValue,
-  sanitizeHttpUrl,
-  sanitizeMultilineHtml,
 } from './email.sanitize';
 
 const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
@@ -68,10 +66,8 @@ export class EmailProcessor extends WorkerHost implements OnModuleInit {
     const templates: Record<string, string> = {
       welcome: `مرحباً بك في سرح، ${sanitizeEmailVariable(vars.name)}! حسابك جاهز.`,
       fee_reminder: `تذكير: لديك رسوم معلقة ${sanitizeEmailVariable(vars.amount)} ريال مستحقة بتاريخ ${sanitizeEmailVariable(vars.dueDate)}.`,
-      order_update: `تحديث طلبك: ${sanitizeEmailVariable(vars.status)}`,
       subscription_renew: `تجديد اشتراكك: ${sanitizeEmailVariable(vars.plan)} - ${sanitizeEmailVariable(vars.amount)} ريال`,
       email_verification: `رمز التحقق: <strong>${sanitizeEmailVariable(vars.code)}</strong> (صالح 10 دقائق)`,
-      butcher_daftra_ready: `مرحباً، تم تجهيز حساب دفترة الخاص بملحمتك على منصة سرح.<br/><br/>رابط الدخول: <a href="${sanitizeHttpUrl(vars.loginUrl)}">${sanitizeHttpUrl(vars.loginUrl)}</a><br/>البريد: ${sanitizeEmailVariable(vars.loginEmail)}${vars.passwordLine ? `<br/>${sanitizeMultilineHtml(vars.passwordLine)}` : ''}<br/><br/>لا يحتوي هذا البريد على مفاتيح التكامل. أدِر المنتجات والمخزون من دفترة.`,
     };
 
     await transporter.sendMail({

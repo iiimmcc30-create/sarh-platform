@@ -8,11 +8,9 @@ type UploadFolder =
   | 'avatars'
   | 'listings'
   | 'stories'
-  | 'butchers'
   | 'posts'
   | 'temp'
   | 'messages'
-  | 'butcher-applications'
   | 'support';
 
 type S3UploadSlot = {

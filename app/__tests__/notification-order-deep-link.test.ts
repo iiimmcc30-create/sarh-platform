@@ -19,7 +19,7 @@ function lastPush(r: { push: jest.Mock }) {
   return r.push.mock.calls[r.push.mock.calls.length - 1]?.[0];
 }
 
-describe('order and support notification deep links', () => {
+describe('support and message notification deep links', () => {
   beforeEach(() => {
     setCurrentPathname('/notifications');
     resetNavigationLockForTests();
@@ -27,24 +27,6 @@ describe('order and support notification deep links', () => {
 
   afterEach(() => {
     resetNavigationLockForTests();
-  });
-
-  it('does not open removed butcher order screens', () => {
-    const r = router();
-    const ok = handleNotificationNavigation(
-      {
-        type: 'order_update',
-        data: {
-          orderId: 'ord-prep',
-          butcherId: 'b1',
-          status: 'pending',
-          paymentStatus: 'unpaid',
-        },
-      },
-      { router: r as never, isAdmin: false },
-    );
-    expect(ok).toBe(false);
-    expect(r.push).not.toHaveBeenCalled();
   });
 
   it('opens the support ticket by id and ignores payload snapshot fields', () => {

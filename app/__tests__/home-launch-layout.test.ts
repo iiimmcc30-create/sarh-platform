@@ -48,14 +48,12 @@ describe('home launch layout', () => {
     expect(src('app/settings/index.tsx')).toContain('export default function SettingsScreen');
   });
 
-  it('does not show the Malahem banner on Home', () => {
+  it('does not show the explore banner on Home', () => {
     const home = src('app/(tabs)/index.tsx');
     const banner = src('components/feature/ExploreSarhSection.tsx');
     expect(home).not.toContain('ExploreSarhSection');
     expect(home).not.toContain('HOME_BANNER_CTA_LABEL');
-    expect(home).not.toContain("safePush('/butchers'");
     expect(banner).toContain('fetchExploreSarhBanners');
-    expect(banner).not.toContain('/butchers');
   });
 
   it('reuses the market ListingCard feed on Home without a latest-listings title', () => {

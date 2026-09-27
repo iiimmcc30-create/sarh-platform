@@ -50,10 +50,6 @@ export class CreateSupportTicketDto {
   @MaxLength(200)
   subject?: string;
 
-  @ValidateIf((o: CreateSupportTicketDto) => o.helpKind === 'ORDER_HELP')
-  @IsUUID()
-  orderId?: string;
-
   @IsString()
   @MinLength(3)
   @MaxLength(5000)

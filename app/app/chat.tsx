@@ -76,14 +76,6 @@ function mapApiMessage(m: {
   };
 }
 
-const QUICK_REPLIES_BUTCHER = [
-  'هل متوفر الخروف الكامل؟',
-  'ما هو السعر لكيلو الضأن؟',
-  'متى تفتحون غداً؟',
-  'هل تتوفر لحوم طازجة اليوم؟',
-  'أريد طلب ذبيحة كاملة',
-];
-
 const QUICK_REPLIES_LIVESTOCK = [
   'هل الحيوان ما زال متاحاً؟',
   'ما هو السعر النهائي؟',
@@ -92,21 +84,10 @@ const QUICK_REPLIES_LIVESTOCK = [
   'هل تقبل التفاوض على السعر؟',
 ];
 
-type PeerAccountType = 'USER' | 'BUTCHER' | 'LIVESTOCK_TRADER';
-type ChatUiKind = 'direct' | 'butcher' | 'livestock';
+type PeerAccountType = 'USER' | 'LIVESTOCK_TRADER';
+type ChatUiKind = 'direct' | 'livestock';
 
-function resolveChatUiKind(params: {
-  threadType?: string;
-  butcherId?: string | null;
-  accountType?: string;
-}): ChatUiKind {
-  if (
-    params.threadType === 'BUTCHER' ||
-    params.butcherId ||
-    params.accountType === 'BUTCHER'
-  ) {
-    return 'butcher';
-  }
+function resolveChatUiKind(params: { accountType?: string }): ChatUiKind {
   if (params.accountType === 'LIVESTOCK_TRADER') {
     return 'livestock';
   }
@@ -350,27 +331,14 @@ function ChatComposer({
   );
 }
 
-type ShopPeer = {
-  id: string;
-  nameAr: string;
-  name?: string;
-  logo?: string;
-  user?: { id: string };
-  subscriptionActive?: boolean;
-  workingHours?: { isOpen?: boolean };
-};
-
 export default function ChatScreen() {
   const {
-    butcherId,
     threadId: threadIdParam,
     receiverId,
     receiverName,
     receiverAvatar,
-    threadType: threadTypeParam,
     accountType: accountTypeParam,
     draftMessage: draftMessageParam,
-    orderId: orderIdParam,
     listingId: listingIdParam,
     listingTitle: listingTitleParam,
     listingPrice: listingPriceParam,
@@ -378,7 +346,6 @@ export default function ChatScreen() {
     listingImage: listingImageParam,
     listingLocation: listingLocationParam,
   } = useLocalSearchParams<{
-    butcherId?: string;
     threadId?: string;
     receiverId?: string;
     receiverName?: string;
@@ -386,7 +353,6 @@ export default function ChatScreen() {
     threadType?: string;
     accountType?: string;
     draftMessage?: string;
-    orderId?: string;
     listingId?: string;
     listingTitle?: string;
     listingPrice?: string;
@@ -406,36 +372,22 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
 
   const isThreadMode = Boolean(threadIdParam && receiverId);
-  /** User↔user DM (no shop context). */
-  const isDirectMode = Boolean(
-    receiverId && !butcherId && !threadIdParam && threadTypeParam !== 'BUTCHER',
-  );
-  /** Shop chat starting with known counterparty (customer or owner). */
-  const isButcherPeerMode = Boolean(receiverId && (butcherId || threadTypeParam === 'BUTCHER') && !threadIdParam);
+  /** User↔user DM. */
+  const isDirectMode = Boolean(receiverId && !threadIdParam);
 
-  const [butcher] = useState<ShopPeer | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [threadId, setThreadId] = useState<string | null>(threadIdParam ?? null);
 
   useEffect(() => {
     if (threadId) markInboxThreadRead(threadId);
   }, [threadId]);
-  const [resolvedButcherId, setResolvedButcherId] = useState<string | null>(
-    butcherId ?? null,
-  );
   const [peerAccountType, setPeerAccountType] = useState<PeerAccountType | null>(
-    accountTypeParam === 'BUTCHER' ||
-      accountTypeParam === 'LIVESTOCK_TRADER' ||
-      accountTypeParam === 'USER'
+    accountTypeParam === 'LIVESTOCK_TRADER' || accountTypeParam === 'USER'
       ? accountTypeParam
       : null,
   );
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [chatAccessChecked, setChatAccessChecked] = useState(false);
-  const [resolvedOrderId, setResolvedOrderId] = useState<string | null>(
-    orderIdParam ?? null,
-  );
   const [attachOpen, setAttachOpen] = useState(false);
   const [listingContext, setListingContext] = useState<{
     listingId: string;
@@ -480,79 +432,45 @@ export default function ChatScreen() {
     });
   }, [listingContext, receiverId]);
 
-  const receiverUserId = receiverId || butcher?.user?.id;
-  const effectiveButcherId = butcherId || resolvedButcherId;
-  const activeChatType: 'DIRECT' | 'BUTCHER' =
-    threadTypeParam === 'BUTCHER' || Boolean(effectiveButcherId) ? 'BUTCHER' : 'DIRECT';
+  const receiverUserId = receiverId;
+  const activeChatType = 'DIRECT' as const;
   const chatUiKind = resolveChatUiKind({
-    threadType: threadTypeParam,
-    butcherId: effectiveButcherId,
     accountType: peerAccountType ?? accountTypeParam,
   });
-  const quickReplies =
-    chatUiKind === 'butcher'
-      ? QUICK_REPLIES_BUTCHER
-      : chatUiKind === 'livestock'
-        ? QUICK_REPLIES_LIVESTOCK
-        : [];
-  const headerName =
-    isThreadMode || isDirectMode || isButcherPeerMode
-      ? (receiverName || 'محادثة')
-      : (butcher?.nameAr ?? 'الملحمة');
-  const headerAvatar =
-    isThreadMode || isDirectMode || isButcherPeerMode
-      ? (receiverAvatar || undefined)
-      : (butcher?.logo ?? undefined);
+  const quickReplies = chatUiKind === 'livestock' ? QUICK_REPLIES_LIVESTOCK : [];
+  const headerName = receiverName || 'محادثة';
+  const headerAvatar = receiverAvatar || undefined;
 
   useEffect(() => {
-    if (!isThreadMode && !butcherId && !isDirectMode && !isButcherPeerMode) {
+    if (!isThreadMode && !isDirectMode) {
       Alert.alert('خطأ', 'لم يتم تحديد المحادثة المطلوبة.');
       router.back();
     }
-  }, [isThreadMode, butcherId, isDirectMode, isButcherPeerMode, router]);
+  }, [isThreadMode, isDirectMode, router]);
 
-  // Resolve peer account type for role-based chat UI (user / butcher / livestock trader)
+  // Resolve peer account type for role-based chat UI (user / livestock trader)
   useEffect(() => {
-    if (threadTypeParam === 'BUTCHER' || butcherId) {
-      setPeerAccountType('BUTCHER');
-      return;
-    }
-    if (
-      accountTypeParam === 'BUTCHER' ||
-      accountTypeParam === 'LIVESTOCK_TRADER' ||
-      accountTypeParam === 'USER'
-    ) {
+    if (accountTypeParam === 'LIVESTOCK_TRADER' || accountTypeParam === 'USER') {
       setPeerAccountType(accountTypeParam);
       if (accountTypeParam !== 'USER') return;
     }
-    if (!receiverId || activeChatType === 'BUTCHER') return;
+    if (!receiverId) return;
 
     let cancelled = false;
     fetchUserProfile(receiverId).then((profile) => {
       if (cancelled || !profile) return;
       const next =
         profile.accountType ??
-        (profile.role === 'BUTCHER'
-          ? 'BUTCHER'
-          : profile.listingsCount > 0
-            ? 'LIVESTOCK_TRADER'
-            : 'USER');
+        (profile.listingsCount > 0 ? 'LIVESTOCK_TRADER' : 'USER');
       setPeerAccountType(next);
     });
     return () => {
       cancelled = true;
     };
-  }, [receiverId, threadTypeParam, butcherId, accountTypeParam, activeChatType]);
-
-  useEffect(() => {
-    setChatAccessChecked(true);
-  }, []);
+  }, [receiverId, accountTypeParam]);
 
   useEffect(() => {
     if (!accessToken) return;
-    if (!chatAccessChecked && !isThreadMode && !isDirectMode && !isButcherPeerMode && butcherId) {
-      return;
-    }
     if (isThreadMode && threadIdParam) {
       const loadThreadMessages = async () => {
         setLoadingMessages(true);
@@ -566,12 +484,9 @@ export default function ChatScreen() {
             if (msgJson.success && msgJson.data?.messages) {
               setMessages(msgJson.data.messages.map(mapApiMessage));
             }
-            if (msgJson.data?.butcherId) {
-              setResolvedButcherId(msgJson.data.butcherId);
-            }
           }
         } catch (err) {
-          console.warn('[ButcherChatScreen] Failed to load thread messages:', err);
+          console.warn('[ChatScreen] Failed to load thread messages:', err);
         } finally {
           setLoadingMessages(false);
         }
@@ -608,29 +523,14 @@ export default function ChatScreen() {
             }
           }
         } catch (err) {
-          console.warn('[ButcherChatScreen] Failed to load direct messages:', err);
+          console.warn('[ChatScreen] Failed to load direct messages:', err);
         } finally {
           setLoadingMessages(false);
         }
       };
       loadDirectMessages();
-      return;
     }
-
-    if (isButcherPeerMode || butcherId) {
-      return;
-    }
-  }, [
-    butcherId,
-    butcher?.user?.id,
-    accessToken,
-    isThreadMode,
-    isDirectMode,
-    isButcherPeerMode,
-    receiverId,
-    threadIdParam,
-    chatAccessChecked,
-  ]);
+  }, [accessToken, isThreadMode, isDirectMode, receiverId, threadIdParam]);
 
   useChatThreadSocket(accessToken, threadId, (payload) => {
     if (!threadId) return;
@@ -655,15 +555,6 @@ export default function ChatScreen() {
             arabicName: receiverName || '',
             avatar: receiverAvatar || undefined,
             verified: false,
-          }
-        : null,
-      butcherId: effectiveButcherId ?? null,
-      butcher: butcher
-        ? {
-            id: butcher.id,
-            nameAr: butcher.nameAr,
-            nameEn: butcher.name,
-            logo: butcher.logo,
           }
         : null,
     });
@@ -701,10 +592,6 @@ export default function ChatScreen() {
         body: JSON.stringify({
           receiverId: receiverUserId,
           type: activeChatType,
-          ...(activeChatType === 'BUTCHER' && effectiveButcherId
-            ? { butcherId: effectiveButcherId }
-            : {}),
-          ...(resolvedOrderId ? { orderId: resolvedOrderId } : {}),
           ...(bodyText ? { text: bodyText } : {}),
           ...(media?.imageUrl ? { imageUrl: media.imageUrl } : {}),
           ...(media?.videoUrl ? { videoUrl: media.videoUrl } : {}),
@@ -743,15 +630,6 @@ export default function ChatScreen() {
                     verified: false,
                   }
                 : null,
-              butcherId: effectiveButcherId ?? null,
-              butcher: butcher
-                ? {
-                    id: butcher.id,
-                    nameAr: butcher.nameAr,
-                    nameEn: butcher.name,
-                    logo: butcher.logo,
-                  }
-                : null,
             });
           }
         }
@@ -760,7 +638,7 @@ export default function ChatScreen() {
         throw new Error(json.messageAr || 'فشل إرسال الرسالة');
       }
     } catch (err) {
-      console.warn('[ButcherChatScreen] Failed to send message:', err);
+      console.warn('[ChatScreen] Failed to send message:', err);
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       Alert.alert(
         'خطأ',
@@ -773,10 +651,6 @@ export default function ChatScreen() {
     text: string,
     media?: { imageUrl?: string; videoUrl?: string },
   ) => {
-    if (chatUiKind === 'butcher') {
-      Alert.alert('المحادثة', 'التواصل المباشر مع الملحمة غير متاح');
-      return;
-    }
     if (sending) return;
     setSending(true);
     try {
@@ -833,7 +707,7 @@ export default function ChatScreen() {
       );
       await deliverMessage('', isVideo ? { videoUrl: url } : { imageUrl: url });
     } catch (err) {
-      console.warn('[ButcherChatScreen] Failed to upload media:', err);
+      console.warn('[ChatScreen] Failed to upload media:', err);
       Alert.alert(
         'خطأ',
         err instanceof Error ? err.message : 'فشل رفع الملف، يرجى المحاولة مجدداً.',
@@ -944,30 +818,18 @@ export default function ChatScreen() {
             <View style={{ flex: 1 }}>
               <View style={styles.headerNameRow}>
                 <AppText variant="label" style={styles.headerName} numberOfLines={1}>{headerName}</AppText>
-                {butcher?.subscriptionActive && (
-                  <AppIcon name="shield-checkmark" size={14} color={colors.gold} />
-                )}
               </View>
               <View style={styles.onlineRow}>
                 <View
                   style={[
                     styles.onlineDot,
                     {
-                      backgroundColor:
-                        chatUiKind === 'butcher'
-                          ? butcher?.workingHours?.isOpen
-                            ? colors.success
-                            : colors.textSubtle
-                          : colors.success,
+                      backgroundColor: colors.success,
                     },
                   ]}
                 />
                 <AppText variant="caption" color="textMuted">
-                  {chatUiKind === 'butcher'
-                    ? butcher?.workingHours?.isOpen
-                      ? 'متصل الآن'
-                      : 'غير متاح'
-                    : 'متصل الآن'}
+                  متصل الآن
                 </AppText>
               </View>
             </View>
@@ -1015,13 +877,6 @@ export default function ChatScreen() {
               <AppIcon name={rtlForwardIcon()} size={16} color={colors.electricBright} />
             </Pressable>
           </View>
-        ) : chatUiKind === 'butcher' ? (
-          <Row style={styles.orderStrip} gap="sm">
-            <AppIcon name="clipboard-list-outline" size={16} color={colors.glow} />
-            <AppText variant="caption" color="textMuted" style={styles.orderStripText}>
-              التواصل المباشر مع الملحمة غير متاح
-            </AppText>
-          </Row>
         ) : null}
 
         <View style={styles.threadPane}>
@@ -1045,7 +900,7 @@ export default function ChatScreen() {
           />
         </View>
 
-        {chatUiKind !== 'butcher' && quickReplies.length > 0 && !attachOpen ? (
+        {quickReplies.length > 0 && !attachOpen ? (
           <View style={styles.quickRepliesWrap}>
             <FlatList
               horizontal
@@ -1065,7 +920,7 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
-        {chatUiKind !== 'butcher' && attachOpen ? (
+        {attachOpen ? (
           <View style={styles.attachSheet}>
             {(
               [
@@ -1086,24 +941,6 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
-        {chatUiKind === 'butcher' ? (
-          <Row
-            align="end"
-            gap="sm"
-            style={[
-              styles.inputBar,
-              {
-                paddingBottom: keyboardVisible
-                  ? spacing.sm
-                  : Math.max(restingBottom, spacing.sm) + spacing.sm,
-              },
-            ]}
-          >
-            <AppText variant="caption" color="textMuted" style={{ flex: 1 }}>
-              التواصل المباشر مع الملحمة غير متاح
-            </AppText>
-          </Row>
-        ) : (
         <ChatComposer
           initialDraft={
             typeof draftMessageParam === 'string' ? draftMessageParam : undefined
@@ -1124,7 +961,6 @@ export default function ChatScreen() {
               : Math.max(restingBottom, spacing.sm) + spacing.sm
           }
         />
-        )}
       </ComposerKeyboardView>
     </Screen>
   );
@@ -1218,18 +1054,6 @@ function createStyles(colors: ThemeColors) {
   listingCardBtnText: {
     color: colors.electricBright,
   },
-
-  orderStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.bgElevated,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 8,
-  },
-  orderStripText: { flex: 1 },
 
   threadPane: {
     flex: 1,

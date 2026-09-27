@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { formatCoords, hasValidCoords } from '@/lib/butcherLocation';
+import { formatCoords, hasValidCoords } from '@/lib/mapLocation';
 
 export type ResolvedAddress = {
   cityAr: string;

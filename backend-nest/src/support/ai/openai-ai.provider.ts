@@ -48,17 +48,6 @@ export class OpenAiAiProvider implements AiProvider {
               customerDescription: context.customerDescription,
               issueType: context.issueType,
               missingInformation: context.missingInformation,
-              order: context.order
-                ? {
-                    orderId: context.order.orderId,
-                    status: context.order.status,
-                    paymentStatus: context.order.paymentStatus,
-                    totalPrice: context.order.totalPrice,
-                    items: context.order.items,
-                    createdAt: context.order.createdAt,
-                    deliveryType: context.order.deliveryType,
-                  }
-                : null,
               recent: context.recentMessages.slice(-8).map((m) => ({
                 role: m.authorKind,
                 text: m.body.slice(0, 500),

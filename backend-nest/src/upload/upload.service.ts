@@ -7,20 +7,9 @@ import { Request, Response } from 'express';
 import {
   getPresignedUploadUrl,
   getStorageProvider,
-  type CloudinaryUploadSlot,
-  type S3UploadSlot,
   type UploadFolder,
   type UploadSlot,
 } from '@/lib/storage';
-import { APPLICATION_STORAGE_FOLDER } from '@/butcher-applications/constants';
-import {
-  assertJoinFileAcceptable,
-  type JoinFilePart,
-} from '@/butcher-applications/helpers/joinFiles';
-import {
-  ALLOWED_DOCUMENT_MIME_TYPES,
-  MAX_SHOP_PHOTO_FILE_BYTES,
-} from '@/butcher-applications/constants';
 import { STORY_VIDEO_MIME_TYPES } from '@/lib/stories';
 import { ApiException, throwApi } from '../common/exceptions/api.exception';
 import { LoggerService } from '../common/services/logger.service';
@@ -37,11 +26,18 @@ const IMAGE_MIME_TYPES = [
 ] as const;
 const MAX_UPLOADS_PER_HOUR = 30;
 
+/** Documents accepted for support attachments. */
+const ALLOWED_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+
 const ALLOWED_DIRECT_FOLDERS: UploadFolder[] = [
   'avatars',
   'listings',
   'stories',
-  'butchers',
   'posts',
   'temp',
   'messages',
@@ -56,17 +52,6 @@ const MEDIA_FOLDERS = new Set<UploadFolder>([
 
 const IMAGE_MIMES = new Set(IMAGE_MIME_TYPES);
 const STORY_VIDEO_MIMES = new Set(STORY_VIDEO_MIME_TYPES);
-
-function butcherApplicationFileKey(
-  userId: string,
-  slot: UploadSlot,
-): string | undefined {
-  if (slot.provider === 's3') return slot.key;
-  if (slot.provider === 'cloudinary') {
-    return `butcher-applications/${userId}/${slot.publicId}`;
-  }
-  return undefined;
-}
 
 const SUPPORT_MIME_TYPES = [
   ...IMAGE_MIME_TYPES,
@@ -87,13 +72,11 @@ function validateMimetype(
   mimetype: string,
 ): void {
   const allowed: readonly string[] =
-    folder === 'butcher-applications'
-      ? ALLOWED_DOCUMENT_MIME_TYPES
-      : folder === 'support'
-        ? SUPPORT_MIME_TYPES
-        : MEDIA_FOLDERS.has(folder as UploadFolder)
-          ? [...IMAGE_MIME_TYPES, ...STORY_VIDEO_MIME_TYPES]
-          : IMAGE_MIME_TYPES;
+    folder === 'support'
+      ? SUPPORT_MIME_TYPES
+      : MEDIA_FOLDERS.has(folder as UploadFolder)
+        ? [...IMAGE_MIME_TYPES, ...STORY_VIDEO_MIME_TYPES]
+        : IMAGE_MIME_TYPES;
 
   if (!allowed.includes(mimetype)) {
     throwApi(
@@ -150,9 +133,7 @@ export class UploadService {
 
     const count = dto.count ?? 1;
     const presignOptions =
-      dto.folder === 'butcher-applications' || dto.folder === 'support'
-        ? { userId: user.userId }
-        : undefined;
+      dto.folder === 'support' ? { userId: user.userId } : undefined;
 
     await this.enforceUploadRateLimit(user.userId, count);
 
@@ -169,26 +150,19 @@ export class UploadService {
       );
 
       const maxSizeMb =
-        dto.folder === 'butcher-applications'
-          ? Math.ceil(MAX_SHOP_PHOTO_FILE_BYTES / (1024 * 1024))
-          : dto.folder === 'support'
-            ? 25
-            : dto.mimetype.startsWith('video/')
-              ? 50
-              : 20;
+        dto.folder === 'support'
+          ? 25
+          : dto.mimetype.startsWith('video/')
+            ? 50
+            : 20;
 
       const normalizedUrls =
-        dto.folder === 'butcher-applications'
+        dto.folder === 'support'
           ? urls.map((slot) => {
-              const fileKey = butcherApplicationFileKey(user.userId, slot);
+              const fileKey = supportFileKey(user.userId, slot);
               return fileKey ? { ...slot, fileKey } : slot;
             })
-          : dto.folder === 'support'
-            ? urls.map((slot) => {
-                const fileKey = supportFileKey(user.userId, slot);
-                return fileKey ? { ...slot, fileKey } : slot;
-              })
-            : urls;
+          : urls;
 
       return {
         provider: getStorageProvider(),
@@ -202,108 +176,6 @@ export class UploadService {
           : 'خطأ في خدمة التخزين';
       throwApi(503, 'storage_error', message);
     }
-  }
-
-  /**
-   * Server-side butcher-application upload used by public /join.
-   * Reuses the same folder + owned fileKey rules as authenticated presign.
-   */
-  async uploadOwnedButcherApplicationFile(
-    userId: string,
-    part: JoinFilePart,
-  ): Promise<{
-    fileKey: string;
-    mimeType: string;
-    fileSizeBytes: number;
-    originalFileName?: string;
-  }> {
-    assertJoinFileAcceptable(part);
-    const { file } = part;
-    const mimeType = file.mimetype;
-    const fileSizeBytes = file.size ?? file.buffer?.length ?? 0;
-    const originalFileName = file.originalname?.slice(0, 255) || undefined;
-    const buffer = await this.readJoinFileBuffer(file);
-
-    await this.enforceUploadRateLimit(userId, 1);
-
-    try {
-      const slot = await getPresignedUploadUrl(
-        APPLICATION_STORAGE_FOLDER,
-        mimeType,
-        300,
-        { userId },
-      );
-      const fileKey = await this.putOwnedButcherApplicationBuffer(
-        userId,
-        buffer,
-        mimeType,
-        originalFileName,
-        slot,
-      );
-      return { fileKey, mimeType, fileSizeBytes, originalFileName };
-    } catch (err) {
-      if (err instanceof ApiException) throw err;
-      this.logger.error({ userId }, 'Join butcher-application upload failed');
-      throwApi(503, 'storage_error', 'فشل رفع المستند');
-    }
-  }
-
-  private async readJoinFileBuffer(file: Express.Multer.File): Promise<Buffer> {
-    if (file.buffer?.length) return file.buffer;
-    if (file.path) return fs.promises.readFile(file.path);
-    throwApi(400, 'validation_error', 'تعذر قراءة الملف المرفوع');
-  }
-
-  private async putOwnedButcherApplicationBuffer(
-    userId: string,
-    buffer: Buffer,
-    mimeType: string,
-    originalFileName: string | undefined,
-    slot: UploadSlot,
-  ): Promise<string> {
-    if (slot.provider === 's3') {
-      const s3Slot = slot as S3UploadSlot;
-      const res = await fetch(s3Slot.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': mimeType },
-        body: new Uint8Array(buffer),
-      });
-      if (!res.ok) throw new Error('s3_put_failed');
-      return s3Slot.key;
-    }
-
-    if (slot.provider === 'cloudinary') {
-      const cloud = slot as CloudinaryUploadSlot;
-      const form = new FormData();
-      form.append(
-        'file',
-        new Blob([new Uint8Array(buffer)], { type: mimeType }),
-        originalFileName || 'document',
-      );
-      form.append('api_key', cloud.apiKey);
-      form.append('timestamp', String(cloud.timestamp));
-      form.append('signature', cloud.signature);
-      form.append('folder', cloud.folder);
-      form.append('public_id', cloud.publicId);
-      const res = await fetch(cloud.uploadUrl, { method: 'POST', body: form });
-      if (!res.ok) throw new Error('cloudinary_put_failed');
-      const fileKey = butcherApplicationFileKey(userId, cloud);
-      if (!fileKey) throw new Error('cloudinary_key_missing');
-      return fileKey;
-    }
-
-    const ext = mimeType.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'bin';
-    const filename = `${uuidv4()}.${ext}`;
-    const destDir = path.join(
-      process.cwd(),
-      'public',
-      'uploads',
-      APPLICATION_STORAGE_FOLDER,
-      userId,
-    );
-    fs.mkdirSync(destDir, { recursive: true });
-    fs.writeFileSync(path.join(destDir, filename), buffer);
-    return `${APPLICATION_STORAGE_FOLDER}/${userId}/${filename}`;
   }
 
   assertDirectUploadAvailable(): void {

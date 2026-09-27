@@ -30,12 +30,7 @@ export class SubscriptionsRepository {
   }
 
   async upsertFree(userId: string) {
-    const role = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true, butcherProfile: { select: { id: true } } },
-    });
-    const audience =
-      role?.role === 'BUTCHER' || role?.butcherProfile ? 'BUTCHER' : 'USER';
+    const audience = 'USER' as const;
     const freePlan = await this.prisma.plan.findUnique({
       where: { slug_audience: { slug: 'free', audience } },
     });
@@ -52,58 +47,5 @@ export class SubscriptionsRepository {
       },
       select: SUBSCRIPTION_SELECT,
     });
-  }
-
-  /**
-   * Butcher accounts approved after signup may still have USER planAudience.
-   * Align subscription row with butcher catalog so UI and payments use BUTCHER plans.
-   */
-  async syncPlanAudienceForButcherAccount(userId: string): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        role: true,
-        butcherProfile: { select: { id: true } },
-      },
-    });
-    const isButcher = user?.role === 'BUTCHER' || user?.butcherProfile != null;
-    if (!isButcher) return false;
-
-    const sub = await this.prisma.subscription.findUnique({
-      where: { userId },
-    });
-    if (!sub || sub.planAudience === 'BUTCHER') return false;
-
-    const mapPlanSlug = async (slug: string): Promise<string> => {
-      if (slug === 'free') return 'free';
-
-      const existingButcher = await this.prisma.plan.findUnique({
-        where: { slug_audience: { slug, audience: 'BUTCHER' } },
-        select: { slug: true },
-      });
-      if (existingButcher) return existingButcher.slug;
-
-      const paidButcher = await this.prisma.plan.findFirst({
-        where: { audience: 'BUTCHER', isActive: true, monthlyPrice: { gt: 0 } },
-        orderBy: { sortOrder: 'asc' },
-        select: { slug: true },
-      });
-      return paidButcher?.slug ?? 'free';
-    };
-
-    const newSlug = await mapPlanSlug(sub.planId);
-    const butcherPlan = await this.prisma.plan.findUnique({
-      where: { slug_audience: { slug: newSlug, audience: 'BUTCHER' } },
-    });
-
-    await this.prisma.subscription.update({
-      where: { userId },
-      data: {
-        planAudience: 'BUTCHER',
-        planId: newSlug,
-        planDbId: butcherPlan?.id ?? sub.planDbId,
-      },
-    });
-    return true;
   }
 }

@@ -72,7 +72,6 @@ echo "Post-import sample counts..."
 "${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 <<'SQL'
 SELECT 'users' AS t, COUNT(*)::bigint AS c FROM "User"
 UNION ALL SELECT 'Listing', COUNT(*)::bigint FROM "Listing"
-UNION ALL SELECT 'ButcherOrder', COUNT(*)::bigint FROM "ButcherOrder"
 UNION ALL SELECT '_prisma_migrations', COUNT(*)::bigint FROM "_prisma_migrations";
 SQL
 

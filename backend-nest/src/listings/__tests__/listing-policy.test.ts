@@ -16,15 +16,7 @@ describe('listing publish policy', () => {
     });
   });
 
-  it('keeps butcher plan limits and admin unlimited', () => {
-    expect(resolveListingCreateDailyLimit('BUTCHER', -1)).toEqual({
-      unlimited: true,
-      limit: -1,
-    });
-    expect(resolveListingCreateDailyLimit('BUTCHER', 5)).toEqual({
-      unlimited: false,
-      limit: 5,
-    });
+  it('keeps admin unlimited', () => {
     expect(resolveListingCreateDailyLimit('ADMIN', 1).unlimited).toBe(true);
   });
 

@@ -52,7 +52,7 @@ export default function PlanEditPage() {
     slug: '',
     name: '',
     description: '',
-    audience: 'USER' as 'USER' | 'BUTCHER',
+    audience: 'USER' as const,
     monthlyPrice: 0,
     yearlyPrice: 0,
     currency: 'SAR',
@@ -220,12 +220,11 @@ export default function PlanEditPage() {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  audience: e.target.value as 'USER' | 'BUTCHER',
+                  audience: e.target.value as 'USER',
                 })
               }
             >
               <option value="USER">المستخدمون</option>
-              <option value="BUTCHER">الملاحم</option>
             </select>
           </label>
           <label className="block text-sm text-slate-400">

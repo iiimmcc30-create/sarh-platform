@@ -36,7 +36,6 @@ export class SocketRepository {
         participant1: true,
         participant2: true,
         type: true,
-        butcherId: true,
       },
     });
   }
@@ -48,7 +47,6 @@ export class SocketRepository {
     text?: string;
     imageUrl?: string;
     videoUrl?: string;
-    orderId?: string;
   }) {
     return this.prisma.$transaction([
       this.prisma.message.create({
@@ -59,7 +57,6 @@ export class SocketRepository {
           text: data.text,
           imageUrl: data.imageUrl,
           videoUrl: data.videoUrl,
-          orderId: data.orderId,
         },
         include: {
           sender: {
@@ -165,17 +162,6 @@ export class SocketRepository {
       where: { id: streamId },
       data: { likes: { increment: 1 } },
       select: { likes: true },
-    });
-  }
-
-  findButcherOrder(orderId: string) {
-    return this.prisma.butcherOrder.findUnique({
-      where: { id: orderId },
-      select: {
-        customerId: true,
-        status: true,
-        butcher: { select: { userId: true, id: true } },
-      },
     });
   }
 

@@ -4,7 +4,6 @@ import { UnifiedSearchRepository } from './repositories/unified-search.repositor
 describe('UnifiedSearchService', () => {
   const searchListings = jest.fn();
   const searchPosts = jest.fn();
-  const searchButchers = jest.fn();
   const searchNews = jest.fn();
   const searchServices = jest.fn();
   const searchUsers = jest.fn();
@@ -13,7 +12,6 @@ describe('UnifiedSearchService', () => {
   const repo = {
     searchListings,
     searchPosts,
-    searchButchers,
     searchNews,
     searchServices,
     searchUsers,
@@ -73,7 +71,6 @@ describe('UnifiedSearchService', () => {
       },
     ]);
     searchPosts.mockResolvedValue([]);
-    searchButchers.mockResolvedValue([]);
     searchNews.mockResolvedValue([]);
     searchServices.mockResolvedValue([]);
     searchUsers.mockResolvedValue([]);
@@ -132,7 +129,6 @@ describe('UnifiedSearchService', () => {
       },
     ]);
     searchPosts.mockResolvedValue([]);
-    searchButchers.mockResolvedValue([]);
     searchNews.mockResolvedValue([]);
     searchServices.mockResolvedValue([]);
 
@@ -154,10 +150,10 @@ describe('UnifiedSearchService', () => {
 
   it('uses redis cache for suggestions when enabled', async () => {
     cache.isEnabled.mockReturnValue(true);
-    cache.get.mockResolvedValue([{ text: 'ملاحم', kind: 'listing' }]);
+    cache.get.mockResolvedValue([{ text: 'مواشي', kind: 'listing' }]);
 
     const result = await service.suggest('مل', 5);
-    expect(result.suggestions).toEqual([{ text: 'ملاحم', kind: 'listing' }]);
+    expect(result.suggestions).toEqual([{ text: 'مواشي', kind: 'listing' }]);
     expect(suggestPrefixes).not.toHaveBeenCalled();
   });
 });

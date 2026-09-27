@@ -808,7 +808,6 @@ describe('Architecture V2 — Wave 4A community and messages inbox', () => {
   it('keeps inbox navigation on the shared chat route', () => {
     const panel = src(WAVE_4A_PANEL);
     expect(panel).toContain("pathname: '/chat'");
-    expect(panel).not.toContain("pathname: '/butchers/chat'");
     expect(panel).toContain('useMessageThreads');
     expect(panel).toContain('filterMessageThreads');
     expect(panel).toContain('SarhInput');
@@ -821,19 +820,7 @@ describe('Architecture V2 — Wave 4A community and messages inbox', () => {
 
 const WAVE_4B_CHAT = 'app/chat.tsx';
 
-describe('Architecture V2 — Wave 4B chat after malahem removal', () => {
-  it('removes butcher marketplace screens from the Sarh app', () => {
-    for (const file of [
-      'app/butchers/index.tsx',
-      'app/butchers/[id].tsx',
-      'app/butchers/cart.tsx',
-      'app/butchers/order.tsx',
-      'app/join/index.tsx',
-    ]) {
-      expect(() => src(file)).toThrow();
-    }
-  });
-
+describe('Architecture V2 — Wave 4B chat', () => {
   it('migrates the chat thread shell without taking Socket ownership', () => {
     const text = src(WAVE_4B_CHAT);
     expect(text).toContain("from '@/design-system/layout'");

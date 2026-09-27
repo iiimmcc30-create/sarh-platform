@@ -30,7 +30,7 @@ export default function SupportHubPage() {
     <div>
       <PageHeader
         title="خدمة العملاء"
-        description="البلاغات والتوثيق والأسئلة الشائعة — بدون تواصل مباشر مع الملحمة"
+        description="البلاغات والتوثيق والأسئلة الشائعة"
       />
       <div className="grid gap-4 md:grid-cols-3">
         {sections.map((section) => (

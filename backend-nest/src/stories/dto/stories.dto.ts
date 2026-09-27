@@ -106,40 +106,4 @@ export class StoryReplyDto {
   text!: string;
 }
 
-const BUTCHER_STORY_TYPES = [
-  'daily_slaughter',
-  'offer',
-  'new_stock',
-  'update',
-] as const;
-
-export class CreateButcherStoryDto {
-  @IsUrl(MEDIA_URL_OPTS)
-  thumbnail!: string;
-
-  @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
-  mediaUrl?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  caption?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  captionAr?: string | null;
-
-  @IsEnum(BUTCHER_STORY_TYPES)
-  type!: (typeof BUTCHER_STORY_TYPES)[number];
-
-  @IsOptional()
-  @IsInt()
-  @Min(STORY_MIN_DURATION_SEC)
-  @Max(STORY_MAX_DURATION_SEC)
-  @Type(() => Number)
-  duration?: number;
-}
-
 export { STORY_IMAGE_DURATION_SEC };

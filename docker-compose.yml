@@ -52,7 +52,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_ENABLED: "true"
-      BUTCHER_ORDER_UNPAID_EXPIRES_MINUTES: "30"
       NODE_ENV: development
     depends_on:
       postgres:

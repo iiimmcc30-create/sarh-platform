@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { firstNameFromUser } from '../constants/support.constants';
-import type { SupportAiContext, SupportAiOrderContext } from './ai-provider';
+import type { SupportAiContext } from './ai-provider';
 
 type TicketRow = {
   ticketNumber: string;
   category: string;
   description: string;
   reporterId: string | null;
-  orderId: string | null;
   metadata: unknown;
   reporter?: {
     arabicName?: string | null;
@@ -39,8 +38,6 @@ export class SupportAiContextService {
           })
         : null);
 
-    const order = await this.loadOwnedOrder(ticket.reporterId, ticket.orderId);
-
     return {
       ticketNumber: ticket.ticketNumber,
       category: ticket.category,
@@ -55,56 +52,7 @@ export class SupportAiContextService {
         authorKind: m.authorKind || 'CUSTOMER',
         body: m.body.slice(0, 800),
       })),
-      order,
     };
   }
 
-  private async loadOwnedOrder(
-    reporterId: string | null,
-    orderId: string | null,
-  ): Promise<SupportAiOrderContext | null> {
-    if (!reporterId || !orderId) return null;
-
-    const order = await this.prisma.butcherOrder.findFirst({
-      where: { id: orderId, customerId: reporterId },
-      select: {
-        id: true,
-        orderNumber: true,
-        status: true,
-        paymentStatus: true,
-        totalPrice: true,
-        currency: true,
-        createdAt: true,
-        deliveryType: true,
-        deliveryAddress: true,
-        items: {
-          select: {
-            cutType: true,
-            weightKg: true,
-            linePrice: true,
-            product: { select: { nameAr: true } },
-          },
-        },
-      },
-    });
-    if (!order) return null;
-
-    return {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      totalPrice: order.totalPrice,
-      currency: order.currency,
-      createdAt: order.createdAt.toISOString(),
-      deliveryType: order.deliveryType,
-      deliveryAddress: order.deliveryAddress,
-      items: order.items.map((item) => ({
-        nameAr: item.product?.nameAr ?? null,
-        cutType: item.cutType,
-        weightKg: item.weightKg,
-        linePrice: item.linePrice,
-      })),
-    };
-  }
 }

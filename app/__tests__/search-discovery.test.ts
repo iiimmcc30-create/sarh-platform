@@ -93,9 +93,4 @@ describe('search screen request policy (source)', () => {
     expect(src).toContain('fetchOfficialServices');
     expect(src).toContain('ListingCard');
   });
-
-  it('keeps butchers out of result rendering path for discovery', () => {
-    expect(src).not.toContain("case 'butchers'");
-    expect(src).not.toContain('/butchers/[id]');
-  });
 });

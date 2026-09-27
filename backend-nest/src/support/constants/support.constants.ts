@@ -5,16 +5,14 @@ export const SUPPORT_TICKET_CATEGORIES = [
   'BUY_SELL',
   'PAYMENT',
   'VERIFICATION',
-  'BUTCHERS',
   'TECHNICAL',
   'OTHER',
-  'ORDER_HELP',
   'OTHER_HELP',
 ] as const;
 
 export type SupportTicketCategory = (typeof SUPPORT_TICKET_CATEGORIES)[number];
 
-export const HELP_KINDS = ['ORDER_HELP', 'OTHER_HELP'] as const;
+export const HELP_KINDS = ['OTHER_HELP'] as const;
 export type HelpKind = (typeof HELP_KINDS)[number];
 
 export const SUPPORT_ISSUE_TYPES = [
@@ -40,10 +38,8 @@ export const SUPPORT_TICKET_CATEGORY_LABEL_AR: Record<
   BUY_SELL: 'البيع والشراء',
   PAYMENT: 'الدفع',
   VERIFICATION: 'التوثيق',
-  BUTCHERS: 'الملاحم',
   TECHNICAL: 'المشاكل التقنية',
   OTHER: 'أخرى',
-  ORDER_HELP: 'مشكلة في الطلب',
   OTHER_HELP: 'مساعدة في شيء آخر',
 };
 
@@ -74,7 +70,6 @@ export const FAQ_CATEGORY_LABEL_AR: Record<string, string> = {
   BUY_SELL: 'البيع والشراء',
   PAYMENT: 'الدفع',
   VERIFICATION: 'التوثيق',
-  BUTCHERS: 'الملاحم',
   TECHNICAL: 'المشاكل التقنية',
   GENERAL: 'عام',
 };

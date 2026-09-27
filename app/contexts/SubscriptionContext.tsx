@@ -23,7 +23,7 @@ import { authFetch } from '@/services/authFetch';
 interface SubscriptionState {
   id: string | null;
   planSlug: string;
-  planAudience: 'USER' | 'BUTCHER';
+  planAudience: 'USER';
   plan: SubscriptionPlan;
   renewDate: string;
   permissions: PlanPermissions;
@@ -63,7 +63,7 @@ const defaultState: SubscriptionState = {
 const PLAN_CATALOG_TTL_MS = 5 * 60_000;
 const planCatalogCache = new Map<string, { plans: SubscriptionPlan[]; fetchedAt: number }>();
 
-async function fetchPlanCatalog(audience: 'USER' | 'BUTCHER'): Promise<SubscriptionPlan[]> {
+async function fetchPlanCatalog(audience: 'USER'): Promise<SubscriptionPlan[]> {
   const now = Date.now();
   const cached = planCatalogCache.get(audience);
   if (cached && now - cached.fetchedAt < PLAN_CATALOG_TTL_MS) {
@@ -102,7 +102,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         const json = await subRes.json();
         if (json.success && json.data) {
           const data = json.data;
-          const planAudience = (data.planAudience ?? 'USER') as 'USER' | 'BUTCHER';
+          const planAudience = (data.planAudience ?? 'USER') as 'USER';
           const planSlug = normalizeSlug(data.effectivePlanSlug ?? data.planId ?? 'free');
 
           const planCatalog = await fetchPlanCatalog(planAudience);

@@ -600,22 +600,6 @@ export class AuthService {
       };
     }
 
-    if (dto.purpose === 'join') {
-      const phoneToken = jwt.sign(
-        { phone, verified: true, purpose: 'join' },
-        this.config.get<string>('JWT_SECRET')!,
-        { expiresIn: '15m' },
-      );
-      return {
-        verified: true,
-        purpose: 'join',
-        is_new_user: !user,
-        phone,
-        phone_token: phoneToken,
-        message: 'تم التحقق من رقم الجوال',
-      };
-    }
-
     if (dto.purpose === 'reset_password') {
       if (!user) throwApi(404, 'not_found', 'لا يوجد حساب مرتبط بهذا الرقم');
       const phoneToken = jwt.sign(

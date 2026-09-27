@@ -17,7 +17,7 @@ Production deployment and live infrastructure were not re-verified during Phase 
 
 ### خدمات Compose الإنتاج
 
-`postgres` · `redis` · `api` · `worker` · `socket` · `admin` · `butcher` · nginx (عبر ملف الـ SSL الإضافي)
+`postgres` · `redis` · `api` · `worker` · `socket` · `admin` · nginx (عبر ملف الـ SSL الإضافي)
 
 الصور: Postgres 18 Alpine · Redis 7 Alpine · backend من `backend-nest/Dockerfile` · لوحات Next من Dockerfiles الخاصة.
 
@@ -29,7 +29,6 @@ Production deployment and live infrastructure were not re-verified during Phase 
 | readiness API | `GET /api/health/ready` |
 | Socket | `GET /health` على :3002 |
 | Admin | `GET /admin/login` داخل الحاوية |
-| Butcher | `GET /butcher/login` داخل الحاوية |
 
 README يذكر أن Nginx يمرّر `GET /health` إلى الـ API، وأن GitHub keep-alive يضرب `https://sarhsa.online/api/health`. **لم يُتحقق من ذلك في Phase 1.**
 

@@ -20,7 +20,7 @@ import {
   getLocationPinPosition,
   hasValidCoords,
   COUNTRY_MAP_CENTER,
-} from '@/lib/butcherLocation';
+} from '@/lib/mapLocation';
 import { isNativeMapsEnabled } from '@/lib/maps';
 import { Country } from '@/services/types';
 import { NativeLocationMap } from '@/components/feature/NativeLocationMap';

@@ -54,7 +54,6 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(panel).not.toContain('menuCardStyle');
     expect(panel).not.toContain('/sarh-services');
     expect(panel).not.toContain("label: 'الإشعارات'");
-    expect(panel).not.toContain("label: 'ملاحم سرح'");
     expect(panel).toContain('navigateToCreateListing');
     expect(panel).toContain('requireCovenant: true');
     expect(panel).toContain('closeThen');

@@ -32,8 +32,8 @@ describe('email.sanitize', () => {
   });
 
   it('only allows http(s) login URLs', () => {
-    expect(sanitizeHttpUrl('https://daftra.example/login')).toContain(
-      'https://daftra.example/login',
+    expect(sanitizeHttpUrl('https://example.com/login')).toContain(
+      'https://example.com/login',
     );
     expect(sanitizeHttpUrl('javascript:alert(1)')).toBe('');
     expect(sanitizeHttpUrl('file:///etc/passwd')).toBe('');

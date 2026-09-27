@@ -13,7 +13,7 @@ describe('normalizeArabicSearchText', () => {
   });
 
   it('maps alef maqsura and ta marbuta for matching', () => {
-    expect(normalizeArabicSearchText('ملحمة')).toBe('ملحمه');
+    expect(normalizeArabicSearchText('مزرعة')).toBe('مزرعه');
     expect(normalizeArabicSearchText(' على ')).toBe('علي');
     expect(normalizeArabicSearchText('ناقة')).toBe('ناقه');
   });

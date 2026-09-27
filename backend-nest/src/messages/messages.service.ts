@@ -53,15 +53,6 @@ export class MessagesService {
       return {
         id: t.id,
         type: t.type,
-        butcherId: t.butcherId,
-        butcher: t.butcher
-          ? {
-              id: t.butcher.id,
-              nameAr: t.butcher.nameAr,
-              nameEn: t.butcher.nameEn,
-              logo: t.butcher.logo,
-            }
-          : null,
         participant: other ?? null,
         lastMessage:
           lastMsg?.text ||
@@ -84,7 +75,7 @@ export class MessagesService {
   }
 
   async sendMessage(user: JwtPayload, dto: SendMessageDto) {
-    const { receiverId, text, imageUrl, videoUrl, orderId, butcherId } = dto;
+    const { receiverId, text, imageUrl, videoUrl } = dto;
     const senderId = user.userId;
 
     const bodyText = text?.trim() || undefined;
@@ -92,47 +83,15 @@ export class MessagesService {
       throwApi(400, 'empty_message', 'يجب إرسال نص أو صورة أو فيديو');
     }
 
-    let type: MessageThreadType = dto.type ?? 'DIRECT';
-    let resolvedButcherId: string | null = null;
-    let resolvedOrderId: string | undefined = orderId;
+    const type: MessageThreadType = dto.type ?? 'DIRECT';
 
-    if (butcherId || type === 'BUTCHER' || orderId) {
-      type = 'BUTCHER';
-      resolvedButcherId = butcherId ?? null;
-    }
-
-    await this.policy.assertCanSendMessage({
-      senderId,
-      receiverId,
-      type,
-      butcherId: resolvedButcherId,
-    });
-
-    if (type === 'BUTCHER' && resolvedButcherId) {
-      const butcher = await this.repo.findButcherById(resolvedButcherId);
-      if (butcher && !resolvedOrderId) {
-        const customerId =
-          butcher.userId === senderId
-            ? receiverId
-            : butcher.userId === receiverId
-              ? senderId
-              : null;
-        if (customerId) {
-          const acceptedOrder = await this.repo.findAcceptedButcherOrderForChat(
-            customerId,
-            butcher.id,
-          );
-          resolvedOrderId = acceptedOrder?.id;
-        }
-      }
-    }
+    await this.policy.assertCanSendMessage({ senderId, receiverId });
 
     const [p1, p2] = [senderId, receiverId].sort();
     const thread = await this.repo.upsertThread({
       participant1: p1,
       participant2: p2,
       type,
-      butcherId: resolvedButcherId,
     });
 
     const message = await this.repo.createMessage({
@@ -142,7 +101,6 @@ export class MessagesService {
       text: bodyText,
       imageUrl,
       videoUrl,
-      orderId: resolvedOrderId,
     });
 
     await this.repo.clearHiddenForThread(thread.id);
@@ -182,8 +140,6 @@ export class MessagesService {
         actorId: senderId,
         actorAvatar: message.sender.avatar,
         threadType: type,
-        ...(resolvedButcherId ? { butcherId: resolvedButcherId } : {}),
-        ...(resolvedOrderId ? { orderId: resolvedOrderId } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(videoUrl ? { videoUrl } : {}),
       },
@@ -206,35 +162,6 @@ export class MessagesService {
 
     const thread = await this.requireThreadForUser(userId, threadId);
 
-    if (thread.type === 'BUTCHER' && thread.butcherId) {
-      const otherId =
-        thread.participant1 === userId
-          ? thread.participant2
-          : thread.participant1;
-      const butcher = await this.repo.findButcherById(thread.butcherId);
-      if (butcher) {
-        const customerId =
-          butcher.userId === userId
-            ? otherId
-            : butcher.userId === otherId
-              ? userId
-              : null;
-        if (customerId) {
-          const acceptedOrder = await this.repo.findAcceptedButcherOrderForChat(
-            customerId,
-            thread.butcherId,
-          );
-          if (!acceptedOrder) {
-            throwApi(
-              403,
-              'chat_not_allowed',
-              'المحادثة متاحة بعد تقديم الطلب وقبوله من الملحمة',
-            );
-          }
-        }
-      }
-    }
-
     const messages = await this.repo.findMessages(
       threadId,
       PAGE_SIZE + 1,
@@ -252,7 +179,6 @@ export class MessagesService {
       nextCursor,
       hasMore,
       type: thread.type,
-      butcherId: thread.butcherId,
     };
   }
 

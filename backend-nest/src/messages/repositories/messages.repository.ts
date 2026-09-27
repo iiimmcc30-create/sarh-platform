@@ -18,13 +18,8 @@ const SENDER_SELECT = {
   avatar: true,
 } as const;
 
-export function messageScopeKey(
-  type: MessageThreadType,
-  butcherId?: string | null,
-): string {
-  if (type === 'BUTCHER' && butcherId) return `butcher:${butcherId}`;
-  return 'direct';
-}
+/** Every thread is a direct conversation. */
+export const DIRECT_SCOPE_KEY = 'direct';
 
 @Injectable()
 export class MessagesRepository {
@@ -42,14 +37,6 @@ export class MessagesRepository {
       orderBy: { lastMessageAt: 'desc' },
       take: 50,
       include: {
-        butcher: {
-          select: {
-            id: true,
-            nameAr: true,
-            nameEn: true,
-            logo: true,
-          },
-        },
         states: {
           where: { userId },
           select: { pinnedAt: true, hiddenAt: true },
@@ -116,40 +103,12 @@ export class MessagesRepository {
     });
   }
 
-  findButcherById(id: string) {
-    return this.prisma.butcher.findFirst({
-      where: { id, deletedAt: null },
-      select: { id: true, userId: true, nameAr: true },
-    });
-  }
-
-  findButcherByUserId(userId: string) {
-    return this.prisma.butcher.findFirst({
-      where: { userId, deletedAt: null },
-      select: { id: true, userId: true },
-    });
-  }
-
-  /** Latest accepted+ order linking a customer to a butcher (enables shop chat). */
-  findAcceptedButcherOrderForChat(customerId: string, butcherId: string) {
-    return this.prisma.butcherOrder.findFirst({
-      where: {
-        customerId,
-        butcherId,
-        status: { in: ['confirmed', 'preparing', 'ready', 'delivered'] },
-      },
-      orderBy: { updatedAt: 'desc' },
-      select: { id: true, status: true },
-    });
-  }
-
   upsertThread(params: {
     participant1: string;
     participant2: string;
     type: MessageThreadType;
-    butcherId?: string | null;
   }) {
-    const scopeKey = messageScopeKey(params.type, params.butcherId);
+    const scopeKey = DIRECT_SCOPE_KEY;
     return this.prisma.messageThread.upsert({
       where: {
         participant1_participant2_scopeKey: {
@@ -163,7 +122,6 @@ export class MessagesRepository {
         participant1: params.participant1,
         participant2: params.participant2,
         type: params.type,
-        butcherId: params.butcherId ?? null,
         scopeKey,
       },
     });
@@ -176,7 +134,6 @@ export class MessagesRepository {
     text?: string;
     imageUrl?: string;
     videoUrl?: string;
-    orderId?: string;
   }) {
     return this.prisma.message.create({
       data,
@@ -195,7 +152,6 @@ export class MessagesRepository {
         participant1: true,
         participant2: true,
         type: true,
-        butcherId: true,
       },
     });
   }

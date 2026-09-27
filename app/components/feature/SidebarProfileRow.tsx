@@ -19,7 +19,7 @@ export type SidebarProfileRowProps = {
   displayName: string;
   username?: string;
   onPress?: () => void;
-  /** Small pill under the username (e.g. «قسم الملاحم»). */
+  /** Small pill under the username. */
   badgeLabel?: string;
   badge?: ReactNode;
   /** @deprecated Card surface replaces the old hairline divider. */

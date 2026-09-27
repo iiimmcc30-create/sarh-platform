@@ -14,12 +14,12 @@ import {
 
 export default function PlansPage() {
   const router = useRouter();
-  const [audience, setAudience] = useState<'USER' | 'BUTCHER' | 'ALL'>('ALL');
+  const [audience, setAudience] = useState<'USER' | 'ALL'>('ALL');
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        {(['ALL', 'USER', 'BUTCHER'] as const).map((a) => (
+        {(['ALL', 'USER'] as const).map((a) => (
           <button
             key={a}
             type="button"
@@ -30,7 +30,7 @@ export default function PlansPage() {
                 : 'bg-slate-900 text-slate-400'
             }`}
           >
-            {a === 'ALL' ? 'الكل' : a === 'USER' ? 'المستخدمون' : 'الملاحم'}
+            {a === 'ALL' ? 'الكل' : 'المستخدمون'}
           </button>
         ))}
         <Button className="mr-auto" onClick={() => router.push('/plans/new')}>
@@ -58,8 +58,8 @@ export default function PlansPage() {
             key: 'audience',
             label: 'الجمهور',
             render: (r) => (
-              <Badge tone={r.audience === 'BUTCHER' ? 'warning' : 'default'}>
-                {r.audience === 'BUTCHER' ? 'الملاحم' : 'المستخدمون'}
+              <Badge tone="default">
+                المستخدمون
               </Badge>
             ),
           },

@@ -38,7 +38,7 @@ test.describe('Admin panel — real browser E2E', () => {
     }
   });
 
-  test('listings + posts + plans + orders sections show admin content', async ({ page }) => {
+  test('listings + posts + plans sections show admin content', async ({ page }) => {
     await loginAsAdmin(page);
 
     await page.getByRole('link', { name: 'الإعلانات', exact: true }).click();
@@ -49,9 +49,6 @@ test.describe('Admin panel — real browser E2E', () => {
 
     await page.getByRole('link', { name: 'الباقات', exact: true }).click();
     await expect(page.getByText('إدارة الباقات')).toBeVisible({ timeout: 20_000 });
-
-    await page.getByRole('link', { name: 'الطلبات', exact: true }).click();
-    await expect(page.getByText('إدارة الطلبات')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('link', { name: 'الدعم والمساعدة', exact: true }).click();
     await expect(page.getByText('الدعم والمساعدة').first()).toBeVisible({ timeout: 20_000 });

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ApiException, throwApi } from '../common/exceptions/api.exception';
+import { throwApi } from '../common/exceptions/api.exception';
 import { LoggerService } from '../common/services/logger.service';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
 import { AppNotificationsService } from '../queue/services/app-notifications.service';
@@ -11,7 +11,6 @@ import {
 } from '@/lib/stories';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import {
-  CreateButcherStoryDto,
   CreateStoryDto,
   StoryReactionDto,
   StoryReplyDto,
@@ -432,77 +431,4 @@ export class StoriesService {
     await this.cache.delPattern('stories:feed:*');
   }
 
-  async getActiveButcherStories() {
-    const cacheKey = 'butchers:stories:active';
-    const cached = await this.cache.get<unknown[]>(cacheKey);
-    if (cached) return cached;
-
-    try {
-      const activeStories = await this.repo.findActiveButcherStories();
-      await this.cache.set(cacheKey, activeStories, 30);
-      return activeStories;
-    } catch (err) {
-      this.logger.error({ err }, 'Fetch active butcher stories error');
-      throwApi(500, 'server_error', 'خطأ في الخادم');
-    }
-  }
-
-  async createButcherStory(user: JwtPayload, dto: CreateButcherStoryDto) {
-    try {
-      const butcher = await this.repo.findButcherByUserId(user.userId);
-      if (!butcher) {
-        throwApi(
-          403,
-          'butcher_profile_required',
-          'يجب أن تمتلك ملف ملحمة نشط لنشر القصص',
-        );
-      }
-
-      const expiresAt = storyExpiresAt();
-      const duration = clampStoryDuration(
-        dto.duration ?? STORY_IMAGE_DURATION_SEC,
-      );
-
-      const story = await this.repo.createButcherStory({
-        thumbnail: dto.thumbnail,
-        mediaUrl: dto.mediaUrl ?? undefined,
-        caption: dto.caption ?? undefined,
-        captionAr: dto.captionAr ?? undefined,
-        type: dto.type,
-        duration,
-        expiresAt,
-        butcher: { connect: { id: butcher.id } },
-      });
-
-      await this.cache.del('butchers:stories:active');
-      this.logger.info(
-        { storyId: story.id, butcherId: butcher.id },
-        'Butcher story created successfully',
-      );
-      return story;
-    } catch (err) {
-      if (err instanceof ApiException) throw err;
-      this.logger.error({ err }, 'Create butcher story error');
-      throwApi(500, 'server_error', 'خطأ في الخادم');
-    }
-  }
-
-  async deleteButcherStory(user: JwtPayload, id: string) {
-    if (!id) throwApi(400, 'invalid_id', 'معرّف غير صالح');
-
-    const story = await this.repo.findButcherStoryWithOwner(id);
-    if (!story) throwApi(404, 'not_found', 'القصة غير موجودة');
-    if (story.butcher.userId !== user.userId && user.role !== 'ADMIN') {
-      throwApi(403, 'forbidden', 'غير مسموح');
-    }
-
-    await this.repo.softDeleteButcherStory(id);
-    await this.cache.del('butchers:stories:active');
-
-    this.logger.info(
-      { storyId: id, userId: user.userId },
-      'Butcher story deleted',
-    );
-    return { deleted: true };
-  }
 }

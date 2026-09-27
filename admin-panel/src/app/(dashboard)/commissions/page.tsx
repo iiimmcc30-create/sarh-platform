@@ -36,8 +36,7 @@ export default function CommissionsPage() {
   }
 
   const c = stats.commission;
-  const listingRate = c.listingCommissionRatePercent ?? c.butcherStoreRatePercent;
-  const orderRate = c.orderCommissionRatePercent ?? 10;
+  const listingRate = c.listingCommissionRatePercent;
 
   return (
     <div>
@@ -56,32 +55,18 @@ export default function CommissionsPage() {
         <StatCard
           title="Listing Commission"
           value={`${listingRate}%`}
-          subtitle="عمولة إعلان الملحمة — ListingFee"
+          subtitle="عمولة الإعلان — ListingFee"
           icon={Percent}
           accent="violet"
         />
-        <StatCard
-          title="Order Commission"
-          value={`${orderRate}%`}
-          subtitle="عمولة الطلب المكتمل — delivered"
-          icon={Percent}
-          accent="blue"
-        />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           title="Listing Fees"
           value={`${c.listingFeesPaidTotal.toLocaleString('ar-SA')} ر.س`}
           subtitle={`${c.listingFeesPaidCount} رسوم إعلان متجر مدفوعة`}
           icon={Wallet}
-        />
-        <StatCard
-          title="Order Commissions"
-          value={`${(c.orderCommissionsTotal ?? 0).toLocaleString('ar-SA')} ر.س`}
-          subtitle={`${c.orderCommissionsCount ?? 0} طلب مكتمل`}
-          icon={Wallet}
-          accent="blue"
         />
         <StatCard
           title="Total Commission"
@@ -94,19 +79,10 @@ export default function CommissionsPage() {
 
       <div className="mt-6 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 text-sm text-slate-300">
         <h2 className="font-semibold text-white">مصدر الحقيقة</h2>
-        <p>{c.noteAr}</p>
         <ul className="list-disc space-y-1 pr-5 text-slate-400">
           <li>
             الحساب في <code className="text-emerald-300">backend-nest/src/lib/commissions.ts</code>
           </li>
-          <li>
-            اكتمال الطلب = حالة <code>delivered</code> في OrderLifecycleService
-          </li>
-          <li>
-            الإعفاء عندما تكون صلاحية الباقة <code>storeCommission &lt;= 0</code> (إعلان + طلب)
-          </li>
-          <li>عمولة الإعلان 1% منفصلة عن عمولة الطلب 10%</li>
-          <li>النسبة الرقمية للطلب لا تُعرض في لوحة الملحمة أو تطبيق الموبايل</li>
         </ul>
       </div>
 

@@ -60,37 +60,12 @@ describe('SocketGatewayService chat authorization', () => {
     expect(messagingPolicy.assertCanSendMessage).not.toHaveBeenCalled();
   });
 
-  it('rejects chat:send on an existing Customer↔Butcher thread', async () => {
-    repo.isThreadParticipant.mockResolvedValue({ id: 't-shop' });
-    repo.findThreadParticipants.mockResolvedValue({
-      participant1: 'customer',
-      participant2: 'butcher-user',
-      type: 'BUTCHER',
-      butcherId: 'shop-1',
-    });
-    messagingPolicy.assertCanSendMessage.mockRejectedValue(
-      new ApiException(403, 'forbidden', 'التواصل المباشر مع الملحمة غير متاح'),
-    );
-
-    const err = await service.handleChatSend(user('customer'), {
-      threadId: '11111111-1111-1111-1111-111111111111',
-      receiverId: 'butcher-user',
-      text: 'still open?',
-    } as never);
-    expect(err).toEqual({
-      code: 'forbidden',
-      message: 'التواصل المباشر مع الملحمة غير متاح',
-    });
-    expect(repo.createMessageWithThreadUpdate).not.toHaveBeenCalled();
-  });
-
   it('rejects chat:send when messaging policy forbids (block/privacy)', async () => {
     repo.isThreadParticipant.mockResolvedValue({ id: 't1' });
     repo.findThreadParticipants.mockResolvedValue({
       participant1: 'alice',
       participant2: 'bob',
       type: 'DIRECT',
-      butcherId: null,
     });
     messagingPolicy.assertCanSendMessage.mockRejectedValue(
       new ApiException(403, 'blocked', 'لا يمكنك مراسلة هذا المستخدم'),
@@ -124,7 +99,6 @@ describe('SocketGatewayService chat authorization', () => {
       participant1: 'alice',
       participant2: 'bob',
       type: 'DIRECT',
-      butcherId: null,
     });
     messagingPolicy.assertNotBlocked.mockRejectedValue(
       new ApiException(403, 'blocked', 'لا يمكنك مراسلة هذا المستخدم'),
@@ -147,7 +121,6 @@ describe('SocketGatewayService chat authorization', () => {
       participant1: 'alice',
       participant2: 'bob',
       type: 'DIRECT',
-      butcherId: null,
     });
 
     const err = await service.handleChatTyping(user('alice'), {
@@ -176,7 +149,7 @@ describe('SocketGatewayService chat authorization', () => {
     expect(supportTickets.replyAsUser).not.toHaveBeenCalled();
   });
 
-  it('allows support:send for the ticket owner without opening butcher chat', async () => {
+  it('allows support:send for the ticket owner without opening direct chat', async () => {
     supportTickets.getTicketForSocket.mockResolvedValue({ id: 't1' });
     supportTickets.replyAsUser.mockResolvedValue({});
     const err = await service.handleSupportSend(user('alice'), {

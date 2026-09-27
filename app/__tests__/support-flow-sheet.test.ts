@@ -35,9 +35,8 @@ describe('support flow sheet', () => {
   it('maps choices onto existing ticket categories without a new taxonomy', () => {
     const ids = SUPPORT_FLOW_CHOICES.map((c) => c.category);
     expect(ids).toEqual(
-      expect.arrayContaining(['ORDER_HELP', 'ACCOUNT', 'ADS', 'PAYMENT', 'OTHER']),
+      expect.arrayContaining(['ACCOUNT', 'ADS', 'PAYMENT', 'OTHER']),
     );
-    expect(findSupportFlowChoice('ORDER_HELP')?.needsOrder).toBe(true);
     expect(findSupportFlowChoice('ACCOUNT')?.helpKind).toBe('OTHER_HELP');
   });
 
@@ -64,9 +63,10 @@ describe('support flow sheet', () => {
     expect(sheet).not.toContain('https://');
   });
 
-  it('reuses the same sheet for order-help deep links', () => {
-    expect(help).toContain('initialChoiceId="ORDER_HELP"');
-    expect(help).toContain('presetOrderId');
+  it('reuses the same sheet for the help deep link without an order step', () => {
+    expect(help).toContain('SupportFlowSheet');
+    expect(help).not.toContain('presetOrderId');
+    expect(sheet).not.toContain("'order'");
   });
 
   it('uses press opacity for option rows, not pressScale', () => {

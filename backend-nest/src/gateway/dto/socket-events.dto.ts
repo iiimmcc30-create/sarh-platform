@@ -2,7 +2,6 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
-  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -56,10 +55,6 @@ export class ChatSendDto {
   @IsUrl(MEDIA_URL_OPTS)
   videoUrl?: string;
 
-  @IsOptional()
-  @IsUUID()
-  orderId?: string;
-
   @Validate(TextOrMediaConstraint)
   private _textOrMedia!: boolean;
 }
@@ -100,22 +95,6 @@ export class LiveCommentDto {
   @Min(0.01)
   @Max(10_000_000)
   offerAmount?: number;
-}
-
-export enum OrderStatusEnum {
-  CONFIRMED = 'confirmed',
-  PREPARING = 'preparing',
-  READY = 'ready',
-  DELIVERED = 'delivered',
-  CANCELLED = 'cancelled',
-}
-
-export class OrderStatusDto {
-  @IsUUID()
-  orderId!: string;
-
-  @IsEnum(OrderStatusEnum)
-  status!: OrderStatusEnum;
 }
 
 export class NotificationsReadDto {

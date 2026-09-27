@@ -7,7 +7,6 @@ import {
 import { Response } from 'express';
 import { ApiException } from '../exceptions/api.exception';
 import { RateLimitException } from '../exceptions/rate-limit.exception';
-import { isButcherApplicationError } from '../../butcher-applications/errors';
 import { Sentry } from '../../shared/lib/sentry';
 
 function sendJson(
@@ -33,19 +32,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         exception.status,
         exception.toJSON() as Record<string, unknown>,
       );
-      return;
-    }
-
-    if (isButcherApplicationError(exception)) {
-      sendJson(res, exception.httpStatus, {
-        success: false,
-        error: exception.code,
-        messageAr: exception.messageAr,
-        ...(exception.details !== undefined
-          ? { details: exception.details }
-          : {}),
-        timestamp: new Date().toISOString(),
-      });
       return;
     }
 

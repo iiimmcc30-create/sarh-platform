@@ -8,7 +8,7 @@
 
 ## 1. المنتج
 
-سرح (Sarh) سوق مواشٍ ومحتوى اجتماعي في السعودية، مع طبقة ملاحم، اشتراكات، بث مباشر، وإدارة.
+سرح (Sarh) سوق مواشٍ ومحتوى اجتماعي في السعودية، مع اشتراكات، بث مباشر، وإدارة.
 
 هوية التطبيق الظاهرة: اسم العرض `Sarh`، الحزمة `com.sarh.app`، النطاق `sarhsa.online`.  
 أسماء npm/Expo الداخلية `safat` / `safat-backend-nest` بقايا توافق — انظر قسم Legacy.
@@ -21,7 +21,6 @@
 |------|--------|--------------------------|--------------|
 | تطبيق الجوال | `app/` | Expo **54.0.37** · React Native **0.81.5** · Expo Router | Expo |
 | لوحة الإدارة | `admin-panel/` | Next.js **16.3.6** | `3000` (`/admin` في الإنتاج) |
-| لوحة الملحمة | `butcher-dashboard/` | Next.js **16.3.6** | `3003` (`/butcher` في الإنتاج) |
 | واجهة HTTP | `backend-nest/` | NestJS **12.0.4** | `3001` |
 
 ---
@@ -65,7 +64,6 @@ Internet
       → api:3001     /api  /uploads
       → socket:3002  /socket.io
       → admin:3000   /admin
-      → butcher:3003 /butcher
 api / worker / socket → postgres + redis (شبكة sarh_internal)
 ```
 
@@ -87,7 +85,7 @@ api / worker / socket → postgres + redis (شبكة sarh_internal)
 | Prisma CLI | 5.22.0 |
 | Expo | 54.0.37 |
 | React Native | 0.81.5 |
-| Next.js (admin + butcher) | 16.3.6 |
+| Next.js (admin) | 16.3.6 |
 | React (admin) | 18.3.1 |
 
 ---
@@ -96,7 +94,7 @@ api / worker / socket → postgres + redis (شبكة sarh_internal)
 
 - JWT + refresh في `backend-nest/src/auth/`
 - حراس عامة: `JwtAuthGuard` و`RolesGuard`
-- أدوار Prisma: `USER` · `BUTCHER` · `ADMIN` · `MODERATOR`
+- أدوار Prisma: `USER` · `ADMIN` · `MODERATOR`
 - CORS: قائمة بيضاء (`cors-origins.ts`)؛ أصول الإنتاج الافتراضية `https://sarhsa.online` و`https://www.sarhsa.online`
 
 لم يُختبر مسار تسجيل دخول حي في Phase 1.

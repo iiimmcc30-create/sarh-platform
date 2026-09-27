@@ -268,59 +268,6 @@ export class AdminController {
     return successResponse(await this.admin.deleteLiveStream(id));
   }
 
-  // ─── Butchers ───────────────────────────────────────────────────────────────
-
-  @Roles(...STAFF)
-  @RateLimit('api')
-  @Get('butchers')
-  @HttpCode(HttpStatus.OK)
-  async listButchers(@Query() query: Record<string, unknown>) {
-    return successResponse(await this.admin.listButchers(query));
-  }
-
-  @Roles(...STAFF)
-  @RateLimit('api')
-  @Get('butchers/:id')
-  @HttpCode(HttpStatus.OK)
-  async getButcher(@Param('id') id: string) {
-    return successResponse(await this.admin.getButcher(id));
-  }
-
-  @Roles(...STAFF)
-  @RateLimit('api')
-  @Get('orders')
-  @HttpCode(HttpStatus.OK)
-  async listOrders(@Query() query: Record<string, unknown>) {
-    return successResponse(await this.admin.listOrders(query));
-  }
-
-  @Roles(...STAFF)
-  @RateLimit('api')
-  @Get('orders/:id')
-  @HttpCode(HttpStatus.OK)
-  async getOrder(@Param('id') id: string) {
-    return successResponse(await this.admin.getOrder(id));
-  }
-
-  @Roles(...STAFF)
-  @RateLimit('api')
-  @Patch('butchers/:id')
-  @HttpCode(HttpStatus.OK)
-  async updateButcher(
-    @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
-  ) {
-    return successResponse(await this.admin.updateButcher(id, body));
-  }
-
-  @Roles(...STAFF)
-  @RateLimit('api')
-  @Delete('butchers/:id')
-  @HttpCode(HttpStatus.OK)
-  async deleteButcher(@Param('id') id: string) {
-    return successResponse(await this.admin.deleteButcher(id));
-  }
-
   // ─── Settings (ADMIN only) ──────────────────────────────────────────────────
 
   @Roles('ADMIN')

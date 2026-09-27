@@ -215,7 +215,7 @@ describe('Wave 5C image and asset performance', () => {
 });
 
 describe('Wave 5D final performance pass', () => {
-  it('keeps listing media on original URLs after malahem removal', () => {
+  it('keeps listing media on original URLs', () => {
     expect(src('app/listing/[id].tsx')).not.toContain('cloudinaryFitUrl');
   });
 });

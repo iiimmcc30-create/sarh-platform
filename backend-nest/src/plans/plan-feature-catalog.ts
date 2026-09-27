@@ -39,7 +39,7 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     labelAr: 'ساعات البث المباشر شهرياً',
     descriptionAr: 'حصة البث المباشر بالساعات كل شهر',
     valueType: 'NUMBER',
-    audiences: ['USER', 'BUTCHER'],
+    audiences: ['USER'],
     suggestedValue: '0',
   },
   {
@@ -47,7 +47,7 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     labelAr: 'السماح بالبث المباشر',
     descriptionAr: 'تفعيل/إيقاف إنشاء البث المباشر',
     valueType: 'BOOLEAN',
-    audiences: ['USER', 'BUTCHER'],
+    audiences: ['USER'],
     suggestedValue: 'false',
   },
   {
@@ -55,7 +55,7 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     labelAr: 'شارة التوثيق',
     descriptionAr: 'إظهار شارة التوثيق للحساب',
     valueType: 'BOOLEAN',
-    audiences: ['USER', 'BUTCHER'],
+    audiences: ['USER'],
     suggestedValue: 'false',
   },
   {
@@ -63,7 +63,7 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     labelAr: 'دعم فني بأولوية',
     descriptionAr: 'أولوية في خدمة الدعم',
     valueType: 'BOOLEAN',
-    audiences: ['USER', 'BUTCHER'],
+    audiences: ['USER'],
     suggestedValue: 'false',
   },
   {
@@ -71,7 +71,7 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     labelAr: 'أولوية في نتائج البحث',
     descriptionAr: 'ترتيب أعلى داخل نتائج البحث',
     valueType: 'BOOLEAN',
-    audiences: ['USER', 'BUTCHER'],
+    audiences: ['USER'],
     suggestedValue: 'false',
   },
   {
@@ -81,39 +81,6 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     valueType: 'BOOLEAN',
     audiences: ['USER'],
     suggestedValue: 'false',
-  },
-  {
-    key: 'storeEnabled',
-    labelAr: 'تفعيل المتجر',
-    descriptionAr: 'السماح باستخدام المتجر للحساب',
-    valueType: 'BOOLEAN',
-    audiences: ['BUTCHER'],
-    suggestedValue: 'true',
-  },
-  {
-    key: 'receiveOrders',
-    labelAr: 'استقبال الطلبات',
-    descriptionAr: 'السماح باستقبال طلبات الشراء',
-    valueType: 'BOOLEAN',
-    audiences: ['BUTCHER'],
-    suggestedValue: 'true',
-  },
-  {
-    key: 'analyticsDashboard',
-    labelAr: 'لوحة التحليلات',
-    descriptionAr: 'إتاحة لوحات وتقارير الإحصائيات',
-    valueType: 'BOOLEAN',
-    audiences: ['BUTCHER'],
-    suggestedValue: 'true',
-  },
-  {
-    key: 'storeCommission',
-    labelAr: 'عمولة المتجر',
-    descriptionAr:
-      'علم إعفاء عمولات الملحمة (إعلان + طلبات مكتملة). 0 = معفى بالاشتراك، أي قيمة > 0 = تُحسب عمولة المنصة (النسبة ثابتة في الكود وليست قيمة هذا الحقل)',
-    valueType: 'NUMBER',
-    audiences: ['BUTCHER'],
-    suggestedValue: '1',
   },
 ];
 

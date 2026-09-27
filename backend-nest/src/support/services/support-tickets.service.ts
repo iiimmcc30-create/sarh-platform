@@ -140,7 +140,6 @@ export class SupportTicketsService {
         }),
       ),
       helpKinds: [
-        { value: 'ORDER_HELP', labelAr: 'مشكلة في الطلب' },
         { value: 'OTHER_HELP', labelAr: 'مساعدة في شيء آخر' },
       ],
     };
@@ -155,11 +154,6 @@ export class SupportTicketsService {
     if (!parsed.success) throwApi(400, 'invalid_query', 'معاملات غير صالحة');
     const { page, pageSize, status } = parsed.data;
     return this.repo.listUserTickets(user.userId, page, pageSize, status);
-  }
-
-  async listHelpOrders(user: JwtPayload) {
-    const orders = await this.repo.listCustomerHelpOrders(user.userId);
-    return { orders };
   }
 
   async getUserTicket(user: JwtPayload, id: string) {
@@ -177,7 +171,7 @@ export class SupportTicketsService {
 
   async createTicket(user: JwtPayload, dto: CreateSupportTicketDto) {
     const helpKind = dto.helpKind;
-    if (helpKind === 'ORDER_HELP' || helpKind === 'OTHER_HELP') {
+    if (helpKind === 'OTHER_HELP') {
       return this.createHelpTicket(user, dto);
     }
     if (!dto.category || !dto.subject) {
@@ -233,40 +227,15 @@ export class SupportTicketsService {
     user: JwtPayload,
     dto: CreateSupportTicketDto,
   ) {
-    const helpKind = dto.helpKind!;
     const description = dto.description.trim();
-    let orderId: string | null = null;
-
-    if (helpKind === 'ORDER_HELP') {
-      if (!dto.orderId) {
-        throwApi(400, 'order_required', 'يجب اختيار طلب');
-      }
-      const owned = await this.repo.findOwnedButcherOrder(
-        dto.orderId,
-        user.userId,
-      );
-      if (!owned) {
-        const exists = await this.repo.findButcherOrderById(dto.orderId);
-        if (exists) {
-          throwApi(403, 'forbidden', 'لا يمكنك فتح بلاغ على طلب لا يخصك');
-        }
-        throwApi(404, 'not_found', 'الطلب غير موجود');
-      }
-      orderId = owned.id;
-    }
 
     const names = await this.repo.findUserNames(user.userId);
     const firstName = firstNameFromUser(names ?? {});
-    const storedCategory =
-      helpKind === 'ORDER_HELP'
-        ? 'ORDER_HELP'
-        : dto.category && dto.category !== 'ORDER_HELP'
-          ? dto.category
-          : 'OTHER_HELP';
+    const storedCategory = dto.category ?? 'OTHER_HELP';
     const subject =
       SUPPORT_TICKET_CATEGORY_LABEL_AR[
         storedCategory as keyof typeof SUPPORT_TICKET_CATEGORY_LABEL_AR
-      ] ?? (helpKind === 'ORDER_HELP' ? 'مشكلة في الطلب' : 'مساعدة في شيء آخر');
+      ] ?? 'مساعدة في شيء آخر';
 
     let ticket: Awaited<ReturnType<SupportRepository['createTicket']>> | null =
       null;
@@ -282,7 +251,6 @@ export class SupportTicketsService {
           status: 'AI_ASSISTING',
           handlerMode: 'AI_ACTIVE',
           reporter: { connect: { id: user.userId } },
-          ...(orderId ? { order: { connect: { id: orderId } } } : {}),
           metadata: {
             issueType: 'OTHER',
             customerDescription: description,

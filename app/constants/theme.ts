@@ -501,7 +501,7 @@ export const typography = {
     ...directionalText,
   },
   /**
-   * Frozen — FloatingTabBar / ButchersTabBar only.
+   * Frozen — FloatingTabBar only.
    * Do not change size or line height.
    */
   tab: {

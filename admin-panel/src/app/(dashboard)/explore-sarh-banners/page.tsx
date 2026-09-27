@@ -224,7 +224,7 @@ export default function ExploreSarhBannersAdminPage() {
               className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
             />
             <input
-              placeholder="المسار داخل التطبيق مثل /butchers"
+              placeholder="المسار داخل التطبيق مثل /market"
               value={createDraft.href}
               onChange={(e) =>
                 setCreateDraft((prev) => ({ ...prev, href: e.target.value }))
@@ -330,7 +330,7 @@ export default function ExploreSarhBannersAdminPage() {
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
                     />
                     <input
-                      placeholder="المسار داخل التطبيق مثل /butchers"
+                      placeholder="المسار داخل التطبيق مثل /market"
                       value={draft.href}
                       onChange={(e) =>
                         patchDraft(banner.id, { href: e.target.value })

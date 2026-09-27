@@ -222,11 +222,6 @@ function routeId(value: string): string {
   return String(value ?? '').trim();
 }
 
-/** Live order details — butcher order routes are removed from Sarh. */
-function openOrderDetails(_ctx: NotificationRouteContext, _orderId: string): boolean {
-  return false;
-}
-
 /** Live support ticket — refetch by ticket id, ignore payload snapshot. */
 function openSupportTicket(ctx: NotificationRouteContext, ticketId: string): boolean {
   const id = routeId(ticketId);
@@ -274,13 +269,6 @@ export function handleNotificationNavigation(
 
   if (event) {
     switch (event) {
-      case 'butcher_application_received':
-      case 'butcher_application_withdrawn':
-      case 'butcher_application_submitted':
-      case 'butcher_application_approved':
-      case 'butcher_application_rejected':
-        return false;
-
       case 'support_ticket_created':
       case 'support_ticket_staff_reply':
       case 'support_ticket_staff_new':
@@ -307,7 +295,6 @@ export function handleNotificationNavigation(
   const postId = stringField(data, 'postId');
   const listingId = stringField(data, 'listingId');
   const streamId = stringField(data, 'streamId');
-  const orderId = stringField(data, 'orderId');
   const threadId = stringField(data, 'threadId');
   const paymentId = stringField(data, 'paymentId');
 
@@ -347,10 +334,6 @@ export function handleNotificationNavigation(
       }
       break;
 
-    case 'order_update':
-      if (orderId && openOrderDetails(ctx, orderId)) return true;
-      break;
-
     case 'fee_due':
       if (listingId) {
         safePush({
@@ -375,14 +358,8 @@ export function handleNotificationNavigation(
           params: {
             threadId,
             ...(senderId ? { receiverId: senderId } : {}),
-            ...(threadType && threadType !== 'BUTCHER' ? { threadType } : {}),
+            ...(threadType ? { threadType } : {}),
           },
-        } as never, undefined, ctx.router);
-        return true;
-      }
-      if (stringField(data, 'threadType') === 'BUTCHER') {
-        safePush({
-          pathname: '/(tabs)/messages',
         } as never, undefined, ctx.router);
         return true;
       }
@@ -398,7 +375,6 @@ export function handleNotificationNavigation(
     case 'system': {
       const ticketId = stringField(data, 'ticketId');
       if (ticketId && openSupportTicket(ctx, ticketId)) return true;
-      if (orderId && openOrderDetails(ctx, orderId)) return true;
       if (postId) return navigateToPost(ctx, postId);
       if (paymentId) {
         safePush('/subscription' as never, undefined, ctx.router);

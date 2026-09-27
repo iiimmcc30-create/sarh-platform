@@ -8,10 +8,8 @@ import {
   Tag,
   Flag,
   Radio,
-  ShoppingBag,
   Wallet,
   Percent,
-  Store,
 } from 'lucide-react';
 import {
   BarChart,
@@ -24,8 +22,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   Legend,
 } from 'recharts';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -78,10 +74,6 @@ export default function DashboardPage() {
     return <PageState kind="loading" message="جارٍ تحميل مركز التشغيل..." />;
   }
 
-  const salesSeries =
-    chartWindow === '30' && stats.charts.salesByDay30?.length
-      ? stats.charts.salesByDay30
-      : stats.charts.salesByDay ?? [];
   const usersSeries =
     chartWindow === '30' && stats.charts.usersByDay30?.length
       ? stats.charts.usersByDay30
@@ -158,35 +150,6 @@ export default function DashboardPage() {
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="الطلبات"
-          value={stats.orders?.total ?? '—'}
-          subtitle={`قيد التنفيذ ${stats.orders?.pending ?? '—'} · مكتمل ${stats.orders?.completed ?? '—'}`}
-          icon={ShoppingBag}
-          accent="violet"
-        />
-        <div className="space-y-1">
-          <StatCard title="طلبات اليوم" value={stats.orders?.today ?? '—'} icon={ShoppingBag} />
-          <DeltaBadge today={stats.orders?.today ?? 0} yesterday={stats.orders?.yesterday} />
-        </div>
-        <StatCard
-          title="مبيعات اليوم"
-          value={money(stats.sales?.today)}
-          subtitle={`7 أيام ${money(stats.sales?.last7Days)} · 30 يوم ${money(stats.sales?.last30Days)}`}
-          icon={Wallet}
-          accent="blue"
-        />
-        <div className="space-y-1">
-          <StatCard
-            title="مبيعات أمس"
-            value={money(stats.sales?.yesterday)}
-            icon={Wallet}
-          />
-          <DeltaBadge today={stats.sales?.today ?? 0} yesterday={stats.sales?.yesterday} />
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard
           title="مدفوعات ناجحة"
           value={stats.payments?.successful ?? '—'}
           icon={Wallet}
@@ -211,20 +174,13 @@ export default function DashboardPage() {
           icon={Flag}
           accent="rose"
         />
-        <StatCard
-          title="الملاحم"
-          value={stats.butchers.total}
-          subtitle={`موثّق ${stats.butchers.verified}`}
-          icon={Store}
-          accent="violet"
-        />
       </div>
 
       {isAdmin && stats.commission ? (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <StatCard
-            title="عمولة الملاحم (داخلية)"
-            value={`${stats.commission.butcherStoreRatePercent}%`}
+            title="عمولة الإعلانات (داخلية)"
+            value={`${stats.commission.listingCommissionRatePercent ?? 0}%`}
             subtitle="رسوم إعلانات المتجر — ADMIN فقط"
             icon={Percent}
             accent="violet"
@@ -265,44 +221,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-4 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <h2 className="mb-4 text-lg font-semibold text-white">المبيعات</h2>
-          <div className="h-64">
-            {salesSeries.length === 0 ? (
-              <PageState kind="empty" message="لا بيانات مبيعات للنافذة المحددة" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={salesSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155' }} />
-                  <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <h2 className="mb-4 text-lg font-semibold text-white">الطلبات</h2>
-          <div className="h-64">
-            {(stats.charts.ordersByDay?.length ?? 0) === 0 ? (
-              <PageState kind="empty" message="لا بيانات طلبات" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.charts.ordersByDay}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155' }} />
-                  <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
           <h2 className="mb-4 text-lg font-semibold text-white">مدفوعات ناجحة مقابل فاشلة</h2>
           <div className="h-64">
@@ -395,25 +313,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-3">
-        <RecentTable
-          title="أحدث الطلبات"
-          href="/orders"
-          empty="لا طلبات"
-          rows={(stats.recent?.orders ?? []).map((o) => ({
-            id: String(o.id),
-            cells: [
-              String(o.orderNumber ?? o.id),
-              personName(o.customer as Record<string, unknown>),
-              personName(o.butcher as Record<string, unknown>),
-              `${o.totalPrice ?? 0} ${o.currency ?? 'SAR'}`,
-              <Badge key="s">{String(o.status)}</Badge>,
-              String(o.paymentStatus ?? '—'),
-              new Date(String(o.createdAt)).toLocaleString('ar-SA'),
-            ],
-          }))}
-          headers={['الطلب', 'العميل', 'الملحمة', 'المبلغ', 'الحالة', 'الدفع', 'التاريخ']}
-        />
+      <div className="mt-8 grid gap-6 xl:grid-cols-2">
         <RecentTable
           title="أحدث المدفوعات"
           href="/payments"

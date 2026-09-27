@@ -167,7 +167,6 @@ function makeStore(listing: Partial<ListingRow>) {
       findFirst: jest.fn(() => Promise.resolve(payments.pay1)),
       findUnique: jest.fn(() => Promise.resolve(payments.pay1)),
     },
-    butcherOrder: { findFirst: jest.fn(() => Promise.resolve(null)) },
     listing: {
       findUnique: jest.fn(({ select }: { select?: object }) =>
         Promise.resolve(

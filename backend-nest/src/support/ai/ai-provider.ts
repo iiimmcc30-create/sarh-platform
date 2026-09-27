@@ -11,24 +11,6 @@ export const SUPPORT_ISSUE_TYPES = [
 
 export type SupportIssueType = (typeof SUPPORT_ISSUE_TYPES)[number];
 
-export type SupportAiOrderContext = {
-  orderId: string;
-  orderNumber: string;
-  status: string;
-  paymentStatus: string;
-  totalPrice: number;
-  currency: string;
-  createdAt: string;
-  deliveryType: string;
-  deliveryAddress?: string | null;
-  items: Array<{
-    nameAr?: string | null;
-    cutType: string;
-    weightKg: number;
-    linePrice: number;
-  }>;
-};
-
 export type SupportAiContext = {
   ticketNumber: string;
   category: string;
@@ -38,7 +20,6 @@ export type SupportAiContext = {
   summary?: string | null;
   missingInformation: string[];
   recentMessages: Array<{ authorKind: string; body: string }>;
-  order?: SupportAiOrderContext | null;
 };
 
 export type SarhanDecision = {

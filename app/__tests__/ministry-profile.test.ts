@@ -37,7 +37,6 @@ describe('MEWA ministry profile wiring', () => {
     expect(profile).toContain('متابعة');
     expect(profile).not.toContain('مراسلة');
     expect(profile).not.toContain('onMessage');
-    expect(profile).not.toContain('/butchers/chat');
   });
 
   it('opens service details from cards and starts the official URL', () => {

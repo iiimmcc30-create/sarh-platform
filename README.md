@@ -1,6 +1,6 @@
 # سرح (Sarh)
 
-سوق ومحتوى اجتماعي للمواشي والملاحم في السعودية.
+سوق ومحتوى اجتماعي للمواشي في السعودية.
 
 هذا الملف يصف **المستودع الحالي** وحقائق بُنيت في تدقيق Phase 1 (2026-09-23). وجود كود لا يعني أن الميزة مُختبرة في الإنتاج.
 
@@ -11,7 +11,6 @@
 | `app/` | تطبيق الجوال (Expo Router) | Expo **54.0.37** · React Native **0.81.5** |
 | `backend-nest/` | HTTP API + worker + Socket.IO | NestJS **12.0.4** · Prisma **5.22.0** |
 | `admin-panel/` | لوحة الإدارة | Next.js **16.3.6** |
-| `butcher-dashboard/` | لوحة الملحمة (PWA) | Next.js **16.3.6** |
 
 إنتاج التطبيق الموثَّق في المستودع: **Hostinger VPS** على **https://sarhsa.online**.  
 `render.yaml` و`railway.json` ملفات تاريخية — README يمنع معاملتها كإنتاج حالي.
@@ -22,7 +21,6 @@
 Internet → nginx (:80/:443) → api:3001 (/api, /uploads)
                             → socket:3002 (/socket.io)
                             → admin:3000 (/admin)
-                            → butcher:3003 (/butcher)
 api / worker / socket → PostgreSQL + Redis (شبكة Docker داخلية)
 التخزين السحابي الافتراضي في قوالب الإنتاج: Cloudinary
 الدفع المستضاف: Network International (N-Genius)
@@ -47,7 +45,6 @@ npm run start:dev
 
 cd app && npm ci && npx expo start
 cd admin-panel && npm ci && npm run dev
-cd butcher-dashboard && npm ci && npm run dev
 ```
 
 Compose المحلي (`docker-compose.yml`) مخصّص للتطوير فقط. الإنتاج يستخدم `docker-compose.prod.yml` + `docker-compose.prod.ssl.yml`.
@@ -63,12 +60,10 @@ Compose المحلي (`docker-compose.yml`) مخصّص للتطوير فقط. ا
 | `backend-nest` `npm run build` | نجح |
 | `app` `npm run typecheck` | نجح |
 | `admin-panel` `npm run build` | نجح |
-| `butcher-dashboard` typecheck + build | نجح |
 | `npx prisma validate` | schema صالح |
 | App Jest | 76 suite / 777 tests |
 | Backend Jest | 121 suite / 879 tests |
 | Admin Jest | 12 suite |
-| Butcher Jest | 14 suite |
 
 تفاصيل الاختبارات: [`docs/TESTING.md`](docs/TESTING.md).
 

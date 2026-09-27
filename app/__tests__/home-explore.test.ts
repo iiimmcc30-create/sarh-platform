@@ -20,7 +20,7 @@ describe('homeExplore catalog', () => {
     expect(resolveExploreCard({ destination: 'listings' })?.descriptionAr).toBe(
       'اعلانات البيع والشراء والمنتجات',
     );
-    expect(resolveExploreCard({ destination: 'butchers' })).toBeNull();
+    expect(resolveExploreCard({ destination: 'unknown-destination' })).toBeNull();
     expect(resolveExploreCard({ destination: 'services' })?.route).toBe('/ministry');
     expect(resolveExploreCard({ destination: 'services' })?.titleAr).toBe(
       'خدمات وزارة البيئة والمياه والزراعة',
@@ -85,8 +85,6 @@ describe('Explore Sarh logo mark', () => {
     expect(section).toContain('HOME_BANNER_CTA_HREF');
     expect(section).toContain('pagingEnabled');
     expect(section).toContain('accessibilityRole="button"');
-    expect(fallback).not.toContain('ملاحم سرح');
-    expect(fallback).not.toContain("href: '/butchers'");
     expect(fallback).toContain("href: '/feed-suppliers'");
     expect(fallback).toContain('موردو الأعلاف');
     expect(fallback).toContain("href: '/ministry'");
@@ -359,7 +357,7 @@ describe('Home design-system adoption', () => {
     }
   });
 
-  it('does not wrap marketplace listing ads or the edge-to-edge butchers hero in SarhCard', () => {
+  it('does not wrap marketplace listing ads or the edge-to-edge explore hero in SarhCard', () => {
     expect(explore).not.toContain('SarhCard');
     expect(explore).not.toContain('CARD_RADIUS');
     expect(listingCard).not.toContain('@/design-system');
@@ -402,9 +400,6 @@ describe('Home design-system adoption', () => {
     expect(home).not.toContain('أحدث الإعلانات');
     expect(explore).toContain('fetchExploreSarhBanners');
     expect(explore).not.toContain('FALLBACK_EXPLORE_SARH_BANNERS');
-    expect(exploreFallback).not.toContain('ملاحم سرح');
-    expect(exploreFallback).not.toContain('explore-sarh-butchers.jpg');
-    expect(exploreFallback).not.toContain("href: '/butchers'");
     expect(exploreFallback).toContain('موردو الأعلاف');
     expect(exploreFallback).toContain('explore-sarh-feed-suppliers.jpg');
     expect(exploreFallback).toContain("href: '/ministry'");

@@ -259,14 +259,11 @@ describe('P1-07 chat inbox focus cache', () => {
     fetchWithTimeout.mockImplementation(async (url: string) => {
       const href = String(url);
       if (href.includes('type=DIRECT')) {
-        return jsonResponse({ success: true, data: [threadRow('t-direct')] });
-      }
-      if (href.includes('type=BUTCHER')) {
         return jsonResponse({
           success: true,
           data: [
-            threadRow('t-butcher', {
-              type: 'BUTCHER',
+            threadRow('t-direct'),
+            threadRow('t-peer', {
               lastMessageAt: '2026-09-16T09:00:00.000Z',
               unread: 0,
             }),
@@ -302,10 +299,10 @@ describe('P1-07 chat inbox focus cache', () => {
     expect(src('app/(tabs)/_layout.tsx')).toContain('freezeOnBlur: true');
   });
 
-  it('first inbox open issues one DIRECT+BUTCHER fetch round', async () => {
+  it('first inbox open issues one DIRECT fetch round', async () => {
     const threads = await fetchMessageInbox('token-a');
-    expect(threads.map((t) => t.id)).toEqual(['t-direct', 't-butcher']);
-    expect(inboxGets()).toBe(2);
+    expect(threads.map((t) => t.id)).toEqual(['t-direct', 't-peer']);
+    expect(inboxGets()).toBe(1);
   });
 
   it('returning from a conversation within TTL issues 0 GET', async () => {
@@ -330,7 +327,7 @@ describe('P1-07 chat inbox focus cache', () => {
     await fetchMessageInbox('token-a');
     expect(getCachedMessageInbox('ALL')?.map((t) => t.id)).toEqual([
       't-direct',
-      't-butcher',
+      't-peer',
     ]);
     fetchWithTimeout.mockClear();
 
@@ -354,19 +351,19 @@ describe('P1-07 chat inbox focus cache', () => {
     const pending = fetchMessageInbox('token-a');
     expect(getCachedMessageInbox('ALL')?.map((t) => t.id)).toEqual([
       't-direct',
-      't-butcher',
+      't-peer',
     ]);
     release();
     const next = await pending;
     expect(next[0]?.lastMessage).toBe('updated');
-    expect(inboxGets()).toBe(2);
+    expect(inboxGets()).toBe(1);
   });
 
   it('pull-to-refresh force bypasses TTL', async () => {
     await fetchMessageInbox('token-a');
     fetchWithTimeout.mockClear();
     await fetchMessageInbox('token-a', 'ALL', { force: true });
-    expect(inboxGets()).toBe(2);
+    expect(inboxGets()).toBe(1);
   });
 
   it('concurrent inbox requests share one GET round', async () => {
@@ -386,7 +383,7 @@ describe('P1-07 chat inbox focus cache', () => {
     expect(first).toBe(second);
     release();
     await Promise.all([first, second]);
-    expect(inboxGets()).toBe(2);
+    expect(inboxGets()).toBe(1);
   });
 
   it('socket message updates lastMessage, unread, and ordering without a list GET', async () => {
@@ -397,30 +394,30 @@ describe('P1-07 chat inbox focus cache', () => {
       [],
       {
         id: 'm-1',
-        threadId: 't-butcher',
-        senderId: 'peer-t-butcher',
+        threadId: 't-peer',
+        senderId: 'peer-t-peer',
         receiverId: 'me',
         text: 'رسالة جديدة',
         createdAt: '2026-09-16T12:00:00.000Z',
       },
-      't-butcher',
+      't-peer',
     );
     expect(conversation.map((m) => m.id)).toEqual(['m-1']);
 
     applyInboxThreadPreview({
-      threadId: 't-butcher',
+      threadId: 't-peer',
       lastMessage: inboxPreviewText({ text: 'رسالة جديدة' }),
       lastMessageAt: '2026-09-16T12:00:00.000Z',
       unread: 3,
       isMine: false,
     });
     const cached = getCachedMessageInbox('ALL');
-    expect(cached?.map((t) => t.id)).toEqual(['t-butcher', 't-direct']);
+    expect(cached?.map((t) => t.id)).toEqual(['t-peer', 't-direct']);
     expect(cached?.[0]?.lastMessage).toBe('رسالة جديدة');
     expect(cached?.[0]?.unread).toBe(3);
     expect(inboxGets()).toBe(0);
 
-    markInboxThreadRead('t-butcher');
+    markInboxThreadRead('t-peer');
     expect(getCachedMessageInbox('ALL')?.[0]?.unread).toBe(0);
     expect(inboxGets()).toBe(0);
   });
@@ -430,10 +427,10 @@ describe('P1-07 chat inbox focus cache', () => {
     now += MESSAGES_REFRESH_TTL_MS + 1;
     fetchWithTimeout.mockResolvedValue(jsonResponse({ success: false }, 500));
     const afterError = await fetchMessageInbox('token-a');
-    expect(afterError.map((t) => t.id)).toEqual(['t-direct', 't-butcher']);
+    expect(afterError.map((t) => t.id)).toEqual(['t-direct', 't-peer']);
     expect(getCachedMessageInbox('ALL')?.map((t) => t.id)).toEqual([
       't-direct',
-      't-butcher',
+      't-peer',
     ]);
   });
 });

@@ -6,9 +6,6 @@ describe('MessagingPolicyService', () => {
     findBlock: jest.fn(),
     findUserById: jest.fn(),
     findFollow: jest.fn(),
-    findButcherById: jest.fn(),
-    findButcherByUserId: jest.fn(),
-    findAcceptedButcherOrderForChat: jest.fn(),
   };
 
   let policy: MessagingPolicyService;
@@ -16,7 +13,6 @@ describe('MessagingPolicyService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     repo.findBlock.mockResolvedValue(null);
-    repo.findButcherByUserId.mockResolvedValue(null);
     policy = new MessagingPolicyService(repo as never);
   });
 
@@ -29,7 +25,6 @@ describe('MessagingPolicyService', () => {
       policy.assertCanSendMessage({
         senderId: 'blocked',
         receiverId: 'victim',
-        type: 'DIRECT',
       }),
     ).rejects.toMatchObject({ status: 403, error: 'blocked' });
   });
@@ -56,7 +51,6 @@ describe('MessagingPolicyService', () => {
       policy.assertCanSendMessage({
         senderId: 'stranger',
         receiverId: 'recv',
-        type: 'DIRECT',
       }),
     ).rejects.toMatchObject({ error: 'messages_restricted' });
   });
@@ -72,82 +66,6 @@ describe('MessagingPolicyService', () => {
       policy.assertCanSendMessage({
         senderId: 'alice',
         receiverId: 'recv',
-        type: 'DIRECT',
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it('forbids customer creating/sending a BUTCHER thread', async () => {
-    await expect(
-      policy.assertCanSendMessage({
-        senderId: 'customer',
-        receiverId: 'butcher-user',
-        type: 'BUTCHER',
-        butcherId: 'shop-1',
-      }),
-    ).rejects.toMatchObject({ status: 403, error: 'forbidden' });
-  });
-
-  it('forbids butcher creating/sending a BUTCHER thread to a customer', async () => {
-    await expect(
-      policy.assertCanSendMessage({
-        senderId: 'butcher-user',
-        receiverId: 'customer',
-        type: 'BUTCHER',
-        butcherId: 'shop-1',
-      }),
-    ).rejects.toMatchObject({ status: 403, error: 'forbidden' });
-  });
-
-  it('forbids send on an existing Customer↔Butcher thread (customer)', async () => {
-    await expect(
-      policy.assertCanSendMessage({
-        senderId: 'customer',
-        receiverId: 'butcher-user',
-        type: 'BUTCHER',
-        butcherId: 'shop-1',
-      }),
-    ).rejects.toMatchObject({ status: 403, error: 'forbidden' });
-  });
-
-  it('forbids send on an existing Customer↔Butcher thread (butcher)', async () => {
-    await expect(
-      policy.assertCanSendMessage({
-        senderId: 'butcher-user',
-        receiverId: 'customer',
-        type: 'BUTCHER',
-        butcherId: 'shop-1',
-      }),
-    ).rejects.toMatchObject({ status: 403, error: 'forbidden' });
-  });
-
-  it('forbids DIRECT send when exactly one participant owns a butcher shop', async () => {
-    repo.findButcherByUserId.mockImplementation(async (userId: string) =>
-      userId === 'butcher-user' ? { id: 'shop-1', userId } : null,
-    );
-
-    await expect(
-      policy.assertCanSendMessage({
-        senderId: 'customer',
-        receiverId: 'butcher-user',
-        type: 'DIRECT',
-      }),
-    ).rejects.toMatchObject({ status: 403, error: 'forbidden' });
-  });
-
-  it('allows DIRECT send between two shop owners', async () => {
-    repo.findButcherByUserId.mockResolvedValue({ id: 'shop', userId: 'x' });
-    repo.findUserById.mockResolvedValue({
-      id: 'other-owner',
-      allowPrivateMessages: true,
-      privateMessagesAudience: 'everyone',
-    });
-
-    await expect(
-      policy.assertCanSendMessage({
-        senderId: 'owner-a',
-        receiverId: 'owner-b',
-        type: 'DIRECT',
       }),
     ).resolves.toBeUndefined();
   });

@@ -4,10 +4,8 @@ const EMAIL_RE =
 const ALLOWED_TEMPLATES = new Set([
   'welcome',
   'fee_reminder',
-  'order_update',
   'subscription_renew',
   'email_verification',
-  'butcher_daftra_ready',
 ]);
 
 export function escapeHtml(value: string): string {

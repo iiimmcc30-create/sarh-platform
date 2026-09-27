@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,11 +18,7 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppUser } from '@/hooks/useApp';
 import { getRtlRow } from '@/lib/rtl';
-import {
-  createTicket,
-  fetchMyHelpOrders,
-  type HelpOrderSummary,
-} from '@/services/support';
+import { createTicket } from '@/services/support';
 import {
   SUPPORT_FLOW_CHOICES,
   findSupportFlowChoice,
@@ -33,20 +29,18 @@ import {
 } from '@/lib/supportFlow';
 import { SUPPORT_CUSTOMER_SERVICE } from '@/constants/supportIdentity';
 
-type FlowStep = 'welcome' | 'order' | 'describe' | 'sending' | 'handoff';
+type FlowStep = 'welcome' | 'describe' | 'sending' | 'handoff';
 
 type SupportFlowSheetProps = {
   visible: boolean;
   onClose: () => void;
   initialChoiceId?: string;
-  presetOrderId?: string;
 };
 
 export function SupportFlowSheet({
   visible,
   onClose,
   initialChoiceId,
-  presetOrderId,
 }: SupportFlowSheetProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -58,9 +52,6 @@ export function SupportFlowSheet({
   const [choice, setChoice] = useState<SupportFlowChoice | undefined>(
     findSupportFlowChoice(initialChoiceId),
   );
-  const [orders, setOrders] = useState<HelpOrderSummary[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
-  const [orderId, setOrderId] = useState<string | undefined>(presetOrderId);
   const [description, setDescription] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -69,67 +60,29 @@ export function SupportFlowSheet({
 
   const reset = useCallback(() => {
     const preset = findSupportFlowChoice(initialChoiceId);
-    if (preset?.needsOrder && !presetOrderId) {
-      setStep('order');
-    } else if (preset) {
+    if (preset) {
       setStep('describe');
     } else {
       setStep('welcome');
     }
     setChoice(preset);
-    setOrderId(presetOrderId);
     setDescription('');
     setSubmitError(null);
-  }, [initialChoiceId, presetOrderId]);
+  }, [initialChoiceId]);
 
   useEffect(() => {
     if (!visible) return;
     reset();
   }, [visible, reset]);
 
-  useEffect(() => {
-    if (!visible) return;
-    let cancelled = false;
-    setLoadingOrders(true);
-    void fetchMyHelpOrders()
-      .then((data) => {
-        if (!cancelled) setOrders(data?.orders ?? []);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingOrders(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [visible]);
-
-  const selectedOrder = useMemo(
-    () => orders.find((o) => o.id === orderId),
-    [orders, orderId],
-  );
-
   const pickChoice = (next: SupportFlowChoice) => {
     setChoice(next);
     setSubmitError(null);
-    if (next.needsOrder) {
-      if (presetOrderId) {
-        setOrderId(presetOrderId);
-        setStep('describe');
-        return;
-      }
-      setStep('order');
-      return;
-    }
-    setOrderId(undefined);
     setStep('describe');
   };
 
   const goBackStep = () => {
     setSubmitError(null);
-    if (step === 'describe' && choice?.needsOrder) {
-      setStep('order');
-      return;
-    }
     setStep('welcome');
   };
 
@@ -140,17 +93,12 @@ export function SupportFlowSheet({
       return;
     }
     if (!choice) return;
-    if (choice.needsOrder && !orderId) {
-      setSubmitError('اختر الطلب المرتبط بالمشكلة.');
-      return;
-    }
     setSubmitError(null);
     setStep('sending');
     const res = await createTicket({
       helpKind: choice.helpKind,
       category: choice.category,
       description: description.trim(),
-      orderId: choice.needsOrder ? orderId : undefined,
     });
     if (!res.ok || !res.ticket?.id) {
       setStep('describe');
@@ -167,8 +115,7 @@ export function SupportFlowSheet({
     });
   };
 
-  const describePrompt =
-    choice?.needsOrder ? 'اشرح لنا المشكلة في الطلب' : 'اشرح لنا المشكلة';
+  const describePrompt = 'اشرح لنا المشكلة';
 
   return (
     <Modal
@@ -258,46 +205,12 @@ export function SupportFlowSheet({
                 </>
               ) : null}
 
-              {step === 'order' ? (
-                <>
-                  <AppText variant="heading3">أي طلب تقصد؟</AppText>
-                  {loadingOrders ? <ActivityIndicator color={colors.electric} /> : null}
-                  {!loadingOrders && orders.length === 0 ? (
-                    <AppText variant="body" color="textMuted">
-                      لا توجد طلبات مرتبطة بحسابك. يمكنك اختيار نوع مساعدة آخر.
-                    </AppText>
-                  ) : (
-                    orders.map((order) => (
-                      <Pressable
-                        key={order.id}
-                        onPress={() => {
-                          setOrderId(order.id);
-                          setStep('describe');
-                        }}
-                        style={({ pressed }) => [styles.optionRow, pressed && styles.pressed]}
-                      >
-                        <AppText variant="body">{order.orderNumber}</AppText>
-                        <AppText variant="caption" color="textMuted">
-                          {order.butcher?.nameAr ?? ''} · {order.status}
-                        </AppText>
-                      </Pressable>
-                    ))
-                  )}
-                  <Pressable onPress={goBackStep}>
-                    <AppText variant="caption" color="primary" align="center">
-                      رجوع
-                    </AppText>
-                  </Pressable>
-                </>
-              ) : null}
-
               {step === 'describe' || step === 'sending' ? (
                 <>
                   <AppText variant="heading3">{describePrompt}</AppText>
                   {choice ? (
                     <AppText variant="caption" color="textMuted">
                       {choice.label}
-                      {selectedOrder ? ` · ${selectedOrder.orderNumber}` : ''}
                     </AppText>
                   ) : null}
                   <SarhInput

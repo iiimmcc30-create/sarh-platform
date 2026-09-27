@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Role, TicketStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  BUTCHER_LISTING_COMMISSION_PERCENT,
-  BUTCHER_ORDER_COMMISSION_PERCENT,
-} from '../../lib/commissions';
+import { LISTING_COMMISSION_PERCENT } from '../../listings/listing-fee';
 import {
   notDeleted,
   retentionCutoff,
@@ -99,9 +96,6 @@ export class AdminRepository {
       this.prisma.story.deleteMany({
         where: { expiresAt: { lt: thirtyDaysAgo }, deletedAt: null },
       }),
-      this.prisma.butcherOffer.deleteMany({
-        where: { validUntil: { lt: thirtyDaysAgo }, deletedAt: null },
-      }),
       // Hard purge soft-deleted content after retention window
       this.prisma.post.deleteMany({
         where: { deletedAt: { lt: archivedBefore } },
@@ -117,15 +111,6 @@ export class AdminRepository {
       }),
       this.prisma.contentSection.deleteMany({
         where: { deletedAt: { lt: archivedBefore } },
-      }),
-      this.prisma.butcherStory.deleteMany({
-        where: { deletedAt: { lt: archivedBefore } },
-      }),
-      this.prisma.butcherOffer.deleteMany({
-        where: { deletedAt: { lt: archivedBefore } },
-      }),
-      this.prisma.butcherProduct.deleteMany({
-        where: { deletedAt: { lt: archivedBefore }, orderItems: { none: {} } },
       }),
       this.prisma.story.deleteMany({
         where: { deletedAt: { lt: archivedBefore } },
@@ -491,83 +476,6 @@ export class AdminRepository {
     });
   }
 
-  async listButchers(query: PaginationQueryDto) {
-    const { page, pageSize, search } = query;
-    const where: Prisma.ButcherWhereInput = {
-      ...notDeleted,
-      ...(search?.trim()
-        ? {
-            OR: [
-              { nameAr: { contains: search.trim(), mode: 'insensitive' } },
-              { nameEn: { contains: search.trim(), mode: 'insensitive' } },
-              { cityAr: { contains: search.trim(), mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
-    const [items, total] = await Promise.all([
-      this.prisma.butcher.findMany({
-        where,
-        include: { user: { select: AUTHOR_SELECT } },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      this.prisma.butcher.count({ where }),
-    ]);
-    return paginate(items, total, page, pageSize);
-  }
-
-  updateButcher(id: string, data: Prisma.ButcherUpdateInput) {
-    return this.prisma.butcher.update({
-      where: { id },
-      data,
-      include: { user: { select: AUTHOR_SELECT } },
-    });
-  }
-
-  findButcherById(id: string) {
-    return this.prisma.butcher.findFirst({
-      where: { id, ...notDeleted },
-      include: {
-        user: { select: OWNER_USER_SELECT },
-        sourceApplication: {
-          select: {
-            id: true,
-            applicationNumber: true,
-            status: true,
-            submittedAt: true,
-          },
-        },
-      },
-    });
-  }
-
-  /**
-   * Soft-delete butcher + catalog rows. Orders/checkouts/reviews stay for history.
-   */
-  softDeleteButcher(id: string) {
-    const now = softDeleteFields();
-    return this.prisma.$transaction([
-      this.prisma.butcherProduct.updateMany({
-        where: { butcherId: id, deletedAt: null },
-        data: { ...now, inStock: false },
-      }),
-      this.prisma.butcherOffer.updateMany({
-        where: { butcherId: id, deletedAt: null },
-        data: now,
-      }),
-      this.prisma.butcherStory.updateMany({
-        where: { butcherId: id, deletedAt: null },
-        data: now,
-      }),
-      this.prisma.butcher.update({
-        where: { id },
-        data: { ...now, isOpen: false },
-      }),
-    ]);
-  }
-
   listSettings() {
     return this.prisma.appSetting.findMany({
       take: 200,
@@ -699,30 +607,16 @@ export class AdminRepository {
       totalTickets,
       reportsToday,
       reportsYesterday,
-      totalButchers,
-      verifiedButchers,
-      ordersTotal,
-      ordersToday,
-      ordersYesterday,
-      ordersPending,
-      ordersCompleted,
-      salesTodayAgg,
-      salesYesterdayAgg,
-      sales7dAgg,
-      sales30dAgg,
       paymentsPaid,
       paymentsFailed,
       paymentsPending,
       paymentsRefunded,
       listingFeesPaidAgg,
       listingFeesPendingAgg,
-      orderCommissionsAgg,
       usersRaw,
-      ordersRaw,
       paymentsByDayRaw,
       reportsRaw,
       ticketsByCategory,
-      recentOrders,
       recentPayments,
       recentReports,
     ] = await Promise.all([
@@ -794,55 +688,12 @@ export class AdminRepository {
           createdAt: { gte: yesterdayStart, lt: todayStart },
         },
       }),
-      this.prisma.butcher.count({ where: notDeleted }),
-      this.prisma.butcher.count({ where: { ...notDeleted, type: 'verified' } }),
-      this.prisma.butcherOrder.count(),
-      this.prisma.butcherOrder.count({
-        where: { createdAt: { gte: todayStart } },
-      }),
-      this.prisma.butcherOrder.count({
-        where: { createdAt: { gte: yesterdayStart, lt: todayStart } },
-      }),
-      this.prisma.butcherOrder.count({
-        where: {
-          status: { in: ['pending', 'confirmed', 'preparing', 'ready'] },
-        },
-      }),
-      this.prisma.butcherOrder.count({ where: { status: 'delivered' } }),
-      this.prisma.butcherOrder.aggregate({
-        where: {
-          status: 'delivered',
-          createdAt: { gte: todayStart },
-        },
-        _sum: { totalPrice: true },
-      }),
-      this.prisma.butcherOrder.aggregate({
-        where: {
-          status: 'delivered',
-          createdAt: { gte: yesterdayStart, lt: todayStart },
-        },
-        _sum: { totalPrice: true },
-      }),
-      this.prisma.butcherOrder.aggregate({
-        where: {
-          status: 'delivered',
-          createdAt: { gte: sevenDaysAgo },
-        },
-        _sum: { totalPrice: true },
-      }),
-      this.prisma.butcherOrder.aggregate({
-        where: {
-          status: 'delivered',
-          createdAt: { gte: thirtyDaysAgo },
-        },
-        _sum: { totalPrice: true },
-      }),
       this.prisma.payment.count({
         where: {
           status: 'paid',
           OR: [
             { referenceType: null },
-            { referenceType: { notIn: ['commission', 'order_commission'] } },
+            { referenceType: { not: 'commission' } },
           ],
         },
       }),
@@ -851,7 +702,7 @@ export class AdminRepository {
           status: 'failed',
           OR: [
             { referenceType: null },
-            { referenceType: { notIn: ['commission', 'order_commission'] } },
+            { referenceType: { not: 'commission' } },
           ],
         },
       }),
@@ -860,7 +711,7 @@ export class AdminRepository {
           status: 'pending',
           OR: [
             { referenceType: null },
-            { referenceType: { notIn: ['commission', 'order_commission'] } },
+            { referenceType: { not: 'commission' } },
           ],
         },
       }),
@@ -869,7 +720,7 @@ export class AdminRepository {
           status: 'refunded',
           OR: [
             { referenceType: null },
-            { referenceType: { notIn: ['commission', 'order_commission'] } },
+            { referenceType: { not: 'commission' } },
           ],
         },
       }),
@@ -883,29 +734,10 @@ export class AdminRepository {
         _sum: { commission: true },
         _count: { _all: true },
       }),
-      this.prisma.payment.aggregate({
-        where: {
-          status: 'paid',
-          OR: [
-            { referenceType: 'order_commission' },
-            {
-              referenceType: 'commission',
-              orderId: { startsWith: 'BOC-' },
-            },
-          ],
-        },
-        _sum: { amount: true },
-        _count: { _all: true },
-      }),
       this.prisma.user.findMany({
         take: 5000,
         where: { ...notDeleted, createdAt: { gte: thirtyDaysAgo } },
         select: { createdAt: true },
-      }),
-      this.prisma.butcherOrder.findMany({
-        take: 5000,
-        where: { createdAt: { gte: thirtyDaysAgo }, status: 'delivered' },
-        select: { createdAt: true, totalPrice: true },
       }),
       this.prisma.payment.findMany({
         take: 5000,
@@ -913,7 +745,7 @@ export class AdminRepository {
           createdAt: { gte: thirtyDaysAgo },
           OR: [
             { referenceType: null },
-            { referenceType: { notIn: ['commission', 'order_commission'] } },
+            { referenceType: { not: 'commission' } },
           ],
         },
         select: { createdAt: true, status: true },
@@ -932,28 +764,11 @@ export class AdminRepository {
         where: { ...notDeleted, type: 'REPORT' },
         _count: { category: true },
       }),
-      this.prisma.butcherOrder.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 8,
-        select: {
-          id: true,
-          orderNumber: true,
-          totalPrice: true,
-          currency: true,
-          status: true,
-          paymentStatus: true,
-          createdAt: true,
-          customer: {
-            select: { id: true, arabicName: true, displayName: true },
-          },
-          butcher: { select: { id: true, nameAr: true } },
-        },
-      }),
       this.prisma.payment.findMany({
         where: {
           OR: [
             { referenceType: null },
-            { referenceType: { notIn: ['commission', 'order_commission'] } },
+            { referenceType: { not: 'commission' } },
           ],
         },
         orderBy: { createdAt: 'desc' },
@@ -1014,17 +829,6 @@ export class AdminRepository {
       if (users30.has(key)) users30.set(key, (users30.get(key) ?? 0) + 1);
     }
 
-    const sales7 = fillDays(sevenDaysAgo, 7);
-    const sales30 = fillDays(thirtyDaysAgo, 30);
-    const orders7 = fillDays(sevenDaysAgo, 7);
-    for (const o of ordersRaw) {
-      const key = o.createdAt.toISOString().slice(0, 10);
-      const amt = o.totalPrice ?? 0;
-      if (sales7.has(key)) sales7.set(key, (sales7.get(key) ?? 0) + amt);
-      if (sales30.has(key)) sales30.set(key, (sales30.get(key) ?? 0) + amt);
-      if (orders7.has(key)) orders7.set(key, (orders7.get(key) ?? 0) + 1);
-    }
-
     const payments7Paid = fillDays(sevenDaysAgo, 7);
     const payments7Failed = fillDays(sevenDaysAgo, 7);
     for (const p of paymentsByDayRaw) {
@@ -1072,20 +876,6 @@ export class AdminRepository {
         today: reportsToday,
         yesterday: reportsYesterday,
       },
-      butchers: { total: totalButchers, verified: verifiedButchers },
-      orders: {
-        total: ordersTotal,
-        today: ordersToday,
-        yesterday: ordersYesterday,
-        pending: ordersPending,
-        completed: ordersCompleted,
-      },
-      sales: {
-        today: money(salesTodayAgg._sum.totalPrice),
-        yesterday: money(salesYesterdayAgg._sum.totalPrice),
-        last7Days: money(sales7dAgg._sum.totalPrice),
-        last30Days: money(sales30dAgg._sum.totalPrice),
-      },
       payments: {
         successful: paymentsPaid,
         failed: paymentsFailed,
@@ -1093,24 +883,14 @@ export class AdminRepository {
         refunded: paymentsRefunded,
       },
       commission: {
-        listingCommissionRatePercent: BUTCHER_LISTING_COMMISSION_PERCENT,
-        orderCommissionRatePercent: BUTCHER_ORDER_COMMISSION_PERCENT,
-        /** @deprecated Use listingCommissionRatePercent */
-        butcherStoreRatePercent: BUTCHER_LISTING_COMMISSION_PERCENT,
+        listingCommissionRatePercent: LISTING_COMMISSION_PERCENT,
         listingFeesPaidTotal: money(listingFeesPaidAgg._sum.commission),
         listingFeesPaidCount: listingFeesPaidAgg._count._all,
         listingFeesOutstandingTotal: money(
           listingFeesPendingAgg._sum.commission,
         ),
         listingFeesOutstandingCount: listingFeesPendingAgg._count._all,
-        orderCommissionsTotal: money(orderCommissionsAgg._sum.amount),
-        orderCommissionsCount: orderCommissionsAgg._count._all,
-        totalCommission: money(
-          (listingFeesPaidAgg._sum.commission ?? 0) +
-            (orderCommissionsAgg._sum.amount ?? 0),
-        ),
-        noteAr:
-          'عمولتان منفصلتان: (1) عمولة الإعلان 1% عبر ListingFee وفق تعهد البائع — (2) عمولة طلب الملحمة 10% عند delivered عبر Payment(referenceType=order_commission).',
+        totalCommission: money(listingFeesPaidAgg._sum.commission ?? 0),
       },
       charts: {
         usersByDay: Array.from(users7.entries()).map(([date, count]) => ({
@@ -1118,18 +898,6 @@ export class AdminRepository {
           count,
         })),
         usersByDay30: Array.from(users30.entries()).map(([date, count]) => ({
-          date,
-          count,
-        })),
-        salesByDay: Array.from(sales7.entries()).map(([date, amount]) => ({
-          date,
-          amount: money(amount),
-        })),
-        salesByDay30: Array.from(sales30.entries()).map(([date, amount]) => ({
-          date,
-          amount: money(amount),
-        })),
-        ordersByDay: Array.from(orders7.entries()).map(([date, count]) => ({
           date,
           count,
         })),
@@ -1150,161 +918,10 @@ export class AdminRepository {
         })),
       },
       recent: {
-        orders: recentOrders,
         payments: recentPayments,
         reports: recentReports,
       },
     };
-  }
-
-  async listOrders(query: {
-    page: number;
-    pageSize: number;
-    search?: string;
-    status?: string;
-    butcherId?: string;
-    customerId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    orderNumber?: string;
-  }) {
-    const { page, pageSize, search } = query;
-    const createdAt: Prisma.DateTimeFilter | undefined =
-      query.dateFrom || query.dateTo
-        ? {
-            ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-            ...(query.dateTo
-              ? { lte: new Date(`${query.dateTo}T23:59:59.999Z`) }
-              : {}),
-          }
-        : undefined;
-
-    const where: Prisma.ButcherOrderWhereInput = {
-      ...(query.status ? { status: query.status as never } : {}),
-      ...(query.butcherId ? { butcherId: query.butcherId } : {}),
-      ...(query.customerId ? { customerId: query.customerId } : {}),
-      ...(createdAt ? { createdAt } : {}),
-      ...(query.orderNumber?.trim()
-        ? {
-            orderNumber: {
-              contains: query.orderNumber.trim(),
-              mode: 'insensitive',
-            },
-          }
-        : {}),
-      ...(search?.trim()
-        ? {
-            OR: [
-              { orderNumber: { contains: search.trim(), mode: 'insensitive' } },
-              { notes: { contains: search.trim(), mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
-    const [items, total] = await Promise.all([
-      this.prisma.butcherOrder.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        include: {
-          butcher: {
-            select: { id: true, nameAr: true, nameEn: true, userId: true },
-          },
-          customer: {
-            select: {
-              id: true,
-              arabicName: true,
-              displayName: true,
-              phone: true,
-            },
-          },
-          product: {
-            select: {
-              id: true,
-              nameAr: true,
-              nameEn: true,
-              availableQuantity: true,
-              reservedQuantity: true,
-            },
-          },
-          items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  nameAr: true,
-                  nameEn: true,
-                  availableQuantity: true,
-                  reservedQuantity: true,
-                },
-              },
-            },
-          },
-          timeline: { orderBy: { createdAt: 'asc' } },
-        },
-      }),
-      this.prisma.butcherOrder.count({ where }),
-    ]);
-    return paginate(items, total, page, pageSize);
-  }
-
-  getOrderById(orderId: string) {
-    return this.prisma.butcherOrder.findUnique({
-      where: { id: orderId },
-      include: {
-        butcher: {
-          select: { id: true, nameAr: true, nameEn: true, userId: true },
-        },
-        customer: {
-          select: {
-            id: true,
-            arabicName: true,
-            displayName: true,
-            phone: true,
-          },
-        },
-        product: {
-          include: { daftraLink: { select: { daftraSaleUnit: true } } },
-        },
-        items: {
-          include: {
-            product: {
-              include: { daftraLink: { select: { daftraSaleUnit: true } } },
-            },
-          },
-        },
-        timeline: { orderBy: { createdAt: 'asc' } },
-        audits: { orderBy: { changedAt: 'asc' } },
-      },
-    });
-  }
-
-  findPaymentIntegrationForButcherOrder(orderId: string) {
-    return this.prisma.payment.findFirst({
-      where: { referenceId: orderId, referenceType: 'butcher_order' },
-      select: {
-        id: true,
-        orderId: true,
-        status: true,
-        amount: true,
-        transactionId: true,
-        checkoutUrl: true,
-        integrationOrder: {
-          select: {
-            id: true,
-            provider: true,
-            status: true,
-            merchantOrderReference: true,
-            externalOrderId: true,
-            lastError: true,
-            retryCount: true,
-            lastAttemptAt: true,
-            syncedAt: true,
-          },
-        },
-      },
-    });
   }
 
   ensureDefaultSettings() {
@@ -1325,12 +942,6 @@ export class AdminRepository {
         key: 'liveStreamsEnabled',
         value: true,
         labelAr: 'تفعيل البث المباشر',
-        category: 'features',
-      },
-      {
-        key: 'butcherApplicationsEnabled',
-        value: true,
-        labelAr: 'طلبات الملاحم',
         category: 'features',
       },
       // Paid listing services — show/hide independently in the app

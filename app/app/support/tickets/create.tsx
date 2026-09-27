@@ -15,7 +15,7 @@ import { AppText, SarhButton, SarhChip, SarhChipRow, SarhInput } from '@/design-
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 
 const CATEGORIES = (Object.keys(TICKET_CATEGORY_LABEL_AR) as SupportTicketCategory[]).filter(
-  (c) => c !== 'ORDER_HELP' && c !== 'OTHER_HELP',
+  (c) => c !== 'OTHER_HELP',
 );
 
 export default function CreateSupportTicketScreen() {

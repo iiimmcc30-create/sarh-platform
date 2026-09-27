@@ -14,8 +14,6 @@ services:
       - ./nginx/ssl-redirect.conf:/etc/nginx/includes/ssl-redirect.conf:ro
       - ./nginx/nginx.ssl.server.conf:/etc/nginx/conf.d/ssl-server.conf:ro
       - ./nginx/admin-location.conf:/etc/nginx/includes/admin-location.conf:ro
-      - ./nginx/butcher-location.conf:/etc/nginx/includes/butcher-location.conf:ro
-      - ./nginx/join-location.conf:/etc/nginx/includes/join-location.conf:ro
       - ./nginx/web-location.conf:/etc/nginx/includes/web-location.conf:ro
       - ./nginx/payment-bridge.conf:/etc/nginx/includes/payment-bridge.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro

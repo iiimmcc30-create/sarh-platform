@@ -25,15 +25,6 @@ export const STORY_LISTING_SELECT = {
   currency: true,
 } as const;
 
-export const BUTCHER_STORY_SELECT = {
-  id: true,
-  nameAr: true,
-  nameEn: true,
-  logo: true,
-  subscriptionActive: true,
-  country: true,
-} as const;
-
 const STORY_DETAIL_INCLUDE = {
   user: { select: STORY_USER_SELECT },
   listing: { select: STORY_LISTING_SELECT },
@@ -122,40 +113,4 @@ export class StoriesRepository {
     return this.prisma.storyReaction.count({ where: { storyId } });
   }
 
-  findActiveButcherStories() {
-    return this.prisma.butcherStory.findMany({
-      take: 100,
-      where: { expiresAt: { gt: new Date() }, ...notDeleted },
-      orderBy: { createdAt: 'desc' },
-      include: { butcher: { select: BUTCHER_STORY_SELECT } },
-    });
-  }
-
-  findButcherByUserId(userId: string) {
-    return this.prisma.butcher.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-  }
-
-  createButcherStory(data: Prisma.ButcherStoryCreateInput) {
-    return this.prisma.butcherStory.create({
-      data,
-      include: { butcher: { select: BUTCHER_STORY_SELECT } },
-    });
-  }
-
-  findButcherStoryWithOwner(id: string) {
-    return this.prisma.butcherStory.findUnique({
-      where: { id },
-      include: { butcher: { select: { userId: true } } },
-    });
-  }
-
-  softDeleteButcherStory(id: string) {
-    return this.prisma.butcherStory.update({
-      where: { id },
-      data: softDeleteFields(),
-    });
-  }
 }

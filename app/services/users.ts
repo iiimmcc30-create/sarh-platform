@@ -19,8 +19,8 @@ export type PublicUserProfile = {
   isAI?: boolean;
   country?: string;
   role?: string;
-  /** Derived: USER | BUTCHER | LIVESTOCK_TRADER */
-  accountType?: 'USER' | 'BUTCHER' | 'LIVESTOCK_TRADER';
+  /** Derived: USER | LIVESTOCK_TRADER */
+  accountType?: 'USER' | 'LIVESTOCK_TRADER';
   /** Account rating average (1–5), null when no reviews yet */
   rating: number | null;
   reviewCount: number;
