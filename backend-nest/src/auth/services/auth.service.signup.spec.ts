@@ -454,3 +454,82 @@ describe('AuthService signup uniqueness', () => {
     });
   });
 });
+
+describe('AuthService Google identity hardening', () => {
+  const req = {
+    headers: { 'user-agent': 'jest' },
+    socket: { remoteAddress: '127.0.0.1' },
+  } as never;
+  const realFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('register with a client-supplied googleId never grants the verified badge', async () => {
+    const created = {
+      id: 'user-g',
+      username: 'guser',
+      phone: PHONE_NEW,
+      role: 'USER',
+      passwordVersion: 0,
+      displayName: 'g',
+      arabicName: 'g',
+      email: 'g@example.com',
+      avatar: null,
+      verified: false,
+      country: 'SA',
+      subscription: null,
+    };
+    const { service, repo } = makeService({
+      createUser: jest.fn().mockResolvedValue(created),
+    });
+    await service.register(
+      {
+        phone: PHONE_NEW,
+        phone_token: signupPhoneToken(PHONE_NEW),
+        displayName: 'g',
+        username: 'guser',
+        country: 'SA',
+        email: 'g@example.com',
+        googleId: 'any-client-string',
+      } as never,
+      req,
+    );
+    expect(repo.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        googleId: 'any-client-string',
+        verified: false,
+      }),
+    );
+  });
+
+  it('google login matches by email only when Google verified that email', async () => {
+    const findGoogleUser = jest.fn().mockResolvedValue(null);
+    const { service } = makeService({ findGoogleUser });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sub: 'g-sub-1',
+        email: 'victim@example.com',
+        email_verified: 'false',
+        aud: 'x',
+      }),
+    }) as never;
+    await service.googleAuth({ id_token: 't' } as never, req);
+    expect(findGoogleUser).toHaveBeenCalledWith('g-sub-1', null);
+
+    findGoogleUser.mockClear();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sub: 'g-sub-2',
+        email: 'owner@example.com',
+        email_verified: 'true',
+        aud: 'x',
+      }),
+    }) as never;
+    await service.googleAuth({ id_token: 't' } as never, req);
+    expect(findGoogleUser).toHaveBeenCalledWith('g-sub-2', 'owner@example.com');
+  });
+});

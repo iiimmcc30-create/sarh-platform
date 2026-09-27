@@ -265,7 +265,9 @@ export class AuthService {
         googleId: dto.googleId ?? null,
         avatar: dto.avatar ?? null,
         passwordHash,
-        verified: !!dto.googleId,
+        // The public verified badge is never granted at signup: `googleId` here is
+        // client-supplied (no server-side Google token check on this route).
+        verified: false,
       });
     } catch (err) {
       if (isPrismaUniqueConflict(err)) {
@@ -719,9 +721,11 @@ export class AuthService {
       throwApi(500, 'google_verify_error', 'خطأ في التحقق من Google');
     }
 
+    // Match an existing account by email only when Google says that email is
+    // verified; otherwise match by the Google subject id alone.
     let user = await this.repo.findGoogleUser(
       googleUser!.googleId,
-      googleUser!.email,
+      googleUser!.emailVerified ? googleUser!.email : null,
     );
 
     if (!user) {

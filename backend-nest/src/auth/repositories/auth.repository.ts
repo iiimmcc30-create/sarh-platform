@@ -184,9 +184,9 @@ export class AuthRepository {
     });
   }
 
-  findGoogleUser(googleId: string, email: string) {
+  findGoogleUser(googleId: string, email?: string | null) {
     return this.prisma.user.findFirst({
-      where: { OR: [{ googleId }, { email }] },
+      where: { OR: email ? [{ googleId }, { email }] : [{ googleId }] },
       include: { subscription: true },
     });
   }
