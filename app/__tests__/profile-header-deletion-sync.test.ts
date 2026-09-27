@@ -101,7 +101,7 @@ describe('profile header', () => {
     expect(row).not.toMatch(/\bicon=/);
     expect(row).toContain('onPress={onShare}');
     expect(row).toContain('onPress={onEditProfile}');
-    expect(row).toContain('isOwnProfile && onEditProfile');
+    expect(row).toContain('isOwnProfile && (onShare || onEditProfile)');
     expect(SHARE_LABEL).toBe('مشاركة');
     expect(PROFILE_EDIT_LABEL).toBe('تعديل الملفّ الشخصيّ');
   });
@@ -116,6 +116,53 @@ describe('profile header', () => {
     const other = src('app/users/[id].tsx');
     expect(other).toContain('onShare={handleShareProfile}');
     expect(other).not.toContain('onEditProfile=');
+  });
+
+  describe('actions row per profile kind', () => {
+    const ownStart = layout.indexOf('{isOwnProfile && (onShare || onEditProfile) ? (');
+    const visitorStart = layout.indexOf("{mode === 'visitor' && (onFollow || onMessage) ? (");
+    const tabsStart = layout.indexOf('</Animated.View>', visitorStart);
+    const ownBlock = layout.slice(ownStart, visitorStart);
+    const visitorBlock = layout.slice(visitorStart, tabsStart);
+
+    it('My Profile shows Share + Edit Profile and no Follow / Message', () => {
+      expect(ownStart).toBeGreaterThan(-1);
+      expect(visitorStart).toBeGreaterThan(ownStart);
+      expect(ownBlock).toContain('title={SHARE_LABEL}');
+      expect(ownBlock).toContain('title={PROFILE_EDIT_LABEL}');
+      expect(ownBlock).not.toContain('onFollow');
+      expect(ownBlock).not.toContain('onMessage');
+      expect(ownBlock).not.toContain('متابعة');
+      expect(ownBlock).not.toContain('مراسلة');
+    });
+
+    it('Other User Profile shows only Follow + Message (no Share, no Edit Profile)', () => {
+      expect(visitorBlock).toContain('title="مراسلة"');
+      expect(visitorBlock).toContain("'متابعة'");
+      expect(visitorBlock).toContain('onPress={onMessage}');
+      expect(visitorBlock).toContain('onPress={onFollow}');
+      expect(visitorBlock).not.toContain('SHARE_LABEL');
+      expect(visitorBlock).not.toContain('onShare');
+      expect(visitorBlock).not.toContain('PROFILE_EDIT_LABEL');
+      expect(visitorBlock).not.toContain('onEditProfile');
+      // Restored exactly as before b2a9b78: gap sm, original flex style.
+      expect(visitorBlock).toContain('<Row gap="sm" align="center" style={[styles.actionsRow, inset]}>');
+      expect(visitorBlock.match(/style=\{styles\.actionBtnFlex\}/g)).toHaveLength(2);
+      // Share and Edit pills appear exactly once in the whole layout (own row only).
+      expect(layout.match(/title=\{SHARE_LABEL\}/g)).toHaveLength(1);
+      expect(layout.match(/title=\{PROFILE_EDIT_LABEL\}/g)).toHaveLength(1);
+    });
+
+    it('Other profile keeps sharing via the existing ⋯ menu; own id redirects to My Profile', () => {
+      const other = src('app/users/[id].tsx');
+      expect(other).toContain('const handleShareProfile = () =>');
+      expect(other).toContain("if (key === 'share') handleShareProfile();");
+      expect(other).toContain('mode="visitor"');
+      expect(other).toContain('onFollow={handleFollow}');
+      expect(other).toMatch(/onMessage=\{profile\.allowPrivateMessages === false \? undefined : handleChat\}/);
+      expect(other).toContain("router.replace('/(tabs)/profile')");
+      expect(src('app/(tabs)/profile.tsx')).toContain('mode="own"');
+    });
   });
 });
 

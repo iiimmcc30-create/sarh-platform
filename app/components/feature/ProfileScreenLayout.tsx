@@ -385,9 +385,9 @@ export function ProfileScreenLayout({
             </Pressable>
           </Row>
 
-          {/* Equal outline pills above the tabs: Share + Edit (own) / Share + existing actions (visitor). */}
-          {onShare || (isOwnProfile && onEditProfile) || (!isOwnProfile && (onFollow || onMessage)) ? (
-            <Row gap="md" align="center" style={[styles.actionsRow, inset]}>
+          {/* My Profile only: equal outline pills above the tabs (Share + Edit Profile). */}
+          {isOwnProfile && (onShare || onEditProfile) ? (
+            <Row gap="md" align="center" style={[styles.ownActionsRow, inset]}>
               {onShare ? (
                 <SarhButton
                   title={SHARE_LABEL}
@@ -397,7 +397,7 @@ export function ProfileScreenLayout({
                   style={styles.pill}
                 />
               ) : null}
-              {isOwnProfile && onEditProfile ? (
+              {onEditProfile ? (
                 <SarhButton
                   title={PROFILE_EDIT_LABEL}
                   variant={PROFILE_ACTION_PILL_VARIANT}
@@ -406,17 +406,23 @@ export function ProfileScreenLayout({
                   style={styles.pill}
                 />
               ) : null}
-              {!isOwnProfile && onMessage ? (
+            </Row>
+          ) : null}
+
+          {/* Other user's profile: the original Follow + Message actions only (share stays in the ⋯ menu). */}
+          {mode === 'visitor' && (onFollow || onMessage) ? (
+            <Row gap="sm" align="center" style={[styles.actionsRow, inset]}>
+              {onMessage ? (
                 <SarhButton
                   title="مراسلة"
                   variant="secondary"
                   shape="pill"
                   leftIcon="chatbubble-outline"
                   onPress={onMessage}
-                  style={styles.pill}
+                  style={styles.actionBtnFlex}
                 />
               ) : null}
-              {!isOwnProfile && onFollow ? (
+              {onFollow ? (
                 <SarhButton
                   title={isFollowing ? 'متابَع' : 'متابعة'}
                   variant={isFollowing ? 'secondary' : 'primary'}
@@ -424,7 +430,7 @@ export function ProfileScreenLayout({
                   leftIcon={isFollowing ? 'checkmark-circle-outline' : 'person-add-outline'}
                   onPress={onFollow}
                   loading={followLoading}
-                  style={styles.pill}
+                  style={styles.actionBtnFlex}
                 />
               ) : null}
             </Row>
@@ -558,7 +564,14 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     actionsRow: {
       paddingTop: spacing.md,
+    },
+    ownActionsRow: {
+      paddingTop: spacing.md,
       gap: PROFILE_ACTION_PILL_GAP,
+    },
+    actionBtnFlex: {
+      flexGrow: 1,
+      flexShrink: 0,
     },
     /** Equal-width outline pill (radius = height / 2 via shape="pill"). */
     pill: {
