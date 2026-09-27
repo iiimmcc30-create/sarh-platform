@@ -3,7 +3,6 @@ import { Image, uriSource } from '@/components/ui/AppImage';
 import { AppText } from '@/components/ui/AppText';
 import { AppScrollView } from '@/components/ui/AppScrollView';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
-import { SidebarBookmarks } from '@/components/feature/SidebarBookmarks';
 import { AppText as DsText, SarhDivider } from '@/design-system/components';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -13,11 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getRtlRow } from '@/lib/rtl';
 import { closeThen, closeThenPush } from '@/lib/safeNavigate';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
-import {
-  SIDEBAR_BOOKMARKS_TITLE,
-  isSidebarBookmarksSlot,
-  withSidebarBookmarks,
-} from '@/lib/sidebarBookmarks';
 import { sidebarShowsVerifiedBadge } from '@/lib/verifiedBadge';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +26,7 @@ type NavItem = {
 const PRIMARY_ITEMS: NavItem[] = [
   { key: 'profile', icon: 'person-outline', label: 'الملف الشخصي', route: '/(tabs)/profile' },
   { key: 'create-listing', icon: 'add-circle-outline', label: 'إضافة عرض', route: '/create/listing' },
+  { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
   { key: 'feed-suppliers', icon: 'leaf', label: 'موردو الأعلاف', route: '/feed-suppliers' },
   { key: 'ministry', icon: 'briefcase-outline', label: 'خدمات الوزارة', route: '/ministry?tab=services' },
   { key: 'news', icon: 'newspaper-outline', label: 'قطاع الأخبار', route: '/news' },
@@ -119,30 +114,20 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
 
         <SarhDivider accessibilityLabel="فاصل القائمة" />
 
-        {withSidebarBookmarks(PRIMARY_ITEMS).map((item) =>
-          isSidebarBookmarksSlot(item) ? (
-            <View key={item.key}>
-              <View style={[styles.row, getRtlRow()]} accessibilityRole="header">
-                <AppIcon name="bookmark-outline" size={24} color={colors.textPrimary} />
-                <AppText style={styles.rowLabel}>{SIDEBAR_BOOKMARKS_TITLE}</AppText>
-              </View>
-              <SidebarBookmarks />
-            </View>
-          ) : (
-            <Pressable
-              key={item.key}
-              onPress={() =>
-                item.key === 'create-listing' ? goCreateListing() : go(item.route)
-              }
-              style={({ pressed }) => [styles.row, getRtlRow(), pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}
-            >
-              <AppIcon name={item.icon} size={24} color={colors.textPrimary} />
-              <AppText style={styles.rowLabel}>{item.label}</AppText>
-            </Pressable>
-          ),
-        )}
+        {PRIMARY_ITEMS.map((item) => (
+          <Pressable
+            key={item.key}
+            onPress={() =>
+              item.key === 'create-listing' ? goCreateListing() : go(item.route)
+            }
+            style={({ pressed }) => [styles.row, getRtlRow(), pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+          >
+            <AppIcon name={item.icon} size={24} color={colors.textPrimary} />
+            <AppText style={styles.rowLabel}>{item.label}</AppText>
+          </Pressable>
+        ))}
 
         <SarhDivider accessibilityLabel="فاصل أقسام المساعدة" />
 

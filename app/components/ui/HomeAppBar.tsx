@@ -23,12 +23,15 @@ export const HOME_APP_BAR_H = ds.homeAppBar.height;
 const BAR_H = space[40];
 const TOOL = space[40];
 const ICON_SIZE = space[20];
+/** Bell glyph: +2px over the 20px shell icon. The 40px tool box (header height, badge anchor) is unchanged. */
+const BELL_ICON_SIZE = ICON_SIZE + 2;
 const AVATAR = AVATAR_SIZE.sm;
 /** Shared shell identity metrics — Home and Community headers stay aligned. */
 export const SHELL_AVATAR_SIZE = AVATAR;
 export const SHELL_AVATAR_BTN = space[40];
 export const SHELL_TOOL = TOOL;
 export const SHELL_ICON_SIZE = ICON_SIZE;
+export const SHELL_BELL_ICON_SIZE = BELL_ICON_SIZE;
 export const SHELL_BAR_H = BAR_H;
 export const SHELL_LOGO_SIZE = 28;
 /** Identity row only — top safe area is owned here, not by Screen. */
@@ -140,7 +143,7 @@ export function HomeAppBar({
                 <NotificationBellButton
                   bare
                   size={TOOL}
-                  iconSize={ICON_SIZE}
+                  iconSize={BELL_ICON_SIZE}
                   style={styles.iconBtn}
                   iconColor={themeColors.textPrimary}
                   badgeBorderColor={themeColors.screenRoot}

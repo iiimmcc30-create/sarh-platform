@@ -1,18 +1,5 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import {
-  SIDEBAR_BOOKMARKS_AFTER_KEY,
-  SIDEBAR_BOOKMARKS_KEY,
-  SIDEBAR_BOOKMARKS_LIMIT,
-  SIDEBAR_BOOKMARKS_TITLE,
-  SIDEBAR_BOOKMARK_SECTIONS,
-  isSidebarBookmarksSlot,
-  resolveBookmarked,
-  savedPostIdsNewestFirst,
-  sidebarBookmarkEmptyText,
-  sidebarBookmarkItems,
-  withSidebarBookmarks,
-} from '@/lib/sidebarBookmarks';
 import {
   FEED_VERIFIED_BADGE_SIZE,
   VERIFIED_BADGE_GAP,
@@ -29,7 +16,6 @@ import {
   isLayoutStyleKey,
 } from '@/lib/tabBarMotion';
 import { getListingFavoriteIds, toggleListingFavorite } from '@/lib/listingFavorite';
-import type { Listing, Post } from '@/services/types';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -37,26 +23,6 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8');
-
-const listing = (id: string, extra: Partial<Listing> = {}) =>
-  ({
-    id,
-    title: `t-${id}`,
-    arabicTitle: `عرض ${id}`,
-    price: 1500,
-    currency: 'SAR',
-    images: [`https://cdn.example/${id}.jpg`],
-    ...extra,
-  }) as unknown as Listing;
-
-const post = (id: string, extra: Partial<Post> = {}) =>
-  ({
-    id,
-    content: `post ${id}`,
-    arabicContent: `منشور ${id}`,
-    author: { arabicName: 'مستخدم', displayName: 'user', username: 'u' },
-    ...extra,
-  }) as unknown as Post;
 
 describe('bottom navigation - no active line, light icon motion', () => {
   const tabs = src('components/navigation/FloatingTabBar.tsx');
@@ -181,94 +147,35 @@ describe('verified badge - unified with the Feed', () => {
   });
 });
 
-describe('sidebar - العلامات المرجعية', () => {
+describe('sidebar - العلامات المرجعية is a plain menu row', () => {
   const panel = src('components/feature/AppSidebar.tsx');
-  const block = src('components/feature/SidebarBookmarks.tsx');
 
   it('drops the standalone favorites row', () => {
     expect(panel).not.toContain("key: 'favorites'");
     expect(panel).not.toContain("route: '/favorites'");
   });
 
-  it('places العلامات المرجعية directly under إضافة عرض', () => {
-    expect(SIDEBAR_BOOKMARKS_TITLE).toBe('العلامات المرجعية');
-    expect(SIDEBAR_BOOKMARKS_AFTER_KEY).toBe('create-listing');
-    const keys = withSidebarBookmarks([
-      { key: 'profile' },
-      { key: 'create-listing' },
-      { key: 'feed-suppliers' },
-      { key: 'ministry' },
-    ]).map((item) => item.key);
-    expect(keys).toEqual(['profile', 'create-listing', SIDEBAR_BOOKMARKS_KEY, 'feed-suppliers', 'ministry']);
-    const slots = withSidebarBookmarks([{ key: 'create-listing' }]).filter(isSidebarBookmarksSlot);
-    expect(slots).toHaveLength(1);
-    expect(isSidebarBookmarksSlot({ key: SIDEBAR_BOOKMARKS_KEY })).toBe(false);
-    expect(panel).toContain('withSidebarBookmarks(PRIMARY_ITEMS)');
-    expect(panel).toContain('{SIDEBAR_BOOKMARKS_TITLE}');
-    expect(panel).toContain('<SidebarBookmarks />');
-    expect(panel.indexOf("key: 'create-listing'")).toBeLessThan(panel.indexOf("key: 'feed-suppliers'"));
+  it('sits directly under إضافة عرض and opens /bookmarks with close-then-navigate', () => {
+    const row = "{ key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },";
+    expect(panel).toContain(row);
+    const createAt = panel.indexOf("key: 'create-listing'");
+    const nextRowAt = panel.indexOf('\n', createAt) + 1;
+    expect(panel.indexOf(row)).toBe(panel.indexOf('{', nextRowAt));
+    expect(panel.indexOf(row)).toBeLessThan(panel.indexOf("key: 'feed-suppliers'"));
+    // Rendered by the same PRIMARY_ITEMS row as the others; go() = closeThenPush(route).
+    expect(panel).toContain('PRIMARY_ITEMS.map((item) => (');
+    expect(panel).toContain("item.key === 'create-listing' ? goCreateListing() : go(item.route)");
+    expect(panel).toMatch(/const go = \(route: string\) => \{\s*closeThenPush\(route\);/);
   });
 
-  it('has exactly two sections: المفضلة (listings) and المحفوظات (posts)', () => {
-    expect(SIDEBAR_BOOKMARK_SECTIONS.map((s) => [s.key, s.label, s.kind])).toEqual([
-      ['favorites', 'المفضلة', 'listing'],
-      ['saved', 'المحفوظات', 'post'],
-    ]);
-  });
-
-  it('favorites shows listings and saved shows posts - never mixed', () => {
-    const source = { listings: [listing('l1'), listing('l2')], posts: [post('p1')] };
-    const favorites = sidebarBookmarkItems('favorites', source);
-    const saved = sidebarBookmarkItems('saved', source);
-    expect(favorites.map((i) => [i.kind, i.id])).toEqual([
-      ['listing', 'l1'],
-      ['listing', 'l2'],
-    ]);
-    expect(saved.map((i) => [i.kind, i.id])).toEqual([['post', 'p1']]);
-    expect(sidebarBookmarkItems('favorites', { posts: [post('p1')] })).toEqual([]);
-    expect(sidebarBookmarkItems('saved', { listings: [listing('l1')] })).toEqual([]);
-  });
-
-  it('reads the existing favorites and saved-posts systems and opens items the existing way', () => {
-    expect(block).toContain('getListingFavoriteIds()');
-    expect(block).toContain('bookmarkedPosts');
-    expect(block).toContain("sidebarBookmarkItems('favorites', { listings: favorites.items })");
-    expect(block).toContain("sidebarBookmarkItems('saved', { posts: saved.items })");
-    expect(block).toContain("closeThenPush({ pathname: '/listing/[id]', params: { id: item.id } })");
-    expect(block).toContain('closeThenPush(postDetailHref(item.id))');
-    expect(block).not.toContain('ListingCard');
-    expect(block).not.toContain('react-native-reanimated');
-  });
-
-  it('is a compact horizontal scroll without a scrollbar', () => {
-    expect(block).toContain('horizontal');
-    expect(block).toContain('showsHorizontalScrollIndicator={false}');
-    expect(block).toContain('snapToInterval');
-    expect(block).toContain('decelerationRate="fast"');
-    expect(block).toContain('getRtlRow()');
-    expect(block).not.toMatch(/(margin|padding)(Left|Right)|LinearGradient|shadow|elevation/);
-    expect(SIDEBAR_BOOKMARKS_LIMIT).toBeLessThanOrEqual(20);
-  });
-
-  it('loads lazily from the cache first and only fetches missing ids', () => {
-    expect(block).toContain('InteractionManager.runAfterInteractions');
-    expect(block).toContain('resolveBookmarked(favoriteIds ?? [], listings, fetchedListings)');
-    expect(block).toContain('resolveBookmarked(savedIds, posts, fetchedPosts)');
-    const r = resolveBookmarked(['a', 'b', 'a', ' ', 'c', 'd'], [{ id: 'b' }], { c: null, d: { id: 'd' } });
-    expect(r.items.map((x) => x.id)).toEqual(['b', 'd']);
-    expect(r.missing).toEqual(['a']);
-    const many = Array.from({ length: 30 }, (_, i) => `id${i}`);
-    expect(resolveBookmarked(many, [], {}).missing).toHaveLength(SIDEBAR_BOOKMARKS_LIMIT);
-    expect(savedPostIdsNewestFirst(new Set(['old', 'new']))).toEqual(['new', 'old']);
-  });
-
-  it('has a simple empty message per section', () => {
-    const favEmpty = sidebarBookmarkEmptyText('favorites');
-    const savedEmpty = sidebarBookmarkEmptyText('saved');
-    expect(favEmpty).toBeTruthy();
-    expect(savedEmpty).toBeTruthy();
-    expect(favEmpty).not.toBe(savedEmpty);
-    expect(block).toContain('{sidebarBookmarkEmptyText(section)}');
+  it('has no inline bookmarks list, chips or horizontal scroll in the Sidebar', () => {
+    expect(panel).not.toContain('SidebarBookmarks');
+    expect(panel).not.toContain('sidebarBookmarks');
+    expect(panel).not.toContain('SarhChip');
+    expect(panel).not.toContain('horizontal');
+    expect(panel).not.toContain('FlatList');
+    expect(existsSync(path.join(root, 'components/feature/SidebarBookmarks.tsx'))).toBe(false);
+    expect(existsSync(path.join(root, 'lib/sidebarBookmarks.ts'))).toBe(false);
   });
 });
 

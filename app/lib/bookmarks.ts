@@ -1,0 +1,73 @@
+/**
+ * "العلامات المرجعية" page (/bookmarks) - pure helpers (no RN imports).
+ * المفضلة = listings from the existing listing-favorites store (lib/listingFavorite).
+ * المحفوظات = posts from the existing post bookmarks (AppContext bookmarkedPosts).
+ * The two never mix.
+ */
+export const BOOKMARKS_TITLE = 'العلامات المرجعية';
+export const BOOKMARKS_ROUTE = '/bookmarks';
+/** Ids resolved per step; the next step loads when the list nears its end. */
+export const BOOKMARKS_PAGE_SIZE = 20;
+
+export type BookmarkTab = 'favorites' | 'saved';
+
+export type BookmarkTabDef = {
+  key: BookmarkTab;
+  label: string;
+  kind: 'listing' | 'post';
+  empty: string;
+};
+
+export const BOOKMARK_TABS: readonly BookmarkTabDef[] = [
+  { key: 'favorites', label: 'المفضلة', kind: 'listing', empty: 'لا توجد عروض في المفضلة بعد' },
+  { key: 'saved', label: 'المحفوظات', kind: 'post', empty: 'لا توجد منشورات محفوظة بعد' },
+];
+
+export const SAVED_SIGNED_OUT_TEXT = 'سجّل الدخول لعرض منشوراتك المحفوظة';
+
+export function bookmarkEmptyText(key: BookmarkTab): string {
+  return (BOOKMARK_TABS.find((t) => t.key === key) ?? BOOKMARK_TABS[0]).empty;
+}
+
+/**
+ * Page index from a horizontal pager offset. Uses the magnitude so a platform
+ * that reports RTL offsets as negative still maps to the right page.
+ */
+export function pagerIndexFromOffset(offsetX: number, pageWidth: number, count: number): number {
+  if (!(pageWidth > 0) || count <= 0 || !Number.isFinite(offsetX)) return 0;
+  const index = Math.round(Math.abs(offsetX) / pageWidth);
+  return Math.max(0, Math.min(count - 1, index));
+}
+
+/** Post bookmarks are kept in insertion order - newest last. Show newest first. */
+export function savedPostIdsNewestFirst(ids: Iterable<string>): string[] {
+  return Array.from(ids).reverse();
+}
+
+/**
+ * Resolve the first `limit` ordered ids against the in-memory cache first, then
+ * per-id fetches. `fetched[id] === null` means a fetch already failed (deleted /
+ * unavailable) - skipped. `missing` = ids in the window that still need a fetch.
+ */
+export function resolveBookmarked<T extends { id: string }>(
+  ids: readonly string[],
+  cached: readonly T[],
+  fetched: Readonly<Record<string, T | null>>,
+  limit = BOOKMARKS_PAGE_SIZE,
+): { items: T[]; missing: string[] } {
+  const byId = new Map<string, T>();
+  for (const entry of cached) byId.set(entry.id, entry);
+  const items: T[] = [];
+  const missing: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of ids) {
+    const id = String(raw ?? '').trim();
+    if (!id || seen.has(id)) continue;
+    if (seen.size >= limit) break;
+    seen.add(id);
+    const hit = byId.get(id) ?? fetched[id];
+    if (hit) items.push(hit);
+    else if (!(id in fetched)) missing.push(id);
+  }
+  return { items, missing };
+}

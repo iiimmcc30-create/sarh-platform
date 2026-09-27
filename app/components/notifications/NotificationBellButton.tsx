@@ -20,7 +20,7 @@ type NotificationBellButtonProps = {
 
 export function NotificationBellButton({
   size = 48,
-  iconSize = 20,
+  iconSize = 22,
   style,
   iconColor,
   badgeBorderColor,

@@ -36,7 +36,7 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(panel).toContain('الملف الشخصي');
     expect(panel).toContain("label: 'إضافة عرض'");
     expect(panel).toContain("route: '/create/listing'");
-    expect(panel).toContain('SIDEBAR_BOOKMARKS_TITLE');
+    expect(panel).toContain("route: '/bookmarks'");
     expect(panel).not.toContain("route: '/favorites'");
     expect(panel).toContain('موردو الأعلاف');
     expect(panel).toContain("label: 'خدمات الوزارة'");
@@ -73,7 +73,9 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     const helpAt = panel.indexOf("label: 'مركز المساعدة'");
     expect(profileAt).toBeGreaterThan(-1);
     expect(createAt).toBeGreaterThan(profileAt);
-    expect(panel).toContain('withSidebarBookmarks(PRIMARY_ITEMS)');
+    const bookmarksAt = panel.indexOf("route: '/bookmarks'");
+    expect(bookmarksAt).toBeGreaterThan(createAt);
+    expect(bookmarksAt).toBeLessThan(feedAt);
     expect(feedAt).toBeGreaterThan(createAt);
     expect(ministryAt).toBeGreaterThan(feedAt);
     expect(newsAt).toBeGreaterThan(ministryAt);

@@ -37,25 +37,16 @@ describe('Home quick access: المحفوظات replaces المفضلة in the s
     expect(postItem).toContain('AppIcon');
   });
 
-  it('opens a /bookmarks screen that reuses SidebarBookmarks with the standard header', () => {
+  it('opens the /bookmarks page with the standard header', () => {
     expect(existsSync(path.join(root, 'app/bookmarks.tsx'))).toBe(true);
     const screen = src('app/bookmarks.tsx');
-    expect(screen).toContain("import { SidebarBookmarks } from '@/components/feature/SidebarBookmarks'");
-    expect(screen).toContain('<SidebarBookmarks presentation="screen" />');
-    expect(screen).toContain('<ScreenHeader variant="screen" title="العلامات المرجعية" showBack />');
+    expect(screen).toContain('<ScreenHeader variant="screen" title={BOOKMARKS_TITLE} showBack />');
     expect(src('app/_layout.tsx')).toContain('<Stack.Screen name="bookmarks" />');
     // /favorites stays (still referenced elsewhere).
     expect(existsSync(path.join(root, 'app/favorites.tsx'))).toBe(true);
     expect(src('app/_layout.tsx')).toContain('<Stack.Screen name="favorites" />');
   });
 
-  it('on the screen items open with a plain push; the sidebar still closes first', () => {
-    const block = src('components/feature/SidebarBookmarks.tsx');
-    expect(block).toContain("presentation = 'sidebar'");
-    expect(block).toContain("if (presentation === 'screen') {");
-    expect(block).toContain('safePush(');
-    expect(block).toContain("closeThenPush({ pathname: '/listing/[id]', params: { id: item.id } })");
-  });
 });
 
 const NOW = Date.parse('2026-09-27T12:00:00.000Z');
