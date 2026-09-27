@@ -6,6 +6,11 @@ import {
   fulfillPaidCheckout,
   releaseCheckoutReservations,
 } from '../../butchers/lib/butcher-checkout.lifecycle';
+import {
+  HOUR_MS,
+  extendBoostUntil,
+  extendUntil,
+} from '../../listings/boost/extend-until';
 
 @Injectable()
 export class PaymentsRepository {
@@ -710,8 +715,16 @@ export class PaymentsRepository {
             params.storedMeta.durationHours > 0
               ? params.storedMeta.durationHours
               : existing.durationDays * 24;
-          const expires = new Date(
-            now.getTime() + durationHours * 60 * 60 * 1000,
+          // Re-purchase while active extends from the current Until of the same type.
+          const current = await tx.listing.findUnique({
+            where: { id: existing.listingId },
+            select: { featuredUntil: true, pinnedUntil: true },
+          });
+          const { expiresAt: expires, listingData } = extendBoostUntil(
+            existing.boostType,
+            current,
+            now,
+            durationHours * HOUR_MS,
           );
 
           await tx.listingBoost.update({
@@ -727,17 +740,7 @@ export class PaymentsRepository {
 
           await tx.listing.update({
             where: { id: existing.listingId },
-            data:
-              existing.boostType === 'featured'
-                ? { featured: true, featuredUntil: expires }
-                : existing.boostType === 'pinned'
-                  ? { pinned: true, pinnedUntil: expires }
-                  : {
-                      featured: true,
-                      featuredUntil: expires,
-                      pinned: true,
-                      pinnedUntil: expires,
-                    },
+            data: listingData,
           });
 
           boost = {
@@ -770,13 +773,16 @@ export class PaymentsRepository {
             params.storedMeta.durationHours > 0
               ? params.storedMeta.durationHours
               : existing.durationDays * 24;
-          const expires = new Date(
-            now.getTime() + durationHours * 60 * 60 * 1000,
-          );
           const listing = await tx.listing.findUnique({
             where: { id: existing.listingId },
-            select: { views: true },
+            select: { views: true, promotedUntil: true },
           });
+          // Re-purchase while active extends from the current promotedUntil.
+          const expires = extendUntil(
+            listing?.promotedUntil,
+            now,
+            durationHours * HOUR_MS,
+          );
 
           await tx.listingPromotion.update({
             where: { id: params.referenceId },

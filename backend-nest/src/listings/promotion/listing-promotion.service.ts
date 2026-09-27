@@ -25,6 +25,7 @@ import {
 import { lookupPromotePrice } from '../promote-catalog';
 import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
 import { expireStaleBoostFlags } from '../boost/boost-expiry';
+import { HOUR_MS, extendUntil } from '../boost/extend-until';
 import { PaidServicesService } from '../../settings/paid-services.service';
 
 type InitiatePromotionOptions = {
@@ -303,7 +304,11 @@ export class ListingPromotionService {
   async fulfillPromotion(promotionId: string, niTransactionId: string) {
     const promotion = await this.prisma.listingPromotion.findUnique({
       where: { id: promotionId },
-      include: { listing: { select: { arabicTitle: true, views: true } } },
+      include: {
+        listing: {
+          select: { arabicTitle: true, views: true, promotedUntil: true },
+        },
+      },
     });
     if (!promotion || promotion.status === 'paid') return { processed: false };
 
@@ -317,7 +322,12 @@ export class ListingPromotionService {
       typeof meta.durationHours === 'number' && meta.durationHours > 0
         ? meta.durationHours
         : promotion.durationDays * 24;
-    const expires = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
+    // Re-purchase while active extends from the current promotedUntil.
+    const expires = extendUntil(
+      promotion.listing?.promotedUntil,
+      now,
+      durationHours * HOUR_MS,
+    );
     const weight = promotion.weight || promotionTierWeight(promotion.tier);
 
     await this.prisma.$transaction([

@@ -12,6 +12,7 @@ import {
 } from '../../payments/ni-client';
 import { IntegrationCheckoutService } from '../../integrations/services/integration-checkout.service';
 import { BOOST_PLANS } from './boost-plans.config';
+import { HOUR_MS, extendBoostUntil } from './extend-until';
 import { BOOST_AMOUNT_MIN } from './boost-pricing.util';
 import { lookupPromotePrice } from '../promote-catalog';
 import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
@@ -31,21 +32,6 @@ function boostNotificationCopy(boostType: BoostType) {
     return { titleAr: '⭐ تم تمييز إعلانك', actionAr: 'مميز' };
   }
   return { titleAr: '📌 تم تثبيت إعلانك', actionAr: 'مثبّت' };
-}
-
-function listingBoostListingUpdate(boostType: BoostType, expires: Date) {
-  if (boostType === 'featured') {
-    return { featured: true, featuredUntil: expires };
-  }
-  if (boostType === 'pinned') {
-    return { pinned: true, pinnedUntil: expires };
-  }
-  return {
-    featured: true,
-    featuredUntil: expires,
-    pinned: true,
-    pinnedUntil: expires,
-  };
 }
 
 function buildOrderRef(prefix: string, userId: string): string {
@@ -266,7 +252,11 @@ export class ListingBoostService {
   async fulfillBoost(boostId: string, niTransactionId: string) {
     const boost = await this.prisma.listingBoost.findUnique({
       where: { id: boostId },
-      include: { listing: { select: { arabicTitle: true } } },
+      include: {
+        listing: {
+          select: { arabicTitle: true, featuredUntil: true, pinnedUntil: true },
+        },
+      },
     });
     if (!boost || boost.status === 'paid') return { processed: false };
 
@@ -280,7 +270,13 @@ export class ListingBoostService {
       typeof meta.durationHours === 'number' && meta.durationHours > 0
         ? meta.durationHours
         : boost.durationDays * 24;
-    const expires = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
+    // Re-purchase while active extends from the current Until of the same type.
+    const { expiresAt: expires, listingData } = extendBoostUntil(
+      boost.boostType,
+      boost.listing,
+      now,
+      durationHours * HOUR_MS,
+    );
 
     await this.prisma.$transaction([
       this.prisma.listingBoost.update({
@@ -295,7 +291,7 @@ export class ListingBoostService {
       }),
       this.prisma.listing.update({
         where: { id: boost.listingId },
-        data: listingBoostListingUpdate(boost.boostType, expires),
+        data: listingData,
       }),
     ]);
 
