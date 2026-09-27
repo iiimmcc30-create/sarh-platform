@@ -1,17 +1,14 @@
-import { SarhChip, SarhChipRow, SarhButton } from '@/design-system/components';
-// Powered by OnSpace.AI
-// SAFAT — Create Post Screen (إنشاء منشور - نظام X)
+// SAFAT — Create Post Screen (X-style composer)
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-
 import { Image } from '@/components/ui/AppImage';
-import { LinearGradient } from '@/components/ui/AppLinearGradient';
+import { ComposerKeyboardView } from '@/components/ui/ComposerKeyboardView';
+import { useComposerKeyboardPad } from '@/hooks/useComposerKeyboardPad';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
+  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,7 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
@@ -28,44 +25,41 @@ import { useAuth } from '@/contexts/AuthContext';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { uploadMediaFromUri } from '@/services/upload';
-import { rtlInputText, ltrInputText } from '@/lib/rtl';
+import { rtlInputText } from '@/lib/rtl';
 import { cloudinaryVideoFirstFrameUrl } from '@/lib/listingMedia';
 
-const HASHTAG_BLUE = '#1D9BF0';
 const MAX_POST_MEDIA = 4;
+const MAX_CHARS = 280;
+const AVATAR_SIZE = 40;
+const MEDIA_TILE = 96;
 
 type DraftMedia = {
   uri: string;
   kind: 'image' | 'video';
 };
 
-const POST_TYPES = [
-  { id: 'text', label: 'نص' },
-  { id: 'image', label: 'صورة' },
-  { id: 'poll', label: 'استطلاع' },
-  { id: 'listing', label: 'إعلان' },
-];
-
-const SUGGESTED_HASHTAGS = [
-  '#إبل', '#خيول', '#أغنام', '#صقور', '#مزاد', '#سرح', '#سوق_الخليج', '#ماشية',
-];
+function assetKind(asset: ImagePicker.ImagePickerAsset): DraftMedia['kind'] {
+  return asset.type === 'video' || (asset.mimeType?.startsWith('video/') ?? false)
+    ? 'video'
+    : 'image';
+}
 
 export default function CreatePostScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { colors, gradients } = useTheme();
-  const styles = useThemedStyles(({ colors }) => createStyles(colors));
+  const { colors } = useTheme();
+  const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const { editId } = useLocalSearchParams<{ editId?: string }>();
   const isEditing = !!editId;
   const { me, addPost, updatePost } = useApp();
   const { accessToken } = useAuth();
+  const { keyboardVisible, restingBottom } = useComposerKeyboardPad();
 
   const [arabicContent, setArabicContent] = useState('');
-  const [selectedType, setSelectedType] = useState('text');
-  const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
   const [draftMedia, setDraftMedia] = useState<DraftMedia[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [loadingPost, setLoadingPost] = useState(!!editId);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (!editId || !accessToken) return;
@@ -93,58 +87,70 @@ export default function CreatePostScreen() {
     return () => { active = false; };
   }, [editId, accessToken, router]);
 
-  const MAX_CHARS = 280;
+  const text = arabicContent.trim();
   const remaining = MAX_CHARS - arabicContent.length;
-  const canPost = arabicContent.trim() && remaining >= 0;
+  // Editing keeps the existing text-only contract (the edit API requires text).
+  const hasContent = isEditing ? text.length > 0 : text.length > 0 || draftMedia.length > 0;
+  const canPost = hasContent && remaining >= 0 && !submitting;
+  const mediaSlots = MAX_POST_MEDIA - draftMedia.length;
+  const canAddMedia = mediaSlots > 0 && !submitting && !picking;
 
-  const toggleHashtag = (tag: string) => {
-    setSelectedHashtags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
+  const appendAssets = useCallback((assets: ImagePicker.ImagePickerAsset[]) => {
+    if (assets.length === 0) return;
+    const picked: DraftMedia[] = assets.map((asset) => ({ uri: asset.uri, kind: assetKind(asset) }));
+    setDraftMedia((prev) => [...prev, ...picked].slice(0, MAX_POST_MEDIA));
+  }, []);
 
-  const insertHashtag = (tag: string) => {
-    const separator = arabicContent.endsWith(' ') || arabicContent.length === 0 ? '' : ' ';
-    setArabicContent((prev) => prev + separator + tag + ' ');
-    toggleHashtag(tag);
-  };
-
-  const pickMedia = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور والفيديو لإضافتها للمنشور');
-      return;
+  const pickMedia = useCallback(async () => {
+    if (!canAddMedia) return;
+    setPicking(true);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور والفيديو لإضافتها للمنشور');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsMultipleSelection: true,
+        selectionLimit: mediaSlots,
+        quality: 0.85,
+        videoMaxDuration: 90,
+      });
+      if (!result.canceled) appendAssets(result.assets);
+    } finally {
+      setPicking(false);
     }
+  }, [appendAssets, canAddMedia, mediaSlots]);
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsMultipleSelection: true,
-      selectionLimit: MAX_POST_MEDIA - draftMedia.length,
-      quality: 0.85,
-      videoMaxDuration: 90,
-    });
-
-    if (!result.canceled && result.assets.length > 0) {
-      const picked: DraftMedia[] = result.assets.map((asset) => ({
-        uri: asset.uri,
-        kind:
-          asset.type === 'video' || (asset.mimeType?.startsWith('video/') ?? false)
-            ? 'video'
-            : 'image',
-      }));
-      setDraftMedia((prev) => [...prev, ...picked].slice(0, MAX_POST_MEDIA));
-      setSelectedType('image');
+  const captureMedia = useCallback(async () => {
+    if (!canAddMedia) return;
+    setPicking(true);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('إذن مطلوب', 'يرجى السماح باستخدام الكاميرا لالتقاط صورة أو فيديو');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images', 'videos'],
+        quality: 0.85,
+        videoMaxDuration: 90,
+      });
+      if (!result.canceled) appendAssets(result.assets);
+    } finally {
+      setPicking(false);
     }
-  };
+  }, [appendAssets, canAddMedia]);
 
   const removeMedia = (index: number) => {
     setDraftMedia((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handlePost = async () => {
-    if (!canPost || !accessToken) return;
+    if (!canPost || !accessToken || submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
-    const text = arabicContent.trim();
 
     try {
       const uploaded: Array<{ url: string; type: 'IMAGE' | 'VIDEO'; sortOrder: number }> = [];
@@ -190,96 +196,116 @@ export default function CreatePostScreen() {
     } catch {
       Alert.alert('خطأ', 'حدث خطأ أثناء النشر. حاول مجدداً.');
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   if (loadingPost) {
     return (
-      <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ ...typography.body, color: colors.textMuted }}>جاري التحميل...</Text>
+      <SafeAreaView style={[styles.container, styles.center]} edges={['top', 'bottom']}>
+        <ActivityIndicator color={colors.electricBright} />
       </SafeAreaView>
     );
   }
 
+  const nearLimit = remaining <= 20;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 12}
-      >
-        {/* Header */}
+      <ComposerKeyboardView>
+        {/* Header — close on the start (right in RTL), post pill on the end (left). */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.cancelBtn} hitSlop={8}>
-            <Text style={styles.cancelText}>إلغاء</Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.closeBtn}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
+            disabled={submitting}
+          >
+            <AppIcon name="close" size={24} color={colors.textPrimary} />
           </Pressable>
-          <Text style={styles.headerTitle}>{isEditing ? 'تعديل المنشور' : 'منشور جديد'}</Text>
-          <SarhButton
-            title={submitting ? '...' : isEditing ? 'حفظ' : 'نشر'}
-            size="sm"
-            loading={submitting}
-            disabled={!canPost}
+          <Pressable
             onPress={handlePost}
-          />
+            disabled={!canPost}
+            style={({ pressed }) => [
+              styles.postBtn,
+              !canPost && !submitting && styles.postBtnDisabled,
+              pressed && canPost && styles.postBtnPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={isEditing ? 'حفظ' : 'نشر'}
+            accessibilityState={{ disabled: !canPost, busy: submitting }}
+            testID="create-post-submit"
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.postBtnText}>{isEditing ? 'حفظ' : 'نشر'}</Text>
+            )}
+          </Pressable>
         </View>
 
-        {/* Post type selector */}
-        <SarhChipRow contentPaddingHorizontal={spacing.lg} style={styles.typeRow}>
-          {POST_TYPES.map((t) => (
-            <SarhChip appearance="filter"
-              key={t.id}
-              label={t.label}
-              selected={selectedType === t.id}
-              onPress={() => setSelectedType(t.id)}
-            />
-          ))}
-        </SarhChipRow>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          {/* Compose area */}
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.composeRow}>
-            <Image source={{ uri: me.avatar }} style={styles.avatar} contentFit="cover" />
-            <View style={styles.composeFields}>
-              {/* Arabic (main) */}
-              <TextInput
-                value={arabicContent}
-                onChangeText={setArabicContent}
-                placeholder="ماذا يدور في ذهنك؟ 🐪"
-                placeholderTextColor={colors.textMuted}
-                style={[styles.textInput, styles.textInputAr]}
-                multiline
-                maxLength={MAX_CHARS}
-                autoFocus
-              />
-            </View>
+            {me.avatar ? (
+              <Image source={{ uri: me.avatar }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <AppIcon name="person" size={20} color={colors.textMuted} />
+              </View>
+            )}
+            <TextInput
+              value={arabicContent}
+              onChangeText={setArabicContent}
+              placeholder="ماذا يحدث؟"
+              placeholderTextColor={colors.textMuted}
+              style={styles.textInput}
+              multiline
+              maxLength={MAX_CHARS}
+              autoFocus
+              editable={!submitting}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              accessibilityLabel="نص المنشور"
+            />
           </View>
 
-          {/* Image previews */}
-          {draftMedia.length > 0 && (
-            <View style={styles.imagePreviewRow}>
+          {draftMedia.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.mediaRow}
+              keyboardShouldPersistTaps="handled"
+            >
               {draftMedia.map((item, index) => (
-                <View key={`${item.kind}-${item.uri}-${index}`} style={styles.imagePreviewWrap}>
+                <View key={`${item.kind}-${item.uri}-${index}`} style={styles.mediaTile}>
+                  <Image
+                    source={{
+                      uri:
+                        item.kind === 'video'
+                          ? cloudinaryVideoFirstFrameUrl(item.uri) ?? item.uri
+                          : item.uri,
+                    }}
+                    style={[styles.mediaImage, item.kind === 'video' && styles.videoBg]}
+                    contentFit="cover"
+                  />
                   {item.kind === 'video' ? (
-                    <View style={[styles.imagePreview, styles.videoPreview]}>
-                      <Image
-                        source={{
-                          uri: cloudinaryVideoFirstFrameUrl(item.uri) ?? item.uri,
-                        }}
-                        style={styles.imagePreview}
-                        contentFit="cover"
-                      />
-                      <View style={styles.videoPlayBadge} pointerEvents="none">
-                        <AppIcon name="play" size={14} color="#fff" />
-                      </View>
+                    <View style={styles.videoBadge} pointerEvents="none">
+                      <AppIcon name="play" size={16} color="#fff" />
                     </View>
-                  ) : (
-                    <Image source={{ uri: item.uri }} style={styles.imagePreview} contentFit="cover" />
-                  )}
+                  ) : null}
                   <Pressable
-                    style={styles.imageRemoveBtn}
+                    style={styles.mediaRemoveBtn}
                     onPress={() => removeMedia(index)}
                     hitSlop={6}
+                    disabled={submitting}
                     accessibilityRole="button"
                     accessibilityLabel={item.kind === 'video' ? 'حذف الفيديو' : 'حذف الصورة'}
                   >
@@ -287,314 +313,182 @@ export default function CreatePostScreen() {
                   </Pressable>
                 </View>
               ))}
-              {draftMedia.length < MAX_POST_MEDIA && (
-                <Pressable style={styles.imageAddBtn} onPress={pickMedia}>
+              {canAddMedia ? (
+                <Pressable
+                  style={styles.mediaAddTile}
+                  onPress={pickMedia}
+                  accessibilityRole="button"
+                  accessibilityLabel="إضافة وسائط"
+                >
                   <AppIcon name="add" size={24} color={colors.textMuted} />
                 </Pressable>
-              )}
-            </View>
-          )}
-
-          {/* Audience */}
-          <Pressable style={styles.audienceRow}>
-            <AppIcon name="earth" size={14} color={colors.electricBright} />
-            <Text style={styles.audienceText}>الجميع يمكنهم الرد</Text>
-            <AppIcon name="chevron-down" size={14} color={colors.electricBright} />
-          </Pressable>
-
-          {/* Hashtag suggestions */}
-          <View style={styles.hashtagSection}>
-            <Text style={styles.hashtagTitle}>الوسوم الشائعة</Text>
-            <View style={styles.hashtagRow}>
-              {SUGGESTED_HASHTAGS.map((tag) => (
-                <Pressable
-                  key={tag}
-                  onPress={() => insertHashtag(tag)}
-                  style={[
-                    styles.hashtagChip,
-                    selectedHashtags.includes(tag) && styles.hashtagChipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.hashtagText,
-                      selectedHashtags.includes(tag) && styles.hashtagTextActive,
-                    ]}
-                  >
-                    {tag}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Preview */}
-          {arabicContent.trim().length > 0 && (
-            <View style={styles.previewSection}>
-              <Text style={styles.previewLabel}>معاينة</Text>
-              <View style={styles.previewCard}>
-                <View style={styles.previewHeader}>
-                  <Image source={{ uri: me.avatar }} style={styles.previewAvatar} contentFit="cover" />
-                  <View>
-                    <Text style={styles.previewName}>{me.arabicName}</Text>
-                    <Text style={styles.previewHandle}>@{me.username} · الآن</Text>
-                  </View>
-                </View>
-                {arabicContent ? (
-                  <Text style={styles.previewText}>{arabicContent}</Text>
-                ) : null}
-                {draftMedia.length > 0 && (
-                  <View style={styles.previewImagesRow}>
-                    {draftMedia.map((item, index) => (
-                      <View key={`${item.kind}-${item.uri}-${index}`} style={styles.previewImageThumb}>
-                        <Image
-                          source={{
-                            uri:
-                              item.kind === 'video'
-                                ? cloudinaryVideoFirstFrameUrl(item.uri) ?? item.uri
-                                : item.uri,
-                          }}
-                          style={styles.previewImageThumb}
-                          contentFit="cover"
-                        />
-                        {item.kind === 'video' ? (
-                          <View style={styles.previewVideoBadge} pointerEvents="none">
-                            <AppIcon name="play" size={10} color="#fff" />
-                          </View>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-          <View style={{ height: 60 }} />
+              ) : null}
+            </ScrollView>
+          ) : null}
         </ScrollView>
 
-        {/* Bottom toolbar — lifted above system nav / keyboard */}
-        <View
-          style={[
-            styles.toolbar,
-            { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.sm },
-          ]}
-        >
-          <View style={styles.toolbarLeft}>
-            {[
-              { icon: 'image-outline', label: 'صورة', action: pickMedia },
-              { icon: 'location-outline', label: 'موقع' },
-              { icon: 'at-outline', label: 'إشارة' },
-              { icon: 'link-outline', label: 'رابط' },
-            ].map((tool) => (
-              <Pressable
-                key={tool.icon}
-                style={styles.toolBtn}
-                hitSlop={8}
-                onPress={tool.action}
-              >
-                <AppIcon name={tool.icon} size={20} color={colors.electricBright} />
-              </Pressable>
-            ))}
-          </View>
-          <View style={styles.charCountWrap}>
-            <View style={[
-              styles.charRing,
-              remaining < 20 && { borderColor: colors.amber },
-              remaining < 0 && { borderColor: colors.rose },
-            ]}>
-              <Text style={[
-                styles.charCountText,
-                remaining < 20 && { color: colors.amber },
-                remaining < 0 && { color: colors.rose },
-              ]}>
-                {remaining}
-              </Text>
-            </View>
+        {/* Toolbar — sits on the keyboard (KAV) or above the system bar when hidden. */}
+        <View style={[styles.toolbar, { paddingBottom: keyboardVisible ? spacing.sm : Math.max(restingBottom, spacing.sm) }]}>
+          {nearLimit ? (
+            <Text
+              style={[styles.counter, remaining < 0 && { color: colors.rose }]}
+              accessibilityLabel={`متبقٍ ${remaining} حرفاً`}
+            >
+              {remaining}
+            </Text>
+          ) : (
+            <View />
+          )}
+          <View style={styles.toolbarIcons}>
+            <Pressable
+              onPress={captureMedia}
+              disabled={!canAddMedia}
+              style={[styles.toolBtn, !canAddMedia && styles.toolBtnDisabled]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="الكاميرا"
+              accessibilityState={{ disabled: !canAddMedia }}
+            >
+              <AppIcon name="camera-outline" size={22} color={colors.electricBright} />
+            </Pressable>
+            <Pressable
+              onPress={pickMedia}
+              disabled={!canAddMedia}
+              style={[styles.toolBtn, !canAddMedia && styles.toolBtnDisabled]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="الصور والفيديو"
+              accessibilityState={{ disabled: !canAddMedia }}
+            >
+              <AppIcon name="image-outline" size={22} color={colors.electricBright} />
+            </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </ComposerKeyboardView>
     </SafeAreaView>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.screenRoot },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.borderSoft,
-  },
-  cancelBtn: { paddingHorizontal: 4 },
-  cancelText: { ...typography.body, color: colors.textSecondary },
-  headerTitle: { ...typography.h3, color: colors.textPrimary },
-  postBtn: { borderRadius: radius.pill, overflow: 'hidden' },
-  postBtnDisabled: { opacity: 0.5 },
-  postBtnInner: {
-    paddingHorizontal: spacing.lg, paddingVertical: 8, borderRadius: radius.pill,
-  },
-  postBtnText: { ...typography.bodyStrong, color: '#fff' },
-  typeRow: {
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  scroll: { paddingBottom: 20 },
-  composeRow: {
-    flexDirection: 'row', gap: spacing.md,
-    paddingHorizontal: spacing.lg, paddingTop: spacing.lg,
-  },
-  avatar: {
-    width: 44, height: 44, borderRadius: 20,
-    borderWidth: 1, borderColor: colors.borderMid,
-    marginTop: 4,
-  },
-  composeFields: { flex: 1, gap: spacing.sm },
-  textInput: {
-    ...typography.body, color: colors.textPrimary,
-    minHeight: 60, maxHeight: 200,
-    paddingTop: 0,
-  },
-  textInputAr: { ...rtlInputText, ...typography.body },
-  textInputEn: { ...ltrInputText, ...typography.secondary, color: colors.textSecondary },
-  audienceRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginHorizontal: spacing.lg, marginTop: spacing.md,
-    paddingVertical: 8, paddingHorizontal: spacing.md,
-    borderRadius: radius.pill, borderWidth: 1, borderColor: colors.electric,
-    alignSelf: 'flex-end',
-    backgroundColor: `${colors.electric}10`,
-  },
-  audienceText: { ...typography.caption, color: colors.textBrandStrong },
-  hashtagSection: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
-  hashtagTitle: { ...typography.micro, color: colors.textMuted, marginBottom: spacing.sm },
-  hashtagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  hashtagChip: {
-    paddingHorizontal: spacing.md, paddingVertical: 6,
-    borderRadius: radius.pill, backgroundColor: colors.bgSurface,
-    borderWidth: 1, borderColor: colors.borderSoft,
-  },
-  hashtagChipActive: { backgroundColor: `${HASHTAG_BLUE}18`, borderColor: HASHTAG_BLUE },
-  hashtagText: { ...typography.caption, color: colors.textMuted },
-  hashtagTextActive: { color: HASHTAG_BLUE },
-  previewSection: { padding: spacing.lg, gap: spacing.sm },
-  previewLabel: { ...typography.micro, color: colors.textMuted },
-  previewCard: {
-    padding: spacing.md, borderRadius: radius.lg,
-    backgroundColor: colors.bgSurface, borderWidth: 1, borderColor: colors.borderSoft,
-    gap: spacing.sm,
-  },
-  previewHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  previewAvatar: { width: 32, height: 32, borderRadius: 16 },
-  previewName: { ...typography.caption, color: colors.textPrimary, fontWeight: '600' },
-  previewHandle: { ...typography.micro, color: colors.textMuted },
-  previewText: { ...typography.body, color: colors.textPrimary, lineHeight: 24, writingDirection: 'rtl' },
-  previewImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: radius.md,
-    marginTop: spacing.sm,
-  },
-  previewImagesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  previewImageThumb: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.md,
-  },
-  imagePreviewRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  imagePreviewWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-  },
-  videoPreview: {
-    backgroundColor: '#000',
-  },
-  videoPlayBadge: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.28)',
-  },
-  previewVideoBadge: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.28)',
-    borderRadius: radius.md,
-  },
-  imageRemoveBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imageAddBtn: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bgSurface,
-  },
-  previewSubText: { ...typography.caption, color: colors.textSecondary },
-  toolbar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingTop: spacing.md,
-    borderTopWidth: 1, borderTopColor: colors.borderSoft,
-    backgroundColor: colors.bgDeep,
-    minHeight: 56,
-  },
-  toolbarLeft: { flexDirection: 'row', gap: spacing.sm },
-  toolBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.bgSurface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-  },
-  charCountWrap: { alignItems: 'center', justifyContent: 'center' },
-  charRing: {
-    width: 32, height: 32, borderRadius: 16,
-    borderWidth: 2, borderColor: colors.electric,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  charCountText: { ...typography.badge, color: colors.textBrandAlt },
+    container: { flex: 1, backgroundColor: colors.screenRoot },
+    flex: { flex: 1 },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      minHeight: 52,
+    },
+    closeBtn: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.pill,
+    },
+    postBtn: {
+      minWidth: 68,
+      height: 34,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.electric,
+    },
+    // Light tint of the brand colour while empty/disabled (reference: pale pill).
+    postBtnDisabled: { opacity: 0.45 },
+    postBtnPressed: { opacity: 0.85 },
+    postBtnText: { ...typography.smallHeading, fontWeight: '700', color: '#FFFFFF' },
+    scroll: { flexGrow: 1, paddingBottom: spacing.lg },
+    composeRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+    },
+    avatar: {
+      width: AVATAR_SIZE,
+      height: AVATAR_SIZE,
+      borderRadius: AVATAR_SIZE / 2,
+      backgroundColor: colors.bgSurface,
+    },
+    avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+    textInput: {
+      ...rtlInputText,
+      flex: 1,
+      fontSize: 19,
+      lineHeight: 28,
+      color: colors.textPrimary,
+      minHeight: 160,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm,
+      paddingHorizontal: 0,
+    },
+    mediaRow: {
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingStart: spacing.lg + AVATAR_SIZE + spacing.md,
+    },
+    mediaTile: {
+      width: MEDIA_TILE,
+      height: MEDIA_TILE,
+      borderRadius: radius.md,
+      overflow: 'hidden',
+      backgroundColor: colors.bgSurface,
+    },
+    mediaImage: { width: '100%', height: '100%' },
+    videoBg: { backgroundColor: '#000' },
+    videoBadge: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.28)',
+    },
+    mediaRemoveBtn: {
+      position: 'absolute',
+      top: 4,
+      end: 4,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mediaAddTile: {
+      width: MEDIA_TILE,
+      height: MEDIA_TILE,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.borderSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    toolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderSoft,
+      backgroundColor: colors.screenRoot,
+    },
+    toolbarIcons: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    toolBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.pill,
+    },
+    toolBtnDisabled: { opacity: 0.4 },
+    counter: { ...typography.secondary, color: colors.textMuted, paddingHorizontal: spacing.sm },
   });
 }

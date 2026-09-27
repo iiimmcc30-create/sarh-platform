@@ -58,14 +58,14 @@ export class ListPostsQueryDto {
 }
 
 export class CreatePostDto {
+  // Text may be empty for a media-only post; PostsService.createPost rejects a
+  // post that has neither text nor media.
   @IsString()
-  @MinLength(1)
   @MaxLength(280)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   content!: string;
 
   @IsString()
-  @MinLength(1)
   @MaxLength(280)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   arabicContent!: string;
