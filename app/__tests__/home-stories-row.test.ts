@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import path from 'path';
+import { HOME_ADD_STORY_LABEL, homeStoriesRowMode } from '../lib/homeStories';
 
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8');
@@ -53,8 +54,10 @@ describe('Home stories row', () => {
     expect(bar).toContain('horizontal');
   });
 
-  it('hides when there are no stories and never blocks Home', () => {
-    expect(row).toContain('if (!hasAnyStories(state)) return null;');
+  it('decides visibility with the pure helper and never blocks Home', () => {
+    expect(row).toContain("if (mode === 'hidden') return null;");
+    expect(row).toContain('showAddSlot={mode === \'withAdd\'}');
+    expect(row).toContain('const { accessToken, isAuthenticated } = useAuth();');
     expect(row).toContain('/* silent: Home never blocks on stories */');
     expect(row).toContain('useFocusEffect');
     expect(home).not.toContain('fetchStoriesFeed');
@@ -67,5 +70,42 @@ describe('Home stories row', () => {
       expect(text).not.toContain('LinearGradient');
       expect(text).not.toContain('react-native-reanimated');
     }
+  });
+});
+
+describe('homeStoriesRowMode (Home stories visibility)', () => {
+  it('logged in with no stories shows the row with the add-your-story slot', () => {
+    expect(homeStoriesRowMode({ isAuthenticated: true, feedCount: 0 })).toBe('withAdd');
+    expect(HOME_ADD_STORY_LABEL).toBe('أضف قصتك');
+  });
+
+  it('logged in with stories keeps add-your-story first', () => {
+    expect(homeStoriesRowMode({ isAuthenticated: true, feedCount: 3 })).toBe('withAdd');
+  });
+
+  it('logged out with no stories hides the row', () => {
+    expect(homeStoriesRowMode({ isAuthenticated: false, feedCount: 0 })).toBe('hidden');
+  });
+
+  it('logged out with stories shows them without the add slot', () => {
+    expect(homeStoriesRowMode({ isAuthenticated: false, feedCount: 2 })).toBe('storiesOnly');
+  });
+});
+
+describe('StoriesBar add slot stays backward compatible', () => {
+  const bar = src('components/feature/StoriesBar.tsx');
+  const row = src('components/feature/HomeStoriesRow.tsx');
+
+  it('defaults to showing the add slot with the original label', () => {
+    expect(bar).toContain('showAddSlot = true,');
+    expect(bar).toContain("addLabel = 'إضافة',");
+    expect(bar).toContain("{hasMyStories ? 'قصتي' : addLabel}");
+    expect(bar).toContain('{showAddSlot ? (');
+  });
+
+  it('Home add slot opens the existing story creation screen', () => {
+    expect(row).toContain("safePush('/create/story', undefined, router)");
+    expect(row).toContain('addLabel={HOME_ADD_STORY_LABEL}');
+    expect(src('app/_layout.tsx')).toContain('<Stack.Screen name="create/story" />');
   });
 });

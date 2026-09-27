@@ -27,6 +27,10 @@ type StoriesBarProps = {
   onRefresh: () => void;
   /** Ring diameter in px (static per instance). Defaults to 64. */
   size?: number;
+  /** Show the leading my-story / add slot. Defaults to true (current behavior). */
+  showAddSlot?: boolean;
+  /** Label under the add slot when the user has no story. Defaults to 'إضافة'. */
+  addLabel?: string;
 };
 
 function StoryRing({
@@ -85,6 +89,8 @@ export function StoriesBar({
   onAddStory,
   onRefresh,
   size = DEFAULT_CIRCLE,
+  showAddSlot = true,
+  addLabel = 'إضافة',
 }: StoriesBarProps) {
   const { scheme } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createBarStyles(c, scheme, size));
@@ -116,6 +122,7 @@ export function StoriesBar({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
         >
+          {showAddSlot ? (
           <Pressable onPress={openMyStories} style={styles.itemWrap}>
             <StoryRing
               unseen={!!myStories?.hasUnseen}
@@ -133,9 +140,10 @@ export function StoriesBar({
               </Pressable>
             </StoryRing>
             <Text style={styles.label} numberOfLines={1}>
-              {hasMyStories ? 'قصتي' : 'إضافة'}
+              {hasMyStories ? 'قصتي' : addLabel}
             </Text>
           </Pressable>
+          ) : null}
 
           {loading && feed.length === 0
             ? [0, 1, 2, 3, 4].map((i) => (
