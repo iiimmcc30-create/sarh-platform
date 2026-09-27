@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,7 @@ export function usePostFeedActions() {
   const {
     me,
     likedPosts,
+    pendingLikes,
     bookmarkedPosts,
     repostedPosts,
     toggleLike,
@@ -21,6 +22,30 @@ export function usePostFeedActions() {
     setPostViews,
     deletePost,
   } = useApp();
+
+  // PostItem is memoized on post fields only, so a row can keep an older
+  // handler object. Handlers read the latest auth/actions from this ref so a
+  // stale row never runs an outdated toggle (e.g. one created before sign-in).
+  const latest = useRef({
+    router,
+    isAuthenticated,
+    me,
+    toggleLike,
+    toggleRepost,
+    toggleBookmark,
+    setPostViews,
+    deletePost,
+  });
+  latest.current = {
+    router,
+    isAuthenticated,
+    me,
+    toggleLike,
+    toggleRepost,
+    toggleBookmark,
+    setPostViews,
+    deletePost,
+  };
 
   const enrich = useCallback(
     (post: Post): Post => ({
@@ -34,44 +59,46 @@ export function usePostFeedActions() {
 
   const bind = useCallback(
     (post: Post) => ({
-      onPress: () => openPostDetail(router, post.id),
+      likePending: pendingLikes.has(post.id),
+      onPress: () => openPostDetail(latest.current.router, post.id),
       onLike: () => {
-        if (requireAuth(isAuthenticated, 'الإعجاب')) void toggleLike(post.id);
+        const l = latest.current;
+        // The context reads the current liked/likes itself and ignores taps
+        // while a request for this post is in flight.
+        if (requireAuth(l.isAuthenticated, 'الإعجاب')) void l.toggleLike(post.id);
       },
       onRepost: () => {
-        if (requireAuth(isAuthenticated, 'إعادة النشر')) void toggleRepost(post.id);
+        const l = latest.current;
+        if (requireAuth(l.isAuthenticated, 'إعادة النشر')) void l.toggleRepost(post.id);
       },
-      onComment: () => openPostDetail(router, post.id, { focusComment: isAuthenticated }),
+      onComment: () =>
+        openPostDetail(latest.current.router, post.id, {
+          focusComment: latest.current.isAuthenticated,
+        }),
       onBookmark: () => {
-        if (requireAuth(isAuthenticated, 'الحفظ')) void toggleBookmark(post.id);
+        const l = latest.current;
+        if (requireAuth(l.isAuthenticated, 'الحفظ')) void l.toggleBookmark(post.id);
       },
       onShare: () => {
         void sharePost(post);
       },
       onMenu: () => {
-        void showPostMenu(post, me, router, deletePost, isAuthenticated);
+        const l = latest.current;
+        void showPostMenu(post, l.me, l.router, l.deletePost, l.isAuthenticated);
       },
-      onViewsChange: (views: number) => setPostViews(post.id, views),
+      onViewsChange: (views: number) => latest.current.setPostViews(post.id, views),
     }),
-    [
-      router,
-      isAuthenticated,
-      toggleLike,
-      toggleRepost,
-      toggleBookmark,
-      setPostViews,
-      deletePost,
-      me,
-    ],
+    [pendingLikes],
   );
 
+  /** Feed impression: recorded once per post per session (viewability only, never on press). */
   const observe = useCallback(
     (postId: string) => {
       void recordPostView(postId).then((count) => {
-        if (typeof count === 'number') setPostViews(postId, count);
+        if (typeof count === 'number') latest.current.setPostViews(postId, count);
       });
     },
-    [setPostViews],
+    [],
   );
 
   return { enrich, bind, observe };

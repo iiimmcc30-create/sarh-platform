@@ -14,6 +14,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
+import { recordPostView } from '@/lib/postEngagement';
+import { isLikePending, nextLikeState } from '@/lib/postLikeToggle';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import type { Post } from '@/services/types';
@@ -48,6 +50,7 @@ export default function PostDetailScreen() {
     me,
     posts,
     likedPosts,
+    pendingLikes,
     bookmarkedPosts,
     repostedPosts,
     toggleLike,
@@ -62,6 +65,10 @@ export default function PostDetailScreen() {
   const [post, setPost] = useState<Post | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
   const commentsRef = useRef<PostCommentsSectionRef>(null);
+  // Read through a ref so optimistic like/repost/bookmark/view patches (which
+  // replace the cached object) never recreate loadPost and refetch the post.
+  const cachedRef = useRef(cached);
+  cachedRef.current = cached;
 
   useEffect(() => {
     if (!postId) router.back();
@@ -79,24 +86,75 @@ export default function PostDetailScreen() {
           return;
         }
       }
-      if (!cached) {
+      if (!cachedRef.current) {
         Alert.alert('غير موجود', 'تعذّر العثور على هذا المنشور');
         router.back();
       }
     } catch {
-      if (!cached) {
+      if (!cachedRef.current) {
         Alert.alert('خطأ', 'تعذّر تحميل المنشور');
         router.back();
       }
     } finally {
       setLoading(false);
     }
-  }, [postId, cached, router]);
+  }, [postId, router]);
 
+  // Fetch once per opened post. Interactions must not refetch (a refetch used
+  // to hit GET /posts/:id, which counted a view on every like).
   useEffect(() => {
-    if (cached) setPost(cached);
+    if (cachedRef.current) setPost(cachedRef.current);
     void loadPost();
-  }, [postId, cached, loadPost]);
+  }, [loadPost]);
+
+  // Keep engagement fields in sync with the shared feed copy without refetching.
+  const cachedLiked = cached?.liked;
+  const cachedLikes = cached?.likes;
+  const cachedReposted = cached?.reposted;
+  const cachedReposts = cached?.reposts;
+  const cachedBookmarked = cached?.bookmarked;
+  const cachedViews = cached?.views;
+  const hasCached = Boolean(cached);
+  useEffect(() => {
+    if (!hasCached) return;
+    setPost((prev) =>
+      prev
+        ? {
+            ...prev,
+            liked: cachedLiked,
+            likes: cachedLikes ?? prev.likes,
+            reposted: cachedReposted,
+            reposts: cachedReposts ?? prev.reposts,
+            bookmarked: cachedBookmarked,
+            views: typeof cachedViews === 'number' ? Math.max(cachedViews, prev.views ?? 0) : prev.views,
+          }
+        : prev,
+    );
+  }, [
+    hasCached,
+    cachedLiked,
+    cachedLikes,
+    cachedReposted,
+    cachedReposts,
+    cachedBookmarked,
+    cachedViews,
+  ]);
+
+  // Opening the detail is a display of the post: record it once per post per
+  // session (backend also dedupes per viewer). Never tied to interactions.
+  useEffect(() => {
+    if (!postId) return;
+    let active = true;
+    void recordPostView(postId).then((count) => {
+      if (!active || typeof count !== 'number') return;
+      setPost((prev) => (prev ? { ...prev, views: count } : prev));
+      setPostViews(postId, count);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opened post
+  }, [postId]);
 
   useEffect(() => {
     if (focusComment === '1' && post) {
@@ -129,6 +187,21 @@ export default function PostDetailScreen() {
 
   if (!enrichedPost) return null;
 
+  const likePending = pendingLikes.has(enrichedPost.id);
+  const onLikeDetail = () => {
+    if (!requireAuth(isAuthenticated, 'الإعجاب')) return;
+    if (isLikePending(enrichedPost.id)) return;
+    const snapshot = { liked: Boolean(enrichedPost.liked), likes: enrichedPost.likes };
+    // Local copy (may not be in the shared feed) moves optimistically with the context.
+    setPost((prev) => (prev ? { ...prev, ...nextLikeState(snapshot) } : prev));
+    void toggleLike(enrichedPost.id, snapshot).then((result) => {
+      const settled = result ?? snapshot;
+      setPost((prev) =>
+        prev ? { ...prev, liked: settled.liked, likes: settled.likes } : prev,
+      );
+    });
+  };
+
   return (
     <Screen edges={['top']}>
       <ScreenHeader variant="screen" title="منشور" showBack />
@@ -147,7 +220,8 @@ export default function PostDetailScreen() {
             <PostItem
               post={enrichedPost}
               variant="detail"
-              onLike={() => requireAuth(isAuthenticated, 'الإعجاب') && void toggleLike(enrichedPost.id)}
+              onLike={onLikeDetail}
+              likePending={likePending}
               onRepost={() =>
                 requireAuth(isAuthenticated, 'إعادة النشر') && void toggleRepost(enrichedPost.id)
               }

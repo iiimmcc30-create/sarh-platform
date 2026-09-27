@@ -47,9 +47,13 @@ interface PostItemProps {
   onMenu: () => void;
   onBookmark?: () => void;
   onViewsChange?: (views: number) => void;
+  /** True while this post's like/unlike request is in flight. */
+  likePending?: boolean;
 }
 
 const TEXT_COLLAPSE_LINES = 8;
+
+const PENDING_ACTION_STYLE: ViewStyle = { opacity: 0.6 };
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) {
@@ -112,6 +116,7 @@ function ActionBtn({
   size = 18,
   filled = false,
   accessibilityLabel,
+  pending = false,
 }: {
   icon: string;
   iconColor: string;
@@ -123,6 +128,8 @@ function ActionBtn({
   size?: number;
   filled?: boolean;
   accessibilityLabel?: string;
+  /** Request in flight: dimmed + busy. Taps are ignored upstream by the in-flight guard. */
+  pending?: boolean;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
@@ -143,13 +150,14 @@ function ActionBtn({
 
   return (
     <Pressable
-      style={style}
+      style={pending ? [style, PENDING_ACTION_STYLE] : style}
       onPress={onPress}
       onPressIn={pressIn}
       onPressOut={pressOut}
       hitSlop={10}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ busy: pending }}
     >
       <Animated.View style={[{ transform: [{ scale }], opacity }, getRtlRow(), { alignItems: 'center', gap: 5 }]}>
         <AppIcon name={icon} size={size} color={iconColor} variant={filled ? 'sr' : 'rr'} />
@@ -172,6 +180,7 @@ function PostItemComponent({
   onMenu,
   onBookmark,
   onViewsChange,
+  likePending = false,
 }: PostItemProps) {
   const { styles, colors, scheme } = useThemedStyles((theme) => ({
     styles: createStyles(theme.colors, theme.scheme),
@@ -326,6 +335,7 @@ function PostItemComponent({
               countStyle={styles.actionCount}
               filled={!!post.liked}
               accessibilityLabel="إعجاب"
+              pending={likePending}
             />
             {variant === 'detail' ? null : (
               <View
@@ -416,7 +426,7 @@ function PostItemComponent({
             </Pressable>
           </View>
 
-          <PostBody text={bodyText} style={styles.detailBody} />
+          {bodyText ? <PostBody text={bodyText} style={styles.detailBody} /> : null}
         </View>
 
         {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
@@ -489,11 +499,13 @@ function PostItemComponent({
 
   const caption = (
     <>
-      <PostBody
-        text={bodyText}
-        style={styles.body}
-        lines={expanded ? undefined : TEXT_COLLAPSE_LINES}
-      />
+      {bodyText ? (
+        <PostBody
+          text={bodyText}
+          style={styles.body}
+          lines={expanded ? undefined : TEXT_COLLAPSE_LINES}
+        />
+      ) : null}
       {feedChrome && longBody ? (
         !expanded ? (
           <Pressable onPress={() => (onPress ? onPress() : setExpanded(true))} hitSlop={6}>
@@ -572,6 +584,7 @@ function PostItemComponent({
 
 function arePropsEqual(prev: PostItemProps, next: PostItemProps): boolean {
   if (prev.variant !== next.variant) return false;
+  if (Boolean(prev.likePending) !== Boolean(next.likePending)) return false;
   const a = prev.post;
   const b = next.post;
   return (

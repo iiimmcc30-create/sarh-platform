@@ -39,6 +39,13 @@ import {
   readFeedSnapshot,
 } from '@/lib/feedSnapshot';
 import { runExclusive } from '@/lib/postEngagement';
+import {
+  LIKE_ERROR_FALLBACK_AR,
+  toggleLikeOptimistic,
+  type LikeSnapshot,
+  type LikeToggleResult,
+} from '@/lib/postLikeToggle';
+import { showToast } from '@/lib/toast';
 
 const BOOKMARKS_STORAGE_KEY = 'sarouh:bookmarked_posts';
 const REFETCH_TTL_MS = 60_000;
@@ -114,9 +121,16 @@ interface AppContextValue {
   addListing: (listingData: any) => Promise<ActionResult>;
   updateListing: (listingId: string, listingData: any) => Promise<ActionResult>;
   likedPosts: Set<string>;
+  /** Posts whose like/unlike request is in flight (drives the pending UI). */
+  pendingLikes: Set<string>;
   repostedPosts: Set<string>;
   bookmarkedPosts: Set<string>;
-  toggleLike: (postId: string) => Promise<void>;
+  /**
+   * Optimistic like/unlike. Pass `current` (what the UI shows) for posts that live
+   * outside the shared feed state (e.g. a fetched detail copy). Resolves null when
+   * a request for the same post is already in flight (the tap is ignored).
+   */
+  toggleLike: (postId: string, current?: LikeSnapshot) => Promise<LikeToggleResult | null>;
   toggleRepost: (postId: string) => Promise<void>;
   toggleBookmark: (postId: string) => Promise<void>;
   setPostViews: (postId: string, views: number) => void;
@@ -150,6 +164,15 @@ function collectPostImageUris(posts: Post[]): Array<string | undefined> {
   return uris;
 }
 
+/** Returns `prev` unchanged when membership already matches (no extra render). */
+function setMembership(prev: Set<string>, postId: string, member: boolean): Set<string> {
+  if (prev.has(postId) === member) return prev;
+  const next = new Set(prev);
+  if (member) next.add(postId);
+  else next.delete(postId);
+  return next;
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const { user, accessToken, isAuthenticated, isLoading: authLoading } = useAuth();
   const [me, setMe] = useState<User>(DEFAULT_USER);
@@ -158,6 +181,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [repostedPosts, setRepostedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
+  const [pendingLikes, setPendingLikes] = useState<Set<string>>(new Set());
+  // Latest committed values for synchronous reads inside toggles. Reading them
+  // inside setState updaters (the old approach) is lazy and ordered by hook
+  // position, so the optimistic value could be computed from stale state.
+  const postsRef = useRef<Post[]>(posts);
+  postsRef.current = posts;
+  const likedPostsRef = useRef(likedPosts);
+  likedPostsRef.current = likedPosts;
+  const repostedPostsRef = useRef(repostedPosts);
+  repostedPostsRef.current = repostedPosts;
+  const bookmarkedPostsRef = useRef(bookmarkedPosts);
+  bookmarkedPostsRef.current = bookmarkedPosts;
 
   // Bookmarks are device-local (no backend model yet) — restore on mount
   useEffect(() => {
@@ -946,102 +981,75 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, accessToken]);
 
-  const toggleLike = useCallback(async (postId: string) => {
-    if (!isAuthenticated || !accessToken) return;
-    await runExclusive(`like:${postId}`, async () => {
-      let wasLiked = false;
-      let previousLikes = 0;
-      setLikedPosts((prev) => {
-        wasLiked = prev.has(postId);
-        const next = new Set(prev);
-        if (wasLiked) next.delete(postId);
-        else next.add(postId);
-        return next;
-      });
-      setPosts((prev) =>
-        prev.map((p) => {
-          if (p.id !== postId) return p;
-          previousLikes = p.likes;
-          return {
-            ...p,
-            liked: !wasLiked,
-            likes: wasLiked ? Math.max(0, p.likes - 1) : p.likes + 1,
-          };
-        }),
-      );
-      try {
-        const res = await authFetch(`${API_BASE}/api/posts/${postId}/like`, {
-          method: 'POST',
-        });
-        const json = res.ok ? await res.json() : null;
-        if (!res.ok || !json?.success) throw new Error('like_failed');
-        const isLikedNow = Boolean(json.data?.liked);
-        setLikedPosts((prev) => {
-          const next = new Set(prev);
-          if (isLikedNow) next.add(postId);
-          else next.delete(postId);
-          return next;
-        });
-        patchPost(postId, { liked: isLikedNow });
-      } catch (err) {
-        console.warn('[AppContext] Toggle like failed:', err);
-        setLikedPosts((prev) => {
-          const next = new Set(prev);
-          if (wasLiked) next.add(postId);
-          else next.delete(postId);
-          return next;
-        });
-        patchPost(postId, { liked: wasLiked, likes: previousLikes });
-      }
+  const toggleLike = useCallback(async (
+    postId: string,
+    current?: LikeSnapshot,
+  ): Promise<LikeToggleResult | null> => {
+    if (!isAuthenticated || !accessToken || !postId) return null;
+    // Read the visible state synchronously — never from inside a setState updater.
+    const inFeed = postsRef.current.find((p) => p.id === postId);
+    const snapshot: LikeSnapshot = current ?? {
+      liked: likedPostsRef.current.has(postId) || Boolean(inFeed?.liked),
+      likes: inFeed?.likes ?? 0,
+    };
+    return toggleLikeOptimistic({
+      postId,
+      current: snapshot,
+      apply: ({ liked, likes }) => {
+        setLikedPosts((prev) => setMembership(prev, postId, liked));
+        patchPost(postId, { liked, likes });
+      },
+      onPendingChange: (pending) => {
+        setPendingLikes((prev) => setMembership(prev, postId, pending));
+      },
+      onError: (message) => {
+        showToast(message, 'error');
+      },
+      request: async () => {
+        let res: Response;
+        try {
+          res = await authFetch(`${API_BASE}/api/posts/${postId}/like`, {
+            method: 'POST',
+          });
+        } catch {
+          throw new Error(LIKE_ERROR_FALLBACK_AR);
+        }
+        if (!res.ok) {
+          const clientError = res.status === 403 || res.status === 404 || res.status === 429;
+          throw new Error(clientError ? await parseApiError(res) : LIKE_ERROR_FALLBACK_AR);
+        }
+        const json = await res.json().catch(() => null);
+        if (!json?.success) throw new Error(LIKE_ERROR_FALLBACK_AR);
+        return json.data ?? null;
+      },
     });
   }, [isAuthenticated, accessToken, patchPost]);
 
   const toggleRepost = useCallback(async (postId: string) => {
     if (!isAuthenticated || !accessToken) return;
     await runExclusive(`repost:${postId}`, async () => {
-      let wasReposted = false;
-      let previousReposts = 0;
-      setRepostedPosts((prev) => {
-        wasReposted = prev.has(postId);
-        const next = new Set(prev);
-        if (wasReposted) next.delete(postId);
-        else next.add(postId);
-        return next;
+      const inFeed = postsRef.current.find((p) => p.id === postId);
+      const wasReposted = repostedPostsRef.current.has(postId) || Boolean(inFeed?.reposted);
+      const previousReposts = inFeed?.reposts ?? 0;
+      setRepostedPosts((prev) => setMembership(prev, postId, !wasReposted));
+      patchPost(postId, {
+        reposted: !wasReposted,
+        reposts: wasReposted ? Math.max(0, previousReposts - 1) : previousReposts + 1,
       });
-      setPosts((prev) =>
-        prev.map((p) => {
-          if (p.id !== postId) return p;
-          previousReposts = p.reposts;
-          return {
-            ...p,
-            reposted: !wasReposted,
-            reposts: wasReposted ? Math.max(0, p.reposts - 1) : p.reposts + 1,
-          };
-        }),
-      );
       try {
         const res = await authFetch(`${API_BASE}/api/posts/${postId}/repost`, {
           method: 'POST',
         });
-        const json = res.ok ? await res.json() : null;
+        const json = res.ok ? await res.json().catch(() => null) : null;
         if (!res.ok || !json?.success) throw new Error('repost_failed');
         const isRepostedNow = Boolean(json.data?.reposted);
-        setRepostedPosts((prev) => {
-          const next = new Set(prev);
-          if (isRepostedNow) next.add(postId);
-          else next.delete(postId);
-          return next;
-        });
+        setRepostedPosts((prev) => setMembership(prev, postId, isRepostedNow));
         patchPost(postId, { reposted: isRepostedNow });
       } catch (err) {
         console.warn('[AppContext] Toggle repost failed:', err);
-        setRepostedPosts((prev) => {
-          const next = new Set(prev);
-          if (wasReposted) next.add(postId);
-          else next.delete(postId);
-          return next;
-        });
+        setRepostedPosts((prev) => setMembership(prev, postId, wasReposted));
         patchPost(postId, { reposted: wasReposted, reposts: previousReposts });
+        showToast('تعذّرت إعادة النشر، حاول مجدداً', 'error');
       }
     });
   }, [isAuthenticated, accessToken, patchPost]);
@@ -1049,12 +1057,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleBookmark = useCallback(async (postId: string) => {
     if (!isAuthenticated || !accessToken) return;
     await runExclusive(`bookmark:${postId}`, async () => {
-      let wasBookmarked = false;
+      const inFeed = postsRef.current.find((p) => p.id === postId);
+      const wasBookmarked =
+        bookmarkedPostsRef.current.has(postId) || Boolean(inFeed?.bookmarked);
       setBookmarkedPosts((prev) => {
-        wasBookmarked = prev.has(postId);
-        const next = new Set(prev);
-        if (wasBookmarked) next.delete(postId);
-        else next.add(postId);
+        const next = setMembership(prev, postId, !wasBookmarked);
         persistBookmarks(next);
         return next;
       });
@@ -1063,13 +1070,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const res = await authFetch(`${API_BASE}/api/posts/${postId}/bookmark`, {
           method: 'POST',
         });
-        const json = res.ok ? await res.json() : null;
+        const json = res.ok ? await res.json().catch(() => null) : null;
         if (!res.ok || !json?.success) throw new Error('bookmark_failed');
         const isBookmarkedNow = Boolean(json.data?.bookmarked);
         setBookmarkedPosts((prev) => {
-          const next = new Set(prev);
-          if (isBookmarkedNow) next.add(postId);
-          else next.delete(postId);
+          const next = setMembership(prev, postId, isBookmarkedNow);
           persistBookmarks(next);
           return next;
         });
@@ -1077,13 +1082,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.warn('[AppContext] Toggle bookmark failed:', err);
         setBookmarkedPosts((prev) => {
-          const next = new Set(prev);
-          if (wasBookmarked) next.add(postId);
-          else next.delete(postId);
+          const next = setMembership(prev, postId, wasBookmarked);
           persistBookmarks(next);
           return next;
         });
         patchPost(postId, { bookmarked: wasBookmarked });
+        showToast('تعذّر تحديث الحفظ، حاول مجدداً', 'error');
       }
     });
   }, [isAuthenticated, accessToken, patchPost, persistBookmarks]);
@@ -1203,6 +1207,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addListing,
       updateListing,
       likedPosts,
+      pendingLikes,
       repostedPosts,
       bookmarkedPosts,
       toggleLike,
@@ -1227,6 +1232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addListing,
       updateListing,
       likedPosts,
+      pendingLikes,
       repostedPosts,
       bookmarkedPosts,
       toggleLike,

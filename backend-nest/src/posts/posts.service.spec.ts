@@ -249,24 +249,50 @@ describe('PostsService feed cache isolation', () => {
     expect(created.video).toContain('/video/upload/');
   });
 
-  it('increments views when a post is opened', async () => {
+  it('accepts a media-only post and rejects a post with neither text nor media', async () => {
+    repo.create.mockImplementation(async (data: Record<string, unknown>) => ({
+      id: 'p-media',
+      authorId: 'author-1',
+      content: data.content,
+      arabicContent: data.arabicContent,
+      media: [],
+      author: { id: 'author-1' },
+    }));
+    const author = { userId: 'author-1', username: 'a', role: 'USER' as const };
+
+    await expect(
+      service.createPost(author, {
+        content: '',
+        arabicContent: '',
+        media: [{ url: 'https://cdn.example/only.jpg', type: 'IMAGE', sortOrder: 0 }],
+      }),
+    ).resolves.toMatchObject({ id: 'p-media' });
+
+    repo.create.mockClear();
+    await expect(
+      service.createPost(author, { content: '  ', arabicContent: '' }),
+    ).rejects.toMatchObject({ status: 400, error: 'empty_post' });
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('does not count a view when a post is fetched (detail refetch after a like)', async () => {
     repo.findById.mockResolvedValue({
       ...post('p1', 'author-1'),
       viewsCount: 4,
     });
     usersRepo.findBlockedRelationshipIds.mockResolvedValue([]);
-    repo.findLike.mockResolvedValue(null);
+    repo.findLike.mockResolvedValue({ id: 'l1' });
     repo.findRepost.mockResolvedValue(null);
     repo.findBookmark.mockResolvedValue(null);
 
-    const result = await service.getPost('p1', {
-      userId: 'viewer-a',
-      username: 'a',
-      role: 'USER',
-    });
+    const viewer = { userId: 'viewer-a', username: 'a', role: 'USER' as const };
+    const first = await service.getPost('p1', viewer);
+    const second = await service.getPost('p1', viewer);
 
-    expect(repo.incrementViewsCount).toHaveBeenCalledWith('p1');
-    expect(result.viewsCount).toBe(5);
+    expect(repo.incrementViewsCount).not.toHaveBeenCalled();
+    expect(first.viewsCount).toBe(4);
+    expect(second.viewsCount).toBe(4);
+    expect(second.liked).toBe(true);
   });
 });
 
@@ -280,6 +306,8 @@ describe('PostsService block enforcement on mutations (H5)', () => {
     toggleRepost: jest.fn(),
     toggleBookmark: jest.fn(),
     incrementViewsCount: jest.fn().mockResolvedValue({ viewsCount: 8 }),
+    findViewsCount: jest.fn().mockResolvedValue({ viewsCount: 8 }),
+    countLikes: jest.fn().mockResolvedValue(3),
     findById: jest.fn(),
     createComment: jest.fn(),
   };
@@ -290,6 +318,7 @@ describe('PostsService block enforcement on mutations (H5)', () => {
   };
   const cache = {
     del: jest.fn(),
+    claimOnce: jest.fn().mockResolvedValue(true),
     keys: { post: (id: string) => `post:${id}` },
   };
   const notifications = { notifyUser: jest.fn().mockResolvedValue(undefined) };
@@ -300,6 +329,9 @@ describe('PostsService block enforcement on mutations (H5)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     repo.findOwnerMeta.mockResolvedValue({ id: 'p1', authorId: 'user-a' });
+    repo.findViewsCount.mockResolvedValue({ viewsCount: 8 });
+    repo.countLikes.mockResolvedValue(3);
+    cache.claimOnce.mockResolvedValue(true);
     service = new PostsService(
       repo as never,
       usersRepo as never,
@@ -359,6 +391,7 @@ describe('PostsService block enforcement on mutations (H5)', () => {
 
     await expect(service.toggleLike(viewer, 'p1')).resolves.toEqual({
       liked: true,
+      likesCount: 3,
     });
     await expect(
       service.createComment(viewer, 'p1', { content: 'nice' }),
@@ -389,8 +422,12 @@ describe('PostsService block enforcement on mutations (H5)', () => {
       viewsCount: 8,
     });
     expect(repo.incrementViewsCount).toHaveBeenCalledWith('p1');
+    expect(cache.claimOnce).toHaveBeenCalledWith(
+      'posts:view:p1:u:user-b',
+      24 * 60 * 60,
+    );
 
-    repo.findById.mockResolvedValue({ viewsCount: 8 });
+    repo.incrementViewsCount.mockClear();
     await expect(
       service.recordView('p1', {
         userId: 'user-a',
@@ -398,6 +435,90 @@ describe('PostsService block enforcement on mutations (H5)', () => {
         role: 'USER',
       }),
     ).resolves.toEqual({ recorded: false, viewsCount: 8 });
+    expect(repo.incrementViewsCount).not.toHaveBeenCalled();
+  });
+
+  it('counts a view only once per viewer and post inside the dedupe window', async () => {
+    usersRepo.findBlockedRelationshipIds.mockResolvedValue([]);
+    const claimed = new Set<string>();
+    cache.claimOnce.mockImplementation(async (key: string) => {
+      if (claimed.has(key)) return false;
+      claimed.add(key);
+      return true;
+    });
+
+    await expect(service.recordView('p1', viewer)).resolves.toMatchObject({
+      recorded: true,
+    });
+    await expect(service.recordView('p1', viewer)).resolves.toEqual({
+      recorded: false,
+      viewsCount: 8,
+    });
+    await expect(service.recordView('p1', viewer)).resolves.toMatchObject({
+      recorded: false,
+    });
+    expect(repo.incrementViewsCount).toHaveBeenCalledTimes(1);
+
+    // A different viewer still counts.
+    await expect(
+      service.recordView('p1', { userId: 'user-c', username: 'c', role: 'USER' }),
+    ).resolves.toMatchObject({ recorded: true });
+    expect(repo.incrementViewsCount).toHaveBeenCalledTimes(2);
+  });
+
+  it('dedupes guest views by the anonymous viewer key', async () => {
+    const claimed = new Set<string>();
+    cache.claimOnce.mockImplementation(async (key: string) => {
+      if (claimed.has(key)) return false;
+      claimed.add(key);
+      return true;
+    });
+    await service.recordView('p1', undefined, 'guest-hash');
+    await service.recordView('p1', undefined, 'guest-hash');
+    expect(cache.claimOnce).toHaveBeenCalledWith(
+      'posts:view:p1:a:guest-hash',
+      24 * 60 * 60,
+    );
+    expect(repo.incrementViewsCount).toHaveBeenCalledTimes(1);
+  });
+
+  it('never counts a view when liking, reposting, or bookmarking', async () => {
+    usersRepo.findBlockedRelationshipIds.mockResolvedValue([]);
+    repo.findLike.mockResolvedValue(null);
+    repo.toggleLike.mockResolvedValue(true);
+    repo.findRepost.mockResolvedValue(null);
+    repo.toggleRepost.mockResolvedValue(true);
+    repo.findBookmark.mockResolvedValue(null);
+    repo.toggleBookmark.mockResolvedValue(true);
+
+    await service.toggleLike(viewer, 'p1');
+    await service.toggleRepost(viewer, 'p1');
+    await service.toggleBookmark(viewer, 'p1');
+
+    expect(repo.incrementViewsCount).not.toHaveBeenCalled();
+    expect(cache.claimOnce).not.toHaveBeenCalled();
+  });
+
+  it('unlikes on the second toggle and returns the real like count', async () => {
+    usersRepo.findBlockedRelationshipIds.mockResolvedValue([]);
+    repo.findLike.mockResolvedValueOnce(null);
+    repo.toggleLike.mockResolvedValueOnce(true);
+    repo.countLikes.mockResolvedValueOnce(4);
+    await expect(service.toggleLike(viewer, 'p1')).resolves.toEqual({
+      liked: true,
+      likesCount: 4,
+    });
+
+    repo.findLike.mockResolvedValueOnce({ id: 'l1' });
+    repo.toggleLike.mockResolvedValueOnce(false);
+    repo.countLikes.mockResolvedValueOnce(3);
+    await expect(service.toggleLike(viewer, 'p1')).resolves.toEqual({
+      liked: false,
+      likesCount: 3,
+    });
+    expect(repo.toggleLike).toHaveBeenNthCalledWith(1, 'p1', 'user-b', false);
+    expect(repo.toggleLike).toHaveBeenNthCalledWith(2, 'p1', 'user-b', true);
+    expect(cache.del).toHaveBeenCalledWith('posts:feed:first');
   });
 
   it('does not delete existing likes or comments when a later block rejects a mutation', async () => {

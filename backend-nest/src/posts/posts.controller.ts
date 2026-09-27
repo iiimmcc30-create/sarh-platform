@@ -9,7 +9,9 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { OptionalAuth, RateLimit } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { successResponse } from '../common/utils/response.util';
@@ -21,6 +23,7 @@ import {
   UpdatePostDto,
 } from './dto/posts.dto';
 import { PostsService } from './posts.service';
+import { anonymousViewerKey } from './lib/post-view-dedupe';
 
 @Controller('posts')
 export class PostsController {
@@ -102,8 +105,18 @@ export class PostsController {
   @RateLimit('api')
   @Post(':id/view')
   @HttpCode(HttpStatus.OK)
-  async recordView(@Param('id') id: string, @CurrentUser() user?: JwtPayload) {
-    return successResponse(await this.posts.recordView(id, user));
+  async recordView(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @CurrentUser() user?: JwtPayload,
+  ) {
+    return successResponse(
+      await this.posts.recordView(
+        id,
+        user,
+        user?.userId ? null : anonymousViewerKey(req),
+      ),
+    );
   }
 
   @OptionalAuth()

@@ -13,6 +13,8 @@ const DEFAULT_TTL = 300;
 export class RedisCacheService {
   private unavailableLogged = false;
   private readonly memorySets = new Map<string, Set<string>>();
+  /** In-process fallback for claimOnce when Redis is unavailable. */
+  private readonly memoryClaims = new Map<string, number>();
 
   constructor(private readonly logger: LoggerService) {}
 
@@ -114,6 +116,43 @@ export class RedisCacheService {
       this.markUnavailable(err);
       return this.memorySets.get(key)?.size ?? 0;
     }
+  }
+
+  /**
+   * Atomically claims `key` for `ttl` seconds (SET NX EX).
+   * Returns true only for the first caller inside the window; later callers get false.
+   * Falls back to a bounded in-process map when Redis is disabled or down.
+   */
+  async claimOnce(key: string, ttl = DEFAULT_TTL): Promise<boolean> {
+    if (this.isEnabled()) {
+      try {
+        const client = this.getClient();
+        if (client.status === 'ready') {
+          const res = await client.set(key, '1', 'EX', ttl, 'NX');
+          return res === 'OK';
+        }
+      } catch (err) {
+        this.markUnavailable(err);
+      }
+    }
+    return this.claimOnceInMemory(key, ttl);
+  }
+
+  private claimOnceInMemory(key: string, ttl: number): boolean {
+    const now = Date.now();
+    const expiresAt = this.memoryClaims.get(key);
+    if (expiresAt !== undefined && expiresAt > now) return false;
+    if (this.memoryClaims.size >= 50_000) {
+      for (const [k, exp] of this.memoryClaims) {
+        if (exp <= now) this.memoryClaims.delete(k);
+      }
+      if (this.memoryClaims.size >= 50_000) {
+        const oldest = this.memoryClaims.keys().next().value;
+        if (oldest !== undefined) this.memoryClaims.delete(oldest);
+      }
+    }
+    this.memoryClaims.set(key, now + ttl * 1000);
+    return true;
   }
 
   async getOrSet<T>(

@@ -110,6 +110,17 @@ export class PostsRepository {
     });
   }
 
+  findViewsCount(id: string) {
+    return this.prisma.post.findFirst({
+      where: { id, ...notDeleted },
+      select: { viewsCount: true },
+    });
+  }
+
+  countLikes(postId: string) {
+    return this.prisma.postLike.count({ where: { postId } });
+  }
+
   findOwnerMeta(id: string) {
     return this.prisma.post.findFirst({
       where: { id, ...notDeleted },
@@ -156,23 +167,36 @@ export class PostsRepository {
     });
   }
 
+  /**
+   * Race-safe like toggle. `existing` is read outside the transaction, so a
+   * concurrent request may already have created/removed the row. deleteMany /
+   * createMany(skipDuplicates) never throw P2025/P2002 in that case, and the
+   * denormalized counter only moves when a row actually changed.
+   */
   toggleLike(postId: string, userId: string, existing: boolean) {
     return this.prisma.$transaction(async (tx) => {
       if (existing) {
-        await tx.postLike.delete({
-          where: { postId_userId: { postId, userId } },
+        const removed = await tx.postLike.deleteMany({
+          where: { postId, userId },
         });
-        await tx.post.update({
-          where: { id: postId },
-          data: { likesCount: { decrement: 1 } },
-        });
+        if (removed.count > 0) {
+          await tx.post.update({
+            where: { id: postId },
+            data: { likesCount: { decrement: removed.count } },
+          });
+        }
         return false;
       }
-      await tx.postLike.create({ data: { postId, userId } });
-      await tx.post.update({
-        where: { id: postId },
-        data: { likesCount: { increment: 1 } },
+      const created = await tx.postLike.createMany({
+        data: [{ postId, userId }],
+        skipDuplicates: true,
       });
+      if (created.count > 0) {
+        await tx.post.update({
+          where: { id: postId },
+          data: { likesCount: { increment: created.count } },
+        });
+      }
       return true;
     });
   }

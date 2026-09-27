@@ -14,6 +14,11 @@ import { PostsRepository } from './repositories/posts.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { notDeleted } from '../common/utils/soft-delete.util';
 import { normalizeCreateMedia, presentPostMedia } from './lib/post-media';
+import {
+  POST_VIEW_DEDUPE_TTL_SECONDS,
+  postViewDedupeKey,
+  resolvePostViewerKey,
+} from './lib/post-view-dedupe';
 
 const PAGE_SIZE = 20;
 
@@ -253,6 +258,11 @@ export class PostsService {
 
   async createPost(user: JwtPayload, dto: CreatePostDto) {
     const { media, images, image } = normalizeCreateMedia(dto);
+    const hasText = Boolean(dto.content?.trim() || dto.arabicContent?.trim());
+    const hasMedia = media.length > 0 || (images?.length ?? 0) > 0 || Boolean(image);
+    if (!hasText && !hasMedia) {
+      throwApi(400, 'empty_post', 'اكتب نصاً أو أضف صورة أو فيديو');
+    }
     const post = await this.repo.create({
       content: dto.content,
       arabicContent: dto.arabicContent,
@@ -306,8 +316,9 @@ export class PostsService {
       }
     }
 
-    this.repo.incrementViewsCount(id).catch(() => {});
-
+    // Reading a post never counts as a view: views are recorded only through
+    // POST /posts/:id/view (deduped per viewer). Counting here made every
+    // detail refetch (e.g. after a like) inflate viewsCount.
     let liked = false;
     let reposted = false;
     let bookmarked = false;
@@ -322,12 +333,7 @@ export class PostsService {
       bookmarked = !!bookmarkRow;
     }
 
-    return this.mapPost(
-      { ...post, viewsCount: (post.viewsCount ?? 0) + 1 },
-      liked,
-      reposted,
-      bookmarked,
-    );
+    return this.mapPost(post, liked, reposted, bookmarked);
   }
 
   async updatePost(user: JwtPayload, id: string, dto: UpdatePostDto) {
@@ -403,6 +409,7 @@ export class PostsService {
 
     const existing = await this.repo.findLike(postId, user.userId);
     const liked = await this.repo.toggleLike(postId, user.userId, !!existing);
+    const likesCount = await this.repo.countLikes(postId);
 
     if (liked && post.authorId !== user.userId) {
       void this.notifications
@@ -417,7 +424,8 @@ export class PostsService {
     }
 
     await this.cache.del(this.cache.keys.post(postId));
-    return { liked };
+    await this.cache.del('posts:feed:first');
+    return { liked, likesCount };
   }
 
   async toggleRepost(user: JwtPayload, postId: string) {
@@ -469,7 +477,11 @@ export class PostsService {
     return { bookmarked };
   }
 
-  async recordView(postId: string, user?: JwtPayload) {
+  async recordView(
+    postId: string,
+    user?: JwtPayload,
+    anonymousViewerKey?: string | null,
+  ) {
     if (!postId) throwApi(400, 'invalid_id', 'معرّف غير صالح');
 
     const post = await this.repo.findOwnerMeta(postId);
@@ -485,15 +497,29 @@ export class PostsService {
     }
 
     if (user?.userId && user.userId === post.authorId) {
-      const current = await this.repo.findById(postId);
-      return {
-        recorded: false,
-        viewsCount: current?.viewsCount ?? 0,
-      };
+      return { recorded: false, viewsCount: await this.currentViews(postId) };
+    }
+
+    // One view per viewer per post inside the dedupe window, so app restarts,
+    // re-renders, or repeated opens cannot inflate the counter.
+    const viewerKey = resolvePostViewerKey(user?.userId, anonymousViewerKey);
+    if (viewerKey) {
+      const first = await this.cache.claimOnce(
+        postViewDedupeKey(postId, viewerKey),
+        POST_VIEW_DEDUPE_TTL_SECONDS,
+      );
+      if (!first) {
+        return { recorded: false, viewsCount: await this.currentViews(postId) };
+      }
     }
 
     const updated = await this.repo.incrementViewsCount(postId);
     return { recorded: true, viewsCount: updated.viewsCount };
+  }
+
+  private async currentViews(postId: string): Promise<number> {
+    const row = await this.repo.findViewsCount(postId);
+    return row?.viewsCount ?? 0;
   }
 
   async listComments(postId: string) {
