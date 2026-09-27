@@ -3,6 +3,7 @@
 
 import { useRouter } from 'expo-router';
 import { HomeQuickAccess } from '@/components/feature/HomeQuickAccess';
+import { HomeStoriesRow } from '@/components/feature/HomeStoriesRow';
 import {
   MarketListingsFeed,
   type MarketListingsFeedHandle,
@@ -55,7 +56,17 @@ export default function HomeScreen() {
     safePush('/sidebar', undefined, router);
   }, [isAuthenticated, router]);
 
-  const quickAccess = useMemo(() => <HomeQuickAccess />, []);
+  // Home list header: user stories row directly under the app bar, then Quick Access
+  // (the market feed adds its filter/categories bar and listings after this).
+  const quickAccess = useMemo(
+    () => (
+      <>
+        <HomeStoriesRow />
+        <HomeQuickAccess />
+      </>
+    ),
+    [],
+  );
 
   return (
     <Screen edges={[]}>

@@ -10,8 +10,8 @@ import { cloudinaryFitUrl } from '@/lib/listingMedia';
 import { StoryGroup } from '@/services/stories';
 import { StoryViewer } from '@/components/feature/StoryViewer';
 
-const CIRCLE = 64;
-const INNER = CIRCLE - 8;
+/** Default ring diameter (unchanged); callers may pass a smaller `size`. */
+const DEFAULT_CIRCLE = 64;
 const RING_BORDER = 2;
 
 const STORY_GRADIENT = ['#F58529', '#DD2A7B', '#8134AF', '#515BD4'] as const;
@@ -25,6 +25,8 @@ type StoriesBarProps = {
   loading?: boolean;
   onAddStory: () => void;
   onRefresh: () => void;
+  /** Ring diameter in px (static per instance). Defaults to 64. */
+  size?: number;
 };
 
 function StoryRing({
@@ -32,13 +34,15 @@ function StoryRing({
   children,
   empty,
   scheme,
+  size,
 }: {
   unseen: boolean;
   children: ReactNode;
   empty?: boolean;
   scheme: 'light' | 'dark';
+  size: number;
 }) {
-  const styles = useThemedStyles(({ colors }) => createBarStyles(colors, scheme));
+  const styles = useThemedStyles(({ colors }) => createBarStyles(colors, scheme, size));
 
   if (empty) {
     return (
@@ -80,9 +84,10 @@ export function StoriesBar({
   loading,
   onAddStory,
   onRefresh,
+  size = DEFAULT_CIRCLE,
 }: StoriesBarProps) {
   const { scheme } = useTheme();
-  const styles = useThemedStyles(({ colors: c }) => createBarStyles(c, scheme));
+  const styles = useThemedStyles(({ colors: c }) => createBarStyles(c, scheme, size));
   const [viewer, setViewer] = useState<{ groups: StoryGroup[]; index: number } | null>(
     null,
   );
@@ -116,6 +121,7 @@ export function StoriesBar({
               unseen={!!myStories?.hasUnseen}
               empty={!hasMyStories}
               scheme={scheme}
+              size={size}
             >
               <Image
                 source={uriSource(cloudinaryFitUrl(myStories?.latestThumbnail || myAvatar, 'row'))}
@@ -151,7 +157,7 @@ export function StoriesBar({
                     onPress={() => openGroup(group)}
                     style={styles.itemWrap}
                   >
-                    <StoryRing unseen={group.hasUnseen} scheme={scheme}>
+                    <StoryRing unseen={group.hasUnseen} scheme={scheme} size={size}>
                       <Image
                         source={uriSource(cloudinaryFitUrl(
                           group.latestThumbnail || group.user.avatar,
@@ -195,7 +201,12 @@ export function StoriesBar({
   );
 }
 
-function createBarStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
+function createBarStyles(
+  colors: ThemeColors,
+  scheme: 'light' | 'dark',
+  CIRCLE: number = DEFAULT_CIRCLE,
+) {
+  const INNER = CIRCLE - 8;
   const isDark = scheme === 'dark';
   return StyleSheet.create({
     wrap: {
