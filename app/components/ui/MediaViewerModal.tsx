@@ -30,6 +30,12 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
+import { InteractionAction, InteractionBar, ShareAction } from '@/components/ui/InteractionActions';
+import {
+  INTERACTION_BOOKMARK_BLUE,
+  INTERACTION_LIKE_RED,
+  INTERACTION_REPOST_GREEN,
+} from '@/lib/interactionActions';
 
 export type MediaViewerOverlay = {
   authorName: string;
@@ -64,41 +70,6 @@ type MediaViewerModalProps = {
   cachedRatios?: Record<string, number>;
   onClose: () => void;
 };
-
-const LIKE_RED = '#F91880';
-const REPOST_GREEN = '#00BA7C';
-const BOOKMARK_BLUE = '#1D9BF0';
-
-function OverlayAction({
-  icon,
-  color,
-  count,
-  filled,
-  onPress,
-  label,
-}: {
-  icon: string;
-  color: string;
-  count?: number;
-  filled?: boolean;
-  onPress?: () => void;
-  label: string;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      style={styles.overlayAction}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <AppIcon name={icon} size={20} color={color} variant={filled ? 'sr' : 'rr'} />
-      {typeof count === 'number' && count > 0 ? (
-        <AppText style={styles.overlayCount}>{count}</AppText>
-      ) : null}
-    </Pressable>
-  );
-}
 
 function ViewerOverlay({
   overlay,
@@ -153,49 +124,49 @@ function ViewerOverlay({
             {overlay.text}
           </AppText>
         ) : null}
-        <View style={[styles.overlayActions, getRtlRow()]}>
-          <OverlayAction
+        {/* Source of truth for interaction spacing: lib/interactionActions.ts */}
+        <InteractionBar>
+          <InteractionAction
             icon="chatbubble-ellipses-outline"
             color="#fff"
+            countColor="#fff"
             count={overlay.comments}
             onPress={overlay.onComment}
             label="تعليق"
           />
-          <OverlayAction
+          <InteractionAction
             icon="repeat-2"
-            color={overlay.reposted ? REPOST_GREEN : '#fff'}
+            color={overlay.reposted ? INTERACTION_REPOST_GREEN : '#fff'}
+            countColor="#fff"
             count={overlay.reposts}
             onPress={overlay.onRepost}
             label="إعادة نشر"
           />
-          <OverlayAction
+          <InteractionAction
             icon={overlay.liked ? 'heart' : 'heart-outline'}
-            color={overlay.liked ? LIKE_RED : '#fff'}
+            color={overlay.liked ? INTERACTION_LIKE_RED : '#fff'}
+            countColor="#fff"
             count={overlay.likes}
             filled={!!overlay.liked}
             onPress={overlay.onLike}
             label="إعجاب"
           />
-          <OverlayAction
+          <InteractionAction
             icon="bar-chart-2"
             color="#fff"
+            countColor="#fff"
             count={overlay.views}
             label="مشاهدات"
           />
-          <OverlayAction
+          <InteractionAction
             icon={overlay.bookmarked ? 'bookmark' : 'bookmark-outline'}
-            color={overlay.bookmarked ? BOOKMARK_BLUE : '#fff'}
+            color={overlay.bookmarked ? INTERACTION_BOOKMARK_BLUE : '#fff'}
             filled={!!overlay.bookmarked}
             onPress={overlay.onBookmark}
             label="حفظ"
           />
-          <OverlayAction
-            icon="share-up"
-            color="#fff"
-            onPress={overlay.onShare}
-            label="مشاركة"
-          />
-        </View>
+          <ShareAction color="#fff" onPress={overlay.onShare} />
+        </InteractionBar>
       </View>
     </View>
   );
@@ -533,22 +504,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     lineHeight: 22,
-  },
-  overlayActions: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    paddingTop: 4,
-  },
-  overlayAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    minHeight: 36,
-    minWidth: 36,
-  },
-  overlayCount: {
-    color: '#fff',
-    fontSize: 12,
   },
 });

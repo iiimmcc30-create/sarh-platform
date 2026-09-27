@@ -147,7 +147,10 @@ describe('post like toggle', () => {
     expect(actions).toContain('latest.current');
     const item = src('components/feature/PostItem.tsx');
     expect(item).toContain('pending={likePending}');
-    expect(item).toContain('accessibilityState={{ busy: pending }}');
+    // Busy state lives in the shared interaction button the Feed renders.
+    expect(src('components/ui/InteractionActions.tsx')).toContain(
+      'accessibilityState={pending ? { busy: true } : undefined}',
+    );
     expect(item).toContain('Boolean(prev.likePending) !== Boolean(next.likePending)');
   });
 });

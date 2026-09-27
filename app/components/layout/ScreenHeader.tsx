@@ -31,6 +31,13 @@ interface ScreenHeaderProps {
   onSidebar?: () => void;
   onBackPress?: () => void;
   rightAccessibilityLabel?: string;
+  /** `screen` - optional second trailing icon, placed next to `rightIcon` (same size/style). */
+  secondaryRightIcon?: string;
+  onSecondaryRightPress?: () => void;
+  secondaryRightAccessibilityLabel?: string;
+  /** Filled glyph in `secondaryRightActiveColor` (e.g. saved state). */
+  secondaryRightActive?: boolean;
+  secondaryRightActiveColor?: string;
   variant?: ScreenHeaderVariant;
   /** `sheet` — dismiss control. */
   onClose?: () => void;
@@ -54,6 +61,11 @@ export function ScreenHeader({
   onSidebar,
   onBackPress,
   rightAccessibilityLabel,
+  secondaryRightIcon,
+  onSecondaryRightPress,
+  secondaryRightAccessibilityLabel,
+  secondaryRightActive = false,
+  secondaryRightActiveColor,
   variant = 'screen',
   onClose,
   closeAccessibilityLabel,
@@ -74,6 +86,7 @@ export function ScreenHeader({
   const isSheet = variant === 'sheet';
   const isModal = variant === 'modal';
   const canBack = Boolean(showBack) && variant === 'screen';
+  const hasSecondary = variant === 'screen' && Boolean(rightIcon) && Boolean(secondaryRightIcon);
 
   const leading = isModal ? (
     <Pressable
@@ -134,18 +147,47 @@ export function ScreenHeader({
       <AppIcon name="close" size={ds.icon.md} color={colors.textPrimary} />
     </Pressable>
   ) : rightIcon ? (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={rightAccessibilityLabel ?? 'إجراء إضافي'}
-      onPress={onRightPress}
-      hitSlop={12}
-      style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
-    >
-      <AppIcon name={rightIcon} size={ds.icon.md} color={colors.textPrimary} />
-    </Pressable>
+    hasSecondary && secondaryRightIcon ? (
+      <View style={[styles.trailingGroup, getRtlRow()]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={secondaryRightAccessibilityLabel ?? 'إجراء'}
+          accessibilityState={{ selected: secondaryRightActive }}
+          onPress={onSecondaryRightPress}
+          hitSlop={8}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+        >
+          <AppIcon
+            name={secondaryRightIcon}
+            size={ds.icon.md}
+            color={secondaryRightActive ? secondaryRightActiveColor ?? colors.textPrimary : colors.textPrimary}
+            variant={secondaryRightActive ? 'sr' : 'rr'}
+          />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={rightAccessibilityLabel ?? 'إجراء إضافي'}
+          onPress={onRightPress}
+          hitSlop={8}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+        >
+          <AppIcon name={rightIcon} size={ds.icon.md} color={colors.textPrimary} />
+        </Pressable>
+      </View>
+    ) : (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={rightAccessibilityLabel ?? 'إجراء إضافي'}
+        onPress={onRightPress}
+        hitSlop={12}
+        style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+      >
+        <AppIcon name={rightIcon} size={ds.icon.md} color={colors.textPrimary} />
+      </Pressable>
+    )
   ) : null;
 
-  const sideStyle = isModal ? styles.sideAuto : styles.side;
+  const sideStyle = isModal ? styles.sideAuto : hasSecondary ? styles.sidePair : styles.side;
 
   const bar = (
     <View style={[styles.container, getRtlRow(), { paddingHorizontal: gutter }]}>
@@ -213,6 +255,14 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     },
     side: {
       width: controls.iconButton,
+    },
+    /** Both sides widen together so the centered title stays centered. */
+    sidePair: {
+      width: controls.iconButton * 2 + spacing.sm,
+    },
+    trailingGroup: {
+      alignItems: 'center',
+      gap: spacing.sm,
     },
     sideAuto: {
       minWidth: controls.iconButton,

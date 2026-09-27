@@ -35,6 +35,7 @@ import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
 import { presentActionSheet, confirmDestructive, alertMessage } from '@/lib/actionSheet';
 import { showToast } from '@/lib/toast';
+import { SHARE_ICON } from '@/lib/interactionActions';
 
 /** Layout only — an empty tab still needs vertical presence in the feed. */
 const styles = StyleSheet.create({
@@ -412,7 +413,7 @@ export default function UserProfileScreen() {
         {
           key: 'share',
           label: 'مشاركة الملف',
-          icon: 'share-social-outline',
+          icon: SHARE_ICON,
         },
         {
           key: 'block',

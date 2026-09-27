@@ -23,6 +23,7 @@ import { Row, Screen } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { rtlForwardIcon, rtlInputText } from '@/lib/rtl';
+import { SHARE_ICON } from '@/lib/interactionActions';
 import { ChatThreadWallpaper } from '@/components/feature/ChatThreadWallpaper';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
@@ -1072,7 +1073,7 @@ export default function ChatScreen() {
                 { key: 'camera', label: 'كاميرا', icon: 'camera-outline', onPress: () => void pickAndSendMedia('camera') },
                 { key: 'location', label: 'موقع', icon: 'location-outline', onPress: () => void sendCurrentLocation() },
                 { key: 'offer', label: 'إرسال عرض', icon: 'pricetag-outline', onPress: sendPriceOffer },
-                { key: 'share', label: 'مشاركة إعلان', icon: 'share-outline', onPress: shareListingInChat },
+                { key: 'share', label: 'مشاركة إعلان', icon: SHARE_ICON, onPress: shareListingInChat },
               ] as const
             ).map((action) => (
               <Pressable key={action.key} style={styles.attachAction} onPress={action.onPress}>

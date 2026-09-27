@@ -8,6 +8,7 @@ import { radius, spacing, typography, type ThemeColors } from '@/constants/theme
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlText, inlineEnd, inlineStart, marginStart, getRtlRow } from '@/lib/rtl';
+import { SHARE_ICON } from '@/lib/interactionActions';
 import { LiveStream } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 
@@ -80,7 +81,7 @@ function LiveStreamItemInner({ stream, height, onComment, onShare }: LiveStreamI
         </Pressable>
 
         <Pressable onPress={onShare} style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}>
-          <AppIcon name="paper-plane-outline" size={28} color="#fff" />
+          <AppIcon name={SHARE_ICON} size={28} color="#fff" />
           <Text style={styles.actionText}>مشاركة</Text>
         </Pressable>
       </View>

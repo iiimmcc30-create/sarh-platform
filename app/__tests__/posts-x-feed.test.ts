@@ -49,13 +49,13 @@ describe('Posts feed — X-style structure', () => {
   });
 
   it('places comment, repost, like, analytics, bookmark, then share', () => {
-    const actions = postItem.slice(postItem.indexOf('styles.actions'));
+    const actions = postItem.slice(postItem.indexOf('<InteractionBar>'));
     const comment = actions.indexOf('icon="chatbubble-ellipses-outline"');
     const repost = actions.indexOf('icon="repeat-2"');
     const like = actions.indexOf("icon={post.liked ? 'heart' : 'heart-outline'}");
-    const views = actions.indexOf('name="bar-chart-2"');
+    const views = actions.indexOf('icon="bar-chart-2"');
     const bookmark = actions.indexOf("icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}");
-    const share = actions.indexOf('icon="share-up"');
+    const share = actions.indexOf('<ShareAction');
     expect(comment).toBeGreaterThan(-1);
     expect(repost).toBeGreaterThan(comment);
     expect(like).toBeGreaterThan(repost);
@@ -64,7 +64,7 @@ describe('Posts feed — X-style structure', () => {
     expect(share).toBeGreaterThan(bookmark);
     expect(actions).toContain('getRtlRow()');
     expect(actions).toContain('LIKE_RED');
-    expect(actions).toContain('accessibilityLabel={`مشاهدات ${formatCount(post.views ?? 0)}`}');
+    expect(actions).toContain('label={`مشاهدات ${formatCount(post.views ?? 0)}`}');
   });
 
   it('comments are a continuation of the post feed without a section title', () => {

@@ -2,6 +2,12 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { InteractionAction, InteractionBar, ShareAction } from '@/components/ui/InteractionActions';
+import {
+  INTERACTION_BOOKMARK_BLUE as BOOKMARK_BLUE,
+  INTERACTION_LIKE_RED as LIKE_RED,
+  INTERACTION_REPOST_GREEN as REPOST_GREEN,
+} from '@/lib/interactionActions';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import {
@@ -10,7 +16,6 @@ import {
   StyleSheet,
   View,
   type TextStyle,
-  type ViewStyle,
 } from 'react-native';
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { resolveAppFontFace } from '@/constants/fonts';
@@ -32,10 +37,6 @@ import { fetchUserProfile, setFollowUser } from '@/services/users';
 
 const HASHTAG_BLUE = '#1D9BF0';
 
-const LIKE_RED = '#F91880';
-const REPOST_GREEN = '#00BA7C';
-const BOOKMARK_BLUE = '#1D9BF0';
-
 interface PostItemProps {
   post: Post;
   variant?: 'feed' | 'detail' | 'profile';
@@ -52,8 +53,6 @@ interface PostItemProps {
 }
 
 const TEXT_COLLAPSE_LINES = 8;
-
-const PENDING_ACTION_STYLE: ViewStyle = { opacity: 0.6 };
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) {
@@ -102,70 +101,6 @@ function PostBody({ text, style, lines }: { text: string; style: TextStyle; line
         ),
       )}
     </AppText>
-  );
-}
-
-function ActionBtn({
-  icon,
-  iconColor,
-  count,
-  textColor,
-  onPress,
-  style,
-  countStyle,
-  size = 18,
-  filled = false,
-  accessibilityLabel,
-  pending = false,
-}: {
-  icon: string;
-  iconColor: string;
-  count?: number;
-  textColor: string;
-  onPress: () => void;
-  style: ViewStyle;
-  countStyle: TextStyle;
-  size?: number;
-  filled?: boolean;
-  accessibilityLabel?: string;
-  /** Request in flight: dimmed + busy. Taps are ignored upstream by the in-flight guard. */
-  pending?: boolean;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-
-  const pressIn = useCallback(() => {
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 0.82, useNativeDriver: true, speed: 40, bounciness: 0 }),
-      Animated.timing(opacity, { toValue: 0.5, duration: 80, useNativeDriver: true }),
-    ]).start();
-  }, [scale, opacity]);
-
-  const pressOut = useCallback(() => {
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 22, bounciness: 10 }),
-      Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }),
-    ]).start();
-  }, [scale, opacity]);
-
-  return (
-    <Pressable
-      style={pending ? [style, PENDING_ACTION_STYLE] : style}
-      onPress={onPress}
-      onPressIn={pressIn}
-      onPressOut={pressOut}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ busy: pending }}
-    >
-      <Animated.View style={[{ transform: [{ scale }], opacity }, getRtlRow(), { alignItems: 'center', gap: 5 }]}>
-        <AppIcon name={icon} size={size} color={iconColor} variant={filled ? 'sr' : 'rr'} />
-        {count !== undefined && count > 0 ? (
-          <AppText style={[countStyle, { color: textColor }]}>{formatCount(count)}</AppText>
-        ) : null}
-      </Animated.View>
-    </Pressable>
   );
 }
 
@@ -303,72 +238,58 @@ function PostItemComponent({
     />
   );
 
+  // Same bar as the Media Viewer overlay (shared tokens: lib/interactionActions.ts).
   const actions = (
-          <View style={[styles.actions, getRtlRow()]}>
-            <ActionBtn
-              icon="chatbubble-ellipses-outline"
-              iconColor={colors.textMuted}
-              textColor={colors.textMuted}
-              count={post.comments}
-              onPress={onComment}
-              style={styles.actionSlot}
-              countStyle={styles.actionCount}
-              accessibilityLabel="تعليق"
-            />
-            <ActionBtn
-              icon="repeat-2"
-              iconColor={post.reposted ? REPOST_GREEN : colors.textMuted}
-              textColor={post.reposted ? REPOST_GREEN : colors.textMuted}
-              count={post.reposts}
-              onPress={onRepost ?? (() => {})}
-              style={styles.actionSlot}
-              countStyle={styles.actionCount}
-              accessibilityLabel="إعادة نشر"
-            />
-            <ActionBtn
-              icon={post.liked ? 'heart' : 'heart-outline'}
-              iconColor={post.liked ? LIKE_RED : colors.textMuted}
-              textColor={post.liked ? LIKE_RED : colors.textMuted}
-              count={post.likes}
-              onPress={onLike}
-              style={styles.actionSlot}
-              countStyle={styles.actionCount}
-              filled={!!post.liked}
-              accessibilityLabel="إعجاب"
-              pending={likePending}
-            />
-            {variant === 'detail' ? null : (
-              <View
-                style={[styles.actionSlot, getRtlRow(), styles.viewsSlot]}
-                accessibilityRole="text"
-                accessibilityLabel={`مشاهدات ${formatCount(post.views ?? 0)}`}
-              >
-                <AppIcon name="bar-chart-2" size={18} color={colors.textMuted} />
-                <AppText style={[styles.actionCount, { color: colors.textMuted }]}>
-                  {formatCount(post.views ?? 0)}
-                </AppText>
-              </View>
-            )}
-            <ActionBtn
-              icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}
-              iconColor={post.bookmarked ? BOOKMARK_BLUE : colors.textMuted}
-              textColor={colors.textMuted}
-              onPress={onBookmark ?? (() => {})}
-              style={styles.actionEndSlot}
-              countStyle={styles.actionCount}
-              filled={!!post.bookmarked}
-              accessibilityLabel="حفظ"
-            />
-            <ActionBtn
-              icon="share-up"
-              iconColor={colors.textMuted}
-              textColor={colors.textMuted}
-              onPress={onShare}
-              style={styles.actionEndSlot}
-              countStyle={styles.actionCount}
-              accessibilityLabel="مشاركة"
-            />
-          </View>
+    <InteractionBar>
+      <InteractionAction
+        icon="chatbubble-ellipses-outline"
+        color={colors.textMuted}
+        count={post.comments}
+        formatCount={formatCount}
+        countStyle={styles.actionCount}
+        onPress={onComment}
+        label="تعليق"
+      />
+      <InteractionAction
+        icon="repeat-2"
+        color={post.reposted ? REPOST_GREEN : colors.textMuted}
+        count={post.reposts}
+        formatCount={formatCount}
+        countStyle={styles.actionCount}
+        onPress={onRepost ?? (() => {})}
+        label="إعادة نشر"
+      />
+      <InteractionAction
+        icon={post.liked ? 'heart' : 'heart-outline'}
+        color={post.liked ? LIKE_RED : colors.textMuted}
+        count={post.likes}
+        formatCount={formatCount}
+        countStyle={styles.actionCount}
+        filled={!!post.liked}
+        onPress={onLike}
+        label="إعجاب"
+        pending={likePending}
+      />
+      {variant === 'detail' ? null : (
+        <InteractionAction
+          readOnly
+          icon="bar-chart-2"
+          color={colors.textMuted}
+          count={post.views ?? 0}
+          formatCount={formatCount}
+          countStyle={styles.actionCount}
+          label={`مشاهدات ${formatCount(post.views ?? 0)}`}
+        />
+      )}
+      <InteractionAction
+        icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}
+        color={post.bookmarked ? BOOKMARK_BLUE : colors.textMuted}
+        filled={!!post.bookmarked}
+        onPress={onBookmark ?? (() => {})}
+        label="حفظ"
+      />
+      <ShareAction color={colors.textMuted} onPress={onShare} />
+    </InteractionBar>
   );
 
   if (variant === 'detail') {
@@ -787,34 +708,9 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       gap: 6,
       marginTop: 12,
     },
-    actions: {
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 10,
-      paddingTop: 2,
-    },
-    actionSlot: {
-      flex: 1,
-      alignItems: 'flex-start',
-      justifyContent: 'center',
-      minHeight: 36,
-      paddingHorizontal: 2,
-    },
-    actionEndSlot: {
-      width: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 36,
-      flexShrink: 0,
-    },
+    /** Font face only - size, color and spacing come from the shared interaction tokens. */
     actionCount: {
-      ...typography.caption,
       ...resolveAppFontFace('400'),
-    },
-    viewsSlot: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
     },
   });
 }

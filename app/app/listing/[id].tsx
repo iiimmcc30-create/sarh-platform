@@ -44,6 +44,7 @@ import { ListingVideoPlayer } from '@/components/listing/ListingVideoPlayer';
 import { listingPhotoUris, listingVideoUrl } from '@/lib/listingMedia';
 import { isManagedListing, managedSeller } from '@/lib/managedListing';
 import { isListingFavorited, toggleListingFavorite } from '@/lib/listingFavorite';
+import { SHARE_ICON, SHARE_LABEL } from '@/lib/interactionActions';
 import { resolveMediaUrl } from '@/services/media';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import {
@@ -487,11 +488,25 @@ export default function ListingDetailScreen() {
     if (key === 'delete') void handleDelete();
   };
 
+  /** Same listingFavorite store the bookmarks "المفضلة" tab reads. Optimistic: the icon flips at once. */
+  const handleToggleFavorite = async () => {
+    const previous = isFavorited;
+    setIsFavorited(!previous);
+    try {
+      const next = await toggleListingFavorite(listing.id);
+      setIsFavorited(next);
+      showToast(next ? 'تم الحفظ في المفضلة ♥' : 'تمت الإزالة من المفضلة', 'success');
+    } catch {
+      setIsFavorited(previous);
+      showToast('تعذّر تحديث المفضلة', 'error');
+    }
+  };
+
   const showVisitorMenu = async () => {
     const key = await presentActionSheet({
       title: 'الإعلان',
       items: [
-        { key: 'share', label: 'مشاركة', icon: 'share-outline' },
+        { key: 'share', label: SHARE_LABEL, icon: SHARE_ICON },
         {
           key: 'favorite',
           label: isFavorited ? 'إزالة من المفضلة' : 'حفظ في المفضلة',
@@ -506,15 +521,7 @@ export default function ListingDetailScreen() {
         message: `${listing.arabicTitle} — ${listing.price.toLocaleString()} ${listing.currency}\n${sarhListingShareUrl(listing.id)}`,
       });
     }
-    if (key === 'favorite') {
-      try {
-        const next = await toggleListingFavorite(listing.id);
-        setIsFavorited(next);
-        showToast(next ? 'تم الحفظ في المفضلة ♥' : 'تمت الإزالة من المفضلة', 'success');
-      } catch {
-        showToast('تعذّر تحديث المفضلة', 'error');
-      }
-    }
+    if (key === 'favorite') void handleToggleFavorite();
     if (key === 'report') promptReport('listing', listing.id, isAuthenticated);
   };
 
@@ -527,6 +534,11 @@ export default function ListingDetailScreen() {
         rightIcon="ellipsis-vertical"
         onRightPress={() => (isOwner ? void showOwnerMenu() : void showVisitorMenu())}
         rightAccessibilityLabel="المزيد"
+        secondaryRightIcon={isFavorited ? 'heart' : 'heart-outline'}
+        secondaryRightActive={isFavorited}
+        secondaryRightActiveColor={colors.danger}
+        onSecondaryRightPress={() => void handleToggleFavorite()}
+        secondaryRightAccessibilityLabel={isFavorited ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
       />
       <ScreenBody
         gutter={false}

@@ -24,6 +24,7 @@ import {
 } from '@/services/officialServices';
 import { setFollowUser } from '@/services/users';
 import { showToast } from '@/lib/toast';
+import { SHARE_ICON, SHARE_LABEL } from '@/lib/interactionActions';
 import type { Post } from '@/services/types';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -280,9 +281,9 @@ export default function MinistryProfileScreen() {
         variant="screen"
         title=""
         showBack
-        rightIcon="share-outline"
+        rightIcon={SHARE_ICON}
         onRightPress={() => void handleShare()}
-        rightAccessibilityLabel="مشاركة"
+        rightAccessibilityLabel={SHARE_LABEL}
       />
 
       <ScreenBody

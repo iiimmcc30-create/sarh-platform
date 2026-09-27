@@ -309,7 +309,8 @@ const MAP: Record<string, LucideIcon> = {
   'heart-outline': Heart,
   share: Share,
   'share-outline': Share,
-  'share-social-outline': Share,
+  /** App share glyph (SHARE_ICON): Ionicons share-social = connected nodes. */
+  'share-social-outline': Share2,
   'share-up': Share,
   'share-arrow': CornerUpRight,
   'share-2': Share2,
