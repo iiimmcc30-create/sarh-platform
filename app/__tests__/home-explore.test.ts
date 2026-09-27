@@ -240,7 +240,8 @@ describe('HomeAppBar chrome', () => {
     expect(feed).toContain('onNearbyPress={onNearbyPress}');
     expect(feed).toContain('onSortPress={onSortPress}');
     expect(feed).toContain('resolveNearbyRegionSelection');
-    expect(feed).toContain('nextMarketSortMode');
+    expect(feed).toContain('toggleFeedSortMode');
+    expect(feed).toContain('sortLabel={feedSortLabelAr(sortMode)}');
     expect(feed).toContain('listingMatchesRegionSelection');
     expect(feed).toContain('nearbyActive={nearbyActive}');
     expect(feed).toContain("sortActive={sortMode !== 'newest'}");

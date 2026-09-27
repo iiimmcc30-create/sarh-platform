@@ -178,7 +178,9 @@ describe('P0-3 default listings page is shared, other queries are not', () => {
     expect(market).toContain('shouldFetchNextListingPage');
     expect(market).not.toContain('RefreshControl');
     expect(market).toContain('sortMode');
-    expect(market).toContain('nextMarketSortMode');
+    expect(market).toContain('toggleFeedSortMode');
+    // Oldest-first is a server filter: it bypasses the newest bootstrap page.
+    expect(market).toContain('apiFilters.subcategoryId || apiFilters.sort');
     expect(market).toContain('resolveNearbyRegionSelection');
     expect(market).not.toContain('searchListingsPage({ ...apiFilters, sort');
   });

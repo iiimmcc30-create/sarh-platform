@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -24,6 +25,9 @@ import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
 import { LISTING_CATEGORIES } from '../listing-categories';
 
 export { LISTING_CATEGORIES };
+
+export const LISTING_SORT_MODES = ['newest', 'oldest'] as const;
+export type ListingSortMode = (typeof LISTING_SORT_MODES)[number];
 
 export class ListListingsQueryDto {
   @IsOptional()
@@ -81,6 +85,11 @@ export class ListListingsQueryDto {
   @Min(0)
   @Type(() => Number)
   maxPrice?: number;
+
+  /** Feed order by publish time: newest (default, createdAt DESC) or oldest (createdAt ASC). */
+  @IsOptional()
+  @IsIn(LISTING_SORT_MODES)
+  sort?: ListingSortMode;
 }
 
 export class CreateListingDto {

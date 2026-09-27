@@ -11,13 +11,15 @@ import { useMarketCategories } from '@/hooks/useMarketCategories';
 import { useTheme } from '@/hooks/useTheme';
 import {
   compareListingBoostPriority,
+  feedSortLabelAr,
   interleavePromotedListings,
-  nextMarketSortMode,
-  type MarketSortMode,
+  toggleFeedSortMode,
+  type FeedSortMode,
 } from '@/lib/listingSort';
 import { listingMatchesMarketSelection } from '@/lib/marketCategoriesFallback';
 import { listingMatchesRegionSelection, resolveNearbyRegionSelection } from '@/lib/saudiRegionSearch';
 import { safePush } from '@/lib/safeNavigate';
+import { showToast } from '@/lib/toast';
 import {
   getBootstrappedListingsPage,
   mergeListingPages,
@@ -51,6 +53,7 @@ import {
 import * as Location from 'expo-location';
 
 const MARKET_FOCUS_TTL_MS = 60_000;
+const EMPTY_LISTINGS: Listing[] = [];
 
 export type MarketListingsFeedHandle = {
   refresh: () => Promise<void>;
@@ -95,7 +98,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     const [regionPickerOpen, setRegionPickerOpen] = useState(false);
     const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
     const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
-    const [sortMode, setSortMode] = useState<MarketSortMode>('newest');
+    const [sortMode, setSortMode] = useState<FeedSortMode>('newest');
     const [nearbyActive, setNearbyActive] = useState(false);
     const nearbyBusyRef = useRef(false);
     const [items, setItems] = useState<Listing[]>([]);
@@ -104,6 +107,12 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [loadFailed, setLoadFailed] = useState(false);
+    // True between a sort toggle and the first page of the new order: rows from
+    // the previous order are hidden (never shown under the new label).
+    const [orderLoading, setOrderLoading] = useState(false);
+    const orderSwitchFromRef = useRef<FeedSortMode | null>(null);
+    const sortModeRef = useRef<FeedSortMode>(sortMode);
+    sortModeRef.current = sortMode;
     hasItemsRef.current = items.length > 0;
     loadingRef.current = loading;
 
@@ -112,14 +121,17 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         featured: showFeaturedOnly || undefined,
         categoryId: activeSubId ?? activeParentId ?? undefined,
         subcategoryId: activeSubId ?? undefined,
+        // Sorting happens at the API (createdAt DESC/ASC + matching cursor), so the
+        // order is part of every page request and of the fetch/dedupe URL key.
+        sort: sortMode === 'oldest' ? ('oldest' as const) : undefined,
       }),
-      [showFeaturedOnly, activeParentId, activeSubId],
+      [showFeaturedOnly, activeParentId, activeSubId, sortMode],
     );
 
     const loadFirstPage = useCallback(async () => {
       const gen = ++loadGenRef.current;
       const hasServerFilters = Boolean(
-        apiFilters.featured || apiFilters.categoryId || apiFilters.subcategoryId,
+        apiFilters.featured || apiFilters.categoryId || apiFilters.subcategoryId || apiFilters.sort,
       );
       if (!hasServerFilters) {
         const boot = getBootstrappedListingsPage(accessToken);
@@ -130,6 +142,8 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           setHasMore(boot.hasMore);
           setLoadFailed(false);
           setLoading(false);
+          orderSwitchFromRef.current = null;
+          setOrderLoading(false);
           return;
         }
       }
@@ -142,10 +156,21 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         setNextCursor(page.nextCursor);
         setHasMore(page.hasMore);
         setLoadFailed(false);
+        orderSwitchFromRef.current = null;
+        setOrderLoading(false);
       } catch {
         if (gen !== loadGenRef.current) return;
         // Keep the last good page — HTTP/network failure must not wipe the list.
         setLoadFailed(true);
+        const previousOrder = orderSwitchFromRef.current;
+        if (previousOrder) {
+          // The new order could not load: return the toggle to the order the
+          // kept rows are actually in, so label and list always agree.
+          orderSwitchFromRef.current = null;
+          setOrderLoading(false);
+          setSortMode(previousOrder);
+          showToast('تعذّر تغيير الترتيب، حاول مجدداً', 'error');
+        }
       } finally {
         if (gen === loadGenRef.current) setLoading(false);
       }
@@ -156,7 +181,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         !shouldFetchNextListingPage({
           hasMore,
           nextCursor,
-          loading,
+          loading: loading || orderLoading,
           loadingMore: loadingMoreRef.current,
         })
       ) {
@@ -164,11 +189,14 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
       }
       loadingMoreRef.current = true;
       setLoadingMore(true);
+      const gen = loadGenRef.current;
       try {
         const page = await searchListingsPage(
           { ...apiFilters, cursor: nextCursor ?? undefined },
           accessToken,
         );
+        // A sort/filter change started a new first page: drop this stale page.
+        if (gen !== loadGenRef.current) return;
         setItems((prev) => mergeListingPages(prev, page.listings));
         setNextCursor(page.nextCursor);
         setHasMore(page.hasMore);
@@ -178,7 +206,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         loadingMoreRef.current = false;
         setLoadingMore(false);
       }
-    }, [accessToken, apiFilters, hasMore, loading, nextCursor]);
+    }, [accessToken, apiFilters, hasMore, loading, nextCursor, orderLoading]);
 
     useEffect(() => {
       void loadFirstPage();
@@ -237,13 +265,11 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         return true;
       });
 
-      list = [...list].sort((a, b) => {
-        if (sortMode === 'oldest') return (a.createdAt || '').localeCompare(b.createdAt || '');
-        if (sortMode === 'price_asc') return a.price - b.price;
-        if (sortMode === 'price_desc') return b.price - a.price;
-        return compareListingBoostPriority(a, b);
-      });
+      // Oldest-first is already ordered by the API (createdAt ASC); re-ranking or
+      // promotion interleaving here would undo it, which is what broke the toggle.
+      if (sortMode === 'oldest') return list;
 
+      list = [...list].sort(compareListingBoostPriority);
       return interleavePromotedListings(list);
     }, [items, showFeaturedOnly, activeParent, activeSub, regionSelection, sortMode]);
 
@@ -255,7 +281,26 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     }, [filtered.length, hasMore, loadNextPage, loading, loadingMore, regionSelection.type]);
 
     const cycleSort = useCallback(() => {
-      setSortMode((prev) => nextMarketSortMode(prev));
+      // Invalidate in-flight pages and hide the previous order's rows behind the
+      // loader; the apiFilters change then reloads page 1 in the new order.
+      loadGenRef.current += 1;
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+      setLoadFailed(false);
+      const prev = sortModeRef.current;
+      const next = toggleFeedSortMode(prev);
+      sortModeRef.current = next;
+      if (orderSwitchFromRef.current === next) {
+        // Toggled back before the other order arrived: the kept rows already
+        // match `next`, so show them again instead of waiting.
+        orderSwitchFromRef.current = null;
+        setOrderLoading(false);
+      } else {
+        orderSwitchFromRef.current = orderSwitchFromRef.current ?? prev;
+        setOrderLoading(true);
+      }
+      setSortMode(next);
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
     }, []);
 
     const onNearby = useCallback(async () => {
@@ -315,6 +360,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           regionActive={regionPickerOpen}
           nearbyActive={nearbyActive}
           sortActive={sortMode !== 'newest'}
+          sortLabel={feedSortLabelAr(sortMode)}
         />
       ),
       [
@@ -375,13 +421,13 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           ref={listRef}
           style={styles.list}
           contentContainerStyle={[styles.listContent, padTop ? { paddingTop: padTop } : null]}
-          data={filtered}
+          data={orderLoading ? EMPTY_LISTINGS : filtered}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={ListHeader}
           ItemSeparatorComponent={ListSeparator}
           ListEmptyComponent={
-            loading || (loadFailed && items.length === 0) ? (
+            orderLoading || loading || (loadFailed && items.length === 0) ? (
               <Stack gap="md" align="center" style={styles.empty}>
                 <ActivityIndicator color={colors.electric} />
               </Stack>

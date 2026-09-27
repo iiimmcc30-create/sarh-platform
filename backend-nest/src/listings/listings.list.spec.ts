@@ -170,6 +170,70 @@ describe('ListingsService.list pagination', () => {
     );
   });
 
+  it('orders oldest-first by createdAt ASC with an id tie-breaker (sort=oldest)', async () => {
+    mockCatalog(3);
+    await service.list({ sort: 'oldest' } as never);
+    expect(repo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
+    );
+  });
+
+  it('keeps the default newest-first order when sort is omitted or newest', async () => {
+    mockCatalog(3);
+    await service.list({} as never);
+    await service.list({ sort: 'newest' } as never);
+    for (const call of repo.findMany.mock.calls) {
+      const orderBy = (call[0] as { orderBy: unknown[] }).orderBy;
+      expect(orderBy).toEqual(
+        expect.arrayContaining([{ createdAt: 'desc' }, { id: 'desc' }]),
+      );
+      expect(orderBy).not.toContainEqual({ createdAt: 'asc' });
+    }
+  });
+
+  it('pages oldest-first through every listing in ascending order without ranking reshuffles', async () => {
+    const total = 45;
+    const all = Array.from({ length: total }, (_, i) =>
+      makeRow(i, total, {
+        // Newest rows are featured/promoted: they must not jump ahead in oldest mode.
+        featured: i < 3,
+        promoted: i < 5,
+        promotionWeight: i < 5 ? 50 : 0,
+      }),
+    );
+    const ascending = [...all].sort(
+      (a, b) =>
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id.localeCompare(b.id),
+    );
+    repo.findMany.mockImplementation(
+      async ({ take, cursor }: { take: number; cursor?: string }) => {
+        const start = cursor
+          ? ascending.findIndex((row) => row.id === cursor) + 1
+          : 0;
+        return ascending.slice(Math.max(start, 0), start + take);
+      },
+    );
+
+    const { ids, pages, lastHasMore } = await collectAllPages({ sort: 'oldest' });
+    expect(pages).toBe(3);
+    expect(lastHasMore).toBe(false);
+    expect(ids).toEqual(ascending.map((row) => row.id));
+  });
+
+  it('keys the listings cache by sort so newest/oldest pages never mix', async () => {
+    mockCatalog(3);
+    await service.list({} as never);
+    await service.list({ sort: 'oldest' } as never);
+    const keys = cache.set.mock.calls.map((call) => String(call[0]));
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toContain('"sort":"newest"');
+    expect(keys[1]).toContain('"sort":"oldest"');
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+
   it('keeps promoted listings in a paged market result', async () => {
     mockCatalog(21, (i) => ({
       promotionWeight: i === 5 ? 10 : 0,

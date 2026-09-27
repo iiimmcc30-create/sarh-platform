@@ -60,6 +60,15 @@ const LISTING_PAGE_ORDER: Prisma.ListingOrderByWithRelationInput[] = [
   { id: 'desc' },
 ];
 
+/**
+ * Oldest-first feed: pure chronological order. The id tie-breaker keeps the
+ * id cursor (Prisma cursor + skip 1) stable when createdAt values collide.
+ */
+const LISTING_PAGE_ORDER_OLDEST: Prisma.ListingOrderByWithRelationInput[] = [
+  { createdAt: 'asc' },
+  { id: 'asc' },
+];
+
 function listingSearchTokenConditions(
   tokens: string[],
 ): Prisma.ListingWhereInput[] {
@@ -164,6 +173,8 @@ export class ListingsService {
       suggested,
       promoted,
     } = query;
+    const sortMode = query.sort === 'oldest' ? 'oldest' : 'newest';
+    const oldestFirst = sortMode === 'oldest';
 
     const cacheKey =
       search ||
@@ -174,7 +185,7 @@ export class ListingsService {
       categoryId ||
       subcategoryId
         ? null
-        : `listings:v3:${JSON.stringify({ cursor, category, country, featured, sellerId })}`;
+        : `listings:v3:${JSON.stringify({ cursor, category, country, featured, sellerId, sort: sortMode })}`;
 
     if (cacheKey) {
       const cached = await this.cache.get<{
@@ -241,14 +252,15 @@ export class ListingsService {
       where,
       take: PAGE_SIZE + 1,
       cursor,
-      orderBy: LISTING_PAGE_ORDER,
+      orderBy: oldestFirst ? LISTING_PAGE_ORDER_OLDEST : LISTING_PAGE_ORDER,
     });
 
     const hasMore = listings.length > PAGE_SIZE;
     const items = hasMore ? listings.slice(0, PAGE_SIZE) : listings;
     const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
 
-    const sorted = [...items].sort((a, b) => {
+    // Oldest-first keeps the database order; ranking only applies to the default feed.
+    const sorted = oldestFirst ? items : [...items].sort((a, b) => {
       const pinnedDiff = Number(b.pinned) - Number(a.pinned);
       if (pinnedDiff !== 0) return pinnedDiff;
       const featuredDiff = Number(b.featured) - Number(a.featured);
@@ -288,7 +300,9 @@ export class ListingsService {
     });
 
     const ranked =
-      suggested || promoted ? sorted : interleavePromotedListings(sorted);
+      suggested || promoted || oldestFirst
+        ? sorted
+        : interleavePromotedListings(sorted);
     const publicListings = ranked.map((item) => sanitizeListingMedia(item));
 
     const result = { listings: publicListings, nextCursor, hasMore };

@@ -151,7 +151,11 @@ export type ListingSearchParams = {
   cursor?: string;
   sellerId?: string;
   featured?: boolean;
+  /** Server-side publish-time order. Omitted/newest = default feed ranking. */
+  sort?: ListingFeedSort;
 };
+
+export type ListingFeedSort = 'newest' | 'oldest';
 
 export type ListingSearchPage = {
   listings: Listing[];
@@ -212,7 +216,8 @@ export function isDefaultListingsFirstPage(params: ListingSearchParams = {}): bo
     params.maxPrice == null &&
     !params.cursor &&
     !params.sellerId &&
-    !params.featured
+    !params.featured &&
+    params.sort !== 'oldest'
   );
 }
 
@@ -231,6 +236,9 @@ export function buildListingsFeedUrl(
   if (params.cursor) qs.set('cursor', params.cursor);
   if (params.sellerId) qs.set('sellerId', params.sellerId);
   if (params.featured) qs.set('featured', 'true');
+  // Only non-default orders go on the wire, so the default URL (and its
+  // bootstrap/dedupe cache entries) stays identical to the newest feed.
+  if (params.sort === 'oldest') qs.set('sort', 'oldest');
 
   const root = base.replace(/\/$/, '');
   const query = qs.toString();

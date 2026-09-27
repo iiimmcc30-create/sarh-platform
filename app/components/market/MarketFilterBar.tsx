@@ -19,6 +19,8 @@ type Props = {
   regionActive?: boolean;
   nearbyActive?: boolean;
   sortActive?: boolean;
+  /** Current order label (e.g. الأحدث / الأقدم); defaults to the generic title. */
+  sortLabel?: string;
 };
 
 /** Region + nearby chips, then paired sort/category bar (reference layout). */
@@ -33,6 +35,7 @@ export function MarketFilterBar({
   regionActive = false,
   nearbyActive = false,
   sortActive = false,
+  sortLabel = 'الترتيب',
 }: Props) {
   const { styles, colors } = useThemedStyles((theme) => ({
     styles: createStyles(theme.colors),
@@ -96,7 +99,7 @@ export function MarketFilterBar({
           style={[styles.chip, sortActive && styles.chipActive, getRtlRow()]}
           onPress={onSortPress}
           accessibilityRole="button"
-          accessibilityLabel="الترتيب"
+          accessibilityLabel={`الترتيب: ${sortLabel}`}
           accessibilityState={{ selected: sortActive }}
           testID="market-sort-chip"
         >
@@ -105,7 +108,9 @@ export function MarketFilterBar({
             size={MARKET_CHIP.iconSize}
             color={sortActive ? accent : colors.textPrimary}
           />
-          <Text style={[styles.chipLabel, sortActive && styles.chipLabelActive]}>الترتيب</Text>
+          <Text style={[styles.chipLabel, sortActive && styles.chipLabelActive]} numberOfLines={1}>
+            {sortLabel}
+          </Text>
         </Pressable>
 
         <Pressable

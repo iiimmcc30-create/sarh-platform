@@ -2,7 +2,18 @@ import type { Listing } from '@/services/types';
 
 export type MarketSortMode = 'newest' | 'oldest' | 'price_asc' | 'price_desc';
 
-/** Client-side market chip cycle — newest → oldest → price ↑ → price ↓. */
+/** Home/Market feed order toggle, applied by the API (createdAt DESC / ASC). */
+export type FeedSortMode = 'newest' | 'oldest';
+
+export function toggleFeedSortMode(mode: FeedSortMode): FeedSortMode {
+  return mode === 'newest' ? 'oldest' : 'newest';
+}
+
+export function feedSortLabelAr(mode: FeedSortMode): string {
+  return mode === 'oldest' ? 'الأقدم' : 'الأحدث';
+}
+
+/** Client-side browse chip cycle — newest → oldest → price ↑ → price ↓. */
 export function nextMarketSortMode(mode: MarketSortMode): MarketSortMode {
   if (mode === 'newest') return 'oldest';
   if (mode === 'oldest') return 'price_asc';
