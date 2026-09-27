@@ -34,7 +34,7 @@ import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
 import { collectListingMedia, listingVideoViewerIndex } from '@/lib/postMedia';
 import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
-import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { ListingCommentsSection } from '@/components/feature/ListingCommentsSection';
 import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
 import { ListingFeePaymentSheet } from '@/components/listing/ListingFeePaymentSheet';
@@ -589,10 +589,15 @@ export default function ListingDetailScreen() {
                     style={styles.sellerInlineAvatar}
                     contentFit="cover"
                   />
-                  {listing.seller.verified ? <VerificationBadge size={16} /> : null}
-                  <AppText variant="cardTitle" color="textSecondary" style={styles.sellerInlineName} numberOfLines={1}>
-                    {listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
-                  </AppText>
+                  <VerifiedInlineName
+                    name={listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
+                    verified={listing.seller.verified}
+                    style={styles.sellerInlineName}
+                  >
+                    <AppText variant="cardTitle" color="textSecondary" style={styles.sellerInlineName} numberOfLines={1}>
+                      {listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
+                    </AppText>
+                  </VerifiedInlineName>
                 </Row>
               </Pressable>
               <SarhButton

@@ -1,6 +1,6 @@
 import { listingVideoUrl } from '@/lib/listingMedia';
 import { resolveMediaUrl } from '@/services/media';
-import { ensureApiReachable } from './api';
+import { API_BASE, ensureApiReachable } from './api';
 import { fetchPublicFeed } from './fetchPublicFeed';
 import { shouldReuseFreshResult } from './requestCoordination';
 import { countries, type Listing, type Country } from './types';
@@ -325,4 +325,22 @@ export async function searchAllSellerListings(
     cursor = result.nextCursor;
   }
   return collected;
+}
+
+/**
+ * One listing via the existing GET /api/listings/:id (same endpoint as listing detail).
+ * Resolves null when it is gone or unreachable - callers just skip it.
+ */
+export async function fetchListingById(listingId: string): Promise<Listing | null> {
+  const id = String(listingId ?? '').trim();
+  if (!id) return null;
+  try {
+    const res = await fetch(`${API_BASE}/api/listings/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json?.success || !json.data) return null;
+    return mapListing(json.data as BackendListing);
+  } catch {
+    return null;
+  }
 }

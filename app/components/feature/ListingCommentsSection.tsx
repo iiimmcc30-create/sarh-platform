@@ -77,7 +77,6 @@ export function ListingCommentsSection({
                     <VerifiedInlineName
                       name={c.author.arabicName || c.author.displayName}
                       verified={c.author.verified}
-                      badgeSize={12}
                       nameStyle={styles.commentName}
                     />
                     <UserProfileLink userId={c.author.id}>

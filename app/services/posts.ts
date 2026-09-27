@@ -131,3 +131,21 @@ export async function fetchUserPostActivity(
     : [];
   return { posts, replies };
 }
+
+/**
+ * One post via the existing GET /api/posts/:id (same endpoint as post detail).
+ * Resolves null when it is gone or unreachable - callers just skip it.
+ */
+export async function fetchPostById(postId: string): Promise<Post | null> {
+  const id = String(postId ?? '').trim();
+  if (!id) return null;
+  try {
+    const res = await authFetch(`${API_BASE}/api/posts/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => ({}));
+    if (!json?.success || !json.data) return null;
+    return mapPostFromApi(json.data as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}

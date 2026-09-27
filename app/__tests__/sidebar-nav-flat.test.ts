@@ -36,7 +36,8 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(panel).toContain('الملف الشخصي');
     expect(panel).toContain("label: 'إضافة عرض'");
     expect(panel).toContain("route: '/create/listing'");
-    expect(panel).toContain('المفضلة');
+    expect(panel).toContain('SIDEBAR_BOOKMARKS_TITLE');
+    expect(panel).not.toContain("route: '/favorites'");
     expect(panel).toContain('موردو الأعلاف');
     expect(panel).toContain("label: 'خدمات الوزارة'");
     expect(panel).toContain("route: '/ministry?tab=services'");
@@ -63,7 +64,6 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     const panel = src('components/feature/AppSidebar.tsx');
     const profileAt = panel.indexOf("label: 'الملف الشخصي'");
     const createAt = panel.indexOf("label: 'إضافة عرض'");
-    const favoritesAt = panel.indexOf("label: 'المفضلة'");
     const feedAt = panel.indexOf("label: 'موردو الأعلاف'");
     const ministryAt = panel.indexOf("label: 'خدمات الوزارة'");
     const newsAt = panel.indexOf("label: 'قطاع الأخبار'");
@@ -73,8 +73,8 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     const helpAt = panel.indexOf("label: 'مركز المساعدة'");
     expect(profileAt).toBeGreaterThan(-1);
     expect(createAt).toBeGreaterThan(profileAt);
-    expect(favoritesAt).toBeGreaterThan(createAt);
-    expect(feedAt).toBeGreaterThan(favoritesAt);
+    expect(panel).toContain('withSidebarBookmarks(PRIMARY_ITEMS)');
+    expect(feedAt).toBeGreaterThan(createAt);
     expect(ministryAt).toBeGreaterThan(feedAt);
     expect(newsAt).toBeGreaterThan(ministryAt);
     expect(promoteAt).toBeGreaterThan(newsAt);

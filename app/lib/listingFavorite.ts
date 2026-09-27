@@ -18,14 +18,21 @@ export async function isListingFavorited(listingId: string): Promise<boolean> {
   return ids.includes(listingId);
 }
 
+/** Serializes read-modify-write so rapid taps never lose or duplicate an update. */
+let toggleQueue: Promise<unknown> = Promise.resolve();
+
 /**
  * Toggle favorite status for a listing.
  * Returns the NEW favorited state (true = now saved, false = now removed).
  */
 export async function toggleListingFavorite(listingId: string): Promise<boolean> {
-  const ids = await getListingFavoriteIds();
-  const already = ids.includes(listingId);
-  const next = already ? ids.filter((id) => id !== listingId) : [listingId, ...ids];
-  await AsyncStorage.setItem(LISTING_FAVORITES_KEY, JSON.stringify(next));
-  return !already;
+  const run = toggleQueue.then(async () => {
+    const ids = await getListingFavoriteIds();
+    const already = ids.includes(listingId);
+    const next = already ? ids.filter((id) => id !== listingId) : [listingId, ...ids];
+    await AsyncStorage.setItem(LISTING_FAVORITES_KEY, JSON.stringify(next));
+    return !already;
+  });
+  toggleQueue = run.catch(() => undefined);
+  return run;
 }

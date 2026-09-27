@@ -1,6 +1,6 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { ambientShadow, ds } from '@/constants/designSystem';
-import { motion, spacing } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 import { motion as dsMotion } from '@/design-system/tokens/motion';
 import { useAppChromeScroll } from '@/hooks/useAppChrome';
 import { useTheme } from '@/hooks/useTheme';
@@ -9,7 +9,14 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { isNavigationLocked, safeNavigateTab } from '@/lib/safeNavigate';
 import { HOME_TAB_RESELECT_EVENT } from '@/lib/homeQuickAccess';
-import { useEffect, useRef, type ReactNode } from 'react';
+import {
+  TAB_ACTIVATE_SCALE,
+  TAB_PRESS_IN_MS,
+  TAB_PRESS_OPACITY,
+  TAB_PRESS_OUT_MS,
+  TAB_PRESS_SCALE,
+} from '@/lib/tabBarMotion';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Animated, DeviceEventEmitter, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,7 +26,6 @@ const ADD_BOX = 24;
 const ADD_GLYPH = 15;
 /** Nudge icons down without growing the bar height. */
 const ICON_NUDGE_Y = 2;
-const INDICATOR_W = 18;
 
 type TabDef =
   | { kind: 'route'; route: string; icon: string; label: string }
@@ -50,33 +56,9 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const hideDistance = ds.tabBar.height + bottomPad + spacing.md;
 
   const activeRoute = state.routes[state.index]?.name;
-  const layouts = useRef<Record<string, { x: number; width: number }>>({});
-  const indicatorX = useRef(new Animated.Value(0)).current;
-  const indicatorReady = useRef(false);
-  const indicatorAnim = useRef<Animated.CompositeAnimation | null>(null);
   const lastRouteRef = useRef(activeRoute);
 
-  const moveIndicator = (routeName: string, animated: boolean) => {
-    const layout = layouts.current[routeName];
-    if (!layout) return;
-    const nextX = layout.x + (layout.width - INDICATOR_W) / 2;
-    indicatorAnim.current?.stop();
-    if (!animated || !indicatorReady.current) {
-      indicatorX.setValue(nextX);
-      indicatorReady.current = true;
-      return;
-    }
-    indicatorAnim.current = Animated.timing(indicatorX, {
-      toValue: nextX,
-      duration: dsMotion.duration.ui,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    indicatorAnim.current.start();
-  };
-
   useEffect(() => {
-    if (activeRoute) moveIndicator(activeRoute, true);
     if (activeRoute && lastRouteRef.current !== activeRoute) {
       lastRouteRef.current = activeRoute;
       setChromeVisible(true);
@@ -135,66 +117,42 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
         ]}
       >
         <View style={[styles.row, getRtlRow()]}>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.indicator,
-              {
-                backgroundColor: activeTint,
-                transform: [{ translateX: indicatorX }],
-              },
-            ]}
-          />
           {TABS.map((tab) => {
             if (tab.kind === 'create') {
               return (
-                <Pressable
+                <TabPressable
                   key="create"
-                  accessibilityRole="button"
-                  accessibilityLabel={tab.label}
+                  label={tab.label}
                   onPress={() => void navigateToCreateListing()}
-                  style={({ pressed }) => [styles.tabSlot, pressed && styles.pressed]}
                 >
                   <View style={styles.iconSlot}>
                     <View style={[styles.addBox, { borderColor: inactiveTint }]}>
                       <AppIcon name="plus" size={ADD_GLYPH} color={activeTint} variant="sr" />
                     </View>
                   </View>
-                </Pressable>
+                </TabPressable>
               );
             }
 
             const focused = activeRoute === tab.route;
             const tint = focused ? activeTint : inactiveTint;
             return (
-              <Pressable
+              <TabPressable
                 key={tab.route}
-                accessibilityRole="button"
-                accessibilityLabel={tab.label}
-                accessibilityState={{ selected: focused }}
+                label={tab.label}
+                focused={focused}
+                selectable
                 onPress={() => onTabPress(tab.route, focused)}
-                onLayout={(event) => {
-                  layouts.current[tab.route] = {
-                    x: event.nativeEvent.layout.x,
-                    width: event.nativeEvent.layout.width,
-                  };
-                  if (tab.route === activeRoute) {
-                    moveIndicator(tab.route, indicatorReady.current);
-                  }
-                }}
-                style={({ pressed }) => [styles.tabSlot, pressed && styles.pressed]}
               >
-                <TabGlyph focused={focused}>
-                  <View style={styles.iconSlot}>
-                    <AppIcon
-                      name={tab.icon}
-                      size={ICON_SIZE}
-                      color={tint}
-                      variant={focused ? 'sr' : 'rr'}
-                    />
-                  </View>
-                </TabGlyph>
-              </Pressable>
+                <View style={styles.iconSlot}>
+                  <AppIcon
+                    name={tab.icon}
+                    size={ICON_SIZE}
+                    color={tint}
+                    variant={focused ? 'sr' : 'rr'}
+                  />
+                </View>
+              </TabPressable>
             );
           })}
         </View>
@@ -203,20 +161,41 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-function TabGlyph({ focused, children }: { focused: boolean; children: ReactNode }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const prev = useRef(focused);
+type TabPressableProps = {
+  label: string;
+  onPress: () => void;
+  children: ReactNode;
+  focused?: boolean;
+  /** Route tabs expose selected state; the create action does not. */
+  selectable?: boolean;
+};
+
+/**
+ * Tab slot. The active state is the icon variant only. The glyph gets a light,
+ * fast press + activation motion (native driver, transform/opacity only), so
+ * the slot and bar dimensions never change. onPress behavior is untouched.
+ */
+function TabPressable({
+  label,
+  onPress,
+  children,
+  focused = false,
+  selectable = false,
+}: TabPressableProps) {
+  const activation = useRef(new Animated.Value(1)).current;
+  const press = useRef(new Animated.Value(0)).current;
+  const prevFocused = useRef(focused);
 
   useEffect(() => {
-    if (focused && !prev.current) {
+    if (focused && !prevFocused.current) {
       Animated.sequence([
-        Animated.timing(scale, {
-          toValue: 1.06,
+        Animated.timing(activation, {
+          toValue: TAB_ACTIVATE_SCALE,
           duration: dsMotion.duration.press,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-        Animated.timing(scale, {
+        Animated.timing(activation, {
           toValue: 1,
           duration: dsMotion.duration.ui,
           easing: Easing.out(Easing.cubic),
@@ -224,10 +203,45 @@ function TabGlyph({ focused, children }: { focused: boolean; children: ReactNode
         }),
       ]).start();
     }
-    prev.current = focused;
-  }, [focused, scale]);
+    prevFocused.current = focused;
+  }, [focused, activation]);
 
-  return <Animated.View style={{ transform: [{ scale }] }}>{children}</Animated.View>;
+  const { scale, opacity } = useMemo(
+    () => ({
+      scale: Animated.multiply(
+        activation,
+        press.interpolate({ inputRange: [0, 1], outputRange: [1, TAB_PRESS_SCALE] }),
+      ),
+      opacity: press.interpolate({ inputRange: [0, 1], outputRange: [1, TAB_PRESS_OPACITY] }),
+    }),
+    [activation, press],
+  );
+
+  const animatePress = (pressed: boolean) => {
+    Animated.timing(press, {
+      toValue: pressed ? 1 : 0,
+      duration: pressed ? TAB_PRESS_IN_MS : TAB_PRESS_OUT_MS,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Transform/opacity only (TAB_GLYPH_ANIMATED_STYLE_KEYS) - layout never changes.
+  const glyphMotionStyle = { opacity, transform: [{ scale }] };
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={selectable ? { selected: focused } : undefined}
+      onPress={onPress}
+      onPressIn={() => animatePress(true)}
+      onPressOut={() => animatePress(false)}
+      style={styles.tabSlot}
+    >
+      <Animated.View style={glyphMotionStyle}>{children}</Animated.View>
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -270,18 +284,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.75,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  pressed: {
-    transform: [{ scale: motion.pressScale }],
-    opacity: 0.92,
-  },
-  indicator: {
-    position: 'absolute',
-    bottom: 0,
-    start: 0,
-    width: INDICATOR_W,
-    height: 2,
-    borderRadius: 1,
   },
 });
 

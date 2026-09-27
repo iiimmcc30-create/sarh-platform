@@ -139,7 +139,7 @@ describe('home launch layout', () => {
     expect(tabs).toContain('DeviceEventEmitter.emit(HOME_TAB_RESELECT_EVENT)');
   });
 
-  it('slides the existing tab bar indicator with Home, Search, Add, Chat, and Community', () => {
+  it('keeps Home, Search, Add, Chat, and Community with no active-tab line', () => {
     const tabs = src('components/navigation/FloatingTabBar.tsx');
     expect(tabs).toContain("route: 'index'");
     expect(tabs).toContain("route: 'search'");
@@ -148,7 +148,7 @@ describe('home launch layout', () => {
     expect(tabs).not.toContain("route: 'profile'");
     expect(tabs).not.toContain("route: 'market'");
     expect(tabs).toContain('addBox');
-    expect(tabs).toContain('indicatorX');
+    expect(tabs).not.toContain('indicatorX');
     expect(tabs).toContain('useNativeDriver: true');
     expect(tabs).not.toContain('SarhButton');
     expect(tabs).not.toContain('react-native-reanimated');
