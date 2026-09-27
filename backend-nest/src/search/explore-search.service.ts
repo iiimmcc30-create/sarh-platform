@@ -53,7 +53,8 @@ export class ExploreSearchService {
   ) {}
 
   async getExploreFeed() {
-    const cacheKey = 'search:explore:v1:public';
+    // v2: section order changed (social first) - drop v1 payloads cached in the old order.
+    const cacheKey = 'search:explore:v2:public';
 
     if (this.cache.isEnabled()) {
       const cached = await this.cache.get<{ sections: ExploreSection[] }>(
@@ -130,11 +131,13 @@ export class ExploreSearchService {
       });
     }
 
-    if (listingItems.length > 0) {
+    // Social sections first so the ~30 item cap trims marketplace sections
+    // (listings / categories), not feed suppliers or news.
+    if (suppliers.length > 0) {
       sections.push({
-        type: 'listings',
-        title: 'إعلانات مقترحة',
-        items: listingItems,
+        type: 'feed_suppliers',
+        title: 'موردو الأعلاف',
+        items: suppliers,
       });
     }
 
@@ -152,19 +155,19 @@ export class ExploreSearchService {
       });
     }
 
+    if (listingItems.length > 0) {
+      sections.push({
+        type: 'listings',
+        title: 'إعلانات مقترحة',
+        items: listingItems,
+      });
+    }
+
     if (categories.length > 0) {
       sections.push({
         type: 'feed_categories',
         title: 'تصنيفات السوق',
         items: categories,
-      });
-    }
-
-    if (suppliers.length > 0) {
-      sections.push({
-        type: 'feed_suppliers',
-        title: 'موردو الأعلاف',
-        items: suppliers,
       });
     }
 

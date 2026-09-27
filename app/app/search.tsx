@@ -12,6 +12,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cloudinaryFitUrl } from '@/lib/listingMedia';
 import { openPostDetail } from '@/lib/openPost';
 import { safePush } from '@/lib/safeNavigate';
+import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
+import { TrendingTopicRow } from '@/components/feature/TrendingTopicRow';
+import { EXPLORE_TRENDING_PREVIEW, toTrendingRows, type TrendingRow } from '@/lib/searchTrending';
+import { orderExploreSections } from '@/lib/searchExplore';
 import { AppText, SarhBackButton, SarhChipRow, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useAppChromeScroll } from '@/hooks/useAppChrome';
@@ -31,7 +35,6 @@ import {
   fetchSearchExplore,
   fetchSearchTrending,
   type ExploreAccountItem,
-  type ExploreCategoryItem,
   type ExploreNewsItem,
   type ExploreSection as ExploreFeedSection,
   type ExploreSupplierItem,
@@ -828,30 +831,34 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     </Stack>
   );
 
-  const trendingBlock = (
-    <Stack gap="md">
-      <AppText variant="heading3">الأكثر تداولاً</AppText>
-      {!trendingLoaded ? (
-        <ActivityIndicator color={colors.electricBright} />
-      ) : trendingItems.length === 0 ? (
-        <AppText variant="caption" color="textMuted">لا توجد موضوعات رائجة حالياً</AppText>
-      ) : (
-        <Row gap="sm" wrap>
-          {trendingItems.map((item) => (
-            <Pressable key={item.tag} style={styles.trendingChip} onPress={() => applyQuery(item.tag)}>
-              <AppText variant="caption" color="textSecondary">
-                {item.tag}
-                {typeof item.count === 'number' ? ` · ${item.count}` : ''}
-              </AppText>
-            </Pressable>
-          ))}
-        </Row>
-      )}
+  /** X-style trending list (plain rows); a tap runs the existing search. */
+  const renderTrendingRows = (rows: TrendingRow[]) =>
+    rows.map((row) => <TrendingTopicRow key={row.key} row={row} onPress={applyQuery} />);
+
+  const trendingRows = useMemo(() => toTrendingRows(trendingItems), [trendingItems]);
+
+  const trendingBlock = !trendingLoaded ? (
+    <Stack gap="md" align="center" style={[styles.hintBox, { paddingHorizontal: gutter }]}>
+      <ActivityIndicator color={colors.electricBright} />
     </Stack>
+  ) : trendingRows.length === 0 ? (
+    <AppText
+      variant="caption"
+      color="textMuted"
+      align="center"
+      style={[styles.hintBox, { paddingHorizontal: gutter }]}
+    >
+      لا توجد موضوعات رائجة حالياً
+    </AppText>
+  ) : (
+    <View accessibilityRole="list">{renderTrendingRows(trendingRows)}</View>
   );
 
   const renderExploreFeed = () => {
-    if (exploreLoading && exploreSections.length === 0) {
+    // Social discovery only: trending, suggested accounts, feed suppliers, then content.
+    // Listings and market categories from the API are never rendered here.
+    const visibleSections = orderExploreSections(exploreSections);
+    if (exploreLoading && visibleSections.length === 0) {
       return (
         <Stack gap="md" align="center" style={[styles.hintBox, { paddingHorizontal: gutter }]}>
           <ActivityIndicator color={colors.electricBright} />
@@ -860,9 +867,9 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     }
 
     return (
-      <Stack gap="lg" style={{ paddingHorizontal: gutter }}>
+      <Stack gap="lg">
         {recentSearches.length > 0 ? (
-          <Stack gap="sm">
+          <Stack gap="sm" style={{ paddingHorizontal: gutter }}>
             <Row justify="between" align="center">
               <AppText variant="heading3">البحث الأخير</AppText>
               <Pressable onPress={() => saveRecent([])} accessibilityRole="button" accessibilityLabel="مسح الكل">
@@ -890,26 +897,19 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
           </Stack>
         ) : null}
 
-        {exploreSections.map((sec) => {
+        {visibleSections.map((sec) => {
           if (sec.type === 'trending_topics') {
-            const items = sec.items as ExploreTrendingItem[];
-            if (!items.length) return null;
+            const rows = toTrendingRows(sec.items as ExploreTrendingItem[]).slice(
+              0,
+              EXPLORE_TRENDING_PREVIEW,
+            );
+            if (!rows.length) return null;
             return (
-              <Stack key={sec.type} gap="sm">
-                <AppText variant="heading3">{sec.title}</AppText>
-                <Row gap="sm" wrap>
-                  {items.map((item) => (
-                    <Pressable
-                      key={item.tag}
-                      style={styles.trendingChip}
-                      onPress={() => applyQuery(item.tag)}
-                    >
-                      <AppText variant="caption" color="textSecondary">
-                        {item.tag}
-                      </AppText>
-                    </Pressable>
-                  ))}
-                </Row>
+              <Stack key={sec.type} gap="none">
+                <AppText variant="heading3" style={{ paddingHorizontal: gutter }}>
+                  {sec.title}
+                </AppText>
+                <View accessibilityRole="list">{renderTrendingRows(rows)}</View>
               </Stack>
             );
           }
@@ -917,7 +917,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
             const items = sec.items as ExploreAccountItem[];
             if (!items.length) return null;
             return (
-              <Stack key={sec.type} gap="sm">
+              <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
                 <AppText variant="heading3">{sec.title}</AppText>
                 {items.map((user) => (
                   <UserIdentityRow
@@ -939,90 +939,11 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
               </Stack>
             );
           }
-          if (sec.type === 'listings') {
-            const items = sec.items as Record<string, unknown>[];
-            if (!items.length) return null;
-            return (
-              <Stack key={sec.type} gap="md">
-                <AppText variant="heading3">{sec.title}</AppText>
-                {items.map((raw) => {
-                  const listing = mapListingFromSearch(raw);
-                  if (!listing) return null;
-                  return (
-                    <ListingCard
-                      key={listing.id}
-                      listing={listing}
-                      variant="list"
-                      listMode="market"
-                      onPress={() =>
-                        router.push({ pathname: '/listing/[id]', params: { id: listing.id } })
-                      }
-                    />
-                  );
-                })}
-              </Stack>
-            );
-          }
-          if (sec.type === 'news') {
-            const items = sec.items as ExploreNewsItem[];
-            if (!items.length) return null;
-            return (
-              <Stack key={sec.type} gap="sm">
-                <AppText variant="heading3">{sec.title}</AppText>
-                {items.map((n) => (
-                  <Pressable
-                    key={n.id}
-                    style={styles.resultRow}
-                    onPress={() => router.push('/news' as never)}
-                  >
-                    <Row gap="md" align="center">
-                      {n.imageUrl ? (
-                        <Image
-                          source={uriSource(cloudinaryFitUrl(n.imageUrl, 'row'))}
-                          style={styles.resultThumb}
-                          contentFit="cover"
-                        />
-                      ) : null}
-                      <AppText variant="body" numberOfLines={2} style={styles.flex}>
-                        {n.titleAr}
-                      </AppText>
-                    </Row>
-                  </Pressable>
-                ))}
-              </Stack>
-            );
-          }
-          if (sec.type === 'feed_categories') {
-            const items = sec.items as ExploreCategoryItem[];
-            if (!items.length) return null;
-            return (
-              <Stack key={sec.type} gap="sm">
-                <AppText variant="heading3">{sec.title}</AppText>
-                {items.map((cat) => (
-                  <Pressable
-                    key={cat.id}
-                    style={styles.resultRow}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/market/categories/[id]',
-                        params: { id: cat.id },
-                      } as never)
-                    }
-                  >
-                    <AppText variant="body">
-                      {cat.emoji ? `${cat.emoji} ` : ''}
-                      {cat.nameAr}
-                    </AppText>
-                  </Pressable>
-                ))}
-              </Stack>
-            );
-          }
           if (sec.type === 'feed_suppliers') {
             const items = sec.items as ExploreSupplierItem[];
             if (!items.length) return null;
             return (
-              <Stack key={sec.type} gap="sm">
+              <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
                 <AppText variant="heading3">{sec.title}</AppText>
                 {items.map((s) => (
                   <Pressable
@@ -1041,13 +962,46 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
                         </View>
                       )}
                       <Stack gap="xs" style={styles.resultBody}>
-                        <AppText variant="body">{s.nameAr}</AppText>
+                        <VerifiedInlineName name={s.nameAr} verified={s.verified}>
+                          <AppText variant="body" numberOfLines={1} style={styles.nameShrink}>
+                            {s.nameAr}
+                          </AppText>
+                        </VerifiedInlineName>
                         {s.cityAr ? (
                           <AppText variant="caption" color="textMuted">
                             {s.cityAr}
                           </AppText>
                         ) : null}
                       </Stack>
+                    </Row>
+                  </Pressable>
+                ))}
+              </Stack>
+            );
+          }
+          if (sec.type === 'news') {
+            const items = sec.items as ExploreNewsItem[];
+            if (!items.length) return null;
+            return (
+              <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
+                <AppText variant="heading3">{sec.title}</AppText>
+                {items.map((n) => (
+                  <Pressable
+                    key={n.id}
+                    style={styles.resultRow}
+                    onPress={() => router.push('/news' as never)}
+                  >
+                    <Row gap="md" align="center">
+                      {n.imageUrl ? (
+                        <Image
+                          source={uriSource(cloudinaryFitUrl(n.imageUrl, 'row'))}
+                          style={styles.resultThumb}
+                          contentFit="cover"
+                        />
+                      ) : null}
+                      <AppText variant="body" numberOfLines={2} style={styles.flex}>
+                        {n.titleAr}
+                      </AppText>
                     </Row>
                   </Pressable>
                 ))}
@@ -1109,11 +1063,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     section === 'explore'
       ? renderExploreFeed()
       : section === 'trending'
-        ? (
-          <Stack gap="lg" style={{ paddingHorizontal: gutter }}>
-            {trendingBlock}
-          </Stack>
-        )
+        ? trendingBlock
         : section === 'news'
           ? newsIdle
           : servicesIdle;
@@ -1399,12 +1349,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.borderHairline,
     },
-    trendingChip: {
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: ds.radius.pill,
-      backgroundColor: tokens.primaryMuted,
-    },
+    nameShrink: { flexShrink: 1 },
     userRow: {
       paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { AppText } from '@/components/ui/AppText';
 import { getRtlRow } from '@/lib/rtl';
-import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { sarh } from '@/constants/sarhTokens';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -108,15 +108,15 @@ export function UserIdentityRow({
 
   const textBlock = (
     <View style={[styles.profileText, contentStyle]}>
-      <View style={[styles.nameRow, getRtlRow()]}>
+      {/* Shared verified name row (lib/verifiedBadge: size 14, gap 4) - no local badge. */}
+      <VerifiedInlineName name={displayName} verified={verified} style={styles.nameRow}>
         <AppText
           style={[styles.displayName, nameStyle]}
           numberOfLines={nameLines}
         >
           {displayName}
         </AppText>
-        {verified ? <VerificationBadge size={14} /> : null}
-      </View>
+      </VerifiedInlineName>
       {handle ? (
         <AppText style={[styles.usernameText, usernameStyle]} numberOfLines={1}>
           {handle}
@@ -171,6 +171,7 @@ function createStyles(colors: ThemeColors) {
     displayName: {
       ...typography.cardHeading,
       color: colors.textPrimary,
+      flexShrink: 1,
     },
     usernameText: {
       ...typography.caption,

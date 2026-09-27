@@ -757,7 +757,10 @@ export class ListingsService {
     await this.cache.del(`listing:${id}`);
     await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
     // Seller profile (listingsCount) is cached per user; drop only that seller.
-    await this.cache.del(`user:${listing.sellerId}`, `user:${listing.sellerId}:base`);
+    await this.cache.del(
+      `user:${listing.sellerId}`,
+      `user:${listing.sellerId}:base`,
+    );
 
     this.logger.info(
       {
