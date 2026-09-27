@@ -15,6 +15,7 @@ import { SubscriptionCacheService } from '../subscriptions/services/subscription
 import { SubscriptionLifecycleService } from '../subscriptions/services/subscription-lifecycle.service';
 import { SubscriptionEntitlementService } from '../subscriptions/services/subscription-entitlement.service';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
+import { LISTINGS_FEED_CACHE_PATTERN } from '../listings/listings-cache-keys';
 import { PlansService } from '../plans/plans.service';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import { InitiatePaymentDto } from './dto/payments.dto';
@@ -207,7 +208,7 @@ export class PaymentsService
   }
 
   private async invalidateListingCaches(listingId?: string) {
-    await this.cache.delPattern('listings:v2:*').catch(() => {});
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => {});
     if (listingId) {
       await this.cache.del(`listing:${listingId}`).catch(() => {});
     }

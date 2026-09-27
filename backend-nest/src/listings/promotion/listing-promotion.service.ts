@@ -23,6 +23,7 @@ import {
   type PromotionTierKey,
 } from './promotion-tiers.config';
 import { lookupPromotePrice } from '../promote-catalog';
+import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
 import { PaidServicesService } from '../../settings/paid-services.service';
 
 type InitiatePromotionOptions = {
@@ -95,7 +96,7 @@ export class ListingPromotionService {
       ),
     ]);
 
-    await this.cache.delPattern('listings:v2:*').catch(() => {});
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => {});
     for (const id of listingIds) {
       await this.cache.del(`listing:${id}`).catch(() => {});
     }
@@ -309,7 +310,7 @@ export class ListingPromotionService {
       data: { promotionId, listingId: promotion.listingId },
     });
 
-    await this.cache.delPattern('listings:v2:*').catch(() => {});
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => {});
     await this.cache.del(`listing:${promotion.listingId}`).catch(() => {});
 
     return {

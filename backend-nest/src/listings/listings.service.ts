@@ -25,6 +25,10 @@ import {
   UpdateListingDto,
 } from './dto/listings.dto';
 import { ListingsRepository } from './repositories/listings.repository';
+import {
+  listingsFeedCacheKey,
+  LISTINGS_FEED_CACHE_PATTERN,
+} from './listings-cache-keys';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { ListingPromotionService } from './promotion/listing-promotion.service';
 import {
@@ -185,7 +189,14 @@ export class ListingsService {
       categoryId ||
       subcategoryId
         ? null
-        : `listings:v3:${JSON.stringify({ cursor, category, country, featured, sellerId, sort: sortMode })}`;
+        : listingsFeedCacheKey({
+            cursor,
+            category,
+            country,
+            featured,
+            sellerId,
+            sort: sortMode,
+          });
 
     if (cacheKey) {
       const cached = await this.cache.get<{
@@ -465,7 +476,7 @@ export class ListingsService {
         data: { listingId: listing.id },
       });
 
-      await this.cache.delPattern('listings:v2:*');
+      await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
 
       this.logger.info(
         {
@@ -613,7 +624,7 @@ export class ListingsService {
 
     const updated = await this.repo.update(id, updateData);
     await this.cache.del(`listing:${id}`);
-    await this.cache.delPattern('listings:v2:*');
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
     return sanitizeListingMedia(updated);
   }
 
@@ -664,7 +675,7 @@ export class ListingsService {
       });
 
       await this.cache.del(`listing:${id}`);
-      await this.cache.delPattern('listings:v2:*');
+      await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
 
       this.logger.info(
         {
@@ -717,7 +728,7 @@ export class ListingsService {
       deleteReason: reason,
     });
     await this.cache.del(`listing:${id}`);
-    await this.cache.delPattern('listings:v2:*');
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
 
     this.logger.info(
       {
@@ -788,7 +799,7 @@ export class ListingsService {
     }
 
     await this.cache.del(`listing:${listingId}`);
-    await this.cache.delPattern('listings:v2:*');
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
     return comment;
   }
 
@@ -811,7 +822,7 @@ export class ListingsService {
 
     await this.repo.deleteComment(commentId, listingId);
     await this.cache.del(`listing:${listingId}`);
-    await this.cache.delPattern('listings:v2:*');
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
     return { deleted: true };
   }
 }

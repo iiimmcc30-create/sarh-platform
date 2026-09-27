@@ -14,6 +14,7 @@ import { IntegrationCheckoutService } from '../../integrations/services/integrat
 import { BOOST_PLANS } from './boost-plans.config';
 import { BOOST_AMOUNT_MIN } from './boost-pricing.util';
 import { lookupPromotePrice } from '../promote-catalog';
+import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
 import { PROMOTE_AMOUNT_MAX } from '../promotion/promotion-limits.config';
 import { PaidServicesService } from '../../settings/paid-services.service';
 
@@ -311,7 +312,7 @@ export class ListingBoostService {
       { boostId, boostType: boost.boostType, listingId: boost.listingId },
       'Boost fulfilled',
     );
-    await this.cache.delPattern('listings:v2:*').catch(() => {});
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => {});
     await this.cache.del(`listing:${boost.listingId}`).catch(() => {});
     return {
       processed: true,

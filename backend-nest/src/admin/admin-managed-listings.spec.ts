@@ -79,6 +79,7 @@ describe('managed listings do not create users', () => {
       expect(row.arabicLocation).toBe(row.displayRegion);
     }
     expect(cache.delPattern).toHaveBeenCalledWith('listings:v3:*');
+    expect(cache.delPattern).not.toHaveBeenCalledWith('listings:v2:*');
     expect(cache.delPattern).toHaveBeenCalledWith('search:explore:*');
     expect(cache.delPattern).toHaveBeenCalledWith('search:unified:*');
   });

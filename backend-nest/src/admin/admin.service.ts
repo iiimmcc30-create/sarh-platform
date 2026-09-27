@@ -9,6 +9,7 @@ import { AuthRepository } from '../auth/repositories/auth.repository';
 import { LoggerService } from '../common/services/logger.service';
 import { throwApi, ApiException } from '../common/exceptions/api.exception';
 import { managedContactFields } from './lib/managed-listing';
+import { LISTINGS_FEED_CACHE_PATTERN } from '../listings/listings-cache-keys';
 import type { ListingCategory } from '@prisma/client';
 import { authorizeCronCleanup } from './lib/cron-auth';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
@@ -375,8 +376,7 @@ export class AdminService {
   }
 
   private async invalidateListingSurfaces(listingId?: string) {
-    await this.cache.delPattern('listings:v2:*').catch(() => 0);
-    await this.cache.delPattern('listings:v3:*').catch(() => 0);
+    await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN).catch(() => 0);
     await this.cache.delPattern('search:explore:*').catch(() => 0);
     await this.cache.delPattern('search:unified:*').catch(() => 0);
     if (listingId) {
