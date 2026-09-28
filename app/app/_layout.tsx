@@ -4,7 +4,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import Head from 'expo-router/head';
+import { Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { enableFreeze } from 'react-native-screens';
 import { StatusBar } from 'expo-status-bar';
@@ -26,6 +27,7 @@ import { fadeScaleScreenLayout } from '@/components/navigation/FadeScaleAppear';
 import { fadeScaleStackScreenOptions } from '@/lib/screenTransition';
 import { setupRtl, getRtlDirection, setupRtlFromStorage } from '@/lib/rtl';
 import { resolveBootNavigation } from '@/lib/bootRouting';
+import { SITE_NAME } from '@/lib/siteSeo';
 
 import { bootstrapTheme } from '@/constants/themeBootstrap';
 
@@ -219,9 +221,17 @@ function RootLayoutBody() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <RootLayoutBody />
-    </ThemeProvider>
+    <>
+      {Platform.OS === 'web' ? (
+        // Official web name for the document title (also statically rendered).
+        <Head>
+          <title>{SITE_NAME}</title>
+        </Head>
+      ) : null}
+      <ThemeProvider>
+        <RootLayoutBody />
+      </ThemeProvider>
+    </>
   );
 }
 

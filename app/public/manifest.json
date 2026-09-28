@@ -1,0 +1,12 @@
+{
+  "name": "سرح",
+  "short_name": "سرح",
+  "description": "المنصة الوطنية الرائدة في خدمات الثروة الحيوانية",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#040C0E",
+  "theme_color": "#040C0E"
+}
