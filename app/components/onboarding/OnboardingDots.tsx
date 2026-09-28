@@ -1,70 +1,66 @@
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
+import { onboardingStepLabel } from '@/constants/onboardingCopy';
 import { spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { getRtlRow } from '@/lib/rtl';
 
 type OnboardingDotsProps = {
   count: number;
   activeIndex: number;
-  scrollX: Animated.Value;
-  slideWidth: number;
+  /** Logical pager progress (0 .. count - 1), RTL already resolved. */
+  progress: Animated.AnimatedInterpolation<number>;
 };
 
-export function OnboardingDots({ count, activeIndex, scrollX, slideWidth }: OnboardingDotsProps) {
+const DOT = 8;
+const DOT_ACTIVE = 24;
+
+/**
+ * Progress dots driven by the live pager position: the active pill stretches
+ * and brightens continuously while swiping (no discrete color jump). Dot 0 sits
+ * at the inline start, matching the pager (next page comes from the inline end).
+ */
+export function OnboardingDots({ count, activeIndex, progress }: OnboardingDotsProps) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
 
   return (
-    <View style={styles.wrap} accessibilityRole="tablist">
+    <Animated.View
+      style={styles.wrap}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={onboardingStepLabel(activeIndex, count)}
+      accessibilityValue={{ min: 1, max: count, now: activeIndex + 1 }}
+    >
       {Array.from({ length: count }).map((_, index) => {
-        const inputRange = [
-          (index - 1) * slideWidth,
-          index * slideWidth,
-          (index + 1) * slideWidth,
-        ];
-        const width = scrollX.interpolate({
+        const inputRange = [index - 1, index, index + 1];
+        const width = progress.interpolate({
           inputRange,
-          outputRange: [8, 24, 8],
+          outputRange: [DOT, DOT_ACTIVE, DOT],
           extrapolate: 'clamp',
         });
-        const opacity = scrollX.interpolate({
+        const opacity = progress.interpolate({
           inputRange,
-          outputRange: [0.35, 1, 0.35],
+          outputRange: [0.3, 1, 0.3],
           extrapolate: 'clamp',
         });
-        const isActive = index === activeIndex;
-
-        return (
-          <Animated.View
-            key={index}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            style={[
-              styles.dot,
-              isActive && styles.dotActive,
-              { width, opacity },
-            ]}
-          />
-        );
+        return <Animated.View key={index} style={[styles.dot, { width, opacity }]} />;
       })}
-    </View>
+    </Animated.View>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     wrap: {
-      flexDirection: 'row',
+      ...getRtlRow(),
       justifyContent: 'center',
       alignItems: 'center',
       gap: spacing.sm,
       paddingVertical: spacing.md,
     },
     dot: {
-      height: 8,
-      borderRadius: 4,
+      height: DOT,
+      borderRadius: DOT / 2,
       backgroundColor: colors.electric,
-    },
-    dotActive: {
-      backgroundColor: colors.textPrimary,
     },
   });
 }

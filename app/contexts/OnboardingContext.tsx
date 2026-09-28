@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { persistOnboardingComplete } from '@/lib/onboardingFlow';
 
 export const ONBOARDING_STORAGE_KEY = 'safat_onboarding_complete';
 
@@ -31,7 +32,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const completeOnboarding = useCallback(async () => {
-    await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
+    // A storage failure must not trap the user on onboarding: complete for
+    // this session anyway (the flag is retried next time onboarding finishes).
+    await persistOnboardingComplete(
+      (key, value) => AsyncStorage.setItem(key, value),
+      ONBOARDING_STORAGE_KEY,
+    );
     setIsComplete(true);
   }, []);
 

@@ -29,3 +29,8 @@ export const ONBOARDING_SLIDES: OnboardingSlide[] = [
 export const ONBOARDING_SKIP_LABEL = 'تخطي';
 export const ONBOARDING_NEXT_LABEL = 'التالي';
 export const ONBOARDING_START_LABEL = 'ابدأ الآن';
+
+/** Screen-reader progress, e.g. «1 من 3». */
+export function onboardingStepLabel(index: number, count: number): string {
+  return `${index + 1} من ${count}`;
+}
