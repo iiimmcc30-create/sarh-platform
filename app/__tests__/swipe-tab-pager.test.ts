@@ -51,7 +51,10 @@ describe('shared swipe-tab pager = the /bookmarks pager', () => {
 
   it('keeps the bookmarks behaviour: one index, tap scrolls animated, swipe maps the settled offset', () => {
     expect(hook).toContain('const [index, setIndex] = useState(');
-    expect(hook).toContain('scrollTo({ x: tabPagerOffset(safe, width, count, rtl), y: 0, animated: true })');
+    // Tap: index first, then an animated scroll to the platform-aware page offset.
+    expect(hook).toContain('commitIndex(safe);\n      scrollToIndex(safe, true);');
+    expect(hook).toContain('const x = tabPagerOffsetForMode(target, widthRef.current, count, mode);');
+    expect(hook).toContain('pager?.scrollTo({ x, y: 0, animated });');
     expect(hook).toContain('onMomentumScrollEnd');
     expect(hook).toContain('event.nativeEvent.contentOffset.x');
     expect(hook).toContain('const rtl = isHorizontalPagerRtl();');

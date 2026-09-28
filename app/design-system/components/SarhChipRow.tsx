@@ -1,5 +1,11 @@
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import type { ReactNode, Ref } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  type ScrollViewProps,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRtlRow } from '@/lib/rtl';
@@ -11,6 +17,9 @@ export type SarhChipRowProps = {
   style?: StyleProp<ViewStyle>;
   /** Horizontal inset around the row (default 16). */
   contentPaddingHorizontal?: number;
+  /** Optional handle + scroll/layout callbacks (e.g. keep a selected tab in view). */
+  scrollRef?: Ref<ScrollView>;
+  scrollProps?: Pick<ScrollViewProps, 'onScroll' | 'onLayout' | 'onContentSizeChange' | 'scrollEventThrottle'>;
 };
 
 /** Horizontal scroller for SarhChip items — RTL-aware, no flex stretch. */
@@ -19,11 +28,15 @@ export function SarhChipRow({
   contentContainerStyle,
   style,
   contentPaddingHorizontal = 16,
+  scrollRef,
+  scrollProps,
 }: SarhChipRowProps) {
   const styles = useThemedStyles(({ colors }) => createRowStyles(colors));
 
   return (
     <ScrollView
+      ref={scrollRef}
+      {...scrollProps}
       horizontal
       showsHorizontalScrollIndicator={false}
       accessibilityRole="scrollbar"

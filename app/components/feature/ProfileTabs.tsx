@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { AppScrollView } from '@/components/ui/AppScrollView';
+import { SwipeTabIndicator } from '@/components/ui/SwipeTabIndicator';
 import { AppText } from '@/design-system/components';
 import { duration } from '@/design-system/tokens';
 import { spacing, type ThemeColors } from '@/constants/theme';
 import { useLayout } from '@/hooks/useLayout';
+import { useRevealActiveTab, useTabLayouts } from '@/hooks/useTabLayouts';
+import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRtlRow } from '@/lib/rtl';
 import {
@@ -18,6 +21,12 @@ type ProfileTabsProps = {
   activeTab: ProfileTabKey;
   onTabChange: (tab: ProfileTabKey) => void;
   isOwnProfile: boolean;
+  /**
+   * Swipe pager progress (0 .. tabs - 1, useSwipeTabPager). When given, ONE
+   * indicator slides under the measured tabs with the drag instead of a
+   * per-tab fade.
+   */
+  progress?: Animated.AnimatedInterpolation<number> | Animated.Value;
 };
 
 export function ProfileTabs({
@@ -25,16 +34,23 @@ export function ProfileTabs({
   activeTab,
   onTabChange,
   isOwnProfile,
+  progress,
 }: ProfileTabsProps) {
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
+  const { colors } = useTheme();
   const { width } = useLayout();
   const items = tabs ?? getProfileTabs(isOwnProfile);
   const peekFifth = items.length > 4;
   const tabMinWidth = peekFifth && width > 0 ? Math.floor(width * 0.23) : undefined;
+  const activeIndex = Math.max(0, items.findIndex((tab) => tab.key === activeTab));
+  const { layouts, onTabLayout } = useTabLayouts(items.length);
+  const { scrollRef, rowProps } = useRevealActiveTab(activeIndex, layouts);
 
   return (
     <View style={styles.bar}>
       <AppScrollView
+        ref={scrollRef}
+        {...rowProps}
         horizontal
         bindChromeScroll={false}
         showsHorizontalScrollIndicator={false}
@@ -42,7 +58,7 @@ export function ProfileTabs({
         nestedScrollEnabled
         contentContainerStyle={[styles.row, getRtlRow(), peekFifth ? styles.rowPeek : styles.rowFit]}
       >
-        {items.map((tab) => (
+        {items.map((tab, i) => (
           <ProfileTabButton
             key={tab.key}
             label={tab.label}
@@ -50,9 +66,21 @@ export function ProfileTabs({
             minWidth={tabMinWidth}
             flexGrow={peekFifth ? 0 : 1}
             onPress={() => onTabChange(tab.key)}
+            onLayout={(event) => onTabLayout(i, event)}
+            showOwnIndicator={!progress}
             styles={styles}
           />
         ))}
+        {progress ? (
+          <SwipeTabIndicator
+            progress={progress}
+            layouts={layouts}
+            count={items.length}
+            inset={spacing.md}
+            color={colors.electric}
+            radius={1}
+          />
+        ) : null}
       </AppScrollView>
     </View>
   );
@@ -62,6 +90,8 @@ function ProfileTabButton({
   label,
   active,
   onPress,
+  onLayout,
+  showOwnIndicator,
   minWidth,
   flexGrow,
   styles,
@@ -69,11 +99,13 @@ function ProfileTabButton({
   label: string;
   active: boolean;
   onPress: () => void;
+  onLayout: (event: LayoutChangeEvent) => void;
+  showOwnIndicator: boolean;
   minWidth?: number;
   flexGrow: number;
   styles: ReturnType<typeof createStyles>;
 }) {
-  const indicator = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const [indicator] = useState(() => new Animated.Value(active ? 1 : 0));
 
   useEffect(() => {
     Animated.timing(indicator, {
@@ -86,6 +118,7 @@ function ProfileTabButton({
   return (
     <Pressable
       onPress={onPress}
+      onLayout={onLayout}
       style={[styles.tab, { minWidth, flexGrow }]}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
@@ -99,7 +132,7 @@ function ProfileTabButton({
       >
         {label}
       </AppText>
-      <Animated.View style={[styles.indicator, { opacity: indicator }]} />
+      {showOwnIndicator ? <Animated.View style={[styles.indicator, { opacity: indicator }]} /> : null}
     </Pressable>
   );
 }

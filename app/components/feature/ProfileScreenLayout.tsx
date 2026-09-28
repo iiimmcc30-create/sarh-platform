@@ -456,6 +456,7 @@ export function ProfileScreenLayout({
             isOwnProfile={isOwnProfile}
             activeTab={activeTab}
             onTabChange={selectTab}
+            progress={tabPager.progress}
           />
         </View>
 

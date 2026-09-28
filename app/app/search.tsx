@@ -60,6 +60,8 @@ import { type ThemeColors } from '@/constants/theme';
 import { useCollapsibleSearchHeader } from '@/hooks/useCollapsibleSearchHeader';
 import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
+import { SwipeTabIndicator } from '@/components/ui/SwipeTabIndicator';
+import { useRevealActiveTab, useTabLayouts } from '@/hooks/useTabLayouts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -90,6 +92,9 @@ const RESULT_SECTIONS: { id: SearchFilter; label: string }[] = [
   { id: 'news', label: 'الأخبار' },
   { id: 'services', label: 'الخدمات' },
 ];
+
+/** Same 22px underline as before, now one indicator that slides with the swipe. */
+const RESULT_TAB_INDICATOR_WIDTH = 22;
 
 type ExploreSection = 'explore' | 'trending' | 'news' | 'services';
 
@@ -160,6 +165,12 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const resultPager = useSwipeTabPager({ count: RESULT_SECTIONS.length, width: windowWidth });
   const { goTo: goToResultTab, jumpTo: jumpToResultTab } = resultPager;
   const filter: SearchFilter = RESULT_SECTIONS[resultPager.index]?.id ?? 'all';
+  /** Measured result tabs: one indicator slides under them with the pager drag. */
+  const { layouts: resultTabLayouts, onTabLayout: onResultTabLayout } = useTabLayouts(RESULT_SECTIONS.length);
+  const { scrollRef: resultTabsRef, rowProps: resultTabsRowProps } = useRevealActiveTab(
+    resultPager.index,
+    resultTabLayouts,
+  );
   const [page, setPage] = useState(1);
 
   const selectSection = useCallback((next: ExploreSection) => {
@@ -769,13 +780,19 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   );
 
   const resultTabs = (
-    <SarhChipRow contentPaddingHorizontal={gutter} style={styles.filterRowWrap}>
+    <SarhChipRow
+      contentPaddingHorizontal={gutter}
+      style={styles.filterRowWrap}
+      scrollRef={resultTabsRef}
+      scrollProps={resultTabsRowProps}
+    >
       {RESULT_SECTIONS.map((item, index) => {
         const active = filter === item.id;
         return (
           <Pressable
             key={item.id}
             onPress={() => goToResultTab(index)}
+            onLayout={(event) => onResultTabLayout(index, event)}
             style={styles.resultTab}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
@@ -784,10 +801,16 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
             <AppText variant="body" color={active ? 'textPrimary' : 'textMuted'} numberOfLines={1}>
               {item.label}
             </AppText>
-            {active ? <View style={styles.resultTabIndicator} /> : null}
           </Pressable>
         );
       })}
+      <SwipeTabIndicator
+        progress={resultPager.progress}
+        layouts={resultTabLayouts}
+        count={RESULT_SECTIONS.length}
+        fixedWidth={RESULT_TAB_INDICATOR_WIDTH}
+        color={colors.textPrimary}
+      />
     </SarhChipRow>
   );
 
@@ -1363,14 +1386,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       paddingBottom: 8,
       paddingHorizontal: 4,
       position: 'relative',
-    },
-    resultTabIndicator: {
-      position: 'absolute',
-      bottom: 0,
-      width: 22,
-      height: 2,
-      borderRadius: 999,
-      backgroundColor: colors.textPrimary,
     },
     suggestRow: {
       paddingVertical: 12,
