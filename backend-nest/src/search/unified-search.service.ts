@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { LoggerService } from '../common/services/logger.service';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
 import type { SearchType, UnifiedSearchQueryDto } from './dto/search.dto';
@@ -7,8 +7,28 @@ import {
   normalizeArabicSearchText,
   tokenizeSearchQuery,
 } from './lib/arabic-search.util';
-import { rankSearchResults, scoreSearchMatch } from './lib/search-ranking.util';
+import {
+  rankSearchResults,
+  scoreAliasMatch,
+  scoreMetadataMatch,
+  scoreSearchMatch,
+  type RankAlternative,
+  type RankMetadata,
+} from './lib/search-ranking.util';
+import {
+  parseHashtagQuery,
+  textHasHashtag,
+  type ExtractedHashtag,
+} from './lib/hashtag.util';
+import { matchPrefix, mergeSuggestions } from './lib/search-suggest.util';
 import { UnifiedSearchRepository } from './repositories/unified-search.repository';
+import { SearchService } from './search.service';
+import {
+  ANIMAL_TO_LISTING_CATEGORY,
+  type LivestockDictionary,
+  type TermMetadata,
+} from './terms/livestock-dictionary';
+import { LivestockDictionaryService } from './terms/livestock-dictionary.service';
 import {
   isFeaturedActive,
   isPromotedActive,
@@ -63,6 +83,53 @@ export type SearchGroup = {
 const DEFAULT_LIMIT = 20;
 const ALL_TYPE_PER_GROUP = 8;
 const SUGGEST_CACHE_TTL_SEC = 90;
+/** Aggregate (anonymous) query popularity for suggestions. */
+const POPULAR_QUERIES_KEY = 'search:popular:v1';
+const POPULAR_QUERIES_TTL_SEC = 14 * 24 * 60 * 60;
+const POPULAR_SCAN = 200;
+/** Hashtag search post-filters rows, so it over-fetches a little. */
+const HASHTAG_OVERFETCH = 3;
+
+type GroupArgs = {
+  query: string;
+  tokens: string[];
+  type: SearchType;
+  page: number;
+  limit: number;
+  skip: number;
+  filters: {
+    categoryId?: string;
+    subcategoryId?: string;
+    country?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    region?: string;
+    listingCategory?: string;
+    breed?: string;
+  };
+  hashtag: ExtractedHashtag | null;
+  expansions: RankAlternative[][];
+  intent: Partial<RankMetadata>;
+};
+
+function toRankMetadata(meta: TermMetadata | null): Partial<RankMetadata> {
+  if (!meta) return {};
+  const pick = (f: { value: string; confidence: number } | null) =>
+    f ? { value: f.value, confidence: f.confidence } : null;
+  return {
+    animalType: pick(meta.animalType),
+    breed: pick(meta.breed),
+    gender: pick(meta.gender),
+    ageStage: pick(meta.ageStage),
+    reproductiveStatus: pick(meta.reproductiveStatus),
+  };
+}
+
+const LISTING_CATEGORY_TO_ANIMAL: Record<string, string> = Object.fromEntries(
+  Object.entries(ANIMAL_TO_LISTING_CATEGORY)
+    .filter(([, v]) => !!v)
+    .map(([k, v]) => [v as string, k]),
+);
 
 @Injectable()
 export class UnifiedSearchService {
@@ -70,12 +137,21 @@ export class UnifiedSearchService {
     private readonly repo: UnifiedSearchRepository,
     private readonly cache: RedisCacheService,
     private readonly logger: LoggerService,
+    @Optional()
+    private readonly dictionary: LivestockDictionaryService = new LivestockDictionaryService(),
+    @Optional() private readonly trending?: SearchService,
   ) {}
+
+  private dict(): LivestockDictionary {
+    return (this.dictionary ?? new LivestockDictionaryService()).get();
+  }
 
   async search(dto: UnifiedSearchQueryDto) {
     const started = Date.now();
     const query = clampSearchQuery(dto.q);
-    const tokens = tokenizeSearchQuery(query);
+    // A whole-hashtag query (#حلال_الطيبين) searches the full tag, not its parts.
+    const hashtag = parseHashtagQuery(query);
+    const tokens = hashtag ? [] : tokenizeSearchQuery(query);
     const type = dto.type ?? 'all';
     const limit = Math.min(dto.limit ?? DEFAULT_LIMIT, 50);
     const page = dto.page ?? 1;
@@ -88,9 +164,17 @@ export class UnifiedSearchService {
       minPrice: dto.minPrice,
       maxPrice: dto.maxPrice,
       region: dto.region,
+      listingCategory: dto.animalType
+        ? (ANIMAL_TO_LISTING_CATEGORY[dto.animalType] ?? undefined)
+        : undefined,
+      breed: dto.breed?.trim() || undefined,
     };
 
-    const cacheKey = `search:unified:v1:${type}:${query}:${page}:${limit}:${filters.categoryId ?? ''}:${filters.subcategoryId ?? ''}:${filters.country ?? ''}:${filters.region ?? ''}:${filters.minPrice ?? ''}:${filters.maxPrice ?? ''}`;
+    // v2: dictionary expansion + hashtag mode; the dictionary version is part
+    // of the key so a terms update invalidates cached results.
+    const dictVersion = this.dictionary?.version ?? '';
+    const advancedKey = `${dto.animalType ?? ''}:${filters.breed ?? ''}:${dto.gender ?? ''}:${dto.ageStage ?? ''}`;
+    const cacheKey = `search:unified:v2:${dictVersion}:${type}:${query}:${page}:${limit}:${filters.categoryId ?? ''}:${filters.subcategoryId ?? ''}:${filters.country ?? ''}:${filters.region ?? ''}:${filters.minPrice ?? ''}:${filters.maxPrice ?? ''}:${advancedKey}`;
     if (this.cache.isEnabled()) {
       const cached = await this.cache.get<{
         query: string;
@@ -99,6 +183,7 @@ export class UnifiedSearchService {
         durationMs?: number;
       }>(cacheKey);
       if (cached) {
+        this.recordPopularQuery(query, page, cached.groups ?? []);
         return {
           ...cached,
           groups: withEffectiveListingGroups(cached.groups ?? []),
@@ -112,6 +197,22 @@ export class UnifiedSearchService {
         ? ['listings', 'posts', 'users', 'news', 'services']
         : [type as Exclude<SearchType, 'all'>];
 
+    // Dictionary layer (in-memory, no DB): tight alias expansion + intent.
+    const dict = this.dict();
+    const expansions: RankAlternative[][] = hashtag
+      ? []
+      : dict.expandQueryTokens(tokens).map((e) => e.alternatives);
+    const intent: Partial<RankMetadata> = hashtag
+      ? {}
+      : toRankMetadata(dict.extractMetadata(query));
+    // Explicit advanced params override text-derived intent.
+    if (dto.animalType)
+      intent.animalType = { value: dto.animalType, confidence: 1 };
+    if (dto.breed) intent.breed = { value: dto.breed.trim(), confidence: 1 };
+    if (dto.gender) intent.gender = { value: dto.gender, confidence: 1 };
+    if (dto.ageStage)
+      intent.ageStage = { value: dto.ageStage.trim(), confidence: 1 };
+
     const groups = await Promise.all(
       typesToSearch.map((groupType) =>
         this.searchGroup(groupType, {
@@ -122,6 +223,9 @@ export class UnifiedSearchService {
           limit,
           skip,
           filters,
+          hashtag,
+          expansions,
+          intent,
         }),
       ),
     );
@@ -129,9 +233,17 @@ export class UnifiedSearchService {
     const durationMs = Date.now() - started;
     const resultCount = groups.reduce((n, g) => n + g.items.length, 0);
     this.logger.info(
-      { durationMs, resultCount, type, tokenCount: tokens.length },
+      {
+        durationMs,
+        resultCount,
+        type,
+        tokenCount: tokens.length,
+        hashtag: !!hashtag,
+        expanded: expansions.some((e) => e.length > 0),
+      },
       'Unified search completed',
     );
+    this.recordPopularQuery(query, page, groups);
 
     const payload = {
       query,
@@ -146,29 +258,55 @@ export class UnifiedSearchService {
   }
 
   async suggest(q: string, limit = 8) {
-    const prefix = normalizeArabicSearchText(clampSearchQuery(q, 60));
+    const raw = clampSearchQuery(q, 60);
+    const prefix = normalizeArabicSearchText(raw);
     if (prefix.length < 2) {
       return { suggestions: [] as Array<{ text: string; kind: string }> };
     }
 
-    const cacheKey = `search:suggest:v2:${prefix}:${limit}`;
+    const dictVersion = this.dictionary?.version ?? '';
+    const cacheKey = `search:suggest:v3:${dictVersion}:${prefix}:${limit}`;
     if (this.cache.isEnabled()) {
       const cached =
         await this.cache.get<Array<{ text: string; kind: string }>>(cacheKey);
       if (cached) return { suggestions: cached };
     }
 
-    const rows = await this.repo.suggestPrefixes(prefix, limit);
-    const seen = new Set<string>();
-    const suggestions: Array<{ text: string; kind: string }> = [];
+    const [rows, popular, trendingTags] = await Promise.all([
+      this.repo.suggestPrefixes(prefix, limit),
+      this.popularQueries(prefix),
+      this.trendingTagsFor(raw),
+    ]);
 
-    for (const row of rows.sort((a, b) => b.weight - a.weight)) {
-      const key = normalizeArabicSearchText(row.text);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      suggestions.push({ text: row.text.trim(), kind: row.kind });
-      if (suggestions.length >= limit) break;
-    }
+    // Real listing titles / services keep their existing weights and order.
+    const dbSorted = [...rows].sort((a, b) => b.weight - a.weight);
+    const suggestions = mergeSuggestions(
+      [
+        {
+          kind: 'listing',
+          weight: 4,
+          items: dbSorted
+            .filter((r) => r.kind === 'listing')
+            .map((r) => r.text),
+        },
+        { kind: 'query', weight: 3, items: popular, cap: 3 },
+        { kind: 'hashtag', weight: 2.5, items: trendingTags, cap: 2 },
+        {
+          kind: 'term',
+          weight: 2,
+          items: this.dict().suggest(raw, limit),
+          cap: 5,
+        },
+        {
+          kind: 'service',
+          weight: 1,
+          items: dbSorted
+            .filter((r) => r.kind !== 'listing')
+            .map((r) => r.text),
+        },
+      ],
+      limit,
+    );
 
     if (this.cache.isEnabled()) {
       await this.cache
@@ -179,29 +317,61 @@ export class UnifiedSearchService {
     return { suggestions };
   }
 
+  /** Anonymous, aggregate popularity of successful page-1 queries. */
+  private recordPopularQuery(
+    query: string,
+    page: number,
+    groups: SearchGroup[],
+  ) {
+    if (page !== 1 || !this.cache.isEnabled()) return;
+    const text = query.trim();
+    if (text.length < 2 || text.length > 40) return;
+    if (!groups.some((g) => g.items.length > 0)) return;
+    void this.cache
+      .zincrby?.(POPULAR_QUERIES_KEY, text, 1, POPULAR_QUERIES_TTL_SEC)
+      ?.catch?.(() => {});
+  }
+
+  private async popularQueries(prefix: string): Promise<string[]> {
+    if (!this.cache.isEnabled() || typeof this.cache.zrevrange !== 'function') {
+      return [];
+    }
+    const top = await this.cache
+      .zrevrange(POPULAR_QUERIES_KEY, 0, POPULAR_SCAN - 1)
+      .catch(() => [] as string[]);
+    return matchPrefix(top ?? [], prefix);
+  }
+
+  private async trendingTagsFor(raw: string): Promise<string[]> {
+    if (!this.trending) return [];
+    try {
+      const { trending } = await this.trending.getTrending({
+        window: '7d',
+        limit: 30,
+      });
+      return matchPrefix(
+        trending.map((t) => t.displayTag ?? t.tag),
+        raw,
+        true,
+      );
+    } catch {
+      return [];
+    }
+  }
+
   private async searchGroup(
     groupType: Exclude<SearchType, 'all'>,
-    args: {
-      query: string;
-      tokens: string[];
-      type: SearchType;
-      page: number;
-      limit: number;
-      skip: number;
-      filters: {
-        categoryId?: string;
-        subcategoryId?: string;
-        country?: string;
-        minPrice?: number;
-        maxPrice?: number;
-        region?: string;
-      };
-    },
+    args: GroupArgs,
   ): Promise<SearchGroup> {
     const groupLimit = args.type === 'all' ? ALL_TYPE_PER_GROUP : args.limit;
     const groupSkip = args.type === 'all' ? 0 : args.skip;
     const fetchTake = groupLimit + 1;
-    const { query, tokens, filters } = args;
+    const { query, filters, hashtag, expansions, intent } = args;
+    // Hashtag mode: non-post groups match the tag as one phrase ("حلال الطيبين").
+    const tokens = hashtag
+      ? [hashtag.normalizedTag.slice(1).replace(/_/g, ' ')]
+      : args.tokens;
+    const altTerms = expansions.map((alts) => alts.map((a) => a.term));
 
     let items: SearchResultItem[] = [];
     switch (groupType) {
@@ -209,15 +379,58 @@ export class UnifiedSearchService {
         items = await this.mapListings(
           query,
           tokens,
-          await this.repo.searchListings(tokens, filters, groupSkip, fetchTake),
+          altTerms.some((a) => a.length)
+            ? await this.repo.searchListings(
+                tokens,
+                filters,
+                groupSkip,
+                fetchTake,
+                altTerms,
+              )
+            : await this.repo.searchListings(
+                tokens,
+                filters,
+                groupSkip,
+                fetchTake,
+              ),
+          expansions,
+          intent,
         );
         break;
       case 'posts':
-        items = this.mapPosts(
-          query,
-          tokens,
-          await this.repo.searchPosts(tokens, groupSkip, fetchTake),
-        );
+        if (hashtag) {
+          const rows = await this.repo.searchPostsByHashtag(
+            [hashtag.displayTag, hashtag.normalizedTag],
+            groupSkip,
+            fetchTake * HASHTAG_OVERFETCH,
+          );
+          items = this.mapPosts(
+            query,
+            tokens,
+            rows
+              .filter((row) =>
+                textHasHashtag(
+                  `${row.content ?? ''}\n${row.arabicContent ?? ''}`,
+                  hashtag.normalizedTag,
+                ),
+              )
+              .slice(0, fetchTake),
+          );
+        } else {
+          items = this.mapPosts(
+            query,
+            tokens,
+            altTerms.some((a) => a.length)
+              ? await this.repo.searchPosts(
+                  tokens,
+                  groupSkip,
+                  fetchTake,
+                  altTerms,
+                )
+              : await this.repo.searchPosts(tokens, groupSkip, fetchTake),
+            expansions,
+          );
+        }
         break;
       case 'news':
         items = this.mapNews(
@@ -258,18 +471,44 @@ export class UnifiedSearchService {
     query: string,
     tokens: string[],
     rows: Awaited<ReturnType<UnifiedSearchRepository['searchListings']>>,
+    expansions: RankAlternative[][] = [],
+    intent: Partial<RankMetadata> = {},
   ): Promise<SearchResultItem[]> {
+    const hasIntent = Object.values(intent).some(Boolean);
+    const dict = hasIntent ? this.dict() : null;
     const scored = rows.map((row) => {
-      const relevance = scoreSearchMatch(query, tokens, {
-        title: row.arabicTitle || row.title,
+      const title = row.arabicTitle || row.title;
+      const description = row.arabicDescription || row.description;
+      const keywords = [row.breed ?? ''].filter(Boolean);
+      let relevance = scoreSearchMatch(query, tokens, {
+        title,
         subtitle: row.arabicLocation || row.location,
-        description: row.arabicDescription || row.description,
+        description,
         category: row.marketCategory?.nameAr ?? row.category,
-        keywords: [row.breed ?? ''].filter(Boolean),
+        keywords,
         createdAt: row.createdAt,
         boost:
           (isFeaturedActive(row) ? 2 : 0) + (isPromotedActive(row) ? 1 : 0),
       });
+      relevance += scoreAliasMatch(tokens, expansions, {
+        title,
+        description,
+        keywords,
+      });
+      if (dict) {
+        // Probabilistic, internal only: never returned to clients as fact.
+        const rowMeta = toRankMetadata(
+          dict.extractMetadata(
+            `${title} ${row.breed ?? ''} ${row.age ?? ''} ${description ?? ''}`,
+          ),
+        );
+        relevance += scoreMetadataMatch(
+          intent,
+          rowMeta,
+          LISTING_CATEGORY_TO_ANIMAL[row.category as string] ?? null,
+        );
+      }
+      relevance = Math.round(relevance * 100) / 100;
       return {
         type: 'listings' as const,
         id: row.id,
@@ -288,14 +527,20 @@ export class UnifiedSearchService {
     query: string,
     tokens: string[],
     rows: Awaited<ReturnType<UnifiedSearchRepository['searchPosts']>>,
+    expansions: RankAlternative[][] = [],
   ): SearchResultItem[] {
     const scored = rows.map((row) => {
       const body = row.arabicContent || row.content;
-      const relevance = scoreSearchMatch(query, tokens, {
-        title: body.slice(0, 120),
-        description: body,
-        createdAt: row.createdAt,
-      });
+      const relevance =
+        scoreSearchMatch(query, tokens, {
+          title: body.slice(0, 120),
+          description: body,
+          createdAt: row.createdAt,
+        }) +
+        scoreAliasMatch(tokens, expansions, {
+          title: body.slice(0, 120),
+          description: body,
+        });
       return {
         type: 'posts' as const,
         id: row.id,

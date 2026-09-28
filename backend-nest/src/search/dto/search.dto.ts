@@ -23,6 +23,14 @@ export const SEARCH_TYPES = [
 
 export type SearchType = (typeof SEARCH_TYPES)[number];
 
+export const SEARCH_ANIMAL_TYPES = [
+  'sheep',
+  'goat',
+  'camel',
+  'cattle',
+  'horse',
+] as const;
+
 export class UnifiedSearchQueryDto {
   @IsString()
   @MinLength(2)
@@ -75,6 +83,28 @@ export class UnifiedSearchQueryDto {
   @IsString()
   @MaxLength(80)
   region?: string;
+
+  /** Advanced (optional): livestock animal type -> listing category filter. */
+  @IsOptional()
+  @IsEnum(SEARCH_ANIMAL_TYPES)
+  animalType?: (typeof SEARCH_ANIMAL_TYPES)[number];
+
+  /** Advanced (optional): breed name, matched in breed/title/description. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  breed?: string;
+
+  /** Advanced (optional): ranking hint only (text-derived, never a hard filter). */
+  @IsOptional()
+  @IsEnum(['male', 'female'] as const)
+  gender?: 'male' | 'female';
+
+  /** Advanced (optional): age/stage term - ranking hint only. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  ageStage?: string;
 }
 
 export class SearchSuggestQueryDto {

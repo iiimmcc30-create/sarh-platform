@@ -12,6 +12,8 @@ export type ExploreSectionType =
 
 export type ExploreTrendingItem = {
   tag: string;
+  /** Additive: full tag as written (#اذكرو_الله). */
+  displayTag?: string;
   kind?: string;
   count?: number;
   score?: number;
@@ -64,6 +66,7 @@ export type ExploreFeedResponse = {
 export type TrendingFeedResponse = {
   trending: Array<{
     tag: string;
+    displayTag?: string;
     kind?: string;
     count: number;
     score?: number;

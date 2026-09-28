@@ -5,6 +5,7 @@ import { SearchController } from './search.controller';
 import { SearchService, SearchRepository } from './search.service';
 import { UnifiedSearchRepository } from './repositories/unified-search.repository';
 import { UnifiedSearchService } from './unified-search.service';
+import { LivestockDictionaryService } from './terms/livestock-dictionary.service';
 
 @Module({
   imports: [RedisModule],
@@ -15,7 +16,13 @@ import { UnifiedSearchService } from './unified-search.service';
     ExploreSearchService,
     UnifiedSearchRepository,
     UnifiedSearchService,
+    LivestockDictionaryService,
   ],
-  exports: [UnifiedSearchService, SearchService, ExploreSearchService],
+  exports: [
+    UnifiedSearchService,
+    SearchService,
+    ExploreSearchService,
+    LivestockDictionaryService,
+  ],
 })
 export class SearchModule {}

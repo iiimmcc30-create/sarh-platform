@@ -163,3 +163,96 @@ export function rankSearchResults<
     return bTime - aTime;
   });
 }
+
+export type RankAlternative = { term: string; weight: number };
+
+/**
+ * Score for rows that matched a query token only through a dictionary alias
+ * (e.g. query "غنم", row says "خراف"). Capped below a direct title hit
+ * (`titleToken` = 18) so an exact match always outranks an alias match, and
+ * scaled by the alias weight (low-confidence terms weigh less).
+ */
+export function scoreAliasMatch(
+  tokens: string[],
+  expansions: RankAlternative[][],
+  fields: Pick<SearchRankFields, 'title' | 'description' | 'keywords'>,
+): number {
+  if (!expansions.length) return 0;
+  const title = norm(fields.title);
+  const description = norm(fields.description);
+  const keywords = (fields.keywords ?? []).map((k) => norm(k)).join(' ');
+  let score = 0;
+  tokens.forEach((token, i) => {
+    const t = norm(token);
+    // Direct hit already scored by scoreSearchMatch.
+    if (
+      t &&
+      (title.includes(t) || description.includes(t) || keywords.includes(t))
+    )
+      return;
+    let best = 0;
+    for (const alt of expansions[i] ?? []) {
+      const a = norm(alt.term);
+      if (!a) continue;
+      if (title.includes(a)) best = Math.max(best, 12 * alt.weight);
+      else if (keywords.includes(a)) best = Math.max(best, 8 * alt.weight);
+      else if (description.includes(a)) best = Math.max(best, 6 * alt.weight);
+    }
+    score += best;
+  });
+  return Math.round(score * 100) / 100;
+}
+
+export type RankMetadataField = { value: string; confidence: number } | null;
+
+export type RankMetadata = {
+  animalType: RankMetadataField;
+  breed: RankMetadataField;
+  gender: RankMetadataField;
+  ageStage: RankMetadataField;
+  reproductiveStatus: RankMetadataField;
+};
+
+/**
+ * Small, confidence-weighted bonus when the query intent (from text or the
+ * optional advanced params) agrees with a listing's extracted metadata or its
+ * structured category. Max ~12 - never beats a strong text match.
+ */
+export function scoreMetadataMatch(
+  intent: Partial<RankMetadata>,
+  row: Partial<RankMetadata>,
+  rowCategoryAnimal?: string | null,
+): number {
+  let score = 0;
+  const same = (a?: RankMetadataField, b?: RankMetadataField) =>
+    !!a && !!b && norm(a.value) === norm(b.value);
+  if (intent.animalType) {
+    if (rowCategoryAnimal && rowCategoryAnimal === intent.animalType.value) {
+      score += 4 * intent.animalType.confidence;
+    } else if (same(intent.animalType, row.animalType)) {
+      score +=
+        3 * intent.animalType.confidence * (row.animalType?.confidence ?? 0);
+    }
+  }
+  if (same(intent.breed, row.breed)) {
+    score += 4 * (intent.breed?.confidence ?? 0) * (row.breed?.confidence ?? 0);
+  }
+  if (same(intent.gender, row.gender)) {
+    score +=
+      2 * (intent.gender?.confidence ?? 0) * (row.gender?.confidence ?? 0);
+  }
+  if (same(intent.ageStage, row.ageStage)) {
+    score +=
+      1.5 *
+        (intent.ageStage?.confidence ?? 0) *
+        (row.ageStage?.confidence ?? 0) +
+      0.5;
+  }
+  if (same(intent.reproductiveStatus, row.reproductiveStatus)) {
+    score +=
+      1.5 *
+      (intent.reproductiveStatus?.confidence ?? 0) *
+      (row.reproductiveStatus?.confidence ?? 0);
+  }
+  return Math.round(Math.min(12, score) * 100) / 100;
+}

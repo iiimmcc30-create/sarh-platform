@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type ListingCategory } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { notDeleted } from '../../common/utils/soft-delete.util';
 import { rankByEffectiveBoost } from '../../listings/boost/boost-effective-state';
@@ -12,7 +12,34 @@ export type ListingSearchFilters = {
   minPrice?: number;
   maxPrice?: number;
   region?: string;
+  /** Advanced: ListingCategory enum value (explicit request only). */
+  listingCategory?: string;
+  /** Advanced: breed text (explicit request only). */
+  breed?: string;
 };
+
+/**
+ * Optional dictionary expansions: `expansions[i]` are alternative terms for
+ * `tokens[i]` (aliases / related). Each token still has to match - via
+ * itself OR one of its alternatives - so expansion never widens to unrelated
+ * rows. Variants per alternative are capped to keep the query small.
+ */
+export type TokenExpansions = string[][];
+
+const MAX_VARIANTS_PER_ALTERNATIVE = 4;
+
+function tokenVariants(token: string, alternatives: string[] = []): string[] {
+  const out = new Set<string>(searchTextVariants(token));
+  for (const alt of alternatives) {
+    for (const v of searchTextVariants(alt).slice(
+      0,
+      MAX_VARIANTS_PER_ALTERNATIVE,
+    )) {
+      out.add(v);
+    }
+  }
+  return [...out];
+}
 
 const LISTING_SELECT = {
   id: true,
@@ -58,9 +85,35 @@ const LISTING_SELECT = {
   },
 } satisfies Prisma.ListingSelect;
 
-function listingTokenConditions(tokens: string[]): Prisma.ListingWhereInput[] {
-  return tokens.map((token) => {
-    const variants = searchTextVariants(token);
+const POST_SEARCH_SELECT = {
+  id: true,
+  content: true,
+  arabicContent: true,
+  image: true,
+  images: true,
+  likesCount: true,
+  repostsCount: true,
+  commentsCount: true,
+  viewsCount: true,
+  createdAt: true,
+  author: {
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      arabicName: true,
+      avatar: true,
+      verified: true,
+    },
+  },
+} satisfies Prisma.PostSelect;
+
+function listingTokenConditions(
+  tokens: string[],
+  expansions: TokenExpansions = [],
+): Prisma.ListingWhereInput[] {
+  return tokens.map((token, i) => {
+    const variants = tokenVariants(token, expansions[i]);
     const ors: Prisma.ListingWhereInput[] = [];
     for (const v of variants) {
       ors.push(
@@ -86,6 +139,7 @@ export class UnifiedSearchRepository {
     filters: ListingSearchFilters,
     skip: number,
     take: number,
+    expansions: TokenExpansions = [],
   ) {
     const where: Prisma.ListingWhereInput = {
       status: 'active',
@@ -124,8 +178,26 @@ export class UnifiedSearchRepository {
       });
     }
 
+    if (filters.listingCategory) {
+      andFilters.push({
+        category: filters.listingCategory as ListingCategory,
+      });
+    }
+
+    if (filters.breed?.trim()) {
+      const ors: Prisma.ListingWhereInput[] = [];
+      for (const v of searchTextVariants(filters.breed.trim())) {
+        ors.push(
+          { breed: { contains: v, mode: 'insensitive' } },
+          { arabicTitle: { contains: v } },
+          { arabicDescription: { contains: v } },
+        );
+      }
+      andFilters.push({ OR: ors });
+    }
+
     if (tokens.length > 0) {
-      andFilters.push({ AND: listingTokenConditions(tokens) });
+      andFilters.push({ AND: listingTokenConditions(tokens, expansions) });
     }
 
     if (andFilters.length > 0) {
@@ -148,15 +220,20 @@ export class UnifiedSearchRepository {
     return rankByEffectiveBoost(rows);
   }
 
-  searchPosts(tokens: string[], skip: number, take: number) {
+  searchPosts(
+    tokens: string[],
+    skip: number,
+    take: number,
+    expansions: TokenExpansions = [],
+  ) {
     const where: Prisma.PostWhereInput = {
       ...notDeleted,
       isHidden: false,
     };
 
     if (tokens.length > 0) {
-      where.AND = tokens.map((token) => {
-        const variants = searchTextVariants(token);
+      where.AND = tokens.map((token, i) => {
+        const variants = tokenVariants(token, expansions[i]);
         return {
           OR: variants.flatMap((v) => [
             { arabicContent: { contains: v } },
@@ -168,28 +245,38 @@ export class UnifiedSearchRepository {
 
     return this.prisma.post.findMany({
       where,
-      select: {
-        id: true,
-        content: true,
-        arabicContent: true,
-        image: true,
-        images: true,
-        likesCount: true,
-        repostsCount: true,
-        commentsCount: true,
-        viewsCount: true,
-        createdAt: true,
-        author: {
-          select: {
-            id: true,
-            username: true,
-            displayName: true,
-            arabicName: true,
-            avatar: true,
-            verified: true,
-          },
-        },
+      select: POST_SEARCH_SELECT,
+      skip,
+      take,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Hashtag search: rows whose text contains the literal tag (`#حلال_الطيبين`,
+   * alef/ta-marbuta tolerant). Callers post-filter with textHasHashtag so a
+   * longer tag (`#حلال_الطيبين_2`) is not counted as a match.
+   */
+  searchPostsByHashtag(tagForms: string[], skip: number, take: number) {
+    const variants = new Set<string>();
+    for (const form of tagForms) {
+      for (const v of searchTextVariants(form)) {
+        // searchTextVariants strips `#`/`_` in its normalized seed - keep only
+        // literal tag variants.
+        if (v.startsWith('#') || v.startsWith('＃')) variants.add(v);
+      }
+      variants.add(form);
+    }
+    return this.prisma.post.findMany({
+      where: {
+        ...notDeleted,
+        isHidden: false,
+        OR: [...variants].flatMap((v) => [
+          { arabicContent: { contains: v } },
+          { content: { contains: v, mode: 'insensitive' as const } },
+        ]),
       },
+      select: POST_SEARCH_SELECT,
       skip,
       take,
       orderBy: { createdAt: 'desc' },

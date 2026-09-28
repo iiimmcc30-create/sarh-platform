@@ -5,6 +5,8 @@
  */
 export type TrendingApiItem = {
   tag?: string | null;
+  /** Additive API field: the tag exactly as users wrote it (multi-word tags keep their underscores). */
+  displayTag?: string | null;
   kind?: string | null;
   count?: number | null;
   score?: number | null;
@@ -31,6 +33,8 @@ export const TRENDING_ROW = {
 } as const;
 
 export const TRENDING_NEUTRAL_LABEL = 'متداول';
+/** Heading of the trending block at the top of the Search page. */
+export const TRENDING_SECTION_TITLE = 'المواضيع المتداولة';
 export const TRENDING_META_SEPARATOR = ' • ';
 /** How many trends the Explore tab previews (the Trending tab shows all). */
 export const EXPLORE_TRENDING_PREVIEW = 5;
@@ -67,13 +71,24 @@ export function trendingPostCountLabel(count: number | null | undefined): string
   return `${n} منشور`;
 }
 
-/** API items -> rows, keeping API order; drops empty tags and duplicates. */
+/** Display text of a trend: the full tag as written, never re-split. */
+export function trendingDisplayTitle(item: TrendingApiItem | null | undefined): string {
+  const display = typeof item?.displayTag === 'string' ? item.displayTag.trim() : '';
+  if (display) return display;
+  return typeof item?.tag === 'string' ? item.tag.trim() : '';
+}
+
+/**
+ * API items -> rows, keeping API order; drops empty tags and duplicates.
+ * The title AND the tap query are the whole tag (underscores included), so a tap
+ * searches the full hashtag - never its parts.
+ */
 export function toTrendingRows(items: readonly TrendingApiItem[] | null | undefined): TrendingRow[] {
   if (!Array.isArray(items)) return [];
   const seen = new Set<string>();
   const rows: TrendingRow[] = [];
   for (const item of items) {
-    const title = typeof item?.tag === 'string' ? item.tag.trim() : '';
+    const title = trendingDisplayTitle(item);
     if (!title) continue;
     const key = title.toLowerCase();
     if (seen.has(key)) continue;

@@ -90,6 +90,37 @@ export class RedisCacheService {
     }
   }
 
+  /** Sorted-set increment (best effort; no-op when Redis is unavailable). */
+  async zincrby(
+    key: string,
+    member: string,
+    by = 1,
+    ttl = DEFAULT_TTL,
+  ): Promise<void> {
+    if (!this.isEnabled()) return;
+    try {
+      const client = this.getClient();
+      if (client.status !== 'ready') return;
+      await client.zincrby(key, by, member);
+      await client.expire(key, ttl);
+    } catch (err) {
+      this.markUnavailable(err);
+    }
+  }
+
+  /** Top members of a sorted set, highest score first ([] when unavailable). */
+  async zrevrange(key: string, start: number, stop: number): Promise<string[]> {
+    if (!this.isEnabled()) return [];
+    try {
+      const client = this.getClient();
+      if (client.status !== 'ready') return [];
+      return await client.zrevrange(key, start, stop);
+    } catch (err) {
+      this.markUnavailable(err);
+      return [];
+    }
+  }
+
   async srem(key: string, member: string): Promise<void> {
     this.memorySets.get(key)?.delete(member);
     if (!this.isEnabled()) return;

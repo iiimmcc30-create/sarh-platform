@@ -14,7 +14,12 @@ import { openPostDetail } from '@/lib/openPost';
 import { safePush } from '@/lib/safeNavigate';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { TrendingTopicRow } from '@/components/feature/TrendingTopicRow';
-import { EXPLORE_TRENDING_PREVIEW, toTrendingRows, type TrendingRow } from '@/lib/searchTrending';
+import {
+  EXPLORE_TRENDING_PREVIEW,
+  TRENDING_SECTION_TITLE,
+  toTrendingRows,
+  type TrendingRow,
+} from '@/lib/searchTrending';
 import { orderExploreSections } from '@/lib/searchExplore';
 import { AppText, SarhBackButton, SarhChipRow, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
@@ -877,8 +882,128 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
       );
     }
 
+    // "المواضيع المتداولة" leads the Search page (full hashtags as written);
+    // recent searches and the other discovery sections follow unchanged.
+    const trendingSections = visibleSections.filter((sec) => sec.type === 'trending_topics');
+    const otherSections = visibleSections.filter((sec) => sec.type !== 'trending_topics');
+    const renderSection = (sec: ExploreFeedSection) => {
+      if (sec.type === 'trending_topics') {
+        const rows = toTrendingRows(sec.items as ExploreTrendingItem[]).slice(
+          0,
+          EXPLORE_TRENDING_PREVIEW,
+        );
+        if (!rows.length) return null;
+        return (
+          <Stack key={sec.type} gap="none">
+            <AppText variant="heading3" style={{ paddingHorizontal: gutter }}>
+              {TRENDING_SECTION_TITLE}
+            </AppText>
+            <View accessibilityRole="list">{renderTrendingRows(rows)}</View>
+          </Stack>
+        );
+      }
+      if (sec.type === 'accounts') {
+        const items = sec.items as ExploreAccountItem[];
+        if (!items.length) return null;
+        return (
+          <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
+            <AppText variant="heading3">{sec.title}</AppText>
+            {items.map((user) => (
+              <UserIdentityRow
+                key={user.id}
+                avatarUri={user.avatar}
+                displayName={user.arabicName || user.displayName || user.username}
+                username={user.username}
+                verified={user.verified}
+                avatarSize={USER_IDENTITY.listAvatarSize}
+                avatarRadius={USER_IDENTITY.listAvatarRadius}
+                avatarBorderWidth={USER_IDENTITY.listAvatarBorder}
+                nameLines={2}
+                onPress={() =>
+                  router.push({ pathname: '/users/[id]', params: { id: user.id } } as never)
+                }
+                style={styles.userRow}
+              />
+            ))}
+          </Stack>
+        );
+      }
+      if (sec.type === 'feed_suppliers') {
+        const items = sec.items as ExploreSupplierItem[];
+        if (!items.length) return null;
+        return (
+          <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
+            <AppText variant="heading3">{sec.title}</AppText>
+            {items.map((s) => (
+              <Pressable
+                key={s.id}
+                style={styles.resultRow}
+                onPress={() =>
+                  router.push({ pathname: '/feed-suppliers/[id]', params: { id: s.id } } as never)
+                }
+              >
+                <Row gap="md" align="center">
+                  {s.logo ? (
+                    <Image source={uriSource(s.logo)} style={styles.resultThumb} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.resultThumb, styles.resultThumbPlaceholder]}>
+                      <AppIcon name="store" size={18} color={colors.textMuted} />
+                    </View>
+                  )}
+                  <Stack gap="xs" style={styles.resultBody}>
+                    <VerifiedInlineName name={s.nameAr} verified={s.verified}>
+                      <AppText variant="body" numberOfLines={1} style={styles.nameShrink}>
+                        {s.nameAr}
+                      </AppText>
+                    </VerifiedInlineName>
+                    {s.cityAr ? (
+                      <AppText variant="caption" color="textMuted">
+                        {s.cityAr}
+                      </AppText>
+                    ) : null}
+                  </Stack>
+                </Row>
+              </Pressable>
+            ))}
+          </Stack>
+        );
+      }
+      if (sec.type === 'news') {
+        const items = sec.items as ExploreNewsItem[];
+        if (!items.length) return null;
+        return (
+          <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
+            <AppText variant="heading3">{sec.title}</AppText>
+            {items.map((n) => (
+              <Pressable
+                key={n.id}
+                style={styles.resultRow}
+                onPress={() => router.push('/news' as never)}
+              >
+                <Row gap="md" align="center">
+                  {n.imageUrl ? (
+                    <Image
+                      source={uriSource(cloudinaryFitUrl(n.imageUrl, 'row'))}
+                      style={styles.resultThumb}
+                      contentFit="cover"
+                    />
+                  ) : null}
+                  <AppText variant="body" numberOfLines={2} style={styles.flex}>
+                    {n.titleAr}
+                  </AppText>
+                </Row>
+              </Pressable>
+            ))}
+          </Stack>
+        );
+      }
+      return null;
+    };
+
     return (
       <Stack gap="lg">
+        {trendingSections.map(renderSection)}
+
         {recentSearches.length > 0 ? (
           <Stack gap="sm" style={{ paddingHorizontal: gutter }}>
             <Row justify="between" align="center">
@@ -908,119 +1033,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
           </Stack>
         ) : null}
 
-        {visibleSections.map((sec) => {
-          if (sec.type === 'trending_topics') {
-            const rows = toTrendingRows(sec.items as ExploreTrendingItem[]).slice(
-              0,
-              EXPLORE_TRENDING_PREVIEW,
-            );
-            if (!rows.length) return null;
-            return (
-              <Stack key={sec.type} gap="none">
-                <AppText variant="heading3" style={{ paddingHorizontal: gutter }}>
-                  {sec.title}
-                </AppText>
-                <View accessibilityRole="list">{renderTrendingRows(rows)}</View>
-              </Stack>
-            );
-          }
-          if (sec.type === 'accounts') {
-            const items = sec.items as ExploreAccountItem[];
-            if (!items.length) return null;
-            return (
-              <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
-                <AppText variant="heading3">{sec.title}</AppText>
-                {items.map((user) => (
-                  <UserIdentityRow
-                    key={user.id}
-                    avatarUri={user.avatar}
-                    displayName={user.arabicName || user.displayName || user.username}
-                    username={user.username}
-                    verified={user.verified}
-                    avatarSize={USER_IDENTITY.listAvatarSize}
-                    avatarRadius={USER_IDENTITY.listAvatarRadius}
-                    avatarBorderWidth={USER_IDENTITY.listAvatarBorder}
-                    nameLines={2}
-                    onPress={() =>
-                      router.push({ pathname: '/users/[id]', params: { id: user.id } } as never)
-                    }
-                    style={styles.userRow}
-                  />
-                ))}
-              </Stack>
-            );
-          }
-          if (sec.type === 'feed_suppliers') {
-            const items = sec.items as ExploreSupplierItem[];
-            if (!items.length) return null;
-            return (
-              <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
-                <AppText variant="heading3">{sec.title}</AppText>
-                {items.map((s) => (
-                  <Pressable
-                    key={s.id}
-                    style={styles.resultRow}
-                    onPress={() =>
-                      router.push({ pathname: '/feed-suppliers/[id]', params: { id: s.id } } as never)
-                    }
-                  >
-                    <Row gap="md" align="center">
-                      {s.logo ? (
-                        <Image source={uriSource(s.logo)} style={styles.resultThumb} contentFit="cover" />
-                      ) : (
-                        <View style={[styles.resultThumb, styles.resultThumbPlaceholder]}>
-                          <AppIcon name="store" size={18} color={colors.textMuted} />
-                        </View>
-                      )}
-                      <Stack gap="xs" style={styles.resultBody}>
-                        <VerifiedInlineName name={s.nameAr} verified={s.verified}>
-                          <AppText variant="body" numberOfLines={1} style={styles.nameShrink}>
-                            {s.nameAr}
-                          </AppText>
-                        </VerifiedInlineName>
-                        {s.cityAr ? (
-                          <AppText variant="caption" color="textMuted">
-                            {s.cityAr}
-                          </AppText>
-                        ) : null}
-                      </Stack>
-                    </Row>
-                  </Pressable>
-                ))}
-              </Stack>
-            );
-          }
-          if (sec.type === 'news') {
-            const items = sec.items as ExploreNewsItem[];
-            if (!items.length) return null;
-            return (
-              <Stack key={sec.type} gap="sm" style={{ paddingHorizontal: gutter }}>
-                <AppText variant="heading3">{sec.title}</AppText>
-                {items.map((n) => (
-                  <Pressable
-                    key={n.id}
-                    style={styles.resultRow}
-                    onPress={() => router.push('/news' as never)}
-                  >
-                    <Row gap="md" align="center">
-                      {n.imageUrl ? (
-                        <Image
-                          source={uriSource(cloudinaryFitUrl(n.imageUrl, 'row'))}
-                          style={styles.resultThumb}
-                          contentFit="cover"
-                        />
-                      ) : null}
-                      <AppText variant="body" numberOfLines={2} style={styles.flex}>
-                        {n.titleAr}
-                      </AppText>
-                    </Row>
-                  </Pressable>
-                ))}
-              </Stack>
-            );
-          }
-          return null;
-        })}
+        {otherSections.map(renderSection)}
       </Stack>
     );
   };
