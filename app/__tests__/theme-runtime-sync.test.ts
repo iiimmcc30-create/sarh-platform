@@ -23,10 +23,10 @@ describe('theme runtime Light ↔ Dark sync', () => {
     expect(resolveSarhCardStyle('default', 'none').backgroundColor).toBe('#FFFFFF');
     expect(resolveAppTextStyle({ color: 'textPrimary' }).color).toBe('#101820');
     expect(functional.onPrimaryInverse).toBe('#F8F9FA');
-    expect(resolveSarhButtonColors('primary', 'default').backgroundColor).toBe('#20B66F');
+    expect(resolveSarhButtonColors('primary', 'default').backgroundColor).toBe('#1C8354');
     expect(resolveSarhButtonColors('primary', 'default').contentColor).toBe('#FFFFFF');
-    expect(colors.primary).toBe('#20B66F');
-    expect(colors.success).toBe('#20B66F');
+    expect(colors.primary).toBe('#1C8354');
+    expect(colors.success).toBe('#1C8354');
 
     applyThemeScheme('dark');
     expect(colors.background).toBe('#07131C');
@@ -37,8 +37,8 @@ describe('theme runtime Light ↔ Dark sync', () => {
     expect(resolveAppTextStyle({ color: 'textPrimary' }).color).toBe('#F4F7F9');
     expect(resolveSarhButtonColors('primary', 'default').backgroundColor).toBe('#FFFFFF');
     expect(resolveSarhButtonColors('primary', 'default').contentColor).toBe('#07131C');
-    expect(colors.primary).toBe('#20B66F');
-    expect(colors.success).toBe('#20B66F');
+    expect(colors.primary).toBe('#24A86C');
+    expect(colors.success).toBe('#24A86C');
 
     applyThemeScheme('light');
     expect(colors.background).toBe('#FFFFFF');

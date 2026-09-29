@@ -1484,7 +1484,7 @@ function createMessageStyles(colors: ThemeColors) {
     gap: 4,
   },
   offerCardMe: {
-    borderColor: 'rgba(32, 182, 111, 0.35)',
+    borderColor: 'rgba(28, 131, 84, 0.35)',
   },
   offerAmount: {
     color: colors.electricBright,

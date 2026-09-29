@@ -81,7 +81,8 @@ export type ThemeGradients = {
 
 const sharedAccents = {
   gold: '#F5C56A',
-  emerald: '#20B66F',
+  /** Brand green alias — per scheme (overridden in the light palette below). */
+  emerald: sarh.color.action,
   /** @deprecated Former theme.danger — keep for decorative rose accents only. */
   rose: '#F43F5E',
   /** @deprecated Former theme.warning — keep for gold-ring accents only. */
@@ -135,11 +136,11 @@ const lightColors: BaseThemeColors = {
   bgOverlay: 'rgba(16, 24, 32, 0.45)',
   royal: LIGHT_CHIP,
   royalDeep: LIGHT_FIELD,
-  /** Keep existing brand accent (not a new identity color) */
-  electric: '#20B66F',
-  electricBright: '#20B66F',
-  glow: '#18965B',
-  cyan: '#20B66F',
+  /** Light brand primary #1C8354 (reference image) and its pressed shade. */
+  electric: sarh.color.lightAction,
+  electricBright: sarh.color.lightAction,
+  glow: sarh.color.lightActionPressed,
+  cyan: sarh.color.lightAction,
   silver: '#65727D',
   silverBright: '#101820',
   textPrimary: '#101820',
@@ -151,6 +152,8 @@ const lightColors: BaseThemeColors = {
   borderStrong: '#DDE1E6',
   borderHairline: LIGHT_BORDER,
   ...sharedAccents,
+  emerald: sarh.color.lightAction,
+  success: sarh.color.lightSuccess,
 };
 
 const darkGradients: ThemeGradients = {
@@ -168,14 +171,14 @@ const darkGradients: ThemeGradients = {
 
 const lightGradients: ThemeGradients = {
   hero: [LIGHT_PAGE, LIGHT_PAGE, '#FFFFFF'],
-  royal: [LIGHT_CHIP, LIGHT_FIELD, '#20B66F'],
+  royal: [LIGHT_CHIP, LIGHT_FIELD, sarh.color.lightAction],
   glass: ['rgba(255,255,255,0.96)', 'rgba(248,249,250,0.90)'],
   liveOverlay: ['transparent', 'rgba(255,255,255,0.35)', 'rgba(248,249,250,0.96)'],
   card: ['#FFFFFF', '#FFFFFF'],
   cardHover: ['#FFFFFF', LIGHT_PAGE],
   goldRing: ['#F5C56A', '#FBBF24', '#F5C56A'],
-  electric: ['#20B66F', '#18965B', '#20B66F'],
-  primary: ['#20B66F', '#18965B', LIGHT_CHIP],
+  electric: [sarh.color.lightAction, sarh.color.lightActionPressed, sarh.color.lightAction],
+  primary: [sarh.color.lightAction, sarh.color.lightActionPressed, LIGHT_CHIP],
   rim: ['rgba(230,232,235,0.9)', 'rgba(230,232,235,0)'],
 };
 
@@ -284,7 +287,8 @@ export function applyThemeScheme(scheme: ColorScheme) {
       surfaceElevated: live.bgElevated,
       surfaceAlt: live.royal,
       primary: live.electric,
-      primaryPressed: sarh.color.actionPressed,
+      primaryPressed:
+        scheme === 'dark' ? sarh.color.actionPressed : sarh.color.lightActionPressed,
       textPrimary: live.textPrimary,
       textSecondary: live.textSecondary,
       textMuted: live.textMuted,
@@ -297,7 +301,7 @@ export function applyThemeScheme(scheme: ColorScheme) {
     {
       overlay: scheme === 'dark' ? sarh.color.overlay : live.bgOverlay,
       pattern: scheme === 'dark' ? sarh.color.pattern : live.borderMid,
-      primaryMuted: sarh.color.actionMuted,
+      primaryMuted: scheme === 'dark' ? sarh.color.actionMuted : sarh.color.lightActionMuted,
       onPrimary: sarh.color.fab,
       onPrimaryInverse: live.bgDeep,
     },

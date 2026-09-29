@@ -1,18 +1,20 @@
 /** @deprecated Use `ds` from `@/constants/designSystem` */
 import { ds } from './designSystem';
+import { sarh } from './sarhTokens';
 
 export const pp = {
   pageBg: ds.light.page,
   cardBg: ds.light.card,
   primary: ds.light.primary,
-  primaryDark: '#18965B',
+  primaryDark: sarh.color.lightActionPressed,
   textPrimary: ds.light.textPrimary,
   textSecondary: ds.light.textSecondary,
   textMuted: ds.light.textMuted,
   border: ds.light.stroke,
-  borderSoft: 'rgba(32, 182, 111, 0.12)',
+  borderSoft: 'rgba(28, 131, 84, 0.12)',
   chipInactiveBg: ds.light.chip,
-  verifiedBg: '#E8F7EF',
+  /** ~10% brand tint on white (derived from the Light primary #1C8354). */
+  verifiedBg: '#E8F3EE',
   verifiedText: ds.light.primary,
   space: ds.space,
   radius: {

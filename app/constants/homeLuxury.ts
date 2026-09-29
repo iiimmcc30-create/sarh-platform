@@ -13,7 +13,7 @@ export const luxuryDark = {
   accent: sarh.color.action,
   accentPressed: sarh.color.actionPressed,
   accentSoft: sarh.color.actionMuted,
-  accentGlow: 'rgba(32, 182, 111, 0.22)',
+  accentGlow: 'rgba(36, 168, 108, 0.22)',
   radius: sarh.radius.card,
   tabGlass: sarh.color.overlay,
 } as const;

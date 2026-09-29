@@ -15,10 +15,14 @@ export const sarh = {
     surface: '#0C1C27',
     surfaceRaised: '#102633',
     surfaceAlt: '#142C3A',
-    /** Brand accent — existing identity green (do not replace) */
-    action: '#20B66F',
-    actionPressed: '#18965B',
-    actionMuted: 'rgba(32, 182, 111, 0.14)',
+    /**
+     * Brand accent (Dark Mode). Same hue as the Light primary (#1C8354) but
+     * lighter so text/links reach >= 4.5:1 on every dark surface
+     * (#07131C 6.16 · #0C1C27 5.69 · #102633 5.12 · #142C3A 4.75).
+     */
+    action: '#24A86C',
+    actionPressed: '#1D8958',
+    actionMuted: 'rgba(36, 168, 108, 0.14)',
     text: '#F4F7F9',
     textSecondary: '#94A6B2',
     textMuted: '#657985',
@@ -29,7 +33,16 @@ export const sarh = {
     overlay: 'rgba(7, 19, 28, 0.88)',
     danger: '#E85D5D',
     warning: '#D4A017',
-    success: '#20B66F',
+    success: '#24A86C',
+    /**
+     * Light Mode brand primary — #1C8354 (rgb 28,131,84), taken from the
+     * reference image. White text on it measures 4.75:1 (WCAG AA).
+     * Pressed / muted shades are derived from it (same hue).
+     */
+    lightAction: '#1C8354',
+    lightActionPressed: '#176B44',
+    lightActionMuted: 'rgba(28, 131, 84, 0.14)',
+    lightSuccess: '#1C8354',
     /** Light Mode mirrors (for screens that read sarh.color directly) */
     lightBg: '#F8F9FA',
     lightSurface: '#FFFFFF',

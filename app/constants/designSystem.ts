@@ -1,6 +1,7 @@
 /**
  * Sarh Design System — premium surface hierarchy, spacing grid, glass-lite chrome.
- * UI tokens only; no business logic. Accent = existing brand green (#20B66F).
+ * UI tokens only; no business logic. Accent = brand green: Light #1C8354,
+ * Dark #24A86C (same hue, lifted for dark-surface contrast) — see sarhTokens.
  *
  * Canonical foundation tokens now live in `@/design-system`. Keep importing `ds`
  * from this file in existing screens; do not rewrite call sites in phase 1.
@@ -17,13 +18,13 @@ export const ds = {
     field: '#F1F3F5',
     chip: '#F3F4F5',
     cardGradientEnd: '#F8F9FA',
-    primary: '#20B66F',
-    primaryMuted: 'rgba(32, 182, 111, 0.12)',
+    primary: sarh.color.lightAction,
+    primaryMuted: 'rgba(28, 131, 84, 0.12)',
     /** Chrome glass — denser than before so content behind is felt, not read. */
     glass: 'rgba(255, 255, 255, 0.96)',
     glassBorder: '#E6E8EB',
     stroke: '#E6E8EB',
-    glow: '#20B66F',
+    glow: sarh.color.lightAction,
     textPrimary: '#101820',
     textSecondary: '#65727D',
     textMuted: '#8D99A3',

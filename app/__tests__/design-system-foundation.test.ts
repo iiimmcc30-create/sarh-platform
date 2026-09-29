@@ -29,15 +29,15 @@ describe('Sarh design-system foundation', () => {
     expect(palette.surface).toBe('#0C1C27');
     expect(palette.surfaceRaised).toBe('#102633');
     expect(palette.surfaceAlt).toBe('#142C3A');
-    expect(palette.action).toBe('#20B66F');
-    expect(palette.actionPressed).toBe('#18965B');
+    expect(palette.action).toBe('#24A86C');
+    expect(palette.actionPressed).toBe('#1D8958');
     expect(palette.text).toBe('#F4F7F9');
     expect(palette.textSecondary).toBe('#94A6B2');
     expect(palette.textMuted).toBe('#657985');
     expect(palette.border).toBe('#1B3442');
     expect(palette.danger).toBe('#E85D5D');
     expect(palette.warning).toBe('#D4A017');
-    expect(palette.success).toBe('#20B66F');
+    expect(palette.success).toBe('#24A86C');
 
     expect(colors.background).toBe(sarh.color.bg);
     expect(colors.surface).toBe(sarh.color.surface);
@@ -52,10 +52,10 @@ describe('Sarh design-system foundation', () => {
   it('does not introduce extra brand greens', () => {
     const greens = new Set(
       Object.values({ ...palette, ...colors, ...functional }).filter((value) =>
-        /^#20B66F$|^#18965B$/i.test(value),
+        /^#24A86C$|^#1D8958$|^#1C8354$|^#176B44$|^#20B66F$|^#18965B$/i.test(value),
       ),
     );
-    expect(greens).toEqual(new Set(['#20B66F', '#18965B']));
+    expect(greens).toEqual(new Set(['#24A86C', '#1D8958']));
     expect(colors.success).toBe(colors.primary);
   });
 

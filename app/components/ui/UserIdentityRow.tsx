@@ -3,7 +3,6 @@ import { Image, uriSource } from '@/components/ui/AppImage';
 import { AppText } from '@/components/ui/AppText';
 import { getRtlRow } from '@/lib/rtl';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
-import { sarh } from '@/constants/sarhTokens';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
@@ -87,7 +86,7 @@ export function UserIdentityRow({
 
   const borderColor =
     avatarBorderColor ??
-    (avatarBorderWidth > 0 ? sarh.color.action : colors.borderMid);
+    (avatarBorderWidth > 0 ? colors.electric : colors.borderMid);
 
   const avatar = (
     <Image

@@ -14,13 +14,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography } from '@/constants/theme';
+import { sarh } from '@/constants/sarhTokens';
 import { rtlForwardIcon } from '@/lib/rtl';
 import type { EditorialStory } from '@/services/editorialStories';
 import { AppText } from '@/components/ui/AppText';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SNIPPET_LEN = 160;
-const BRAND_GREEN = '#20B66F';
+/** Link on the dark story overlay — dark-surface brand accent (AA on dark). */
+const BRAND_GREEN = sarh.color.action;
 
 type Props = {
   stories: EditorialStory[];

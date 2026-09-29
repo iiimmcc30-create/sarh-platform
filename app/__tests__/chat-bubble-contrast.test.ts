@@ -18,11 +18,11 @@ describe('chat bubble palette (DS tokens, WCAG AA)', () => {
   });
 
   it('derives every colour from Sarh tokens', () => {
-    expect(chatBubbleColors.sentBg).toBe(compositeOver(sarh.color.actionMuted, '#FFFFFF'));
+    expect(chatBubbleColors.sentBg).toBe(compositeOver(sarh.color.lightActionMuted, '#FFFFFF'));
     expect(chatBubbleColors.sentText).toBe(sarh.color.lightText);
     expect(chatBubbleColors.receivedBg).toBe(sarh.color.lightField);
     expect(chatBubbleColors.receivedText).toBe(sarh.color.lightText);
-    expect(chatBubbleColors.accent).toBe(sarh.color.actionPressed);
+    expect(chatBubbleColors.accent).toBe(sarh.color.lightActionPressed);
   });
 
   it('meets AA for message text and timestamps in both bubbles', () => {

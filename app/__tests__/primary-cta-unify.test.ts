@@ -17,11 +17,11 @@ describe('Primary CTA button tokens', () => {
 
   it('keeps brand green on colors.primary and success in both schemes', () => {
     applyThemeScheme('light');
-    expect(colors.primary).toBe('#20B66F');
-    expect(colors.success).toBe('#20B66F');
+    expect(colors.primary).toBe('#1C8354');
+    expect(colors.success).toBe('#1C8354');
     applyThemeScheme('dark');
-    expect(colors.primary).toBe('#20B66F');
-    expect(colors.success).toBe('#20B66F');
+    expect(colors.primary).toBe('#24A86C');
+    expect(colors.success).toBe('#24A86C');
     expect(colors.primary).not.toBe(resolveSarhButtonColors('primary', 'default').backgroundColor);
   });
 

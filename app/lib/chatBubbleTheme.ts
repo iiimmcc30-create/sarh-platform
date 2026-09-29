@@ -2,10 +2,10 @@
  * Chat thread palette — built from existing Sarh DS tokens only.
  *
  * The thread background is explicitly #FFFFFF, so bubble colours use the
- * light-mode token set regardless of the app theme. Brand green (#20B66F)
- * with white text measures ~2.6:1, below WCAG AA (4.5:1) for body text, so
- * the sent bubble uses the DS `actionMuted` brand tint composited on white
- * with the DS ink colour. Received bubbles use the DS light field neutral.
+ * light-mode token set regardless of the app theme. The sent bubble uses the
+ * Light brand tint (`lightActionMuted`, derived from primary #1C8354)
+ * composited on white with the DS ink colour; controls use the Light pressed
+ * primary. Received bubbles use the DS light field neutral.
  * Ratios are asserted in __tests__/chat-bubble-contrast.test.ts.
  */
 import { sarh } from '@/constants/sarhTokens';
@@ -78,7 +78,7 @@ export function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const SENT_BG = compositeOver(sarh.color.actionMuted, CHAT_BACKGROUND);
+const SENT_BG = compositeOver(sarh.color.lightActionMuted, CHAT_BACKGROUND);
 const RECEIVED_BG = sarh.color.lightField;
 /** DS lightTextSecondary (#65727D) is ~4.4:1 on the bubbles; ink @68% keeps AA. */
 const META_INK = withAlpha(sarh.color.lightText, 0.68);
@@ -88,12 +88,12 @@ export const chatBubbleColors = {
   sentBg: SENT_BG,
   sentText: sarh.color.lightText,
   sentMeta: compositeOver(META_INK, SENT_BG),
-  sentTickRead: sarh.color.actionPressed,
+  sentTickRead: sarh.color.lightActionPressed,
   receivedBg: RECEIVED_BG,
   receivedText: sarh.color.lightText,
   receivedMeta: compositeOver(META_INK, RECEIVED_BG),
   /** Controls inside bubbles (voice play button, progress fill). */
-  accent: sarh.color.actionPressed,
+  accent: sarh.color.lightActionPressed,
   onAccent: sarh.color.fab,
   track: sarh.color.lightBorder,
   danger: sarh.color.danger,
