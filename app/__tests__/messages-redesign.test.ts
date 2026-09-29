@@ -76,24 +76,20 @@ describe('message thread filters', () => {
   });
 });
 
-describe('chat thread wallpaper', () => {
-  it('applies a local wallpaper behind the message list only', () => {
+describe('chat thread background', () => {
+  it('uses a plain white thread pane (wallpaper no longer drawn in the chat)', () => {
     const chat = src('app/chat.tsx');
     const wallpaper = src('components/feature/ChatThreadWallpaper.tsx');
-    expect(chat).toContain('ChatThreadWallpaper');
     expect(chat).toContain('styles.threadPane');
-    const pane = chat.indexOf('styles.threadPane');
-    const wallpaperAt = chat.indexOf('<ChatThreadWallpaper');
+    expect(chat).not.toContain('<ChatThreadWallpaper');
+    expect(chat).toContain('backgroundColor: CHAT_BACKGROUND');
+    const pane = chat.indexOf('style={styles.threadPane}');
     const listAt = chat.indexOf('style={styles.threadList}');
     expect(pane).toBeGreaterThan(-1);
-    expect(wallpaperAt).toBeGreaterThan(pane);
-    expect(listAt).toBeGreaterThan(wallpaperAt);
+    expect(listAt).toBeGreaterThan(pane);
     expect(chat).not.toContain('LinearGradient');
+    // Legacy component kept (unused by chat) and still decorative-only.
     expect(wallpaper).toContain('pointerEvents="none"');
-    expect(wallpaper).toContain('isDark ? 0.055 : 0.1');
-    expect(wallpaper).toContain('colors.bgField');
-    expect(wallpaper).toContain('colors.bgDeep');
-    expect(wallpaper).not.toContain('whatsapp');
     expect(wallpaper).not.toContain('http');
     expect(src('components/feature/MessagesPanel.tsx')).not.toContain('ChatThreadWallpaper');
   });

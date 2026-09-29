@@ -85,7 +85,13 @@
         }
       ],
       "expo-asset",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "يحتاج سرح إلى الميكروفون لتسجيل الرسائل الصوتية وإرسالها في المحادثات."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

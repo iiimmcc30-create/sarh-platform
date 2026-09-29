@@ -16,23 +16,33 @@ import {
   Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { sarhListingShareUrl } from '@/constants/sarhOfficial';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { AppText, SarhBackButton, resolveAppTextStyle } from '@/design-system/components';
 import { Row, Screen } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
-import { rtlForwardIcon, rtlInputText } from '@/lib/rtl';
-import { SHARE_ICON } from '@/lib/interactionActions';
-import { ChatThreadWallpaper } from '@/components/feature/ChatThreadWallpaper';
+import { rtlInputText } from '@/lib/rtl';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
 import { ComposerKeyboardView } from '@/components/ui/ComposerKeyboardView';
 import { useComposerKeyboardPad } from '@/hooks/useComposerKeyboardPad';
 import type { ChatMessage } from '@/services/chatMessages';
 import { API_BASE } from '@/services/api';
-import { resolveMediaUrl } from '@/services/media';
-import { uploadMediaFromUri } from '@/services/upload';
+import { fetchPeerConversation } from '@/services/chatApi';
+import {
+  assertUploadSize,
+  uploadMediaFromUri,
+  type UploadMediaType,
+} from '@/services/upload';
+import { VoiceMessageBubble } from '@/components/feature/chat/VoiceMessageBubble';
+import { useVoiceRecorder, type VoiceRecording } from '@/hooks/useVoiceRecorder';
+import {
+  chatMessageParts,
+  formatFileSize,
+  formatMediaDuration,
+  mapApiMessage,
+} from '@/lib/chatMessageModel';
+import { CHAT_BACKGROUND, chatBubbleColors } from '@/lib/chatBubbleTheme';
 import { useAppUser } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchUserProfile } from '@/services/users';
@@ -44,37 +54,43 @@ import {
   markInboxThreadRead,
 } from '@/hooks/useMessageThreads';
 import {
-  formatListingPrice,
-  getMessageListingContext,
-  saveMessageListingContext,
-} from '@/lib/messageListingContext';
-import {
   formatOfferMessage,
   parseOfferMessage,
 } from '@/lib/messageOffers';
 import * as Location from 'expo-location';
 
-function mapApiMessage(m: {
-  id: string;
-  senderId: string;
-  receiverId: string;
-  text?: string | null;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  createdAt: string;
-  isRead?: boolean;
-}): ChatMessage {
-  return {
-    id: m.id,
-    senderId: m.senderId,
-    receiverId: m.receiverId,
-    text: m.text ?? undefined,
-    image: resolveMediaUrl(m.imageUrl) ?? undefined,
-    video: resolveMediaUrl(m.videoUrl) ?? undefined,
-    createdAt: m.createdAt,
-    read: !!m.isRead,
-  };
+/** Media picked or recorded locally, waiting for upload (enables retry). */
+type OutgoingMedia = {
+  kind: UploadMediaType;
+  uri: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  durationMs?: number;
+  /** Web object URL cleanup for voice notes. */
+  dispose?: () => void;
+};
+
+/** Upload + send payload per kind (legacy image/video fields kept). */
+function mediaSendPayload(media: OutgoingMedia, url: string) {
+  if (media.kind === 'audio') {
+    return {
+      messageType: 'VOICE' as const,
+      audioUrl: url,
+      durationMs: Math.max(1, Math.round(media.durationMs ?? 1)),
+      ...(media.mimeType ? { mediaMimeType: media.mimeType } : {}),
+      ...(media.sizeBytes ? { mediaSizeBytes: Math.round(media.sizeBytes) } : {}),
+    };
+  }
+  if (media.kind === 'video') {
+    return {
+      videoUrl: url,
+      ...(media.durationMs ? { durationMs: Math.round(media.durationMs) } : {}),
+    };
+  }
+  return { imageUrl: url };
 }
+
+type SendMediaPayload = ReturnType<typeof mediaSendPayload>;
 
 const QUICK_REPLIES_LIVESTOCK = [
   'هل الحيوان ما زال متاحاً؟',
@@ -102,6 +118,7 @@ function chatMessagePropsEqual(
     item: ChatMessage;
     myId: string;
     onRespondToOffer: (accept: boolean) => void;
+    onRetry: (id: string) => void;
     messageStyles: ChatMessageStyles;
     colors: ThemeColors;
   },
@@ -109,6 +126,7 @@ function chatMessagePropsEqual(
     item: ChatMessage;
     myId: string;
     onRespondToOffer: (accept: boolean) => void;
+    onRetry: (id: string) => void;
     messageStyles: ChatMessageStyles;
     colors: ThemeColors;
   },
@@ -120,11 +138,17 @@ function chatMessagePropsEqual(
     a.text === b.text &&
     a.image === b.image &&
     a.video === b.video &&
+    a.audio === b.audio &&
+    a.durationMs === b.durationMs &&
+    a.status === b.status &&
+    a.progress === b.progress &&
+    a.error === b.error &&
     a.read === b.read &&
     a.senderId === b.senderId &&
     a.createdAt === b.createdAt &&
     prev.myId === next.myId &&
     prev.onRespondToOffer === next.onRespondToOffer &&
+    prev.onRetry === next.onRetry &&
     prev.messageStyles === next.messageStyles &&
     prev.colors === next.colors
   );
@@ -134,16 +158,20 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
   item,
   myId,
   onRespondToOffer,
+  onRetry,
   messageStyles,
   colors,
 }: {
   item: ChatMessage;
   myId: string;
   onRespondToOffer: (accept: boolean) => void;
+  onRetry: (id: string) => void;
   messageStyles: ChatMessageStyles;
   colors: ThemeColors;
 }) {
   const isMe = item.senderId === myId;
+  const [imageFailed, setImageFailed] = useState(false);
+  const palette = chatBubbleColors;
   const offer = parseOfferMessage(item.text);
   const timeLabel = new Date(item.createdAt).toLocaleTimeString('ar-SA', {
     hour: '2-digit',
@@ -195,43 +223,96 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
     );
   }
 
+  const parts = chatMessageParts(item);
+  const uploading = item.status === 'uploading' || item.status === 'sending';
+  const failed = item.status === 'failed';
+
   return (
     <View style={[messageStyles.bubbleWrap, isMe ? messageStyles.bubbleWrapMe : messageStyles.bubbleWrapThem]}>
       <View style={[messageStyles.bubble, isMe ? messageStyles.bubbleMe : messageStyles.bubbleThem]}>
-        {item.text ? (
-          <AppText variant="body" style={[messageStyles.bubbleText, isMe ? messageStyles.textMe : messageStyles.textThem]}>
-            {item.text}
-          </AppText>
+        {parts.image && item.image ? (
+          imageFailed ? (
+            <View style={[messageStyles.bubbleImg, messageStyles.mediaFallback]}>
+              <AppIcon name="alert-circle-outline" size={20} color={palette.receivedMeta} />
+              <AppText variant="caption" style={{ color: palette.receivedMeta }}>
+                تعذّر تحميل الصورة
+              </AppText>
+            </View>
+          ) : (
+            <Image
+              source={{ uri: item.image }}
+              style={messageStyles.bubbleImg}
+              contentFit="cover"
+              onError={() => setImageFailed(true)}
+            />
+          )
         ) : null}
-        {item.image ? (
-          <Image
-            source={{ uri: item.image }}
-            style={messageStyles.bubbleImg}
-            contentFit="cover"
-          />
-        ) : null}
-        {item.video ? (
+        {parts.video && item.video ? (
           <StoryVideoPlayer
             uri={item.video}
             style={messageStyles.bubbleVideo}
             muted={false}
             loop={false}
             autoPlay={false}
-            nativeControls
+            nativeControls={!uploading}
           />
+        ) : null}
+        {parts.voice && item.audio ? (
+          <VoiceMessageBubble
+            uri={item.audio}
+            durationMs={item.durationMs}
+            isMe={isMe}
+            palette={palette}
+          />
+        ) : null}
+        {parts.text ? (
+          <AppText variant="body" style={[messageStyles.bubbleText, isMe ? messageStyles.textMe : messageStyles.textThem]}>
+            {item.text}
+          </AppText>
+        ) : null}
+        {uploading && (parts.image || parts.video || parts.voice) ? (
+          <View style={messageStyles.uploadRow} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="small" color={palette.accent} />
+            <AppText variant="caption" style={{ color: palette.sentMeta }}>
+              {typeof item.progress === 'number'
+                ? `جارٍ الرفع ${Math.round(item.progress * 100)}٪`
+                : 'جارٍ الإرسال…'}
+            </AppText>
+          </View>
+        ) : null}
+        {failed ? (
+          <Pressable
+            onPress={() => onRetry(item.id)}
+            style={messageStyles.retryRow}
+            accessibilityRole="button"
+            accessibilityLabel="إعادة المحاولة"
+          >
+            <AppIcon name="refresh" size={14} color={palette.danger} />
+            <AppText variant="caption" style={{ color: palette.danger }} numberOfLines={2}>
+              {item.error || 'فشل الإرسال'} · إعادة المحاولة
+            </AppText>
+          </Pressable>
         ) : null}
         <AppText variant="caption" style={[messageStyles.timeText, isMe ? messageStyles.timeTextMe : messageStyles.timeTextThem]}>
           {timeLabel}
-          {isMe && (
-            <AppText variant="caption" style={{ color: item.read ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.55)' }}>
+          {isMe && !uploading && !failed ? (
+            <AppText variant="caption" style={{ color: item.read ? palette.sentTickRead : palette.sentMeta }}>
               {' '}✓✓
             </AppText>
-          )}
+          ) : null}
         </AppText>
       </View>
     </View>
   );
 }, chatMessagePropsEqual);
+
+type VoiceComposerProps = {
+  status: 'idle' | 'starting' | 'recording' | 'stopping';
+  durationMs: number;
+  onStart: () => void;
+  onCancel: () => void;
+  onSend: () => void;
+};
 
 function ChatComposer({
   initialDraft,
@@ -244,6 +325,7 @@ function ChatComposer({
   colors,
   composerTextStyle,
   bottomPad,
+  voice,
 }: {
   initialDraft?: string;
   sending: boolean;
@@ -255,6 +337,7 @@ function ChatComposer({
   colors: ThemeColors;
   composerTextStyle: object;
   bottomPad: number;
+  voice: VoiceComposerProps;
 }) {
   const [inputText, setInputText] = useState(initialDraft?.trim() ? initialDraft.trim() : '');
 
@@ -264,7 +347,51 @@ function ChatComposer({
     }
   }, [initialDraft]);
 
-  const canSend = Boolean(inputText.trim()) && !sending;
+  const hasText = Boolean(inputText.trim());
+  const canSend = hasText && !sending;
+  const recording = voice.status === 'recording' || voice.status === 'stopping';
+
+  if (recording) {
+    return (
+      <Row
+        align="center"
+        gap="sm"
+        style={[styles.inputBar, styles.recordingBar, { paddingBottom: bottomPad }]}
+      >
+        <Pressable
+          style={styles.attachBtn}
+          onPress={voice.onCancel}
+          disabled={voice.status === 'stopping'}
+          accessibilityRole="button"
+          accessibilityLabel="إلغاء التسجيل"
+        >
+          <AppIcon name="trash-outline" size={20} color={colors.danger} />
+        </Pressable>
+        <View style={styles.recordingInfo} accessibilityLiveRegion="polite">
+          <View style={[styles.recordingDot, { backgroundColor: colors.danger }]} />
+          <AppText variant="label" color="textPrimary">
+            {formatMediaDuration(voice.durationMs)}
+          </AppText>
+          <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.recordingHint}>
+            جارٍ التسجيل…
+          </AppText>
+        </View>
+        <Pressable
+          style={styles.sendBtn}
+          onPress={voice.onSend}
+          disabled={voice.status === 'stopping'}
+          accessibilityRole="button"
+          accessibilityLabel="إرسال الرسالة الصوتية"
+        >
+          {voice.status === 'stopping' ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <AppIcon name="paper-plane" size={18} color="#fff" />
+          )}
+        </Pressable>
+      </Row>
+    );
+  }
 
   return (
     <Row
@@ -297,36 +424,47 @@ function ChatComposer({
         value={inputText}
         onChangeText={setInputText}
         multiline
-        maxLength={500}
+        maxLength={2000}
         onFocus={onInputFocus}
       />
 
-      <Pressable
-        style={[
-          styles.sendBtn,
-          !inputText.trim() && !sending ? styles.sendBtnIdle : null,
-        ]}
-        onPress={() => {
-          const text = inputText.trim();
-          if (!text || sending) return;
-          setInputText('');
-          onSend(text);
-        }}
-        disabled={!canSend}
-        accessibilityRole="button"
-        accessibilityLabel="إرسال الرسالة"
-        accessibilityState={{ disabled: !canSend, busy: sending }}
-      >
-        {sending ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <AppIcon
-            name={inputText.trim() ? 'paper-plane' : 'mic'}
-            size={18}
-            color="#fff"
-          />
-        )}
-      </Pressable>
+      {hasText || sending ? (
+        <Pressable
+          style={styles.sendBtn}
+          onPress={() => {
+            const text = inputText.trim();
+            if (!text || sending) return;
+            setInputText('');
+            onSend(text);
+          }}
+          disabled={!canSend}
+          accessibilityRole="button"
+          accessibilityLabel="إرسال الرسالة"
+          accessibilityState={{ disabled: !canSend, busy: sending }}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <AppIcon name="paper-plane" size={18} color="#fff" />
+          )}
+        </Pressable>
+      ) : (
+        <Pressable
+          style={[styles.sendBtn, styles.sendBtnIdle]}
+          onPress={voice.onStart}
+          disabled={voice.status === 'starting'}
+          accessibilityRole="button"
+          accessibilityLabel="تسجيل رسالة صوتية"
+          accessibilityState={{ busy: voice.status === 'starting' }}
+          testID="chat-mic-button"
+        >
+          {voice.status === 'starting' ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <AppIcon name="mic" size={18} color="#fff" />
+          )}
+        </Pressable>
+      )}
     </Row>
   );
 }
@@ -339,12 +477,6 @@ export default function ChatScreen() {
     receiverAvatar,
     accountType: accountTypeParam,
     draftMessage: draftMessageParam,
-    listingId: listingIdParam,
-    listingTitle: listingTitleParam,
-    listingPrice: listingPriceParam,
-    listingCurrency: listingCurrencyParam,
-    listingImage: listingImageParam,
-    listingLocation: listingLocationParam,
   } = useLocalSearchParams<{
     threadId?: string;
     receiverId?: string;
@@ -353,12 +485,6 @@ export default function ChatScreen() {
     threadType?: string;
     accountType?: string;
     draftMessage?: string;
-    listingId?: string;
-    listingTitle?: string;
-    listingPrice?: string;
-    listingCurrency?: string;
-    listingImage?: string;
-    listingLocation?: string;
   }>();
   const router = useRouter();
   const { keyboardVisible, restingBottom } = useComposerKeyboardPad();
@@ -372,7 +498,7 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
 
   const isThreadMode = Boolean(threadIdParam && receiverId);
-  /** User↔user DM. */
+  /** User↔user DM — resolved by participant pair (never by listing). */
   const isDirectMode = Boolean(receiverId && !threadIdParam);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -389,48 +515,10 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
-  const [listingContext, setListingContext] = useState<{
-    listingId: string;
-    title: string;
-    price: number;
-    currency: string;
-    image?: string;
-    location?: string;
-  } | null>(
-    listingIdParam && listingTitleParam
-      ? {
-          listingId: listingIdParam,
-          title: listingTitleParam,
-          price: Number(listingPriceParam) || 0,
-          currency: listingCurrencyParam || 'SAR',
-          image: listingImageParam || undefined,
-          location: listingLocationParam || undefined,
-        }
-      : null,
-  );
-
-  useEffect(() => {
-    if (listingContext || !receiverId) return;
-    void getMessageListingContext(receiverId).then((cached) => {
-      if (!cached) return;
-      setListingContext({
-        listingId: cached.listingId,
-        title: cached.title,
-        price: cached.price,
-        currency: cached.currency || 'SAR',
-        image: cached.image,
-        location: cached.location,
-      });
-    });
-  }, [listingContext, receiverId]);
-
-  useEffect(() => {
-    if (!listingContext || !receiverId) return;
-    void saveMessageListingContext({
-      ...listingContext,
-      peerUserId: receiverId,
-    });
-  }, [listingContext, receiverId]);
+  const [pendingMedia, setPendingMedia] = useState<OutgoingMedia | null>(null);
+  /** Failed / in-flight media jobs by optimistic id (retry without re-picking). */
+  const mediaJobsRef = useRef(new Map<string, OutgoingMedia>());
+  const voice = useVoiceRecorder();
 
   const receiverUserId = receiverId;
   const activeChatType = 'DIRECT' as const;
@@ -471,65 +559,56 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!accessToken) return;
+    let cancelled = false;
+    const loadMessages = async (id: string) => {
+      const msgRes = await fetch(`${API_BASE}/api/messages/${id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!msgRes.ok || cancelled) return;
+      const msgJson = await msgRes.json();
+      if (!cancelled && msgJson.success && msgJson.data?.messages) {
+        setMessages(msgJson.data.messages.map(mapApiMessage));
+      }
+    };
+
     if (isThreadMode && threadIdParam) {
       const loadThreadMessages = async () => {
         setLoadingMessages(true);
         try {
           setThreadId(threadIdParam);
-          const msgRes = await fetch(`${API_BASE}/api/messages/${threadIdParam}`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (msgRes.ok) {
-            const msgJson = await msgRes.json();
-            if (msgJson.success && msgJson.data?.messages) {
-              setMessages(msgJson.data.messages.map(mapApiMessage));
-            }
-          }
+          await loadMessages(threadIdParam);
         } catch (err) {
           console.warn('[ChatScreen] Failed to load thread messages:', err);
         } finally {
-          setLoadingMessages(false);
+          if (!cancelled) setLoadingMessages(false);
         }
       };
-      loadThreadMessages();
-      return;
+      void loadThreadMessages();
+      return () => {
+        cancelled = true;
+      };
     }
 
     if (isDirectMode && receiverId) {
       const loadDirectMessages = async () => {
         setLoadingMessages(true);
         try {
-          const threadsRes = await fetch(`${API_BASE}/api/messages?type=DIRECT`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (threadsRes.ok) {
-            const tJson = await threadsRes.json();
-            if (tJson.success && Array.isArray(tJson.data)) {
-              const existingThread = tJson.data.find(
-                (t: any) => t.participant?.id === receiverId
-              );
-              if (existingThread) {
-                setThreadId(existingThread.id);
-                const msgRes = await fetch(`${API_BASE}/api/messages/${existingThread.id}`, {
-                  headers: { Authorization: `Bearer ${accessToken}` },
-                });
-                if (msgRes.ok) {
-                  const msgJson = await msgRes.json();
-                  if (msgJson.success && msgJson.data?.messages) {
-                    setMessages(msgJson.data.messages.map(mapApiMessage));
-                  }
-                }
-              }
-            }
-          }
+          // One conversation per pair: reuse it whatever the entry point.
+          const peer = await fetchPeerConversation(receiverId);
+          if (cancelled || !peer?.threadId) return;
+          setThreadId(peer.threadId);
+          await loadMessages(peer.threadId);
         } catch (err) {
           console.warn('[ChatScreen] Failed to load direct messages:', err);
         } finally {
-          setLoadingMessages(false);
+          if (!cancelled) setLoadingMessages(false);
         }
       };
-      loadDirectMessages();
+      void loadDirectMessages();
     }
+    return () => {
+      cancelled = true;
+    };
   }, [accessToken, isThreadMode, isDirectMode, receiverId, threadIdParam]);
 
   useChatThreadSocket(accessToken, threadId, (payload) => {
@@ -543,6 +622,7 @@ export default function ChatScreen() {
         text: parsed.message.text,
         image: parsed.message.image,
         video: parsed.message.video,
+        audio: parsed.message.audio,
       }),
       lastMessageAt: parsed.message.createdAt,
       unread: 0,
@@ -560,26 +640,43 @@ export default function ChatScreen() {
     });
   });
 
+  const patchMessage = useCallback((id: string, patch: Partial<ChatMessage>) => {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  }, []);
+
+  /**
+   * POST a message. Text keeps the original behaviour (optimistic bubble,
+   * removed + alert on failure). Media passes `optimisticId` so a failure
+   * leaves a retryable bubble instead of losing the upload.
+   */
   const deliverMessage = async (
     text: string,
-    media?: { imageUrl?: string; videoUrl?: string },
-  ) => {
+    media?: SendMediaPayload,
+    optimisticId?: string,
+  ): Promise<boolean> => {
     const bodyText = text.trim();
-    if ((!bodyText && !media?.imageUrl && !media?.videoUrl) || !receiverUserId) {
-      return;
+    const hasMedia = Boolean(
+      media && ('imageUrl' in media || 'videoUrl' in media || 'audioUrl' in media),
+    );
+    if ((!bodyText && !hasMedia) || !receiverUserId) {
+      return false;
     }
 
-    const optimisticMsg: ChatMessage = {
-      id: `temp_${Date.now()}`,
-      senderId: MY_ID,
-      receiverId: receiverUserId,
-      text: bodyText || undefined,
-      image: media?.imageUrl,
-      video: media?.videoUrl,
-      createdAt: new Date().toISOString(),
-      read: false,
-    };
-    setMessages((prev) => [...prev, optimisticMsg]);
+    const tempId = optimisticId ?? `temp_${Date.now()}`;
+    if (!optimisticId) {
+      const optimisticMsg: ChatMessage = {
+        id: tempId,
+        senderId: MY_ID,
+        receiverId: receiverUserId,
+        text: bodyText || undefined,
+        createdAt: new Date().toISOString(),
+        read: false,
+        kind: 'TEXT',
+      };
+      setMessages((prev) => [...prev, optimisticMsg]);
+    } else {
+      patchMessage(tempId, { status: 'sending', progress: undefined, error: undefined });
+    }
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
@@ -593,18 +690,17 @@ export default function ChatScreen() {
           receiverId: receiverUserId,
           type: activeChatType,
           ...(bodyText ? { text: bodyText } : {}),
-          ...(media?.imageUrl ? { imageUrl: media.imageUrl } : {}),
-          ...(media?.videoUrl ? { videoUrl: media.videoUrl } : {}),
+          ...(media ?? {}),
         }),
       });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data?.message) {
-          const real = json.data.message;
+          const real = mapApiMessage(json.data.message);
           setMessages((prev) =>
             mergeChatMessages(
-              prev.filter((m) => m.id !== optimisticMsg.id),
-              mapApiMessage(real),
+              prev.filter((m) => m.id !== tempId),
+              real,
             ),
           );
           if (!threadId && json.data.threadId) setThreadId(json.data.threadId);
@@ -613,9 +709,10 @@ export default function ChatScreen() {
             applyInboxThreadPreview({
               threadId: resolvedThreadId,
               lastMessage: inboxPreviewText({
-                text: bodyText,
-                image: media?.imageUrl,
-                video: media?.videoUrl,
+                text: real.text,
+                image: real.image,
+                video: real.video,
+                audio: real.audio,
               }),
               lastMessageAt: new Date().toISOString(),
               unread: 0,
@@ -632,29 +729,33 @@ export default function ChatScreen() {
                 : null,
             });
           }
+          return true;
         }
+        throw new Error('فشل إرسال الرسالة');
       } else {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.messageAr || 'فشل إرسال الرسالة');
       }
     } catch (err) {
       console.warn('[ChatScreen] Failed to send message:', err);
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-      Alert.alert(
-        'خطأ',
-        err instanceof Error ? err.message : 'فشل إرسال الرسالة، يرجى المحاولة مجدداً.',
-      );
+      const reason = err instanceof Error ? err.message : 'فشل إرسال الرسالة، يرجى المحاولة مجدداً.';
+      if (optimisticId) {
+        patchMessage(tempId, { status: 'failed', error: reason });
+      } else {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        Alert.alert('خطأ', reason);
+      }
+      return false;
     }
   };
 
   const sendMessage = async (
     text: string,
-    media?: { imageUrl?: string; videoUrl?: string },
   ) => {
     if (sending) return;
     setSending(true);
     try {
-      await deliverMessage(text, media);
+      await deliverMessage(text);
     } finally {
       setSending(false);
     }
@@ -662,8 +763,79 @@ export default function ChatScreen() {
   const sendMessageRef = useRef(sendMessage);
   sendMessageRef.current = sendMessage;
 
+  /** Upload (with progress / timeout) then send; never blocks the composer. */
+  const runMediaJob = async (id: string, media: OutgoingMedia) => {
+    if (!accessToken) return;
+    patchMessage(id, { status: 'uploading', progress: 0, error: undefined });
+    let lastReported = 0;
+    let url: string;
+    try {
+      url = await uploadMediaFromUri(accessToken, media.uri, 'messages', media.kind, {
+        mimeType: media.mimeType,
+        sizeBytes: media.sizeBytes,
+        timeoutMs: media.kind === 'video' ? 300_000 : 120_000,
+        onProgress: (fraction) => {
+          if (fraction - lastReported < 0.05 && fraction < 1) return;
+          lastReported = fraction;
+          patchMessage(id, { progress: fraction });
+        },
+      });
+    } catch (err) {
+      console.warn('[ChatScreen] Failed to upload media:', err);
+      patchMessage(id, {
+        status: 'failed',
+        error: err instanceof Error ? err.message : 'فشل رفع الملف',
+      });
+      return;
+    }
+    const ok = await deliverMessage('', mediaSendPayload(media, url), id);
+    if (ok) {
+      mediaJobsRef.current.delete(id);
+      media.dispose?.();
+    }
+  };
+
+  const sendMedia = (media: OutgoingMedia) => {
+    if (!receiverUserId) return;
+    try {
+      assertUploadSize(media.kind, media.sizeBytes);
+    } catch (err) {
+      Alert.alert('الملف كبير', err instanceof Error ? err.message : 'حجم الملف أكبر من المسموح');
+      media.dispose?.();
+      return;
+    }
+    const id = `temp_${media.kind}_${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id,
+      senderId: MY_ID,
+      receiverId: receiverUserId,
+      image: media.kind === 'image' ? media.uri : undefined,
+      video: media.kind === 'video' ? media.uri : undefined,
+      audio: media.kind === 'audio' ? media.uri : undefined,
+      durationMs: media.durationMs,
+      kind: media.kind === 'audio' ? 'VOICE' : media.kind === 'video' ? 'VIDEO' : 'IMAGE',
+      createdAt: new Date().toISOString(),
+      read: false,
+      status: 'uploading',
+      progress: 0,
+    };
+    mediaJobsRef.current.set(id, media);
+    setMessages((prev) => [...prev, optimistic]);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    void runMediaJob(id, media);
+  };
+  const runMediaJobRef = useRef(runMediaJob);
+  useEffect(() => {
+    runMediaJobRef.current = runMediaJob;
+  });
+
+  const retryMessage = useCallback((id: string) => {
+    const job = mediaJobsRef.current.get(id);
+    if (job) void runMediaJobRef.current(id, job);
+  }, []);
+
   const pickAndSendMedia = async (source: 'library' | 'camera' = 'library') => {
-    if (!receiverUserId || !accessToken || sending) return;
+    if (!receiverUserId || !accessToken) return;
     setAttachOpen(false);
 
     if (source === 'camera') {
@@ -696,25 +868,44 @@ export default function ChatScreen() {
     const asset = result.assets[0];
     const isVideo =
       asset.type === 'video' || (asset.mimeType?.startsWith('video/') ?? false);
+    // Pre-send preview: nothing is uploaded until the user confirms.
+    setPendingMedia({
+      kind: isVideo ? 'video' : 'image',
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? undefined,
+      sizeBytes: asset.fileSize ?? undefined,
+      durationMs: isVideo && asset.duration ? asset.duration : undefined,
+    });
+  };
 
-    setSending(true);
-    try {
-      const url = await uploadMediaFromUri(
-        accessToken,
-        asset.uri,
-        'messages',
-        isVideo ? 'video' : 'image',
-      );
-      await deliverMessage('', isVideo ? { videoUrl: url } : { imageUrl: url });
-    } catch (err) {
-      console.warn('[ChatScreen] Failed to upload media:', err);
-      Alert.alert(
-        'خطأ',
-        err instanceof Error ? err.message : 'فشل رفع الملف، يرجى المحاولة مجدداً.',
-      );
-    } finally {
-      setSending(false);
+  const confirmPendingMedia = () => {
+    if (!pendingMedia) return;
+    const media = pendingMedia;
+    setPendingMedia(null);
+    sendMedia(media);
+  };
+
+  const startVoice = async () => {
+    setAttachOpen(false);
+    const res = await voice.start();
+    if (!res.ok) Alert.alert('الرسائل الصوتية', res.error);
+  };
+
+  const sendVoice = async () => {
+    const res = await voice.stop();
+    if (!res.ok) {
+      if (res.error) Alert.alert('الرسائل الصوتية', res.error);
+      return;
     }
+    const rec: VoiceRecording = res.recording;
+    sendMedia({
+      kind: 'audio',
+      uri: rec.uri,
+      mimeType: rec.mimeType,
+      sizeBytes: rec.sizeBytes,
+      durationMs: rec.durationMs,
+      dispose: rec.dispose,
+    });
   };
 
   const sendCurrentLocation = async () => {
@@ -779,17 +970,6 @@ export default function ChatScreen() {
     ]);
   };
 
-  const shareListingInChat = () => {
-    setAttachOpen(false);
-    if (!listingContext) {
-      Alert.alert('مشاركة إعلان', 'لا يوجد إعلان مرتبط بهذه المحادثة.');
-      return;
-    }
-    void sendMessage(
-      `📦 إعلان: ${listingContext.title}\n${formatListingPrice(listingContext.price, listingContext.currency)}\n${sarhListingShareUrl(listingContext.listingId)}`,
-    );
-  };
-
   const respondToOffer = useCallback((accept: boolean) => {
     void sendMessageRef.current(accept ? 'أوافق على العرض' : 'أرفض العرض');
   }, []);
@@ -800,15 +980,16 @@ export default function ChatScreen() {
         item={item}
         myId={MY_ID}
         onRespondToOffer={respondToOffer}
+        onRetry={retryMessage}
         messageStyles={messageStyles}
         colors={colors}
       />
     ),
-    [MY_ID, colors, messageStyles, respondToOffer],
+    [MY_ID, colors, messageStyles, respondToOffer, retryMessage],
   );
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['top']} background="surface">
       <ComposerKeyboardView>
         {/* Header */}
         <Row style={styles.header} gap="sm">
@@ -819,19 +1000,6 @@ export default function ChatScreen() {
               <View style={styles.headerNameRow}>
                 <AppText variant="label" style={styles.headerName} numberOfLines={1}>{headerName}</AppText>
               </View>
-              <View style={styles.onlineRow}>
-                <View
-                  style={[
-                    styles.onlineDot,
-                    {
-                      backgroundColor: colors.success,
-                    },
-                  ]}
-                />
-                <AppText variant="caption" color="textMuted">
-                  متصل الآن
-                </AppText>
-              </View>
             </View>
           </UserProfileLink>
           <Pressable style={styles.moreBtn} hitSlop={8}>
@@ -839,48 +1007,7 @@ export default function ChatScreen() {
           </Pressable>
         </Row>
 
-        {listingContext ? (
-          <View style={styles.listingCard}>
-            <Row style={styles.listingCardTop} gap="md">
-              {listingContext.image ? (
-                <Image
-                  source={{ uri: listingContext.image }}
-                  style={styles.listingCardImage}
-                  contentFit="cover"
-                />
-              ) : (
-                <View style={[styles.listingCardImage, styles.listingCardImageFallback]}>
-                  <AppIcon name="image-outline" size={18} color={colors.textMuted} />
-                </View>
-              )}
-              <View style={styles.listingCardMeta}>
-                <AppText variant="label" style={styles.listingCardTitle} numberOfLines={1}>
-                  {listingContext.title}
-                </AppText>
-                <AppText variant="label" style={styles.listingCardPrice}>
-                  {formatListingPrice(listingContext.price, listingContext.currency)}
-                </AppText>
-                {listingContext.location ? (
-                  <AppText variant="micro" color="textMuted" style={styles.listingCardLocation} numberOfLines={1}>
-                    {listingContext.location}
-                  </AppText>
-                ) : null}
-              </View>
-            </Row>
-            <Pressable
-              style={styles.listingCardBtn}
-              onPress={() =>
-                router.push(`/listing/${listingContext.listingId}` as never)
-              }
-            >
-              <AppText variant="label" style={styles.listingCardBtnText}>عرض الإعلان</AppText>
-              <AppIcon name={rtlForwardIcon()} size={16} color={colors.electricBright} />
-            </Pressable>
-          </View>
-        ) : null}
-
         <View style={styles.threadPane}>
-          <ChatThreadWallpaper />
           <FlatList
             ref={listRef}
             style={styles.threadList}
@@ -893,14 +1020,16 @@ export default function ChatScreen() {
             ListHeaderComponent={
               messages.length > 0 ? (
                 <View style={styles.datePillWrap}>
-                  <AppText variant="micro" color="textMuted" style={styles.datePill}>اليوم</AppText>
+                  <AppText variant="micro" style={styles.datePill}>اليوم</AppText>
                 </View>
+              ) : loadingMessages ? (
+                <ActivityIndicator style={styles.threadLoading} color={chatBubbleColors.accent} />
               ) : null
             }
           />
         </View>
 
-        {quickReplies.length > 0 && !attachOpen ? (
+        {quickReplies.length > 0 && !attachOpen && !pendingMedia ? (
           <View style={styles.quickRepliesWrap}>
             <FlatList
               horizontal
@@ -920,6 +1049,52 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
+        {pendingMedia ? (
+          <View style={styles.previewCard} accessibilityLabel="معاينة قبل الإرسال">
+            {pendingMedia.kind === 'image' ? (
+              <Image source={{ uri: pendingMedia.uri }} style={styles.previewThumb} contentFit="cover" />
+            ) : (
+              <StoryVideoPlayer
+                uri={pendingMedia.uri}
+                style={styles.previewThumb}
+                muted
+                loop={false}
+                autoPlay={false}
+                nativeControls
+              />
+            )}
+            <View style={styles.previewMeta}>
+              <AppText variant="label" color="textPrimary">
+                {pendingMedia.kind === 'video' ? 'فيديو' : 'صورة'}
+              </AppText>
+              <AppText variant="caption" color="textMuted">
+                {[
+                  pendingMedia.durationMs ? formatMediaDuration(pendingMedia.durationMs) : '',
+                  formatFileSize(pendingMedia.sizeBytes),
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || 'جاهز للإرسال'}
+              </AppText>
+            </View>
+            <Pressable
+              style={styles.previewCancel}
+              onPress={() => setPendingMedia(null)}
+              accessibilityRole="button"
+              accessibilityLabel="إلغاء المرفق"
+            >
+              <AppIcon name="close" size={18} color={colors.textSecondary} />
+            </Pressable>
+            <Pressable
+              style={styles.sendBtn}
+              onPress={confirmPendingMedia}
+              accessibilityRole="button"
+              accessibilityLabel="إرسال المرفق"
+            >
+              <AppIcon name="paper-plane" size={18} color="#fff" />
+            </Pressable>
+          </View>
+        ) : null}
+
         {attachOpen ? (
           <View style={styles.attachSheet}>
             {(
@@ -928,7 +1103,6 @@ export default function ChatScreen() {
                 { key: 'camera', label: 'كاميرا', icon: 'camera-outline', onPress: () => void pickAndSendMedia('camera') },
                 { key: 'location', label: 'موقع', icon: 'location-outline', onPress: () => void sendCurrentLocation() },
                 { key: 'offer', label: 'إرسال عرض', icon: 'pricetag-outline', onPress: sendPriceOffer },
-                { key: 'share', label: 'مشاركة إعلان', icon: SHARE_ICON, onPress: shareListingInChat },
               ] as const
             ).map((action) => (
               <Pressable key={action.key} style={styles.attachAction} onPress={action.onPress}>
@@ -960,6 +1134,13 @@ export default function ChatScreen() {
               ? spacing.sm
               : Math.max(restingBottom, spacing.sm) + spacing.sm
           }
+          voice={{
+            status: voice.status,
+            durationMs: voice.durationMs,
+            onStart: () => void startVoice(),
+            onCancel: () => void voice.cancel(),
+            onSend: () => void sendVoice(),
+          }}
         />
       </ComposerKeyboardView>
     </Screen>
@@ -998,67 +1179,17 @@ function createStyles(colors: ThemeColors) {
   },
   headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   headerName: { color: colors.textPrimary, flexShrink: 1 },
-  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  onlineDot: { width: 7, height: 7, borderRadius: 4 },
   moreBtn: {
     width: 38, height: 38, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
 
-  listingCard: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.bgSurface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    gap: spacing.sm,
-  },
-  listingCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  listingCardImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: colors.bgElevated,
-  },
-  listingCardImageFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listingCardMeta: { flex: 1, minWidth: 0 },
-  listingCardTitle: {
-    color: colors.textPrimary,
-  },
-  listingCardPrice: {
-    color: colors.electricBright,
-    marginTop: 2,
-  },
-  listingCardLocation: {
-    marginTop: 2,
-  },
-  listingCardBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(32, 182, 111, 0.12)',
-  },
-  listingCardBtnText: {
-    color: colors.electricBright,
-  },
-
   threadPane: {
     flex: 1,
     overflow: 'hidden',
+    backgroundColor: CHAT_BACKGROUND,
   },
+  threadLoading: { marginTop: spacing.xl },
   threadList: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -1070,13 +1201,12 @@ function createStyles(colors: ThemeColors) {
   },
   datePillWrap: { alignItems: 'center', marginBottom: spacing.md },
   datePill: {
-    backgroundColor: colors.bgSurface,
+    backgroundColor: chatBubbleColors.receivedBg,
+    color: chatBubbleColors.receivedMeta,
     overflow: 'hidden',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
   },
 
   quickRepliesWrap: {
@@ -1162,6 +1292,45 @@ function createStyles(colors: ThemeColors) {
   sendBtnIdle: {
     backgroundColor: colors.emerald,
   },
+  recordingBar: {
+    alignItems: 'center',
+  },
+  recordingInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 42,
+  },
+  recordingDot: { width: 10, height: 10, borderRadius: 5 },
+  recordingHint: { flexShrink: 1 },
+  previewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.bgSurface,
+  },
+  previewThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.bgElevated,
+  },
+  previewMeta: { flex: 1, minWidth: 0, gap: 2 },
+  previewCancel: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   });
 }
 
@@ -1181,19 +1350,37 @@ function createMessageStyles(colors: ThemeColors) {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
   },
+  // Sent bubbles sit at the inline start (right in Arabic); the "tail" corner
+  // uses logical start/end so RTL and LTR both point at the outer edge.
   bubbleMe: {
-    backgroundColor: colors.electricBright,
-    borderBottomLeftRadius: 6,
+    backgroundColor: chatBubbleColors.sentBg,
+    borderBottomStartRadius: 6,
   },
   bubbleThem: {
-    backgroundColor: colors.bgSurface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderBottomRightRadius: 6,
+    backgroundColor: chatBubbleColors.receivedBg,
+    borderBottomEndRadius: 6,
   },
   bubbleText: { lineHeight: 22 },
-  textMe: { color: '#fff' },
-  textThem: { color: colors.textPrimary },
+  textMe: { color: chatBubbleColors.sentText },
+  textThem: { color: chatBubbleColors.receivedText },
+  mediaFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: CHAT_BACKGROUND,
+  },
+  uploadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  retryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
   bubbleImg: {
     width: 200, height: 150,
     borderRadius: radius.md,
@@ -1207,8 +1394,8 @@ function createMessageStyles(colors: ThemeColors) {
     overflow: 'hidden',
   },
   timeText: { marginTop: 4 },
-  timeTextMe: { color: 'rgba(255,255,255,0.7)' },
-  timeTextThem: { color: colors.textSubtle },
+  timeTextMe: { color: chatBubbleColors.sentMeta },
+  timeTextThem: { color: chatBubbleColors.receivedMeta },
   offerCard: {
     maxWidth: '82%',
     borderRadius: 18,

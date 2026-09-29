@@ -1,6 +1,6 @@
 // SAFAT — Messages inbox (Premium · RTL · Mobile-first)
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { Image, uriSource } from '@/components/ui/AppImage';
+import { Image } from '@/components/ui/AppImage';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { functional } from '@/design-system';
 import { AppText, SarhButton, SarhInput } from '@/design-system/components';
@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { radius, type ThemeColors } from '@/constants/theme';
 import { space } from '@/design-system/tokens';
-import { cloudinaryFitUrl } from '@/lib/listingMedia';
 import { confirmDestructive } from '@/lib/actionSheet';
 import type { ConversationAnchor } from '@/lib/conversationActions';
 import { useLayout } from '@/hooks/useLayout';
@@ -33,12 +32,9 @@ import {
   type MessageThreadFilter,
   type MessageThreadItem,
 } from '@/hooks/useMessageThreads';
-import {
-  formatListingPrice,
-  getAllMessageListingContexts,
-  type MessageListingPreview,
-} from '@/lib/messageListingContext';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
+import { NewMessageSheet } from '@/components/feature/NewMessageSheet';
+import type { ChatContact } from '@/services/chatApi';
 
 function formatThreadTime(iso: string): string {
   const date = new Date(iso);
@@ -74,6 +70,8 @@ interface MessagesPanelProps {
   search?: string;
   onSearchChange?: (value: string) => void;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** Floating "رسالة جديدة" entry point (default on). */
+  showNewMessage?: boolean;
 }
 
 export function MessagesPanel({
@@ -83,12 +81,15 @@ export function MessagesPanel({
   search: searchProp,
   onSearchChange,
   onScroll,
+  showNewMessage = true,
 }: MessagesPanelProps) {
   const { colors } = useTheme();
   const { gutter } = useLayout();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const router = useRouter();
-  const listBottomPadding = variant === 'embedded' ? space[16] : space[24];
+  const listBottomPadding =
+    (variant === 'embedded' ? space[16] : space[24]) +
+    (showNewMessage ? space[48] + space[16] : 0);
   const { accessToken } = useAuth();
   const { threads, loading, error, refetch, hideThread, pinThread } =
     useMessageThreads(accessToken, 'ALL');
@@ -103,9 +104,7 @@ export function MessagesPanel({
     isPinned: boolean;
     anchor: ConversationAnchor;
   } | null>(null);
-  const [listingByPeer, setListingByPeer] = useState<
-    Record<string, MessageListingPreview>
-  >({});
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
   const threadsLenRef = useRef(threads.length);
   const loadingRef = useRef(loading);
   const skipFirstFocusRef = useRef(true);
@@ -116,12 +115,10 @@ export function MessagesPanel({
     useCallback(() => {
       if (skipFirstFocusRef.current) {
         skipFirstFocusRef.current = false;
-        void getAllMessageListingContexts().then(setListingByPeer);
         return;
       }
       const forceEmpty = threadsLenRef.current === 0 && !loadingRef.current;
       void refetch(forceEmpty);
-      void getAllMessageListingContexts().then(setListingByPeer);
     }, [refetch]),
   );
 
@@ -134,24 +131,15 @@ export function MessagesPanel({
     }
   }, [refetch]);
 
-  const listingTitlesByPeer = useMemo(() => {
-    const map: Record<string, string | undefined> = {};
-    for (const [peerId, preview] of Object.entries(listingByPeer)) {
-      map[peerId] = preview.title;
-    }
-    return map;
-  }, [listingByPeer]);
-
   const filteredChats = useMemo(
-    () => filterMessageThreads(threads, filter, search, listingTitlesByPeer),
-    [threads, filter, search, listingTitlesByPeer],
+    () => filterMessageThreads(threads, filter, search),
+    [threads, filter, search],
   );
 
   const openChat = useCallback((chat: MessageThreadItem) => {
     if (menu) return;
     const p = chat.participant;
     if (!p) return;
-    const listing = listingByPeer[p.id];
     router.push({
       pathname: '/chat',
       params: {
@@ -160,20 +148,28 @@ export function MessagesPanel({
         receiverName: p.arabicName,
         receiverAvatar: p.avatar ?? '',
         threadType: chat.type,
-        accountType: listing ? 'LIVESTOCK_TRADER' : 'USER',
-        ...(listing
-          ? {
-              listingId: listing.listingId,
-              listingTitle: listing.title,
-              listingPrice: String(listing.price),
-              listingCurrency: listing.currency || 'SAR',
-              listingImage: listing.image || '',
-              listingLocation: listing.location || '',
-            }
-          : {}),
       },
     } as never);
-  }, [listingByPeer, menu, router]);
+  }, [menu, router]);
+
+  /** New message: open (or lazily create on first send) the 1:1 with that person. */
+  const startChatWith = useCallback(
+    (contact: ChatContact) => {
+      setNewMessageOpen(false);
+      const existing = threads.find((t) => t.participant?.id === contact.id);
+      router.push({
+        pathname: '/chat',
+        params: {
+          ...(existing ? { threadId: existing.id } : {}),
+          receiverId: contact.id,
+          receiverName: contact.arabicName || contact.displayName,
+          receiverAvatar: contact.avatar ?? '',
+          threadType: 'DIRECT',
+        },
+      } as never);
+    },
+    [router, threads],
+  );
 
   const handleDeleteConversation = useCallback(
     async (threadId: string) => {
@@ -201,12 +197,6 @@ export function MessagesPanel({
     [pinThread],
   );
 
-  const resolveListingPreview = (chat: MessageThreadItem) => {
-    const peerId = chat.participant?.id;
-    if (peerId && listingByPeer[peerId]) return listingByPeer[peerId];
-    return null;
-  };
-
   const listData = useMemo(
     () => filteredChats.filter((chat) => Boolean(chat.participant)),
     [filteredChats],
@@ -218,10 +208,6 @@ export function MessagesPanel({
       if (!p) return null;
       const title = p.arabicName;
       const avatarUri = p.avatar;
-      const listing = resolveListingPreview(chat);
-      const showListingMeta =
-        listing &&
-        (listing.price > 0 || Boolean(listing.image) || Boolean(listing.title));
       const menuOpen = Boolean(menu);
 
       return (
@@ -259,13 +245,6 @@ export function MessagesPanel({
                   <View style={styles.onlineDot} />
                 </View>
               </UserProfileLink>
-              {listing?.image ? (
-                <Image
-                  source={uriSource(cloudinaryFitUrl(listing.image, 'row'))}
-                  style={styles.listingThumb}
-                  contentFit="cover"
-                />
-              ) : null}
             </Row>
 
             <Stack gap="xs" style={styles.chatBody}>
@@ -289,14 +268,6 @@ export function MessagesPanel({
                   {formatThreadTime(chat.lastMessageAt)}
                 </AppText>
               </Row>
-
-              {showListingMeta && listing.price > 0 ? (
-                <AppText variant="caption" color="success" numberOfLines={1}>
-                  {listing.title}
-                  {' · '}
-                  {formatListingPrice(listing.price, listing.currency)}
-                </AppText>
-              ) : null}
 
               <Row justify="between" align="center" gap="sm">
                 <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.flex}>
@@ -322,7 +293,6 @@ export function MessagesPanel({
       colors.textMuted,
       gutter,
       handleDeleteConversation,
-      listingByPeer,
       menu,
       openChat,
       openSwipeId,
@@ -392,16 +362,43 @@ export function MessagesPanel({
               </View>
               <AppText variant="heading3" align="center">ابدأ محادثة جديدة</AppText>
               <AppText variant="caption" color="textMuted" align="center">
-                تواصل مع البائعين عبر الإعلانات
+                راسل من تتابعهم أو تواصل مع البائعين عبر الإعلانات
               </AppText>
+              {showNewMessage ? (
+                <SarhButton
+                  title="رسالة جديدة"
+                  leftIcon="create-outline"
+                  onPress={() => setNewMessageOpen(true)}
+                />
+              ) : null}
               <SarhButton
                 title="استكشف الإعلانات"
+                variant="secondary"
                 onPress={() => router.push('/(tabs)/market' as never)}
               />
             </Stack>
           }
         />
       )}
+      {showNewMessage && !showUnauthorized ? (
+        <View pointerEvents="box-none" style={[styles.newMessageDock, { end: gutter }]}>
+          <SarhButton
+            title="رسالة جديدة"
+            leftIcon="create-outline"
+            shape="pill"
+            onPress={() => setNewMessageOpen(true)}
+            accessibilityLabel="رسالة جديدة"
+            testID="messages-new-message"
+          />
+        </View>
+      ) : null}
+      {showNewMessage ? (
+        <NewMessageSheet
+          visible={newMessageOpen}
+          onClose={() => setNewMessageOpen(false)}
+          onSelect={startChatWith}
+        />
+      ) : null}
       <ConversationContextMenu
         target={menu}
         onClose={() => setMenu(null)}
@@ -445,13 +442,9 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 2,
       borderColor: colors.bgDeep,
     },
-    listingThumb: {
-      width: 40,
-      height: 40,
-      borderRadius: 10,
-      backgroundColor: colors.bgElevated,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
+    newMessageDock: {
+      position: 'absolute',
+      bottom: space[16],
     },
     chatBody: { flex: 1, minWidth: 0 },
     flex: { flex: 1, minWidth: 0 },

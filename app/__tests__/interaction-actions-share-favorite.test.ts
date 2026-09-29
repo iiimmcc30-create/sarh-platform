@@ -248,7 +248,8 @@ describe('one app-wide share glyph', () => {
     expect(src('app/listing/[id].tsx')).toContain("{ key: 'share', label: SHARE_LABEL, icon: SHARE_ICON }");
     expect(src('app/ministry/index.tsx')).toContain('rightIcon={SHARE_ICON}');
     expect(src('app/users/[id].tsx')).toContain('icon: SHARE_ICON,');
-    expect(src('app/chat.tsx')).toContain('icon: SHARE_ICON, onPress: shareListingInChat');
+    // Chat no longer carries a per-peer listing binding, so its listing-share action was removed.
+    expect(src('app/chat.tsx')).not.toContain('shareListingInChat');
     expect(src('components/feature/LiveStreamItem.tsx')).toContain('<AppIcon name={SHARE_ICON}');
     // StoryViewer is untouched by design; it already uses the same glyph name.
     expect(src('components/feature/StoryViewer.tsx')).toContain('name="share-social-outline"');

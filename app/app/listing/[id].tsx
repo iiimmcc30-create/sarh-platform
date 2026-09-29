@@ -3,6 +3,7 @@ import { AppText, SarhButton } from '@/design-system/components';
 import { BottomAction, Row, Screen, ScreenBody } from '@/design-system/layout';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { sarhListingShareUrl } from '@/constants/sarhOfficial';
+import { sellerChatParams } from '@/lib/listingChatDraft';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
@@ -253,37 +254,15 @@ export default function ListingDetailScreen() {
       Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لمراسلة البائع');
       return;
     }
-    const image =
-      listing.images?.[0] ||
-      listing.thumbnailUrl ||
-      undefined;
-    void import('@/lib/messageListingContext').then(({ saveMessageListingContext }) =>
-      saveMessageListingContext({
-        listingId: listing.id,
-        title: listing.arabicTitle || listing.title,
-        price: listing.price,
-        currency: listing.currency || 'SAR',
-        image,
-        location: listing.arabicLocation || listing.location,
-        peerUserId: listing.seller.id,
-      }),
-    );
+    // General 1:1 with the listing owner (pair thread reused by the chat
+    // screen); the listing only pre-fills an editable draft — no binding.
     router.push({
       pathname: '/chat',
-      params: {
-        receiverId: listing.seller.id,
-        receiverName: listing.seller.arabicName,
-        receiverAvatar: listing.seller.avatar ?? '',
-        accountType: 'LIVESTOCK_TRADER',
-        threadType: 'DIRECT',
-        listingId: listing.id,
-        listingTitle: listing.arabicTitle || listing.title,
-        listingPrice: String(listing.price),
-        listingCurrency: listing.currency || 'SAR',
-        listingImage: image ?? '',
-        listingLocation: listing.arabicLocation || listing.location || '',
-        ...(draftMessage?.trim() ? { draftMessage: draftMessage.trim() } : {}),
-      },
+      params: sellerChatParams({
+        listing,
+        seller: listing.seller,
+        draftMessage,
+      }),
     } as never);
   };
 

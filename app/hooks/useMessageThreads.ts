@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { dedupeInflight, shouldReuseFreshResult } from '@/services/requestCoordination';
+import { chatMessagePreview } from '@/lib/chatMessageModel';
 
 export type MessageThreadType = 'DIRECT';
 
@@ -115,12 +116,9 @@ export function inboxPreviewText(message: {
   text?: string | null;
   image?: string | null;
   video?: string | null;
+  audio?: string | null;
 }): string | null {
-  const text = message.text?.trim();
-  if (text) return text;
-  if (message.video) return '[فيديو]';
-  if (message.image) return '[صورة]';
-  return null;
+  return chatMessagePreview(message);
 }
 
 export type InboxThreadPreviewPatch = {
@@ -423,7 +421,8 @@ export function filterMessageThreads(
   threads: MessageThreadItem[],
   filter: MessageThreadFilter,
   search: string,
-  listingTitlesByPeer: Record<string, string | undefined>,
+  /** Legacy: extra per-peer search text (old client-side listing titles). */
+  listingTitlesByPeer: Record<string, string | undefined> = {},
 ): MessageThreadItem[] {
   const q = search.trim().toLowerCase();
 

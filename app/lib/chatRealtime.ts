@@ -1,5 +1,6 @@
 import type { ChatMessage } from '@/services/chatMessages';
 import { resolveMediaUrl } from '@/services/media';
+import { resolveChatMessageKind } from '@/lib/chatMessageModel';
 
 export type ChatSocketLike = {
   emit: (event: string, ...args: unknown[]) => void;
@@ -36,6 +37,15 @@ export function parseChatSocketPayload(payload: unknown): ParsedChatEvent | null
   const threadId = asString(raw.threadId) ?? asString(root.threadId);
   const image = asString(raw.image) ?? asString(raw.imageUrl);
   const video = asString(raw.video) ?? asString(raw.videoUrl);
+  const audioRaw = asString(raw.audio) ?? asString(raw.audioUrl);
+  const audio = resolveMediaUrl(audioRaw) ?? audioRaw;
+  const durationRaw = raw.mediaDurationMs ?? raw.durationMs;
+  const durationMs =
+    typeof durationRaw === 'number' && Number.isFinite(durationRaw) && durationRaw > 0
+      ? Math.round(durationRaw)
+      : undefined;
+  const resolvedImage = resolveMediaUrl(image) ?? image;
+  const resolvedVideo = resolveMediaUrl(video) ?? video;
 
   return {
     threadId,
@@ -44,8 +54,16 @@ export function parseChatSocketPayload(payload: unknown): ParsedChatEvent | null
       senderId,
       receiverId,
       text: asString(raw.text),
-      image: resolveMediaUrl(image) ?? image,
-      video: resolveMediaUrl(video) ?? video,
+      image: resolvedImage,
+      video: resolvedVideo,
+      ...(audio ? { audio } : {}),
+      ...(durationMs ? { durationMs } : {}),
+      kind: resolveChatMessageKind({
+        type: raw.type,
+        audio,
+        image: resolvedImage,
+        video: resolvedVideo,
+      }),
       createdAt,
       read: Boolean(raw.isRead ?? raw.read),
     },
@@ -64,7 +82,8 @@ export function mergeChatMessages(
     const sameText = (item.text ?? '') === (incoming.text ?? '');
     const sameImage = (item.image ?? '') === (incoming.image ?? '');
     const sameVideo = (item.video ?? '') === (incoming.video ?? '');
-    return !(sameText && sameImage && sameVideo);
+    const sameAudio = (item.audio ?? '') === (incoming.audio ?? '');
+    return !(sameText && sameImage && sameVideo && sameAudio);
   });
 
   return [...withoutOptimisticDup, incoming];
