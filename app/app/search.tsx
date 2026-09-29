@@ -1389,19 +1389,13 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     suggestRow: {
       paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
     },
     recentRow: {
       minHeight: 48,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
     },
     nameShrink: { flexShrink: 1 },
     userRow: {
       paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
     },
     listingResult: {
       paddingBottom: space[8],
@@ -1425,8 +1419,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     resultRow: {
       paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
     },
     resultThumb: { width: 56, height: 56, borderRadius: ds.radius.md },
     resultThumbPlaceholder: {
