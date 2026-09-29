@@ -156,7 +156,11 @@ export class AppGateway
     const data = this.socketService.validateDto(ChatReadDto, raw);
     if (!data) return;
 
-    await this.socketService.handleChatRead(client.data.user!, data);
+    const err = await this.socketService.handleChatRead(
+      client.data.user!,
+      data,
+    );
+    if (err) this.emitErr(client, err.code, err.message);
   }
 
   @SubscribeMessage('live:join')

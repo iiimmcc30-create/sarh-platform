@@ -11,6 +11,9 @@ const RIFF = Buffer.from('RIFF');
 const WEBP = Buffer.from('WEBP');
 const PDF = Buffer.from('%PDF');
 const FTYP = Buffer.from('ftyp');
+const EBML = Buffer.from([0x1a, 0x45, 0xdf, 0xa3]);
+const OGG = Buffer.from('OggS');
+const ID3 = Buffer.from('ID3');
 
 function startsWith(buf: Buffer, sig: Buffer, offset = 0): boolean {
   if (buf.length < offset + sig.length) return false;
@@ -20,7 +23,18 @@ function startsWith(buf: Buffer, sig: Buffer, offset = 0): boolean {
 /** Detect a coarse content family from the file header. */
 export function sniffFileKind(
   header: Buffer,
-): 'jpeg' | 'png' | 'gif' | 'webp' | 'pdf' | 'mp4' | 'unknown' {
+):
+  | 'jpeg'
+  | 'png'
+  | 'gif'
+  | 'webp'
+  | 'pdf'
+  | 'mp4'
+  | 'webm'
+  | 'ogg'
+  | 'mp3'
+  | 'aac'
+  | 'unknown' {
   if (startsWith(header, JPEG)) return 'jpeg';
   if (startsWith(header, PNG)) return 'png';
   if (startsWith(header, GIF87) || startsWith(header, GIF89)) return 'gif';
@@ -34,6 +48,16 @@ export function sniffFileKind(
   if (startsWith(header, PDF)) return 'pdf';
   // ISO BMFF (mp4/mov/m4v): bytes 4..7 == 'ftyp'
   if (header.length >= 8 && startsWith(header, FTYP, 4)) return 'mp4';
+  // Matroska/WebM (EBML header)
+  if (startsWith(header, EBML)) return 'webm';
+  if (startsWith(header, OGG)) return 'ogg';
+  if (startsWith(header, ID3)) return 'mp3';
+  // ADTS AAC (0xFFF1/0xFFF9) vs MPEG audio frame sync (0xFFFB/0xFFF3/0xFFF2)
+  if (header.length >= 2 && header[0] === 0xff) {
+    const b1 = header[1];
+    if (b1 === 0xf1 || b1 === 0xf9) return 'aac';
+    if ((b1 & 0xe0) === 0xe0) return 'mp3';
+  }
   return 'unknown';
 }
 
@@ -47,6 +71,13 @@ const MIME_TO_KIND: Record<string, ReturnType<typeof sniffFileKind>[]> = {
   'video/mp4': ['mp4'],
   'video/quicktime': ['mp4'],
   'video/x-m4v': ['mp4'],
+  'audio/mp4': ['mp4'],
+  'audio/m4a': ['mp4'],
+  'audio/x-m4a': ['mp4'],
+  'audio/aac': ['aac', 'mp4'],
+  'audio/webm': ['webm'],
+  'audio/ogg': ['ogg'],
+  'audio/mpeg': ['mp3'],
 };
 
 /**
@@ -54,7 +85,7 @@ const MIME_TO_KIND: Record<string, ReturnType<typeof sniffFileKind>[]> = {
  * Unknown / unsupported MIME kinds fail closed for the declared type.
  */
 export function mimeMatchesMagic(mimetype: string, header: Buffer): boolean {
-  const allowed = MIME_TO_KIND[mimetype.toLowerCase()];
+  const allowed = MIME_TO_KIND[mimetype.split(';')[0].trim().toLowerCase()];
   if (!allowed) {
     // Documents outside the sniffed set (e.g. some support types) skip magic.
     return true;

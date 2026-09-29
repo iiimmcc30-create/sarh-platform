@@ -706,6 +706,12 @@ model Message {
   text       String?
   imageUrl   String?
   videoUrl   String?
+  /// Content kind. Legacy rows default to TEXT; renderers still infer image/video from the URL columns.
+  type            MessageContentType @default(TEXT)
+  audioUrl        String?
+  mediaDurationMs Int?
+  mediaMimeType   String?
+  mediaSizeBytes  Int?
   isRead     Boolean       @default(false)
   readAt     DateTime?
   createdAt  DateTime      @default(now())
@@ -822,6 +828,13 @@ enum PlanAudience {
 
 enum MessageThreadType {
   DIRECT
+}
+
+enum MessageContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  VOICE
 }
 
 enum FeatureValueType {

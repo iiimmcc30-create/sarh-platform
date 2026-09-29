@@ -22,6 +22,12 @@ import { MessagingPolicyService } from '../../messages/services/messaging-policy
 import { SupportTicketsService } from '../../support/services/support-tickets.service';
 import { ApiException } from '../../common/exceptions/api.exception';
 import { markSocketOffline, markSocketOnline } from './online-presence';
+import {
+  isMessagePayloadError,
+  notificationPreview,
+  pushBody,
+  resolveMessagePayload,
+} from '../../messages/lib/message-payload';
 
 class UuidParamDto {
   @IsUUID()
@@ -194,28 +200,32 @@ export class SocketGatewayService {
       return this.policyError(err);
     }
 
+    const payload = resolveMessagePayload({
+      text: data.text,
+      imageUrl: data.imageUrl,
+      videoUrl: data.videoUrl,
+      audioUrl: data.audioUrl,
+      durationMs: data.durationMs,
+      messageType: data.messageType,
+    });
+    if (isMessagePayloadError(payload)) {
+      return { code: 'invalid_input', message: payload.message };
+    }
+
     try {
       const [message] = await this.repo.createMessageWithThreadUpdate({
         threadId: data.threadId,
         senderId: user.userId,
         receiverId: data.receiverId,
-        text: data.text,
-        imageUrl: data.imageUrl,
-        videoUrl: data.videoUrl,
+        ...payload,
       });
-
-      const preview = data.text?.slice(0, 60)
-        ? data.text.slice(0, 60)
-        : data.videoUrl
-          ? '🎬 فيديو'
-          : '📷 صورة';
 
       this.emitService.emitToThread(data.threadId, 'chat:message', message);
       this.emitService.emitToUser(data.receiverId, 'chat:notification', {
         threadId: data.threadId,
         senderId: user.userId,
         senderName: message.sender.arabicName,
-        preview,
+        preview: notificationPreview(payload),
       });
 
       void this.notifications.notifyUser({
@@ -223,19 +233,16 @@ export class SocketGatewayService {
         type: 'new_message',
         titleAr:
           message.sender.arabicName || message.sender.username || 'مستخدم',
-        bodyAr: data.text?.trim()
-          ? data.text.trim()
-          : data.videoUrl
-            ? 'أرسل فيديو'
-            : 'أرسل صورة',
+        bodyAr: pushBody(payload),
         data: {
           threadId: data.threadId,
           messageId: message.id,
           senderId: user.userId,
           actorId: user.userId,
           actorAvatar: message.sender.avatar ?? undefined,
-          ...(data.imageUrl ? { imageUrl: data.imageUrl } : {}),
-          ...(data.videoUrl ? { videoUrl: data.videoUrl } : {}),
+          messageType: payload.type,
+          ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
+          ...(payload.videoUrl ? { videoUrl: payload.videoUrl } : {}),
         },
       });
     } catch (err) {
@@ -288,7 +295,22 @@ export class SocketGatewayService {
     return null;
   }
 
-  async handleChatRead(user: JwtPayload, data: ChatReadDto): Promise<void> {
+  async handleChatRead(
+    user: JwtPayload,
+    data: ChatReadDto,
+  ): Promise<SocketError | null> {
+    // Non-participants must never mark reads or broadcast into a thread room.
+    const allowed = await this.assertThreadParticipant(
+      data.threadId,
+      user.userId,
+    );
+    if (!allowed) {
+      return {
+        code: 'unauthorized',
+        message: 'Not a participant in this thread',
+      };
+    }
+
     await this.repo
       .markMessagesRead(data.messageIds, user.userId, data.threadId)
       .catch(() => {});
@@ -297,6 +319,7 @@ export class SocketGatewayService {
     server
       ?.to(`thread:${data.threadId}`)
       .emit('chat:read', { threadId: data.threadId, readBy: user.userId });
+    return null;
   }
 
   async handleLiveJoin(

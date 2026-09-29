@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -15,6 +16,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { successResponse } from '../common/utils/response.util';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import {
+  ContactsQueryDto,
   ListThreadsQueryDto,
   PinThreadDto,
   SendMessageDto,
@@ -34,6 +36,30 @@ export class MessagesController {
     @Query() query: ListThreadsQueryDto,
   ) {
     return successResponse(await this.messages.getThreads(user, query));
+  }
+
+  /** People the user can start a 1:1 with (following/followers/past chats + search). */
+  @RateLimit('api')
+  @Get('contacts')
+  @HttpCode(HttpStatus.OK)
+  async getContacts(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ContactsQueryDto,
+  ) {
+    return successResponse(await this.messages.getContacts(user, query));
+  }
+
+  /** Existing 1:1 conversation with a user (or null). Never tied to a listing. */
+  @RateLimit('api')
+  @Get('peer/:userId')
+  @HttpCode(HttpStatus.OK)
+  async getPeerConversation(
+    @CurrentUser() user: JwtPayload,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ) {
+    return successResponse(
+      await this.messages.getPeerConversation(user, userId),
+    );
   }
 
   @RateLimit('api')

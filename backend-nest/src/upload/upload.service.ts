@@ -26,6 +26,45 @@ const IMAGE_MIME_TYPES = [
 ] as const;
 const MAX_UPLOADS_PER_HOUR = 30;
 
+/**
+ * Voice-note formats accepted in the `messages` folder only.
+ * Web records webm/opus (Chrome/Firefox) or mp4/aac (Safari); native records m4a/AAC.
+ */
+export const MESSAGE_AUDIO_MIME_TYPES = [
+  'audio/webm',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/m4a',
+  'audio/x-m4a',
+  'audio/aac',
+  'audio/mpeg',
+] as const;
+const MESSAGE_AUDIO_MIMES = new Set<string>(MESSAGE_AUDIO_MIME_TYPES);
+
+/** Size limits (MB) returned to clients and enforced for direct uploads. */
+export const UPLOAD_MAX_MB = {
+  image: 20,
+  video: 50,
+  audio: 10,
+  support: 25,
+} as const;
+
+/** Strip codec parameters: `audio/webm;codecs=opus` -> `audio/webm`. */
+export function normalizeUploadMime(mimetype: string): string {
+  return (mimetype || '').split(';')[0].trim().toLowerCase();
+}
+
+export function maxUploadSizeMb(
+  folder: PresignUploadDto['folder'],
+  mimetype: string,
+): number {
+  if (folder === 'support') return UPLOAD_MAX_MB.support;
+  const mime = normalizeUploadMime(mimetype);
+  if (mime.startsWith('video/')) return UPLOAD_MAX_MB.video;
+  if (mime.startsWith('audio/')) return UPLOAD_MAX_MB.audio;
+  return UPLOAD_MAX_MB.image;
+}
+
 /** Documents accepted for support attachments. */
 const ALLOWED_DOCUMENT_MIME_TYPES = [
   'application/pdf',
@@ -74,11 +113,17 @@ function validateMimetype(
   const allowed: readonly string[] =
     folder === 'support'
       ? SUPPORT_MIME_TYPES
-      : MEDIA_FOLDERS.has(folder as UploadFolder)
-        ? [...IMAGE_MIME_TYPES, ...STORY_VIDEO_MIME_TYPES]
-        : IMAGE_MIME_TYPES;
+      : folder === 'messages'
+        ? [
+            ...IMAGE_MIME_TYPES,
+            ...STORY_VIDEO_MIME_TYPES,
+            ...MESSAGE_AUDIO_MIME_TYPES,
+          ]
+        : MEDIA_FOLDERS.has(folder as UploadFolder)
+          ? [...IMAGE_MIME_TYPES, ...STORY_VIDEO_MIME_TYPES]
+          : IMAGE_MIME_TYPES;
 
-  if (!allowed.includes(mimetype)) {
+  if (!allowed.includes(normalizeUploadMime(mimetype))) {
     throwApi(
       400,
       'validation_error',
@@ -128,8 +173,9 @@ export class UploadService {
     }
   }
 
-  async presign(user: JwtPayload, dto: PresignUploadDto) {
-    validateMimetype(dto.folder, dto.mimetype);
+  async presign(user: JwtPayload, rawDto: PresignUploadDto) {
+    validateMimetype(rawDto.folder, rawDto.mimetype);
+    const dto = { ...rawDto, mimetype: normalizeUploadMime(rawDto.mimetype) };
 
     const count = dto.count ?? 1;
     const presignOptions =
@@ -149,12 +195,7 @@ export class UploadService {
         ),
       );
 
-      const maxSizeMb =
-        dto.folder === 'support'
-          ? 25
-          : dto.mimetype.startsWith('video/')
-            ? 50
-            : 20;
+      const maxSizeMb = maxUploadSizeMb(dto.folder, dto.mimetype);
 
       const normalizedUrls =
         dto.folder === 'support'
@@ -207,6 +248,7 @@ export class UploadService {
       }
 
       this.assertUploadedFileMagic(file);
+      this.assertUploadedFileSize(folder, file);
 
       const host = req.headers.host;
       const proto = (req.headers['x-forwarded-proto'] as string) || 'http';
@@ -267,15 +309,44 @@ export class UploadService {
     }
   }
 
+  /** Per-kind size cap (e.g. voice notes 10 MB) on top of multer's folder cap. */
+  private assertUploadedFileSize(
+    folder: UploadFolder,
+    file: Express.Multer.File,
+  ): void {
+    const maxBytes = maxUploadSizeMb(folder, file.mimetype) * 1024 * 1024;
+    if (typeof file.size === 'number' && file.size > maxBytes) {
+      if (file.path) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch {
+          /* ignore */
+        }
+      }
+      throwApi(
+        413,
+        'file_too_large',
+        `حجم الملف أكبر من الحد المسموح (${maxUploadSizeMb(folder, file.mimetype)} ميجابايت)`,
+      );
+    }
+  }
+
   private createUploader(folder: UploadFolder) {
     const dest = path.join(process.cwd(), 'public', 'uploads', folder);
     fs.mkdirSync(dest, { recursive: true });
     const maxFileSize = MEDIA_FOLDERS.has(folder)
-      ? 50 * 1024 * 1024
-      : 20 * 1024 * 1024;
-    const allowedMimes: Set<string> = MEDIA_FOLDERS.has(folder)
-      ? new Set([...IMAGE_MIMES, ...STORY_VIDEO_MIMES])
-      : IMAGE_MIMES;
+      ? UPLOAD_MAX_MB.video * 1024 * 1024
+      : UPLOAD_MAX_MB.image * 1024 * 1024;
+    const allowedMimes: Set<string> =
+      folder === 'messages'
+        ? new Set([
+            ...IMAGE_MIMES,
+            ...STORY_VIDEO_MIMES,
+            ...MESSAGE_AUDIO_MIMES,
+          ])
+        : MEDIA_FOLDERS.has(folder)
+          ? new Set([...IMAGE_MIMES, ...STORY_VIDEO_MIMES])
+          : IMAGE_MIMES;
 
     return multer({
       storage: multer.diskStorage({
@@ -288,7 +359,7 @@ export class UploadService {
       }),
       limits: { fileSize: maxFileSize },
       fileFilter: (_req, file, cb) => {
-        if (!allowedMimes.has(file.mimetype)) {
+        if (!allowedMimes.has(normalizeUploadMime(file.mimetype))) {
           cb(new Error('نوع الملف غير مدعوم'));
           return;
         }

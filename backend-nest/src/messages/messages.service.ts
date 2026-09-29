@@ -5,15 +5,30 @@ import { LoggerService } from '../common/services/logger.service';
 import { AppNotificationsService } from '../queue/services/app-notifications.service';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import {
+  ContactsQueryDto,
   ListThreadsQueryDto,
   SendMessageDto,
   ThreadMessagesQueryDto,
 } from './dto/messages.dto';
-import { MessagesRepository } from './repositories/messages.repository';
+import {
+  inboxPreview,
+  isMessagePayloadError,
+  notificationPreview,
+  pushBody,
+  resolveMessagePayload,
+} from './lib/message-payload';
+import {
+  DIRECT_SCOPE_KEY,
+  MessagesRepository,
+} from './repositories/messages.repository';
 import { MessagingPolicyService } from './services/messaging-policy.service';
 import { SocketEmitService } from '../gateway/services/socket-emit.service';
 
 const PAGE_SIZE = 40;
+const CONTACTS_LIMIT = 60;
+const CONTACTS_SOURCE_TAKE = 200;
+
+export type ContactSource = 'recent' | 'following' | 'follower' | 'search';
 
 @Injectable()
 export class MessagesService {
@@ -54,9 +69,7 @@ export class MessagesService {
         id: t.id,
         type: t.type,
         participant: other ?? null,
-        lastMessage:
-          lastMsg?.text ||
-          (lastMsg?.videoUrl ? '[فيديو]' : lastMsg?.imageUrl ? '[صورة]' : null),
+        lastMessage: inboxPreview(lastMsg),
         lastMessageAt: t.lastMessageAt,
         unread: unreadMap.get(t.id) ?? 0,
         isMine: lastMsg?.senderId === userId,
@@ -75,18 +88,28 @@ export class MessagesService {
   }
 
   async sendMessage(user: JwtPayload, dto: SendMessageDto) {
-    const { receiverId, text, imageUrl, videoUrl } = dto;
+    const { receiverId } = dto;
     const senderId = user.userId;
 
-    const bodyText = text?.trim() || undefined;
-    if (!bodyText && !imageUrl && !videoUrl) {
-      throwApi(400, 'empty_message', 'يجب إرسال نص أو صورة أو فيديو');
+    const payload = resolveMessagePayload({
+      text: dto.text,
+      imageUrl: dto.imageUrl,
+      videoUrl: dto.videoUrl,
+      audioUrl: dto.audioUrl,
+      durationMs: dto.durationMs,
+      messageType: dto.messageType,
+      mediaMimeType: dto.mediaMimeType,
+      mediaSizeBytes: dto.mediaSizeBytes,
+    });
+    if (isMessagePayloadError(payload)) {
+      throwApi(400, payload.code, payload.message);
     }
 
     const type: MessageThreadType = dto.type ?? 'DIRECT';
 
     await this.policy.assertCanSendMessage({ senderId, receiverId });
 
+    // Conversations are general 1:1 threads resolved by the sorted pair.
     const [p1, p2] = [senderId, receiverId].sort();
     const thread = await this.repo.upsertThread({
       participant1: p1,
@@ -98,9 +121,7 @@ export class MessagesService {
       threadId: thread.id,
       senderId,
       receiverId,
-      text: bodyText,
-      imageUrl,
-      videoUrl,
+      ...payload,
     });
 
     await this.repo.clearHiddenForThread(thread.id);
@@ -110,29 +131,19 @@ export class MessagesService {
       message.sender.displayName ||
       user.username ||
       'مستخدم';
-    const notifyBody = bodyText
-      ? bodyText
-      : videoUrl
-        ? 'أرسل فيديو'
-        : 'أرسل صورة';
-    const preview = bodyText?.slice(0, 60)
-      ? bodyText.slice(0, 60)
-      : videoUrl
-        ? '🎬 فيديو'
-        : '📷 صورة';
     this.sockets.emitToThread(thread.id, 'chat:message', message);
     this.sockets.emitToUser(receiverId, 'chat:notification', {
       threadId: thread.id,
       senderId,
       senderName,
-      preview,
+      preview: notificationPreview(payload),
     });
 
     void this.notifications.notifyUser({
       userId: receiverId,
       type: 'new_message',
       titleAr: senderName,
-      bodyAr: notifyBody,
+      bodyAr: pushBody(payload),
       data: {
         threadId: thread.id,
         messageId: message.id,
@@ -140,16 +151,108 @@ export class MessagesService {
         actorId: senderId,
         actorAvatar: message.sender.avatar,
         threadType: type,
-        ...(imageUrl ? { imageUrl } : {}),
-        ...(videoUrl ? { videoUrl } : {}),
+        messageType: payload.type,
+        ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
+        ...(payload.videoUrl ? { videoUrl: payload.videoUrl } : {}),
       },
     });
 
     this.logger.info(
-      { messageId: message.id, senderId, receiverId, type },
+      {
+        messageId: message.id,
+        senderId,
+        receiverId,
+        type,
+        messageType: payload.type,
+      },
       'Message sent',
     );
     return { message, threadId: thread.id, type };
+  }
+
+  /**
+   * Resolve the 1:1 conversation with a peer without creating anything.
+   * Returns the pair's thread (the 'direct' one, else the most recent legacy
+   * one) or null when they never talked; the thread is created on first send.
+   */
+  async getPeerConversation(user: JwtPayload, peerId: string) {
+    if (peerId === user.userId) {
+      throwApi(400, 'invalid_action', 'لا يمكنك مراسلة نفسك');
+    }
+    const participant = await this.repo.findActiveParticipant(peerId);
+    if (!participant) throwApi(404, 'not_found', 'المستخدم غير موجود');
+
+    const threads = await this.repo.findThreadsForPair(user.userId, peerId);
+    const chosen =
+      threads.find((t) => t.scopeKey === DIRECT_SCOPE_KEY) ??
+      threads[0] ??
+      null;
+    return {
+      threadId: chosen?.id ?? null,
+      type: chosen?.type ?? 'DIRECT',
+      participant,
+    };
+  }
+
+  /**
+   * People the user can start a chat with: recent chat partners, people they
+   * follow and their followers (existing Follow relation), plus optional name
+   * search. Blocked users (either direction) are excluded.
+   */
+  async getContacts(user: JwtPayload, query: ContactsQueryDto = {}) {
+    const { userId } = user;
+    const q = query.q?.trim() ?? '';
+
+    const [blocks, recentThreads, following, followers, searched] =
+      await Promise.all([
+        this.repo.findBlockRelations(userId),
+        this.repo.findRecentPartnerThreads(userId, CONTACTS_SOURCE_TAKE),
+        this.repo.findFollowingUsers(userId, CONTACTS_SOURCE_TAKE),
+        this.repo.findFollowerUsers(userId, CONTACTS_SOURCE_TAKE),
+        q.length >= 2
+          ? this.repo.searchActiveUsers(q, userId, 20)
+          : Promise.resolve([]),
+      ]);
+
+    const blocked = new Set<string>();
+    for (const b of blocks) {
+      blocked.add(b.blockerId === userId ? b.blockedId : b.blockerId);
+    }
+
+    const recentIds = recentThreads.map((t) =>
+      t.participant1 === userId ? t.participant2 : t.participant1,
+    );
+    const recentUsers = recentIds.length
+      ? await this.repo.findParticipants([...new Set(recentIds)])
+      : [];
+    const recentMap = new Map(recentUsers.map((u) => [u.id, u]));
+
+    type Participant = (typeof recentUsers)[number];
+    const out = new Map<string, Participant & { source: ContactSource }>();
+    const push = (u: Participant | null | undefined, source: ContactSource) => {
+      if (!u || u.id === userId || blocked.has(u.id) || out.has(u.id)) return;
+      out.set(u.id, { ...u, source });
+    };
+    for (const id of recentIds) push(recentMap.get(id), 'recent');
+    for (const f of following) push(f.following, 'following');
+    for (const f of followers) push(f.follower, 'follower');
+
+    let items = [...out.values()];
+    if (q) {
+      const needle = q.toLowerCase();
+      items = items.filter((u) =>
+        [u.displayName, u.arabicName, u.username]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(needle)),
+      );
+      const known = new Set(items.map((u) => u.id));
+      for (const u of searched) {
+        if (u.id === userId || blocked.has(u.id) || known.has(u.id)) continue;
+        items.push({ ...u, source: 'search' });
+        known.add(u.id);
+      }
+    }
+    return items.slice(0, CONTACTS_LIMIT);
   }
 
   async getThreadMessages(

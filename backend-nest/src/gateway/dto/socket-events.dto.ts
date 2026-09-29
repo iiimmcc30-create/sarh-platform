@@ -1,7 +1,11 @@
+import { MessageContentType } from '@prisma/client';
 import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsDefined,
+  IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -12,10 +16,12 @@ import {
   Min,
   MinLength,
   Validate,
+  ValidateIf,
   ValidatorConstraint,
   ValidatorConstraintInterface,
   ValidationArguments,
 } from 'class-validator';
+import { VOICE_MAX_DURATION_MS } from '../../messages/lib/message-payload';
 
 const MEDIA_URL_OPTS = {
   require_tld: false,
@@ -26,11 +32,11 @@ const MEDIA_URL_OPTS = {
 export class TextOrMediaConstraint implements ValidatorConstraintInterface {
   validate(_: unknown, args: ValidationArguments): boolean {
     const obj = args.object as ChatSendDto;
-    return !!(obj.text?.trim() || obj.imageUrl || obj.videoUrl);
+    return !!(obj.text?.trim() || obj.imageUrl || obj.videoUrl || obj.audioUrl);
   }
 
   defaultMessage(): string {
-    return 'text, imageUrl, or videoUrl required';
+    return 'text, imageUrl, videoUrl, or audioUrl required';
   }
 }
 
@@ -54,6 +60,27 @@ export class ChatSendDto {
   @IsOptional()
   @IsUrl(MEDIA_URL_OPTS)
   videoUrl?: string;
+
+  @IsOptional()
+  @IsEnum(MessageContentType)
+  messageType?: MessageContentType;
+
+  @ValidateIf(
+    (o: ChatSendDto) => o.messageType === 'VOICE' || o.audioUrl != null,
+  )
+  @IsDefined()
+  @IsUrl(MEDIA_URL_OPTS)
+  audioUrl?: string;
+
+  @ValidateIf(
+    (o: ChatSendDto) =>
+      o.messageType === 'VOICE' || o.audioUrl != null || o.durationMs != null,
+  )
+  @IsDefined()
+  @IsInt()
+  @Min(1)
+  @Max(VOICE_MAX_DURATION_MS)
+  durationMs?: number;
 
   @Validate(TextOrMediaConstraint)
   private _textOrMedia!: boolean;

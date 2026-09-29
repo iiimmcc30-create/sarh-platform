@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { MessageContentType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -47,6 +48,11 @@ export class SocketRepository {
     text?: string;
     imageUrl?: string;
     videoUrl?: string;
+    type?: MessageContentType;
+    audioUrl?: string;
+    mediaDurationMs?: number;
+    mediaMimeType?: string;
+    mediaSizeBytes?: number;
   }) {
     return this.prisma.$transaction([
       this.prisma.message.create({
@@ -57,6 +63,11 @@ export class SocketRepository {
           text: data.text,
           imageUrl: data.imageUrl,
           videoUrl: data.videoUrl,
+          ...(data.type ? { type: data.type } : {}),
+          audioUrl: data.audioUrl,
+          mediaDurationMs: data.mediaDurationMs,
+          mediaMimeType: data.mediaMimeType,
+          mediaSizeBytes: data.mediaSizeBytes,
         },
         include: {
           sender: {

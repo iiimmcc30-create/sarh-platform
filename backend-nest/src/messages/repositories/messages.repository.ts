@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MessageThreadType } from '@prisma/client';
+import { MessageContentType, MessageThreadType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const PARTICIPANT_SELECT = {
@@ -49,6 +49,8 @@ export class MessagesRepository {
             text: true,
             imageUrl: true,
             videoUrl: true,
+            audioUrl: true,
+            type: true,
             isRead: true,
             createdAt: true,
             senderId: true,
@@ -134,6 +136,11 @@ export class MessagesRepository {
     text?: string;
     imageUrl?: string;
     videoUrl?: string;
+    type?: MessageContentType;
+    audioUrl?: string;
+    mediaDurationMs?: number;
+    mediaMimeType?: string;
+    mediaSizeBytes?: number;
   }) {
     return this.prisma.message.create({
       data,
@@ -196,6 +203,85 @@ export class MessagesRepository {
     return this.prisma.messageThreadState.updateMany({
       where: { threadId, hiddenAt: { not: null } },
       data: { hiddenAt: null },
+    });
+  }
+
+  /**
+   * Every conversation between a pair (newest first). Normally exactly one
+   * (scopeKey 'direct'); legacy scoped rows are kept readable, never merged.
+   */
+  findThreadsForPair(userA: string, userB: string) {
+    const [participant1, participant2] = [userA, userB].sort();
+    return this.prisma.messageThread.findMany({
+      where: { participant1, participant2 },
+      orderBy: { lastMessageAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        type: true,
+        scopeKey: true,
+        lastMessageAt: true,
+      },
+    });
+  }
+
+  findFollowingUsers(userId: string, take: number) {
+    return this.prisma.follow.findMany({
+      where: { followerId: userId },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: { following: { select: PARTICIPANT_SELECT } },
+    });
+  }
+
+  findFollowerUsers(userId: string, take: number) {
+    return this.prisma.follow.findMany({
+      where: { followingId: userId },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: { follower: { select: PARTICIPANT_SELECT } },
+    });
+  }
+
+  findRecentPartnerThreads(userId: string, take: number) {
+    return this.prisma.messageThread.findMany({
+      where: { OR: [{ participant1: userId }, { participant2: userId }] },
+      orderBy: { lastMessageAt: 'desc' },
+      take,
+      select: { participant1: true, participant2: true },
+    });
+  }
+
+  findBlockRelations(userId: string) {
+    return this.prisma.userBlock.findMany({
+      where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+      take: 500,
+      select: { blockerId: true, blockedId: true },
+    });
+  }
+
+  searchActiveUsers(q: string, excludeUserId: string, take: number) {
+    return this.prisma.user.findMany({
+      where: {
+        id: { not: excludeUserId },
+        isActive: true,
+        deletedAt: null,
+        OR: [
+          { username: { contains: q, mode: 'insensitive' } },
+          { displayName: { contains: q, mode: 'insensitive' } },
+          { arabicName: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      orderBy: [{ verified: 'desc' }, { username: 'asc' }],
+      take,
+      select: PARTICIPANT_SELECT,
+    });
+  }
+
+  findActiveParticipant(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: PARTICIPANT_SELECT,
     });
   }
 }
