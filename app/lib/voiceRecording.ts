@@ -35,13 +35,65 @@ export const VOICE_RECORDING_OPTIONS: RecordingOptions = {
   },
 };
 
-/** Preferred MediaRecorder formats (webm/opus first; Safari falls back to mp4). */
+/**
+ * Preferred MediaRecorder formats, feature-detected with
+ * `MediaRecorder.isTypeSupported`: webm/opus (Chrome/Firefox/Edge) first,
+ * then mp4/AAC (Safari), then ogg / aac / mpeg.
+ */
 export const WEB_VOICE_MIME_CANDIDATES = [
   'audio/webm;codecs=opus',
   'audio/webm',
-  'audio/ogg;codecs=opus',
+  'audio/mp4;codecs=mp4a.40.2',
   'audio/mp4',
+  'audio/ogg;codecs=opus',
+  'audio/aac',
+  'audio/mpeg',
 ] as const;
+
+/** Base audio types the backend accepts for voice notes (`MESSAGE_AUDIO_MIME_TYPES`). */
+export const VOICE_UPLOAD_MIMES = [
+  'audio/webm',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/m4a',
+  'audio/x-m4a',
+  'audio/aac',
+  'audio/mpeg',
+] as const;
+
+/**
+ * Map a recorder-reported mime to one the backend accepts, or null.
+ * Some browsers report the container as `video/webm` / `video/mp4` for
+ * audio-only recordings; those are the same bytes as the audio types.
+ */
+export function normalizeVoiceUploadMime(mime: string | undefined | null): string | null {
+  const base = baseMime(mime);
+  if (!base) return null;
+  if ((VOICE_UPLOAD_MIMES as readonly string[]).includes(base)) return base;
+  if (base === 'video/webm' || base === 'audio/x-matroska') return 'audio/webm';
+  if (base === 'video/mp4') return 'audio/mp4';
+  return null;
+}
+
+export type WebVoiceSupport =
+  | { supported: true; mimeType: string | undefined }
+  | { supported: false };
+
+/**
+ * Feature-detect web voice recording. `mimeType` undefined means the browser
+ * has MediaRecorder but no `isTypeSupported`; the recorder default is then
+ * validated after start via `normalizeVoiceUploadMime`.
+ */
+export function detectWebVoiceSupport(env: {
+  hasGetUserMedia: boolean;
+  MediaRecorder?: { isTypeSupported?: (mime: string) => boolean } | undefined;
+}): WebVoiceSupport {
+  if (!env.hasGetUserMedia || !env.MediaRecorder) return { supported: false };
+  const isTypeSupported = env.MediaRecorder.isTypeSupported;
+  if (typeof isTypeSupported !== 'function') return { supported: true, mimeType: undefined };
+  const mimeType = pickWebVoiceMime(isTypeSupported.bind(env.MediaRecorder));
+  return mimeType ? { supported: true, mimeType } : { supported: false };
+}
 
 export function pickWebVoiceMime(
   isTypeSupported: ((mime: string) => boolean) | undefined,

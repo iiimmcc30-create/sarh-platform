@@ -17,17 +17,22 @@ import {
   VOICE_MAX_DURATION_MS,
   VOICE_MIN_DURATION_MS,
   VOICE_RECORDING_OPTIONS,
-  baseMime,
-  pickWebVoiceMime,
+  detectWebVoiceSupport,
+  normalizeVoiceUploadMime,
   voiceErrorMessage,
 } from '@/lib/voiceRecording';
+import { deleteTempRecording, tempRecordingSize } from '@/lib/voiceTempFile';
+import { onceCleanup } from '@/lib/onceCleanup';
 
 export type VoiceRecording = {
   uri: string;
   mimeType: string;
   durationMs: number;
   sizeBytes?: number;
-  /** Release temp resources (web object URL). Safe to call more than once. */
+  /**
+   * Release temp resources: deletes the native temp file / revokes the web
+   * object URL. Idempotent; call after upload success, final failure or cancel.
+   */
   dispose: () => void;
 };
 
@@ -37,6 +42,11 @@ export type VoiceStartResult = { ok: true } | { ok: false; error: string };
 export type VoiceStopResult =
   | { ok: true; recording: VoiceRecording }
   | { ok: false; error?: string };
+
+export type VoiceRecorderOptions = {
+  /** Receives the recording when the 5-minute cap stops it automatically. */
+  onAutoStop?: (result: VoiceStopResult) => void;
+};
 
 export type VoiceRecorderApi = {
   status: VoiceRecorderStatus;
@@ -72,8 +82,23 @@ function useElapsedTimer() {
   return { durationMs, setDurationMs, begin, clear, elapsed };
 }
 
-function useNativeVoiceRecorder(): VoiceRecorderApi {
+/** Auto-stop at the cap: hand the recording over, or clean it up if unclaimed. */
+function useAutoStopHandler(options?: VoiceRecorderOptions) {
+  const onAutoStop = options?.onAutoStop;
+  const onAutoStopRef = useRef(onAutoStop);
+  useEffect(() => {
+    onAutoStopRef.current = onAutoStop;
+  }, [onAutoStop]);
+  return useCallback((result: VoiceStopResult) => {
+    const handler = onAutoStopRef.current;
+    if (handler) handler(result);
+    else if (result.ok) result.recording.dispose();
+  }, []);
+}
+
+function useNativeVoiceRecorder(options?: VoiceRecorderOptions): VoiceRecorderApi {
   const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
+  const handleAutoStop = useAutoStopHandler(options);
   const [status, setStatus] = useState<VoiceRecorderStatus>('idle');
   const {
     durationMs: elapsedMs,
@@ -110,7 +135,7 @@ function useNativeVoiceRecorder(): VoiceRecorderApi {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
-      beginTimer(() => void stopRef.current());
+      beginTimer(() => void stopRef.current().then(handleAutoStop));
       setBoth('recording');
       return { ok: true };
     } catch (err) {
@@ -119,7 +144,7 @@ function useNativeVoiceRecorder(): VoiceRecorderApi {
       await resetAudioMode();
       return { ok: false, error: voiceErrorMessage(err) };
     }
-  }, [beginTimer, clearTimer, recorder, resetAudioMode, setBoth]);
+  }, [beginTimer, clearTimer, handleAutoStop, recorder, resetAudioMode, setBoth]);
 
   const stop = useCallback(async (): Promise<VoiceStopResult> => {
     if (statusRef.current !== 'recording') return { ok: false };
@@ -129,6 +154,7 @@ function useNativeVoiceRecorder(): VoiceRecorderApi {
     try {
       await recorder.stop();
     } catch (err) {
+      deleteTempRecording(recorder.uri);
       setBoth('idle');
       await resetAudioMode();
       return { ok: false, error: voiceErrorMessage(err) };
@@ -137,10 +163,21 @@ function useNativeVoiceRecorder(): VoiceRecorderApi {
     setBoth('idle');
     const uri = recorder.uri;
     if (!uri) return { ok: false, error: VOICE_ERRORS.failed };
-    if (durationMs < VOICE_MIN_DURATION_MS) return { ok: false, error: VOICE_ERRORS.tooShort };
+    if (durationMs < VOICE_MIN_DURATION_MS) {
+      deleteTempRecording(uri);
+      return { ok: false, error: VOICE_ERRORS.tooShort };
+    }
     return {
       ok: true,
-      recording: { uri, mimeType: 'audio/mp4', durationMs, dispose: () => undefined },
+      recording: {
+        uri,
+        mimeType: 'audio/mp4',
+        durationMs,
+        sizeBytes: tempRecordingSize(uri),
+        dispose: onceCleanup(() => {
+          deleteTempRecording(uri);
+        }),
+      },
     };
   }, [clearTimer, readElapsed, recorder, resetAudioMode, setBoth]);
 
@@ -156,10 +193,33 @@ function useNativeVoiceRecorder(): VoiceRecorderApi {
     } catch {
       /* ignore */
     }
+    // Cancelled recordings are never sent: remove the temp file now.
+    deleteTempRecording(recorder.uri);
     await resetAudioMode();
     setElapsedMs(0);
     setBoth('idle');
   }, [clearTimer, recorder, resetAudioMode, setBoth, setElapsedMs]);
+
+  // Leaving the screen mid-recording: stop and delete the partial file.
+  useEffect(
+    () => () => {
+      if (statusRef.current !== 'recording' && statusRef.current !== 'stopping') return;
+      statusRef.current = 'idle';
+      void (async () => {
+        try {
+          await recorder.stop();
+        } catch {
+          /* recorder may already be released */
+        }
+        try {
+          deleteTempRecording(recorder.uri);
+        } catch {
+          /* ignore */
+        }
+      })();
+    },
+    [recorder],
+  );
 
   return { status, durationMs: elapsedMs, start, stop, cancel };
 }
@@ -171,7 +231,8 @@ type WebRecorderRefs = {
   mime: string;
 };
 
-function useWebVoiceRecorder(): VoiceRecorderApi {
+function useWebVoiceRecorder(options?: VoiceRecorderOptions): VoiceRecorderApi {
+  const handleAutoStop = useAutoStopHandler(options);
   const [status, setStatus] = useState<VoiceRecorderStatus>('idle');
   const {
     durationMs: elapsedMs,
@@ -198,7 +259,12 @@ function useWebVoiceRecorder(): VoiceRecorderApi {
   const start = useCallback(async (): Promise<VoiceStartResult> => {
     if (statusRef.current !== 'idle') return { ok: false, error: VOICE_ERRORS.failed };
     const nav = typeof navigator !== 'undefined' ? navigator : undefined;
-    if (!nav?.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    const MR = typeof MediaRecorder === 'undefined' ? undefined : MediaRecorder;
+    const support = detectWebVoiceSupport({
+      hasGetUserMedia: typeof nav?.mediaDevices?.getUserMedia === 'function',
+      MediaRecorder: MR,
+    });
+    if (!support.supported || !MR || !nav) {
       return { ok: false, error: VOICE_ERRORS.unsupported };
     }
     setBoth('starting');
@@ -206,17 +272,30 @@ function useWebVoiceRecorder(): VoiceRecorderApi {
       const stream = await nav.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
-      const mime = pickWebVoiceMime(MediaRecorder.isTypeSupported?.bind(MediaRecorder));
-      const recorder = new MediaRecorder(stream, {
-        ...(mime ? { mimeType: mime } : {}),
-        audioBitsPerSecond: 64_000,
-      });
-      refs.current = { recorder, stream, chunks: [], mime: recorder.mimeType || mime || 'audio/webm' };
+      refs.current.stream = stream;
+      const mime = support.mimeType;
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MR(stream, {
+          ...(mime ? { mimeType: mime } : {}),
+          audioBitsPerSecond: 64_000,
+        });
+      } catch {
+        // Some engines (older Safari) reject the options: use their default.
+        recorder = new MR(stream);
+      }
+      const uploadMime = normalizeVoiceUploadMime(recorder.mimeType || mime || 'audio/webm');
+      if (!uploadMime) {
+        releaseStream();
+        setBoth('idle');
+        return { ok: false, error: VOICE_ERRORS.unsupported };
+      }
+      refs.current = { recorder, stream, chunks: [], mime: uploadMime };
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) refs.current.chunks.push(e.data);
       };
       recorder.start(250);
-      beginTimer(() => void stopRef.current());
+      beginTimer(() => void stopRef.current().then(handleAutoStop));
       setBoth('recording');
       return { ok: true };
     } catch (err) {
@@ -225,7 +304,7 @@ function useWebVoiceRecorder(): VoiceRecorderApi {
       setBoth('idle');
       return { ok: false, error: voiceErrorMessage(err) };
     }
-  }, [beginTimer, clearTimer, releaseStream, setBoth]);
+  }, [beginTimer, clearTimer, handleAutoStop, releaseStream, setBoth]);
 
   const stop = useCallback(async (): Promise<VoiceStopResult> => {
     const rec = refs.current.recorder;
@@ -241,7 +320,9 @@ function useWebVoiceRecorder(): VoiceRecorderApi {
         resolve();
       }
     });
-    const mimeType = baseMime(refs.current.mime) || 'audio/webm';
+    // Final container type (Safari only reports it reliably after recording).
+    const mimeType =
+      normalizeVoiceUploadMime(rec.mimeType) ?? normalizeVoiceUploadMime(refs.current.mime) ?? 'audio/webm';
     const blob = new Blob(refs.current.chunks, { type: mimeType });
     refs.current.chunks = [];
     releaseStream();
@@ -250,7 +331,6 @@ function useWebVoiceRecorder(): VoiceRecorderApi {
       return { ok: false, error: VOICE_ERRORS.tooShort };
     }
     const uri = URL.createObjectURL(blob);
-    let disposed = false;
     return {
       ok: true,
       recording: {
@@ -258,11 +338,7 @@ function useWebVoiceRecorder(): VoiceRecorderApi {
         mimeType,
         durationMs,
         sizeBytes: blob.size,
-        dispose: () => {
-          if (disposed) return;
-          disposed = true;
-          URL.revokeObjectURL(uri);
-        },
+        dispose: onceCleanup(() => URL.revokeObjectURL(uri)),
       },
     };
   }, [clearTimer, readElapsed, releaseStream, setBoth]);
@@ -294,5 +370,5 @@ function useWebVoiceRecorder(): VoiceRecorderApi {
 }
 
 /** Platform is fixed per bundle, so the chosen hook is stable across renders. */
-export const useVoiceRecorder: () => VoiceRecorderApi =
+export const useVoiceRecorder: (options?: VoiceRecorderOptions) => VoiceRecorderApi =
   Platform.OS === 'web' ? useWebVoiceRecorder : useNativeVoiceRecorder;

@@ -31,11 +31,16 @@ import { API_BASE } from '@/services/api';
 import { fetchPeerConversation } from '@/services/chatApi';
 import {
   assertUploadSize,
+  UploadError,
   uploadMediaFromUri,
   type UploadMediaType,
 } from '@/services/upload';
 import { VoiceMessageBubble } from '@/components/feature/chat/VoiceMessageBubble';
-import { useVoiceRecorder, type VoiceRecording } from '@/hooks/useVoiceRecorder';
+import {
+  useVoiceRecorder,
+  type VoiceRecording,
+  type VoiceStopResult,
+} from '@/hooks/useVoiceRecorder';
 import {
   chatMessageParts,
   formatFileSize,
@@ -66,9 +71,20 @@ type OutgoingMedia = {
   mimeType?: string;
   sizeBytes?: number;
   durationMs?: number;
-  /** Web object URL cleanup for voice notes. */
+  /**
+   * Voice notes: deletes the native temp file / revokes the web object URL.
+   * Called once the upload succeeded, on a final (non-retryable) failure,
+   * and for abandoned jobs when the screen unmounts — never mid-upload.
+   */
   dispose?: () => void;
+  /** Set after a successful upload so a retry only re-sends the message. */
+  uploadedUrl?: string;
 };
+
+/** Send failure that retrying cannot fix (validation, size, forbidden). */
+class FinalSendError extends Error {}
+
+const FINAL_SEND_STATUSES = new Set([400, 403, 404, 413, 422]);
 
 /** Upload + send payload per kind (legacy image/video fields kept). */
 function mediaSendPayload(media: OutgoingMedia, url: string) {
@@ -518,7 +534,34 @@ export default function ChatScreen() {
   const [pendingMedia, setPendingMedia] = useState<OutgoingMedia | null>(null);
   /** Failed / in-flight media jobs by optimistic id (retry without re-picking). */
   const mediaJobsRef = useRef(new Map<string, OutgoingMedia>());
-  const voice = useVoiceRecorder();
+  /** Jobs whose upload is running: their temp file must not be deleted yet. */
+  const mediaInFlightRef = useRef(new Set<string>());
+  const unmountedRef = useRef(false);
+  const voiceResultRef = useRef<(res: VoiceStopResult) => void>(() => undefined);
+  const voice = useVoiceRecorder({ onAutoStop: (res) => voiceResultRef.current(res) });
+
+  /** Drop a media job and release its temp file (final success / failure). */
+  const finalizeMediaJob = useCallback((id: string) => {
+    const job = mediaJobsRef.current.get(id);
+    mediaJobsRef.current.delete(id);
+    job?.dispose?.();
+  }, []);
+
+  // Leaving the chat ends every pending retry: clean up idle jobs now; jobs
+  // still uploading are finalized by runMediaJob once the upload settles.
+  useEffect(() => {
+    const jobs = mediaJobsRef.current;
+    const inFlight = mediaInFlightRef.current;
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      for (const [id, job] of [...jobs.entries()]) {
+        if (inFlight.has(id)) continue;
+        jobs.delete(id);
+        job.dispose?.();
+      }
+    };
+  }, []);
 
   const receiverUserId = receiverId;
   const activeChatType = 'DIRECT' as const;
@@ -734,13 +777,16 @@ export default function ChatScreen() {
         throw new Error('فشل إرسال الرسالة');
       } else {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.messageAr || 'فشل إرسال الرسالة');
+        const reason = json.messageAr || 'فشل إرسال الرسالة';
+        throw FINAL_SEND_STATUSES.has(res.status) ? new FinalSendError(reason) : new Error(reason);
       }
     } catch (err) {
       console.warn('[ChatScreen] Failed to send message:', err);
       const reason = err instanceof Error ? err.message : 'فشل إرسال الرسالة، يرجى المحاولة مجدداً.';
       if (optimisticId) {
         patchMessage(tempId, { status: 'failed', error: reason });
+        // Rejected by the server (e.g. size limit): retry cannot help.
+        if (err instanceof FinalSendError) finalizeMediaJob(tempId);
       } else {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         Alert.alert('خطأ', reason);
@@ -766,11 +812,26 @@ export default function ChatScreen() {
   /** Upload (with progress / timeout) then send; never blocks the composer. */
   const runMediaJob = async (id: string, media: OutgoingMedia) => {
     if (!accessToken) return;
+    try {
+      await uploadAndDeliver(id, media, accessToken);
+    } finally {
+      mediaInFlightRef.current.delete(id);
+      // Screen closed meanwhile: nobody can retry any more.
+      if (unmountedRef.current) finalizeMediaJob(id);
+    }
+  };
+
+  const uploadAndDeliver = async (id: string, media: OutgoingMedia, token: string) => {
+    let url = media.uploadedUrl;
+    if (url) {
+      await deliverUploaded(id, media, url);
+      return;
+    }
+    mediaInFlightRef.current.add(id);
     patchMessage(id, { status: 'uploading', progress: 0, error: undefined });
     let lastReported = 0;
-    let url: string;
     try {
-      url = await uploadMediaFromUri(accessToken, media.uri, 'messages', media.kind, {
+      url = await uploadMediaFromUri(token, media.uri, 'messages', media.kind, {
         mimeType: media.mimeType,
         sizeBytes: media.sizeBytes,
         timeoutMs: media.kind === 'video' ? 300_000 : 120_000,
@@ -782,17 +843,28 @@ export default function ChatScreen() {
       });
     } catch (err) {
       console.warn('[ChatScreen] Failed to upload media:', err);
+      mediaInFlightRef.current.delete(id);
       patchMessage(id, {
         status: 'failed',
         error: err instanceof Error ? err.message : 'فشل رفع الملف',
       });
+      // Oversized files can never succeed; other failures keep the file for retry.
+      if (err instanceof UploadError && err.code === 'too_large') finalizeMediaJob(id);
       return;
     }
-    const ok = await deliverMessage('', mediaSendPayload(media, url), id);
-    if (ok) {
-      mediaJobsRef.current.delete(id);
-      media.dispose?.();
+    mediaInFlightRef.current.delete(id);
+    media.uploadedUrl = url;
+    if (media.kind === 'audio' && media.dispose) {
+      // Upload complete: the temp recording is no longer needed (retries re-send the URL).
+      media.dispose();
+      patchMessage(id, { audio: url });
     }
+    await deliverUploaded(id, media, url);
+  };
+
+  const deliverUploaded = async (id: string, media: OutgoingMedia, url: string) => {
+    const ok = await deliverMessage('', mediaSendPayload(media, url), id);
+    if (ok) finalizeMediaJob(id);
   };
 
   const sendMedia = (media: OutgoingMedia) => {
@@ -892,7 +964,10 @@ export default function ChatScreen() {
   };
 
   const sendVoice = async () => {
-    const res = await voice.stop();
+    handleVoiceResult(await voice.stop());
+  };
+
+  const handleVoiceResult = (res: VoiceStopResult) => {
     if (!res.ok) {
       if (res.error) Alert.alert('الرسائل الصوتية', res.error);
       return;
@@ -907,6 +982,9 @@ export default function ChatScreen() {
       dispose: rec.dispose,
     });
   };
+  useEffect(() => {
+    voiceResultRef.current = handleVoiceResult;
+  });
 
   const sendCurrentLocation = async () => {
     setAttachOpen(false);
