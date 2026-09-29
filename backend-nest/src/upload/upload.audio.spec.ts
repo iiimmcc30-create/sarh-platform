@@ -83,4 +83,38 @@ describe('voice message uploads', () => {
     expect(mimeMatchesMagic('audio/x-m4a', m4a)).toBe(true);
     expect(mimeMatchesMagic('audio/webm', Buffer.from('%PDF-1.4'))).toBe(false);
   });
+
+  it('opts chat uploads into protected delivery only when requested', async () => {
+    await service.presign(jwt, {
+      mimetype: 'audio/mp4',
+      folder: 'messages',
+      delivery: 'authenticated',
+    });
+    expect(getPresignedUploadUrl).toHaveBeenLastCalledWith(
+      'messages',
+      'audio/mp4',
+      300,
+      { userId: 'user-a', protectedDelivery: true },
+    );
+    // Old app builds (no `delivery`) keep the legacy public slot.
+    await service.presign(jwt, { mimetype: 'audio/mp4', folder: 'messages' });
+    expect(getPresignedUploadUrl).toHaveBeenLastCalledWith(
+      'messages',
+      'audio/mp4',
+      300,
+      undefined,
+    );
+    // `delivery` is ignored outside the messages folder.
+    await service.presign(jwt, {
+      mimetype: 'image/jpeg',
+      folder: 'listings',
+      delivery: 'authenticated',
+    });
+    expect(getPresignedUploadUrl).toHaveBeenLastCalledWith(
+      'listings',
+      'image/jpeg',
+      300,
+      undefined,
+    );
+  });
 });

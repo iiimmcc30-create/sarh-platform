@@ -19,6 +19,8 @@ import {
 import { SocketRepository } from '../repositories/socket.repository';
 import { SocketEmitService } from './socket-emit.service';
 import { MessagingPolicyService } from '../../messages/services/messaging-policy.service';
+import { MessageMediaService } from '../../messages/services/message-media.service';
+import { publicMediaForPush } from '../../messages/lib/message-media';
 import { SupportTicketsService } from '../../support/services/support-tickets.service';
 import { ApiException } from '../../common/exceptions/api.exception';
 import { markSocketOffline, markSocketOnline } from './online-presence';
@@ -49,6 +51,7 @@ export class SocketGatewayService {
     private readonly logger: LoggerService,
     private readonly messagingPolicy: MessagingPolicyService,
     private readonly supportTickets: SupportTicketsService,
+    private readonly media: MessageMediaService,
   ) {}
 
   private policyError(err: unknown): SocketError {
@@ -200,7 +203,7 @@ export class SocketGatewayService {
       return this.policyError(err);
     }
 
-    const payload = resolveMessagePayload({
+    const resolved = resolveMessagePayload({
       text: data.text,
       imageUrl: data.imageUrl,
       videoUrl: data.videoUrl,
@@ -208,17 +211,25 @@ export class SocketGatewayService {
       durationMs: data.durationMs,
       messageType: data.messageType,
     });
-    if (isMessagePayloadError(payload)) {
-      return { code: 'invalid_input', message: payload.message };
+    if (isMessagePayloadError(resolved)) {
+      return { code: 'invalid_input', message: resolved.message };
+    }
+
+    let payload: typeof resolved;
+    try {
+      payload = await this.media.verifyForSend(user.userId, resolved);
+    } catch (err) {
+      return this.policyError(err);
     }
 
     try {
-      const [message] = await this.repo.createMessageWithThreadUpdate({
+      const [created] = await this.repo.createMessageWithThreadUpdate({
         threadId: data.threadId,
         senderId: user.userId,
         receiverId: data.receiverId,
         ...payload,
       });
+      const message = this.media.presentMessage(created);
 
       this.emitService.emitToThread(data.threadId, 'chat:message', message);
       this.emitService.emitToUser(data.receiverId, 'chat:notification', {
@@ -241,8 +252,7 @@ export class SocketGatewayService {
           actorId: user.userId,
           actorAvatar: message.sender.avatar ?? undefined,
           messageType: payload.type,
-          ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
-          ...(payload.videoUrl ? { videoUrl: payload.videoUrl } : {}),
+          ...publicMediaForPush(payload),
         },
       });
     } catch (err) {

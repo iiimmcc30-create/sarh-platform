@@ -55,6 +55,11 @@ describe('MessagesService.sendMessage block enforcement', () => {
       notifications as never,
       policy as never,
       sockets as never,
+      {
+        verifyForSend: jest.fn((_u: string, p: unknown) => Promise.resolve(p)),
+        presentMessage: jest.fn((m: unknown) => m),
+        presentMessages: jest.fn((m: unknown) => m),
+      } as never,
     );
   });
 
@@ -135,6 +140,11 @@ describe('MessagesService inbox pin and hide', () => {
       notifications as never,
       policy as never,
       sockets as never,
+      {
+        verifyForSend: jest.fn((_u: string, p: unknown) => Promise.resolve(p)),
+        presentMessage: jest.fn((m: unknown) => m),
+        presentMessages: jest.fn((m: unknown) => m),
+      } as never,
     );
   });
 

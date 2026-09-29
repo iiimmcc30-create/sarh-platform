@@ -11,6 +11,7 @@ import {
   type UploadSlot,
 } from '@/lib/storage';
 import { STORY_VIDEO_MIME_TYPES } from '@/lib/stories';
+import { UPLOAD_MAX_MB } from '@/lib/upload-limits';
 import { ApiException, throwApi } from '../common/exceptions/api.exception';
 import { LoggerService } from '../common/services/logger.service';
 import { RedisSessionService } from '../redis/services/redis-session.service';
@@ -42,12 +43,7 @@ export const MESSAGE_AUDIO_MIME_TYPES = [
 const MESSAGE_AUDIO_MIMES = new Set<string>(MESSAGE_AUDIO_MIME_TYPES);
 
 /** Size limits (MB) returned to clients and enforced for direct uploads. */
-export const UPLOAD_MAX_MB = {
-  image: 20,
-  video: 50,
-  audio: 10,
-  support: 25,
-} as const;
+export { UPLOAD_MAX_MB };
 
 /** Strip codec parameters: `audio/webm;codecs=opus` -> `audio/webm`. */
 export function normalizeUploadMime(mimetype: string): string {
@@ -179,7 +175,11 @@ export class UploadService {
 
     const count = dto.count ?? 1;
     const presignOptions =
-      dto.folder === 'support' ? { userId: user.userId } : undefined;
+      dto.folder === 'support'
+        ? { userId: user.userId }
+        : dto.folder === 'messages' && dto.delivery === 'authenticated'
+          ? { userId: user.userId, protectedDelivery: true }
+          : undefined;
 
     await this.enforceUploadRateLimit(user.userId, count);
 

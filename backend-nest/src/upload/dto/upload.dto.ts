@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 const UPLOAD_FOLDERS = [
@@ -24,6 +32,15 @@ export class PresignUploadDto {
   @Max(8)
   @Type(() => Number)
   count?: number;
+
+  /**
+   * Opt-in protected delivery for chat media (`messages` folder only).
+   * New app builds send `authenticated`; older builds omit it and keep public
+   * uploads, so their signed params are unchanged.
+   */
+  @IsOptional()
+  @IsIn(['authenticated'])
+  delivery?: 'authenticated';
 }
 
 export { UPLOAD_FOLDERS };

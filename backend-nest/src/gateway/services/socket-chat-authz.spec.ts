@@ -42,6 +42,11 @@ describe('SocketGatewayService chat events', () => {
       { error: jest.fn() } as never,
       policy as never,
       {} as never,
+      {
+        verifyForSend: jest.fn((_u: string, p: unknown) => Promise.resolve(p)),
+        presentMessage: jest.fn((m: unknown) => m),
+        presentMessages: jest.fn((m: unknown) => m),
+      } as never,
     );
   });
 

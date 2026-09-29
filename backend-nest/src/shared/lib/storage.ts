@@ -1,10 +1,13 @@
 // Media storage — single active provider selected at runtime (not dual-write).
 // Set STORAGE_PROVIDER=local|s3|cloudinary; default: cloudinary → s3 → local (dev).
+import fs from 'fs';
+import path from 'path';
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v2 as cloudinary } from 'cloudinary';
@@ -42,6 +45,12 @@ export type CloudinaryUploadSlot = {
   signature: string;
   folder: string;
   publicId: string;
+  /**
+   * Signed Cloudinary delivery type. Present only for protected chat uploads
+   * (`authenticated`): the client must send it as the `type` form field.
+   * Legacy slots omit it, so older app builds keep their exact signed params.
+   */
+  type?: 'authenticated';
 };
 
 export type LocalUploadSlot = {
@@ -59,6 +68,13 @@ const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '';
 const CLOUDINARY_BASE_FOLDER = process.env.CLOUDINARY_FOLDER || 'safat';
+/**
+ * Optional Cloudinary token-based auth key (premium feature). When set, signed
+ * chat media URLs also carry an expiring `__cld_token__`; otherwise they use
+ * the standard (non-expiring) `s--signature--` component.
+ */
+const CLOUDINARY_AUTH_TOKEN_KEY = process.env.CLOUDINARY_AUTH_TOKEN_KEY || '';
+const SIGNED_MEDIA_TTL_SECONDS = 6 * 60 * 60;
 
 const s3 =
   process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
@@ -176,10 +192,26 @@ export function getAllowedUploadOrigins(): string[] {
   return [...new Set(origins)];
 }
 
+/** Cloudinary base folder (e.g. `safat`) — exposed for message media checks. */
+export function getCloudinaryBaseFolder(): string {
+  return CLOUDINARY_BASE_FOLDER;
+}
+
+export function getCloudinaryCloudName(): string {
+  return CLOUD_NAME;
+}
+
+/**
+ * Folder for protected (authenticated) chat media: one folder per uploader so
+ * the API can verify that a message only references the sender's own uploads.
+ */
+export function protectedMessageFolder(userId: string): string {
+  return `${CLOUDINARY_BASE_FOLDER}/messages/${userId}`;
+}
+
 function cloudinaryFolder(folder: UploadFolder, userId?: string): string {
   if (folder === 'support') {
-    if (!userId)
-      throw new Error(`userId is required for ${folder} uploads`);
+    if (!userId) throw new Error(`userId is required for ${folder} uploads`);
     return `${CLOUDINARY_BASE_FOLDER}/${folder}/${userId}`;
   }
   return `${CLOUDINARY_BASE_FOLDER}/${folder}`;
@@ -187,8 +219,7 @@ function cloudinaryFolder(folder: UploadFolder, userId?: string): string {
 
 function objectKeyPrefix(folder: UploadFolder, userId?: string): string {
   if (folder === 'support') {
-    if (!userId)
-      throw new Error(`userId is required for ${folder} uploads`);
+    if (!userId) throw new Error(`userId is required for ${folder} uploads`);
     return `${folder}/${userId}`;
   }
   return folder;
@@ -214,13 +245,18 @@ async function getCloudinaryUploadSlot(
   folder: UploadFolder,
   userId?: string,
   mimetype?: string,
+  protectedDelivery = false,
 ): Promise<CloudinaryUploadSlot> {
   if (!isCloudinaryConfigured()) {
     throw new Error('Cloudinary is not configured');
   }
 
   const timestamp = Math.round(Date.now() / 1000);
-  const targetFolder = cloudinaryFolder(folder, userId);
+  const isProtected = protectedDelivery && folder === 'messages' && !!userId;
+  const targetFolder =
+    isProtected && userId
+      ? protectedMessageFolder(userId)
+      : cloudinaryFolder(folder, userId);
   const publicId = uuidv4();
 
   const paramsToSign: Record<string, string | number> = {
@@ -228,6 +264,7 @@ async function getCloudinaryUploadSlot(
     folder: targetFolder,
     public_id: publicId,
   };
+  if (isProtected) paramsToSign.type = 'authenticated';
 
   const signature = cloudinary.utils.api_sign_request(
     paramsToSign,
@@ -242,6 +279,7 @@ async function getCloudinaryUploadSlot(
     signature,
     folder: targetFolder,
     publicId,
+    ...(isProtected ? { type: 'authenticated' as const } : {}),
   };
 }
 
@@ -271,6 +309,8 @@ async function getS3UploadSlot(
 
 export type PresignOptions = {
   userId?: string;
+  /** Chat media only: upload as Cloudinary `authenticated` (signed delivery). */
+  protectedDelivery?: boolean;
 };
 
 export async function getPresignedUploadUrl(
@@ -288,7 +328,12 @@ export async function getPresignedUploadUrl(
   }
 
   if (provider === 'cloudinary') {
-    return getCloudinaryUploadSlot(folder, userId, mimetype);
+    return getCloudinaryUploadSlot(
+      folder,
+      userId,
+      mimetype,
+      options?.protectedDelivery === true,
+    );
   }
 
   return getS3UploadSlot(folder, mimetype, expiresIn, userId);
@@ -455,4 +500,164 @@ export async function getStoredObjectUrl(
   }
 
   return getFileUrl(normalized);
+}
+
+// ── Chat media helpers (protected delivery + server-side size checks) ──────
+
+export type CloudinaryAssetRef = {
+  publicId: string;
+  resourceType: 'image' | 'video' | 'raw';
+  deliveryType: 'upload' | 'authenticated' | 'private';
+  version?: string;
+  format?: string;
+};
+
+export type CloudinaryAssetInfo = {
+  bytes: number;
+  resourceType: string;
+  version?: string;
+  format?: string;
+};
+
+function cloudinaryErrorStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== 'object') return undefined;
+  const e = err as { http_code?: unknown; error?: { http_code?: unknown } };
+  const code = e.http_code ?? e.error?.http_code;
+  return typeof code === 'number' ? code : undefined;
+}
+
+/**
+ * Reads the stored asset's real size via the (rate-unlimited) Upload API
+ * `explicit` method. Returns null when the asset does not exist.
+ */
+export async function inspectCloudinaryAsset(
+  ref: CloudinaryAssetRef,
+): Promise<CloudinaryAssetInfo | null> {
+  if (!isCloudinaryConfigured()) {
+    throw new Error('Cloudinary is not configured');
+  }
+  try {
+    const res = (await cloudinary.uploader.explicit(ref.publicId, {
+      type: ref.deliveryType,
+      resource_type: ref.resourceType,
+    })) as {
+      bytes?: unknown;
+      resource_type?: unknown;
+      version?: unknown;
+      format?: unknown;
+    };
+    const bytes = Number(res.bytes);
+    if (!Number.isFinite(bytes) || bytes < 0) {
+      throw new Error('Cloudinary explicit returned no size');
+    }
+    return {
+      bytes,
+      resourceType:
+        typeof res.resource_type === 'string'
+          ? res.resource_type
+          : ref.resourceType,
+      version: res.version != null ? String(res.version) : undefined,
+      format: typeof res.format === 'string' ? res.format : undefined,
+    };
+  } catch (err) {
+    if (cloudinaryErrorStatus(err) === 404) return null;
+    throw err;
+  }
+}
+
+export async function destroyCloudinaryAsset(
+  ref: CloudinaryAssetRef,
+): Promise<void> {
+  if (!isCloudinaryConfigured()) return;
+  await cloudinary.uploader.destroy(ref.publicId, {
+    type: ref.deliveryType,
+    resource_type: ref.resourceType,
+    invalidate: true,
+  });
+  logger.info(
+    { publicId: ref.publicId, resourceType: ref.resourceType },
+    'Cloudinary asset deleted (rejected message media)',
+  );
+}
+
+/**
+ * Signed delivery URL for an `authenticated` / `private` asset. Generated
+ * server-side only (needs the API secret) and only handed to participants.
+ */
+export function signedCloudinaryDeliveryUrl(ref: CloudinaryAssetRef): string {
+  const options: Record<string, unknown> = {
+    resource_type: ref.resourceType,
+    type: ref.deliveryType,
+    sign_url: true,
+    secure: true,
+  };
+  if (ref.version) options.version = ref.version;
+  if (ref.format) options.format = ref.format;
+  if (CLOUDINARY_AUTH_TOKEN_KEY) {
+    options.auth_token = {
+      key: CLOUDINARY_AUTH_TOKEN_KEY,
+      duration: SIGNED_MEDIA_TTL_SECONDS,
+    };
+  }
+  return cloudinary.url(ref.publicId, options);
+}
+
+/** Size of a local-dev `/uploads/<folder>/<file>` URL, or null if unknown. */
+export function localUploadSizeBytes(url: string): number | null {
+  try {
+    const parsed = new URL(url, 'http://localhost');
+    const match = /^\/uploads\/([a-z]+)\/([^/]+)$/.exec(parsed.pathname);
+    if (!match) return null;
+    const file = path.join(
+      process.cwd(),
+      'public',
+      'uploads',
+      path.basename(match[1]),
+      path.basename(decodeURIComponent(match[2])),
+    );
+    return fs.statSync(file).size;
+  } catch {
+    return null;
+  }
+}
+
+/** Object key for one of our S3/CloudFront URLs, else null. */
+export function s3KeyFromUrl(url: string): string | null {
+  const region = process.env.AWS_REGION || 'me-south-1';
+  const origins = [
+    ...CDN_URL.split(',')
+      .map((o) => o.trim().replace(/\/$/, ''))
+      .filter(Boolean),
+    `https://${BUCKET}.s3.${region}.amazonaws.com`,
+  ];
+  for (const origin of origins) {
+    if (url.startsWith(`${origin}/`)) {
+      const key = url.slice(origin.length + 1).split('?')[0];
+      return key ? decodeURIComponent(key) : null;
+    }
+  }
+  return null;
+}
+
+/** S3 object size via HEAD; null when the object does not exist. */
+export async function s3ObjectSizeBytes(key: string): Promise<number | null> {
+  if (!s3) throw new Error('S3 is not configured');
+  try {
+    const res = await s3.send(
+      new HeadObjectCommand({ Bucket: BUCKET, Key: key }),
+    );
+    return typeof res.ContentLength === 'number' ? res.ContentLength : null;
+  } catch (err) {
+    const status = (err as { $metadata?: { httpStatusCode?: number } })
+      .$metadata?.httpStatusCode;
+    if (status === 404 || (err as { name?: string }).name === 'NotFound') {
+      return null;
+    }
+    throw err;
+  }
+}
+
+export async function deleteS3Object(key: string): Promise<void> {
+  if (!s3) return;
+  await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }

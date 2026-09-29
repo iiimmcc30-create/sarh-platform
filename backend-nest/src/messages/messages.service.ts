@@ -22,6 +22,8 @@ import {
   MessagesRepository,
 } from './repositories/messages.repository';
 import { MessagingPolicyService } from './services/messaging-policy.service';
+import { MessageMediaService } from './services/message-media.service';
+import { publicMediaForPush } from './lib/message-media';
 import { SocketEmitService } from '../gateway/services/socket-emit.service';
 
 const PAGE_SIZE = 40;
@@ -38,6 +40,7 @@ export class MessagesService {
     private readonly notifications: AppNotificationsService,
     private readonly policy: MessagingPolicyService,
     private readonly sockets: SocketEmitService,
+    private readonly media: MessageMediaService,
   ) {}
 
   async getThreads(user: JwtPayload, query: ListThreadsQueryDto = {}) {
@@ -91,7 +94,7 @@ export class MessagesService {
     const { receiverId } = dto;
     const senderId = user.userId;
 
-    const payload = resolveMessagePayload({
+    const resolved = resolveMessagePayload({
       text: dto.text,
       imageUrl: dto.imageUrl,
       videoUrl: dto.videoUrl,
@@ -101,13 +104,16 @@ export class MessagesService {
       mediaMimeType: dto.mediaMimeType,
       mediaSizeBytes: dto.mediaSizeBytes,
     });
-    if (isMessagePayloadError(payload)) {
-      throwApi(400, payload.code, payload.message);
+    if (isMessagePayloadError(resolved)) {
+      throwApi(400, resolved.code, resolved.message);
     }
 
     const type: MessageThreadType = dto.type ?? 'DIRECT';
 
     await this.policy.assertCanSendMessage({ senderId, receiverId });
+
+    // Real stored size / ownership of the upload is checked before accepting.
+    const payload = await this.media.verifyForSend(senderId, resolved);
 
     // Conversations are general 1:1 threads resolved by the sorted pair.
     const [p1, p2] = [senderId, receiverId].sort();
@@ -117,12 +123,13 @@ export class MessagesService {
       type,
     });
 
-    const message = await this.repo.createMessage({
+    const created = await this.repo.createMessage({
       threadId: thread.id,
       senderId,
       receiverId,
       ...payload,
     });
+    const message = this.media.presentMessage(created);
 
     await this.repo.clearHiddenForThread(thread.id);
 
@@ -152,8 +159,7 @@ export class MessagesService {
         actorAvatar: message.sender.avatar,
         threadType: type,
         messageType: payload.type,
-        ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
-        ...(payload.videoUrl ? { videoUrl: payload.videoUrl } : {}),
+        ...publicMediaForPush(payload),
       },
     });
 
@@ -278,7 +284,7 @@ export class MessagesService {
     await this.repo.markThreadRead(threadId, userId);
 
     return {
-      messages: items.reverse(),
+      messages: this.media.presentMessages(items.reverse()),
       nextCursor,
       hasMore,
       type: thread.type,

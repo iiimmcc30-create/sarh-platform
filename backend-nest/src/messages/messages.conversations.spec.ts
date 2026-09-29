@@ -54,6 +54,11 @@ describe('MessagesService general 1:1 conversations', () => {
       notifications as never,
       policy as never,
       sockets as never,
+      {
+        verifyForSend: jest.fn((_u: string, p: unknown) => Promise.resolve(p)),
+        presentMessage: jest.fn((m: unknown) => m),
+        presentMessages: jest.fn((m: unknown) => m),
+      } as never,
     );
   });
 
