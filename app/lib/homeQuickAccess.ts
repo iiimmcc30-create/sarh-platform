@@ -18,6 +18,8 @@ export type HomeQuickAccessItem = {
  * Home quick-access shortcuts.
  * Append items here to extend the rail — do not hard-code chips in the layout.
  * Every href must already exist as a real in-app route.
+ * Feed suppliers is intentionally not a shortcut here; its screen, route and
+ * the Home banner CTA below stay unchanged.
  */
 export const HOME_QUICK_ACCESS_ITEMS: HomeQuickAccessItem[] = [
   {
@@ -33,13 +35,6 @@ export const HOME_QUICK_ACCESS_ITEMS: HomeQuickAccessItem[] = [
     href: '/bookmarks',
     icon: 'bookmark-outline',
     iconTone: 'primary',
-  },
-  {
-    key: 'feed-suppliers',
-    label: 'الموردين',
-    href: '/feed-suppliers',
-    icon: 'leaf',
-    iconTone: 'leaf',
   },
   {
     key: 'settings',

@@ -56,7 +56,8 @@ describe('feed supplier screens stay a public directory', () => {
     );
     expect(explore).toContain('fetchExploreSarhBanners');
     expect(exploreFallback).toContain('explore-sarh-feed-suppliers.jpg');
-    expect(src('lib/homeQuickAccess.ts')).toContain("href: '/feed-suppliers'");
+    // Not a quick-access shortcut any more; the Home banner CTA still opens it.
+    expect(src('lib/homeQuickAccess.ts')).toContain("HOME_BANNER_CTA_HREF = '/feed-suppliers'");
     expect(explore).not.toContain('تصفح واستكشف أبرز الموردين');
   });
 

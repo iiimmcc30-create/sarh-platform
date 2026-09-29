@@ -17,7 +17,7 @@ describe('Home quick access: المحفوظات replaces المفضلة in the s
   const keys = [...catalog.matchAll(/key: '([^']+)'/g)].map((m) => m[1]);
 
   it('keeps the order and swaps only this item', () => {
-    expect(keys).toEqual(['services', 'bookmarks', 'feed-suppliers', 'settings']);
+    expect(keys).toEqual(['services', 'bookmarks', 'settings']);
     expect(catalog).toContain("label: 'المحفوظات'");
     expect(catalog).not.toContain("label: 'المفضلة'");
     expect(catalog).toContain("href: '/bookmarks'");
@@ -29,7 +29,7 @@ describe('Home quick access: المحفوظات replaces المفضلة in the s
     expect(feedIcon).not.toBeNull();
     const unsavedIcon = feedIcon![2];
     expect(unsavedIcon).toBe('bookmark-outline');
-    const block = catalog.slice(catalog.indexOf("key: 'bookmarks'"), catalog.indexOf("key: 'feed-suppliers'"));
+    const block = catalog.slice(catalog.indexOf("key: 'bookmarks'"), catalog.indexOf("key: 'settings'"));
     expect(block).toContain(`icon: '${unsavedIcon}'`);
     // Same AppIcon component in both places; quick access design is untouched.
     const quick = src('components/feature/HomeQuickAccess.tsx');

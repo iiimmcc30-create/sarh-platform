@@ -12,7 +12,10 @@ import {
 } from '@/lib/homeQuickAccess';
 import { safePush } from '@/lib/safeNavigate';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+/** Icon / logo box and label line box (20px, unchanged logo size). */
+const ICON_BOX = space[20];
 
 function iconColor(
   item: HomeQuickAccessItem,
@@ -33,43 +36,45 @@ export function HomeQuickAccess() {
   return (
     <View style={styles.wrap}>
       <View style={[styles.sectionHead, { paddingHorizontal: gutter }]}>
-        <AppText variant="heading2" color="textPrimary">
+        <AppText variant="heading3" color="textPrimary">
           الوصول السريع
         </AppText>
       </View>
-      <ScrollView
-        horizontal
-        nestedScrollEnabled
-        decelerationRate="fast"
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.rail, { paddingHorizontal: gutter }]}
-      >
+      {/*
+        One horizontal RTL row: every shortcut is a flex: 1 tile with an equal
+        gap, so the tiles share the full width by the real item count (no
+        fixed grid, no empty slot).
+      */}
+      <Row align="center" gap="sm" style={[styles.rail, { paddingHorizontal: gutter }]}>
         {HOME_QUICK_ACCESS_ITEMS.map((item) => (
           <Pressable
             key={item.key}
             accessibilityRole="button"
             accessibilityLabel={item.label}
             onPress={() => safePush(item.href, undefined, router)}
-            style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
           >
-            <Row align="center" gap="sm">
-              {item.logo ? (
-                <Image source={item.logo} style={styles.logo} contentFit="contain" />
-              ) : (
-                <AppIcon
-                  name={item.icon ?? 'apps'}
-                  size={space[16]}
-                  color={iconColor(item, themeColors)}
-                  variant={item.iconTone === 'rose' ? 'sr' : 'rr'}
-                />
-              )}
-              <AppText variant="label" color="textPrimary" numberOfLines={1}>
+            {/* Horizontal (RTL) row: icon, then the label on the same midline. */}
+            <Row align="center" gap="sm" style={styles.tileRow}>
+              <View style={styles.iconBox}>
+                {item.logo ? (
+                  <Image source={item.logo} style={styles.logo} contentFit="contain" />
+                ) : (
+                  <AppIcon
+                    name={item.icon ?? 'apps'}
+                    size={space[16]}
+                    color={iconColor(item, themeColors)}
+                    variant={item.iconTone === 'rose' ? 'sr' : 'rr'}
+                  />
+                )}
+              </View>
+              <AppText variant="label" color="textPrimary" numberOfLines={1} style={styles.label}>
                 {item.label}
               </AppText>
             </Row>
           </Pressable>
         ))}
-      </ScrollView>
+      </Row>
     </View>
   );
 }
@@ -85,26 +90,49 @@ function createStyles(chipBg: string, chipBorder: string) {
     },
     rail: {
       gap: space[8],
-      alignItems: 'center',
-      flexGrow: 0,
+      alignItems: 'stretch',
     },
-    chip: {
-      flexShrink: 0,
-      flexGrow: 0,
-      minHeight: space[40],
-      paddingHorizontal: space[16],
-      paddingVertical: space[8],
+    /**
+     * Compact tile: fixed height, balanced padding, light corners and a thin
+     * calm border. Content is centred on both axes so the row sits on the
+     * tile's midline (it used to be pinned to the top of a taller chip).
+     */
+    tile: {
+      flex: 1,
+      minWidth: 0,
+      height: space[40],
+      paddingHorizontal: space[12],
+      justifyContent: 'center',
+      alignItems: 'center',
       borderRadius: radius[12],
       backgroundColor: chipBg,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: chipBorder,
+    },
+    tileRow: {
+      height: ICON_BOX,
+      maxWidth: '100%',
+    },
+    /** Same box for logos and glyph icons, so every label shares one midline. */
+    iconBox: {
+      width: ICON_BOX,
+      height: ICON_BOX,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    /** Line box = icon box; no Android font padding pushing the glyphs off-centre. */
+    label: {
+      flexShrink: 1,
+      lineHeight: ICON_BOX,
+      includeFontPadding: false,
+      textAlignVertical: 'center',
     },
     pressed: {
       opacity: motion.opacity.pressed,
     },
     logo: {
-      width: space[20],
-      height: space[20],
+      width: ICON_BOX,
+      height: ICON_BOX,
       borderRadius: radius[999],
     },
   });

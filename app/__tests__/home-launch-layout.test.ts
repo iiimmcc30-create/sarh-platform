@@ -29,18 +29,20 @@ describe('home launch layout', () => {
     expect(catalog).toContain("key: 'services'");
     expect(catalog).toContain("key: 'bookmarks'");
     expect(catalog).not.toContain("key: 'favorites'");
-    expect(catalog).toContain("key: 'feed-suppliers'");
-    expect(catalog).toContain("label: 'الموردين'");
+    // Suppliers left the quick-access rail (its screen and routes stay).
+    expect(catalog).not.toContain("key: 'feed-suppliers'");
+    expect(catalog).not.toContain("label: 'الموردين'");
     expect(catalog).toContain("key: 'settings'");
     expect(catalog).toContain("pathname: '/ministry'");
     expect(catalog).toContain("tab: 'services'");
     expect(catalog).toContain("href: '/bookmarks'");
     expect(catalog).not.toContain("href: '/favorites'");
-    expect(catalog).toContain("href: '/feed-suppliers'");
+    expect(catalog).not.toContain("href: '/feed-suppliers'");
     expect(catalog).toContain("href: '/settings'");
     expect(catalog).toContain('HOME_QUICK_ACCESS_ITEMS');
     expect(quick).toContain('HOME_QUICK_ACCESS_ITEMS.map');
-    expect(quick).toContain('horizontal');
+    // One horizontal RTL row of flex: 1 tiles sized by the item count.
+    expect(quick).toContain('<Row align="center" gap="sm" style={[styles.rail, { paddingHorizontal: gutter }]}>');
     expect(quick).toContain('borderRadius: radius[12]');
     expect(src('app/ministry/index.tsx')).toContain("value === 'posts' || value === 'services'");
     expect(src('app/favorites.tsx')).toContain('export default function FavoritesScreen');
