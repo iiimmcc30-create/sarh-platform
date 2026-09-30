@@ -1,6 +1,6 @@
 // Sarh — Verification (Blue / Blue+ / Gold) subscribe sheet.
 // Layout follows the approved X-Premium-style mobile sheet: close, hero badge,
-// headline, Blue/Blue+/Gold tabs, a compact comparison (no cards), one rounded
+// headline, Blue/Blue+/Gold tabs, one rounded
 // feature list, the monthly plan, a pill CTA and fine print. The page is
 // ALWAYS dark (black) in light and dark mode. Prices come from the plans API
 // only; renewal is manual (no auto-charge). Gold needs a document before
@@ -11,7 +11,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { SwipeTabIndicator } from '@/components/ui/SwipeTabIndicator';
-import { TierBadgeMark } from '@/components/verification/TierBadgeMark';
 import { VerificationHero } from '@/components/verification/VerificationHero';
 import { AppText } from '@/design-system/components';
 import { Screen, ScreenBody, Stack } from '@/design-system/layout';
@@ -141,8 +140,6 @@ function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefine
     active,
   ];
 }
-
-type CompareRow = { key: string; label: string; value: (t: VerificationTierId) => string; accent?: VerificationTierId };
 
 export default function VerificationScreen() {
   const router = useRouter();
@@ -307,19 +304,6 @@ export default function VerificationScreen() {
       : 'تجديد يدوي كل شهر، بدون أي خصم تلقائي.';
   })();
 
-  const compareRows: CompareRow[] = [
-    { key: 'price', label: 'السعر الشهري', value: (t) => priceAmount(planOf(t)) ?? '—' },
-    { key: 'daily', label: 'إعلانات يومية', value: (t) => ltr(`+${extraDailyFor(planOf(t), t)}`) },
-    { key: 'visibility', label: 'أولوية الظهور', value: (t) => VERIFICATION_TIER_COPY[t].visibilityShort },
-    { key: 'badge', label: 'الشارة', value: (t) => (badgeColorOf(t) === 'gold' ? 'ذهبية' : 'زرقاء') },
-    {
-      key: 'document',
-      label: 'مستند',
-      value: (t) => (documentRequiredFor(planOf(t), t) ? 'مطلوب' : 'لا يلزم'),
-      accent: 'gold',
-    },
-  ];
-
   const features = featuresFor(tier, plan);
   const heroWidth = isCompact ? 240 : 280;
 
@@ -383,58 +367,6 @@ export default function VerificationScreen() {
             <ActivityIndicator color={D.textSecondary} />
           </View>
         ) : null}
-
-        {/* Quick comparison: plain rows and columns on black (no cards). */}
-        <View style={styles.compare} accessibilityLabel="مقارنة الباقات">
-          <View style={[styles.compareRow, getRtlRow()]}>
-            <View style={styles.compareLabel} />
-            {TIERS.map((t) => (
-              <Pressable
-                key={t}
-                onPress={() => setSelected(t)}
-                style={styles.compareCell}
-                accessibilityRole="button"
-                accessibilityState={{ selected: t === tier }}
-                accessibilityLabel={`اختر ${VERIFICATION_TIER_COPY[t].label}`}
-              >
-                <TierBadgeMark tier={badgeColorOf(t)} size={18} outline={t !== tier} outlineColor={D.textSecondary} />
-                <AppText variant="caption" style={t === tier ? styles.compareActive : styles.secondary}>
-                  {ltr(VERIFICATION_TIER_COPY[t].label)}
-                </AppText>
-              </Pressable>
-            ))}
-          </View>
-          {compareRows.map((row) => (
-            <View key={row.key} style={[styles.compareRow, styles.compareDivider, getRtlRow()]}>
-              <AppText variant="caption" style={[styles.secondary, styles.compareLabel]} numberOfLines={2}>
-                {row.label}
-              </AppText>
-              {TIERS.map((t) => {
-                const value = row.value(t);
-                const accent = row.accent === t && value === 'مطلوب';
-                return (
-                  <Pressable
-                    key={t}
-                    onPress={() => setSelected(t)}
-                    style={styles.compareCell}
-                    accessibilityLabel={`${VERIFICATION_TIER_COPY[t].label}: ${row.label} ${value}`}
-                  >
-                    <AppText
-                      variant="caption"
-                      align="center"
-                      style={[
-                        t === tier ? styles.compareActive : styles.secondary,
-                        accent && { color: VERIFIED_BADGE_COLORS.gold },
-                      ]}
-                    >
-                      {value}
-                    </AppText>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
-        </View>
 
         {/* Feature list: one rounded dark container */}
         <View style={styles.list}>
@@ -610,19 +542,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  compare: { marginTop: spacing.lg },
-  compareRow: { alignItems: 'center', minHeight: 40 },
-  compareDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: D.border },
-  compareLabel: { flex: 1.2, minWidth: 0 },
-  compareCell: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingVertical: spacing.sm,
-  },
-  compareActive: { color: D.text, fontWeight: '700' },
   docNotice: {
     marginTop: spacing.lg,
     gap: spacing.xs,

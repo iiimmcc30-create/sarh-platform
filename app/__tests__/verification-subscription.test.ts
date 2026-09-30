@@ -76,13 +76,12 @@ describe('verification page + flow', () => {
     expect(page).toContain('<VerificationHero tier={color}');
   });
 
-  it('compares the 3 plans without cards: price, daily listings, visibility, badge, document', () => {
-    for (const label of ['السعر الشهري', 'إعلانات يومية', 'أولوية الظهور', 'الشارة', 'مستند']) {
-      expect(page).toContain(`label: '${label}'`);
-    }
-    expect(page).toContain('style={styles.compare}');
-    expect(page).toContain("compareDivider: { borderTopWidth: StyleSheet.hairlineWidth");
-    expect(page).not.toMatch(/compare[A-Za-z]*: \{[^}]*backgroundColor/);
+  it('has no comparison table (removed); price, daily listings and the Gold document stay in the plan/features', () => {
+    expect(page).not.toContain('styles.compare');
+    expect(page).not.toContain('compareRows');
+    expect(page).not.toContain('مقارنة الباقات');
+    expect(page).toContain('إعلانات إضافية يومياً');
+    expect(page).toContain('مستند مطلوب قبل الدفع');
   });
 
   it('follows the reference sheet: close, hero badge, headline, list, monthly plan, pill CTA, fine print', () => {
@@ -91,7 +90,6 @@ describe('verification page + flow', () => {
       '<VerificationHero tier={color}',
       'variant="heading2"',
       'accessibilityRole="tablist"',
-      'style={styles.compare}',
       'style={styles.list}',
       'style={[styles.plan, getRtlRow()]}',
       'styles.cta,',
