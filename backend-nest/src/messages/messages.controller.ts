@@ -18,6 +18,7 @@ import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import {
   ContactsQueryDto,
   ListThreadsQueryDto,
+  MuteThreadDto,
   PinThreadDto,
   SendMessageDto,
   ThreadMessagesQueryDto,
@@ -79,6 +80,20 @@ export class MessagesController {
   ) {
     return successResponse(
       await this.messages.pinThread(user, threadId, dto.pinned),
+    );
+  }
+
+  /** Mute / unmute push notifications for this conversation (caller only). */
+  @RateLimit('api')
+  @Patch(':threadId/mute')
+  @HttpCode(HttpStatus.OK)
+  async muteThread(
+    @CurrentUser() user: JwtPayload,
+    @Param('threadId') threadId: string,
+    @Body() dto: MuteThreadDto,
+  ) {
+    return successResponse(
+      await this.messages.muteThread(user, threadId, dto.muted),
     );
   }
 

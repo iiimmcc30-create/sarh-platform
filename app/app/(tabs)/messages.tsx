@@ -3,20 +3,30 @@
 
 import { MessagesPanel } from '@/components/feature/MessagesPanel';
 import { AppChromeLayer } from '@/components/navigation/AppChromeLayer';
-import { HomeAppBar, shellIdentityStackH } from '@/components/ui/HomeAppBar';
+import {
+  HomeAppBar,
+  SHELL_ICON_SIZE,
+  SHELL_TOOL,
+  shellIdentityStackH,
+} from '@/components/ui/HomeAppBar';
+import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { space } from '@/design-system';
 import { AppText, SarhInput } from '@/design-system/components';
 import { Screen, ScreenBody } from '@/design-system/layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppUser } from '@/hooks/useApp';
+import { useTheme } from '@/hooks/useTheme';
 import { safePush } from '@/lib/safeNavigate';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+/** Compact (40pt) header search — same field, slightly smaller than the 48pt default. */
+const SEARCH_H = space[40];
+
 function messagesChromeH(insetTop: number) {
-  return shellIdentityStackH(insetTop) + space[8] + space[48];
+  return shellIdentityStackH(insetTop) + space[8] + SEARCH_H;
 }
 
 export default function MessagesScreen() {
@@ -26,6 +36,8 @@ export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const [headerH, setHeaderH] = useState(() => messagesChromeH(insets.top));
   const [search, setSearch] = useState('');
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const { colors } = useTheme();
   const displayName = isAuthenticated
     ? me.arabicName || me.displayName || me.username || 'حسابي'
     : 'ضيف';
@@ -38,6 +50,15 @@ export default function MessagesScreen() {
     safePush('/sidebar', undefined, router);
   }, [isAuthenticated, router]);
 
+  /** Header «رسالة جديدة» — opens the existing NewMessageSheet (guests sign in first). */
+  const openNewMessage = useCallback(() => {
+    if (!isAuthenticated) {
+      safePush('/auth/phone', undefined, router);
+      return;
+    }
+    setNewMessageOpen(true);
+  }, [isAuthenticated, router]);
+
   return (
     <Screen edges={[]}>
       <AppChromeLayer onHeight={setHeaderH}>
@@ -45,6 +66,18 @@ export default function MessagesScreen() {
           displayName={displayName}
           avatarUri={me.avatar}
           onAvatarPress={openSidebar}
+          trailing={
+            <Pressable
+              onPress={openNewMessage}
+              style={styles.newMessageBtn}
+              hitSlop={space[4]}
+              accessibilityRole="button"
+              accessibilityLabel="رسالة جديدة"
+              testID="messages-new-message"
+            >
+              <AppIcon name="square-pen" size={SHELL_ICON_SIZE + 2} color={colors.textPrimary} />
+            </Pressable>
+          }
           center={
             <AppText
               variant="heading3"
@@ -65,6 +98,7 @@ export default function MessagesScreen() {
               returnKeyType="search"
               trailingIcon="search"
               shape="pill"
+              size="compact"
               clearButtonMode="while-editing"
               accessibilityRole="search"
               accessibilityLabel="بحث"
@@ -84,6 +118,8 @@ export default function MessagesScreen() {
           showSearch={false}
           search={search}
           onSearchChange={setSearch}
+          newMessageOpen={newMessageOpen}
+          onNewMessageOpenChange={setNewMessageOpen}
         />
       </ScreenBody>
     </Screen>
@@ -93,5 +129,11 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   searchSlot: {
     paddingTop: space[8],
+  },
+  newMessageBtn: {
+    width: SHELL_TOOL,
+    height: SHELL_TOOL,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

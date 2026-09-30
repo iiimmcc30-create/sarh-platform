@@ -25,6 +25,7 @@ describe('MessagesService general 1:1 conversations', () => {
     markThreadRead: jest.fn(),
     upsertThreadState: jest.fn(),
     findThreadsForPair: jest.fn(),
+    touchThread: jest.fn(),
     findActiveParticipant: jest.fn(),
     findBlockRelations: jest.fn(),
     findRecentPartnerThreads: jest.fn(),
@@ -33,7 +34,10 @@ describe('MessagesService general 1:1 conversations', () => {
     searchActiveUsers: jest.fn(),
     findParticipants: jest.fn(),
   };
-  const policy = { assertCanSendMessage: jest.fn() };
+  const policy = {
+    assertCanSendMessage: jest.fn(),
+    isThreadMuted: jest.fn().mockResolvedValue(false),
+  };
   const sockets = { emitToThread: jest.fn(), emitToUser: jest.fn() };
   const notifications = { notifyUser: jest.fn() };
   let service: MessagesService;
@@ -43,6 +47,8 @@ describe('MessagesService general 1:1 conversations', () => {
     policy.assertCanSendMessage.mockResolvedValue(undefined);
     repo.clearHiddenForThread.mockResolvedValue({ count: 0 });
     repo.upsertThread.mockResolvedValue({ id: 'pair-thread' });
+    // New pair by default (no existing thread): the 'direct' one is created.
+    repo.findThreadsForPair.mockResolvedValue([]);
     repo.createMessage.mockImplementation(async (data: object) => ({
       id: 'm1',
       ...data,

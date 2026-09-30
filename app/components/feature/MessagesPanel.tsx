@@ -34,6 +34,7 @@ import {
 } from '@/hooks/useMessageThreads';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { NewMessageSheet } from '@/components/feature/NewMessageSheet';
+import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import type { ChatContact } from '@/services/chatApi';
 
 function formatThreadTime(iso: string): string {
@@ -70,8 +71,14 @@ interface MessagesPanelProps {
   search?: string;
   onSearchChange?: (value: string) => void;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  /** Floating "رسالة جديدة" entry point (default on). */
+  /** "رسالة جديدة" sheet + empty-state button (default on). */
   showNewMessage?: boolean;
+  /**
+   * Controlled sheet state — the Chats tab opens it from its header button
+   * (the old floating button was removed to avoid a duplicate entry point).
+   */
+  newMessageOpen?: boolean;
+  onNewMessageOpenChange?: (open: boolean) => void;
 }
 
 export function MessagesPanel({
@@ -82,14 +89,14 @@ export function MessagesPanel({
   onSearchChange,
   onScroll,
   showNewMessage = true,
+  newMessageOpen: newMessageOpenProp,
+  onNewMessageOpenChange,
 }: MessagesPanelProps) {
   const { colors } = useTheme();
   const { gutter } = useLayout();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const router = useRouter();
-  const listBottomPadding =
-    (variant === 'embedded' ? space[16] : space[24]) +
-    (showNewMessage ? space[48] + space[16] : 0);
+  const listBottomPadding = variant === 'embedded' ? space[16] : space[24];
   const { accessToken } = useAuth();
   const { threads, loading, error, refetch, hideThread, pinThread } =
     useMessageThreads(accessToken, 'ALL');
@@ -104,7 +111,9 @@ export function MessagesPanel({
     isPinned: boolean;
     anchor: ConversationAnchor;
   } | null>(null);
-  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [newMessageOpenInner, setNewMessageOpenInner] = useState(false);
+  const newMessageOpen = newMessageOpenProp ?? newMessageOpenInner;
+  const setNewMessageOpen = onNewMessageOpenChange ?? setNewMessageOpenInner;
   const threadsLenRef = useRef(threads.length);
   const loadingRef = useRef(loading);
   const skipFirstFocusRef = useRef(true);
@@ -147,6 +156,7 @@ export function MessagesPanel({
         receiverId: p.id,
         receiverName: p.arabicName,
         receiverAvatar: p.avatar ?? '',
+        receiverVerified: p.verified ? '1' : '0',
         threadType: chat.type,
       },
     } as never);
@@ -164,11 +174,12 @@ export function MessagesPanel({
           receiverId: contact.id,
           receiverName: contact.arabicName || contact.displayName,
           receiverAvatar: contact.avatar ?? '',
+          receiverVerified: contact.verified ? '1' : '0',
           threadType: 'DIRECT',
         },
       } as never);
     },
-    [router, threads],
+    [router, setNewMessageOpen, threads],
   );
 
   const handleDeleteConversation = useCallback(
@@ -242,7 +253,6 @@ export function MessagesPanel({
                     style={styles.avatar}
                     contentFit="cover"
                   />
-                  <View style={styles.onlineDot} />
                 </View>
               </UserProfileLink>
             </Row>
@@ -253,14 +263,16 @@ export function MessagesPanel({
                   {chat.isPinned ? (
                     <AppIcon name="pin" size={13} color={colors.textMuted} />
                   ) : null}
-                  <AppText variant="label" numberOfLines={1} style={styles.flex}>
-                    {title}
-                  </AppText>
-                  {p.verified ? (
+                  <VerifiedInlineName name={title} verified={p.verified} style={styles.flex}>
+                    <AppText variant="label" numberOfLines={1} style={styles.nameText}>
+                      {title}
+                    </AppText>
+                  </VerifiedInlineName>
+                  {chat.isMuted ? (
                     <AppIcon
-                      name="checkmark-circle"
-                      size={14}
-                      color={colors.electricBright}
+                      name="notifications-off-outline"
+                      size={13}
+                      color={colors.textMuted}
                     />
                   ) : null}
                 </Row>
@@ -289,7 +301,6 @@ export function MessagesPanel({
       );
     },
     [
-      colors.electricBright,
       colors.textMuted,
       gutter,
       handleDeleteConversation,
@@ -367,7 +378,7 @@ export function MessagesPanel({
               {showNewMessage ? (
                 <SarhButton
                   title="رسالة جديدة"
-                  leftIcon="create-outline"
+                  leftIcon="square-pen"
                   onPress={() => setNewMessageOpen(true)}
                 />
               ) : null}
@@ -380,18 +391,6 @@ export function MessagesPanel({
           }
         />
       )}
-      {showNewMessage && !showUnauthorized ? (
-        <View pointerEvents="box-none" style={[styles.newMessageDock, { end: gutter }]}>
-          <SarhButton
-            title="رسالة جديدة"
-            leftIcon="create-outline"
-            shape="pill"
-            onPress={() => setNewMessageOpen(true)}
-            accessibilityLabel="رسالة جديدة"
-            testID="messages-new-message"
-          />
-        </View>
-      ) : null}
       {showNewMessage ? (
         <NewMessageSheet
           visible={newMessageOpen}
@@ -411,8 +410,9 @@ export function MessagesPanel({
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    root: { flex: 1 },
-    list: { flex: 1 },
+    // Chats list page: exactly #FFFFFF in light mode (screenRoot), calm rows.
+    root: { flex: 1, backgroundColor: colors.screenRoot },
+    list: { flex: 1, backgroundColor: colors.screenRoot },
     searchWrap: {
       paddingBottom: space[12],
     },
@@ -420,7 +420,7 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: space[12],
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.borderSoft,
-      backgroundColor: colors.bgDeep,
+      backgroundColor: colors.screenRoot,
     },
     avatarWrap: { position: 'relative' },
     avatar: {
@@ -431,23 +431,9 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.borderSoft,
     },
-    onlineDot: {
-      position: 'absolute',
-      bottom: 1,
-      end: 1,
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      backgroundColor: colors.emerald,
-      borderWidth: 2,
-      borderColor: colors.bgDeep,
-    },
-    newMessageDock: {
-      position: 'absolute',
-      bottom: space[16],
-    },
     chatBody: { flex: 1, minWidth: 0 },
     flex: { flex: 1, minWidth: 0 },
+    nameText: { flexShrink: 1 },
     unreadBadge: {
       minWidth: 22,
       height: 22,

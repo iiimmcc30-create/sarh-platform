@@ -6,6 +6,7 @@
  */
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
+import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { AppText, SarhInput } from '@/design-system/components';
 import { radius, space } from '@/design-system';
 import { useTheme } from '@/hooks/useTheme';
@@ -225,14 +226,14 @@ export function NewMessageSheet({ visible, onClose, onSelect }: Props) {
                   contentFit="cover"
                 />
                 <View style={styles.flex}>
-                  <View style={styles.nameRow}>
+                  <VerifiedInlineName
+                    name={item.arabicName || item.displayName}
+                    verified={item.verified}
+                  >
                     <AppText variant="label" numberOfLines={1} style={styles.shrink}>
                       {item.arabicName || item.displayName}
                     </AppText>
-                    {item.verified ? (
-                      <AppIcon name="checkmark-circle" size={14} color={colors.electricBright} />
-                    ) : null}
-                  </View>
+                  </VerifiedInlineName>
                   <AppText variant="caption" color="textMuted" numberOfLines={1}>
                     {item.username ? `@${item.username} · ` : ''}
                     {SOURCE_LABEL[item.source]}
@@ -285,7 +286,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   avatar: { width: 44, height: 44, borderRadius: 22 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   flex: { flex: 1, minWidth: 0 },
   shrink: { flexShrink: 1 },
   center: { paddingVertical: space[32], paddingHorizontal: space[24], alignItems: 'center' },

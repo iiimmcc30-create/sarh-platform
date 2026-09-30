@@ -29,6 +29,8 @@ function threadRow(
 describe('MessagesService.sendMessage block enforcement', () => {
   const repo = {
     upsertThread: jest.fn(),
+    findThreadsForPair: jest.fn().mockResolvedValue([]),
+    touchThread: jest.fn(),
     createMessage: jest.fn(),
     clearHiddenForThread: jest.fn(),
     findThreadsForUser: jest.fn(),
@@ -39,6 +41,7 @@ describe('MessagesService.sendMessage block enforcement', () => {
   };
   const policy = {
     assertCanSendMessage: jest.fn(),
+    isThreadMuted: jest.fn().mockResolvedValue(false),
   };
   const logger = { info: jest.fn() };
   const notifications = { notifyUser: jest.fn() };
@@ -125,7 +128,10 @@ describe('MessagesService inbox pin and hide', () => {
     createMessage: jest.fn(),
     clearHiddenForThread: jest.fn(),
   };
-  const policy = { assertCanSendMessage: jest.fn() };
+  const policy = {
+    assertCanSendMessage: jest.fn(),
+    isThreadMuted: jest.fn().mockResolvedValue(false),
+  };
   const logger = { info: jest.fn() };
   const notifications = { notifyUser: jest.fn() };
   const sockets = { emitToThread: jest.fn(), emitToUser: jest.fn() };

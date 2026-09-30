@@ -59,6 +59,11 @@ type HomeAppBarProps = {
   leading?: ReactNode;
   /** When false, keep the trailing slot width but hide the bell. */
   showNotifications?: boolean;
+  /**
+   * Replaces the bell in the tools slot (e.g. the Chats tab «رسالة جديدة»
+   * button). Rendered in the same 40pt tool box so the row stays aligned.
+   */
+  trailing?: ReactNode;
 };
 
 /** Home header: user avatar, centered Sarh mark, notifications. */
@@ -72,6 +77,7 @@ export function HomeAppBar({
   identityStyle,
   leading,
   showNotifications = true,
+  trailing,
 }: HomeAppBarProps) {
   const { colors: themeColors, isDark } = useTheme();
   const { gutter } = useLayout();
@@ -139,7 +145,9 @@ export function HomeAppBar({
             )}
 
             <View style={styles.toolsCluster}>
-              {showNotifications ? (
+              {trailing ? (
+                <View style={styles.iconBtn}>{trailing}</View>
+              ) : showNotifications ? (
                 <NotificationBellButton
                   bare
                   size={TOOL}

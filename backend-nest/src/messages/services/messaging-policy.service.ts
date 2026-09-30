@@ -6,6 +6,16 @@ import { MessagesRepository } from '../repositories/messages.repository';
 export class MessagingPolicyService {
   constructor(private readonly repo: MessagesRepository) {}
 
+  /**
+   * Whether `userId` muted this conversation. Muting only silences push
+   * notifications for that participant; messages are still stored and
+   * delivered in realtime.
+   */
+  async isThreadMuted(threadId: string, userId: string): Promise<boolean> {
+    const state = await this.repo.findThreadState(threadId, userId);
+    return Boolean(state?.mutedAt);
+  }
+
   async assertNotBlocked(senderId: string, receiverId: string): Promise<void> {
     const [blockedBySender, blockedByReceiver] = await Promise.all([
       this.repo.findBlock(senderId, receiverId),

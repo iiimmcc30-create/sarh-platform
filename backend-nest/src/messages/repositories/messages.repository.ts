@@ -39,7 +39,7 @@ export class MessagesRepository {
       include: {
         states: {
           where: { userId },
-          select: { pinnedAt: true, hiddenAt: true },
+          select: { pinnedAt: true, hiddenAt: true, mutedAt: true },
         },
         messages: {
           orderBy: { createdAt: 'desc' },
@@ -129,6 +129,14 @@ export class MessagesRepository {
     });
   }
 
+  /** Bump an existing thread (used when sending into a resolved thread). */
+  touchThread(id: string) {
+    return this.prisma.messageThread.update({
+      where: { id },
+      data: { lastMessageAt: new Date() },
+    });
+  }
+
   createMessage(data: {
     threadId: string;
     senderId: string;
@@ -184,7 +192,11 @@ export class MessagesRepository {
   upsertThreadState(
     threadId: string,
     userId: string,
-    data: { pinnedAt?: Date | null; hiddenAt?: Date | null },
+    data: {
+      pinnedAt?: Date | null;
+      hiddenAt?: Date | null;
+      mutedAt?: Date | null;
+    },
   ) {
     return this.prisma.messageThreadState.upsert({
       where: { threadId_userId: { threadId, userId } },
@@ -193,9 +205,18 @@ export class MessagesRepository {
         userId,
         pinnedAt: data.pinnedAt ?? null,
         hiddenAt: data.hiddenAt ?? null,
+        mutedAt: data.mutedAt ?? null,
       },
       update: data,
-      select: { pinnedAt: true, hiddenAt: true },
+      select: { pinnedAt: true, hiddenAt: true, mutedAt: true },
+    });
+  }
+
+  /** The user's own state row for a thread (pin / hide / mute), if any. */
+  findThreadState(threadId: string, userId: string) {
+    return this.prisma.messageThreadState.findUnique({
+      where: { threadId_userId: { threadId, userId } },
+      select: { mutedAt: true },
     });
   }
 

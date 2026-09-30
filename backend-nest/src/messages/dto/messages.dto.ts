@@ -33,6 +33,16 @@ export class SendMessageDto {
   @IsUUID()
   receiverId!: string;
 
+  /**
+   * The conversation the client is showing. When given (and the caller and
+   * receiver are its participants) the message is stored in that thread, so
+   * reopening it after leaving shows every message — including legacy
+   * (pre-pair) threads that are not the 'direct' scope.
+   */
+  @IsOptional()
+  @IsUUID()
+  threadId?: string;
+
   @IsOptional()
   @IsEnum(MessageThreadType)
   type?: MessageThreadType;
@@ -103,4 +113,9 @@ export class ThreadMessagesQueryDto {
 export class PinThreadDto {
   @IsBoolean()
   pinned!: boolean;
+}
+
+export class MuteThreadDto {
+  @IsBoolean()
+  muted!: boolean;
 }

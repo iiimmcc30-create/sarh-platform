@@ -230,6 +230,11 @@ export class SocketGatewayService {
         ...payload,
       });
       const message = this.media.presentMessage(created);
+      // Muted by the receiver: still stored + delivered in realtime, no push.
+      const receiverMuted = await this.messagingPolicy.isThreadMuted(
+        data.threadId,
+        data.receiverId,
+      );
 
       this.emitService.emitToThread(data.threadId, 'chat:message', message);
       this.emitService.emitToUser(data.receiverId, 'chat:notification', {
@@ -237,8 +242,10 @@ export class SocketGatewayService {
         senderId: user.userId,
         senderName: message.sender.arabicName,
         preview: notificationPreview(payload),
+        muted: receiverMuted,
       });
 
+      if (receiverMuted) return null;
       void this.notifications.notifyUser({
         userId: data.receiverId,
         type: 'new_message',

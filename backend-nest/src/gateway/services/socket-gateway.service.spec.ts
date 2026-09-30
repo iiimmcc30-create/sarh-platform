@@ -15,6 +15,7 @@ describe('SocketGatewayService chat authorization', () => {
   const messagingPolicy = {
     assertCanSendMessage: jest.fn(),
     assertNotBlocked: jest.fn(),
+    isThreadMuted: jest.fn().mockResolvedValue(false),
   };
   const emitService = {
     emitToThread: jest.fn(),

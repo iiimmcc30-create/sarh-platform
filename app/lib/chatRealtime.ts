@@ -115,3 +115,33 @@ export function attachChatThreadListener(
     socket.off('chat:message', handler);
   };
 }
+
+/**
+ * Apply a (re)loaded server page without dropping local state.
+ *
+ * The thread GET can resolve after local changes were made — e.g. the token
+ * refresh fired when returning from the image picker re-runs the load while
+ * a voice note is uploading or was just delivered. Replacing the list with
+ * that snapshot made the voice bubble disappear. Keep every optimistic /
+ * uploading / failed bubble (`temp_*`) and every real message delivered
+ * after the snapshot (POST response / socket) that the page does not have.
+ */
+export function reconcileLoadedMessages(
+  prev: ChatMessage[],
+  loaded: ChatMessage[],
+): ChatMessage[] {
+  if (prev.length === 0) return loaded;
+  const loadedIds = new Set(loaded.map((m) => m.id));
+  let newestLoadedAt = Number.NEGATIVE_INFINITY;
+  for (const m of loaded) {
+    const at = Date.parse(m.createdAt);
+    if (Number.isFinite(at) && at > newestLoadedAt) newestLoadedAt = at;
+  }
+  const extras = prev.filter((m) => {
+    if (loadedIds.has(m.id)) return false;
+    if (m.id.startsWith('temp_')) return true;
+    const at = Date.parse(m.createdAt);
+    return !Number.isFinite(at) || at >= newestLoadedAt;
+  });
+  return extras.length ? [...loaded, ...extras] : loaded;
+}

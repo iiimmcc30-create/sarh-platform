@@ -18,6 +18,8 @@ export type ChatContact = ChatPeer & {
 export type PeerConversation = {
   threadId: string | null;
   participant: ChatPeer | null;
+  /** The caller muted this conversation (server-side, per participant). */
+  isMuted: boolean;
 };
 
 /** Existing 1:1 thread with a user (reused for every entry point), or null. */
@@ -35,7 +37,38 @@ export async function fetchPeerConversation(
   return {
     threadId: typeof json.data.threadId === 'string' ? json.data.threadId : null,
     participant: json.data.participant ?? null,
+    isMuted: json.data.isMuted === true,
   };
+}
+
+export type ThreadMuteResult = { ok: true; muted: boolean } | { ok: false };
+
+/**
+ * Mute / unmute a conversation for the current user (server-side). Muting
+ * only silences this user's push notifications; messages keep arriving.
+ */
+export async function setThreadMuted(
+  threadId: string,
+  muted: boolean,
+): Promise<ThreadMuteResult> {
+  if (!threadId) return { ok: false };
+  try {
+    const res = await authFetch(
+      `${API_BASE}/api/messages/${encodeURIComponent(threadId)}/mute`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ muted }),
+      },
+      20_000,
+    );
+    if (!res.ok) return { ok: false };
+    const json = await res.json().catch(() => null);
+    if (typeof json?.data?.muted !== 'boolean') return { ok: false };
+    return { ok: true, muted: json.data.muted };
+  } catch {
+    return { ok: false };
+  }
 }
 
 /** People you can start a chat with (following/followers/past chats + search). */

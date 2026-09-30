@@ -279,6 +279,8 @@ export function ImageViewerModal({
             onPress={requestClose}
             style={[styles.closeBtn, { top: insets.top + 12 }]}
             hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
           >
             <AppIcon name="close" size={22} color="#fff" />
           </Pressable>

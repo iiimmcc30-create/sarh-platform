@@ -78,6 +78,7 @@ export class MessagesService {
         isMine: lastMsg?.senderId === userId,
         isPinned: Boolean(state?.pinnedAt),
         pinnedAt: state?.pinnedAt ?? null,
+        isMuted: Boolean(state?.mutedAt),
       };
     });
 
@@ -115,13 +116,12 @@ export class MessagesService {
     // Real stored size / ownership of the upload is checked before accepting.
     const payload = await this.media.verifyForSend(senderId, resolved);
 
-    // Conversations are general 1:1 threads resolved by the sorted pair.
-    const [p1, p2] = [senderId, receiverId].sort();
-    const thread = await this.repo.upsertThread({
-      participant1: p1,
-      participant2: p2,
+    const thread = await this.resolveSendThread(
+      senderId,
+      receiverId,
       type,
-    });
+      dto.threadId,
+    );
 
     const created = await this.repo.createMessage({
       threadId: thread.id,
@@ -138,30 +138,38 @@ export class MessagesService {
       message.sender.displayName ||
       user.username ||
       'مستخدم';
+    // Muted by the receiver: still stored + delivered in realtime, no push.
+    const receiverMuted = await this.policy.isThreadMuted(
+      thread.id,
+      receiverId,
+    );
     this.sockets.emitToThread(thread.id, 'chat:message', message);
     this.sockets.emitToUser(receiverId, 'chat:notification', {
       threadId: thread.id,
       senderId,
       senderName,
       preview: notificationPreview(payload),
+      muted: receiverMuted,
     });
 
-    void this.notifications.notifyUser({
-      userId: receiverId,
-      type: 'new_message',
-      titleAr: senderName,
-      bodyAr: pushBody(payload),
-      data: {
-        threadId: thread.id,
-        messageId: message.id,
-        senderId,
-        actorId: senderId,
-        actorAvatar: message.sender.avatar,
-        threadType: type,
-        messageType: payload.type,
-        ...publicMediaForPush(payload),
-      },
-    });
+    if (!receiverMuted) {
+      void this.notifications.notifyUser({
+        userId: receiverId,
+        type: 'new_message',
+        titleAr: senderName,
+        bodyAr: pushBody(payload),
+        data: {
+          threadId: thread.id,
+          messageId: message.id,
+          senderId,
+          actorId: senderId,
+          actorAvatar: message.sender.avatar,
+          threadType: type,
+          messageType: payload.type,
+          ...publicMediaForPush(payload),
+        },
+      });
+    }
 
     this.logger.info(
       {
@@ -193,10 +201,14 @@ export class MessagesService {
       threads.find((t) => t.scopeKey === DIRECT_SCOPE_KEY) ??
       threads[0] ??
       null;
+    const isMuted = chosen
+      ? await this.policy.isThreadMuted(chosen.id, user.userId)
+      : false;
     return {
       threadId: chosen?.id ?? null,
       type: chosen?.type ?? 'DIRECT',
       participant,
+      isMuted,
     };
   }
 
@@ -282,12 +294,14 @@ export class MessagesService {
     const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
 
     await this.repo.markThreadRead(threadId, userId);
+    const isMuted = await this.policy.isThreadMuted(threadId, userId);
 
     return {
       messages: this.media.presentMessages(items.reverse()),
       nextCursor,
       hasMore,
       type: thread.type,
+      isMuted,
     };
   }
 
@@ -308,6 +322,68 @@ export class MessagesService {
       pinned: Boolean(state.pinnedAt),
       pinnedAt: state.pinnedAt,
     };
+  }
+
+  /**
+   * Per-participant mute (server-side). Only the caller's own push
+   * notifications for this thread are silenced; nothing is deleted and the
+   * other participant is unaffected.
+   */
+  async muteThread(user: JwtPayload, threadId: string, muted: boolean) {
+    await this.requireThreadForUser(user.userId, threadId);
+    const state = await this.repo.upsertThreadState(threadId, user.userId, {
+      mutedAt: muted ? new Date() : null,
+    });
+    return {
+      muted: Boolean(state.mutedAt),
+      mutedAt: state.mutedAt,
+    };
+  }
+
+  /**
+   * The thread a REST message is stored in — always the one the reader will
+   * reload. Before this, every send was upserted into the pair's 'direct'
+   * thread even when the chat showed a legacy (listing-scoped) thread picked
+   * from the inbox or returned by the peer lookup, so voice notes / images
+   * sent there vanished when the chat was reopened.
+   *
+   * 1. explicit `threadId` (participant-checked, receiver must match);
+   * 2. otherwise the same choice as `getPeerConversation`: the 'direct'
+   *    thread, else the most recent legacy thread of the pair;
+   * 3. no conversation yet: create the 'direct' thread.
+   */
+  private async resolveSendThread(
+    senderId: string,
+    receiverId: string,
+    type: MessageThreadType,
+    threadId?: string,
+  ): Promise<{ id: string }> {
+    if (threadId) {
+      const thread = await this.repo.findThreadForUser(threadId, senderId);
+      if (!thread) throwApi(404, 'not_found', 'المحادثة غير موجودة');
+      const other =
+        thread.participant1 === senderId
+          ? thread.participant2
+          : thread.participant1;
+      if (other !== receiverId) {
+        throwApi(400, 'invalid_message', 'المستلم لا يطابق المحادثة');
+      }
+      await this.repo.touchThread(thread.id);
+      return thread;
+    }
+
+    const existing = await this.repo.findThreadsForPair(senderId, receiverId);
+    const chosen =
+      existing.find((t) => t.scopeKey === DIRECT_SCOPE_KEY) ??
+      existing[0] ??
+      null;
+    if (chosen) {
+      await this.repo.touchThread(chosen.id);
+      return chosen;
+    }
+
+    const [p1, p2] = [senderId, receiverId].sort();
+    return this.repo.upsertThread({ participant1: p1, participant2: p2, type });
   }
 
   private async requireThreadForUser(userId: string, threadId: string) {

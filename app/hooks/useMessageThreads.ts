@@ -27,6 +27,8 @@ export interface MessageThreadItem {
   isMine?: boolean;
   isPinned?: boolean;
   pinnedAt?: string | null;
+  /** Push notifications silenced by the current user for this thread. */
+  isMuted?: boolean;
 }
 
 type InboxCacheEntry = {
@@ -69,6 +71,7 @@ function mapThread(t: any, fallbackType: MessageThreadType): MessageThreadItem {
     isMine: Boolean(t.isMine),
     isPinned: Boolean(t.isPinned),
     pinnedAt: t.pinnedAt ?? null,
+    isMuted: Boolean(t.isMuted),
   };
 }
 
@@ -226,6 +229,21 @@ export function setInboxThreadPinned(
           t.id === threadId ? { ...t, isPinned: pinned, pinnedAt } : t,
         ),
       ),
+      at: entry.at,
+    });
+  }
+  return publishInbox();
+}
+
+/** Reflect a mute toggle from the chat screen in the cached inbox. */
+export function setInboxThreadMuted(
+  threadId: string,
+  muted: boolean,
+): MessageThreadItem[] | null {
+  if (!threadId || inboxCache.size === 0) return null;
+  for (const [key, entry] of inboxCache) {
+    inboxCache.set(key, {
+      threads: entry.threads.map((t) => (t.id === threadId ? { ...t, isMuted: muted } : t)),
       at: entry.at,
     });
   }

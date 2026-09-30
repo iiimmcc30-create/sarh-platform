@@ -4,7 +4,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, memo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,7 +28,7 @@ import { ComposerKeyboardView } from '@/components/ui/ComposerKeyboardView';
 import { useComposerKeyboardPad } from '@/hooks/useComposerKeyboardPad';
 import type { ChatMessage } from '@/services/chatMessages';
 import { API_BASE } from '@/services/api';
-import { fetchPeerConversation } from '@/services/chatApi';
+import { fetchPeerConversation, setThreadMuted } from '@/services/chatApi';
 import {
   assertUploadSize,
   UploadError,
@@ -36,6 +36,12 @@ import {
   type UploadMediaType,
 } from '@/services/upload';
 import { VoiceMessageBubble } from '@/components/feature/chat/VoiceMessageBubble';
+import { ChatActionsSheet } from '@/components/feature/chat/ChatActionsSheet';
+import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
+import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
+import { buildChatRows, type ChatRow } from '@/lib/chatThreadLayout';
+import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
+import { showToast } from '@/lib/toast';
 import {
   useVoiceRecorder,
   type VoiceRecording,
@@ -50,13 +56,19 @@ import {
 import { CHAT_BACKGROUND, chatBubbleColors } from '@/lib/chatBubbleTheme';
 import { useAppUser } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchUserProfile } from '@/services/users';
-import { applyChatSocketEvent, mergeChatMessages, parseChatSocketPayload } from '@/lib/chatRealtime';
+import { fetchUserProfile, setBlockUser } from '@/services/users';
+import {
+  applyChatSocketEvent,
+  mergeChatMessages,
+  parseChatSocketPayload,
+  reconcileLoadedMessages,
+} from '@/lib/chatRealtime';
 import { useChatThreadSocket } from '@/hooks/useChatThreadSocket';
 import {
   applyInboxThreadPreview,
   inboxPreviewText,
   markInboxThreadRead,
+  setInboxThreadMuted,
 } from '@/hooks/useMessageThreads';
 import {
   formatOfferMessage,
@@ -108,45 +120,24 @@ function mediaSendPayload(media: OutgoingMedia, url: string) {
 
 type SendMediaPayload = ReturnType<typeof mediaSendPayload>;
 
-const QUICK_REPLIES_LIVESTOCK = [
-  'هل الحيوان ما زال متاحاً؟',
-  'ما هو السعر النهائي؟',
-  'هل يمكن المعاينة قبل الشراء؟',
-  'أين موقع الاستلام؟',
-  'هل تقبل التفاوض على السعر؟',
-];
-
-type PeerAccountType = 'USER' | 'LIVESTOCK_TRADER';
-type ChatUiKind = 'direct' | 'livestock';
-
-function resolveChatUiKind(params: { accountType?: string }): ChatUiKind {
-  if (params.accountType === 'LIVESTOCK_TRADER') {
-    return 'livestock';
-  }
-  return 'direct';
-}
-
 type ChatMessageStyles = ReturnType<typeof createMessageStyles>;
 type ChatScreenStyles = ReturnType<typeof createStyles>;
 
-function chatMessagePropsEqual(
-  prev: {
-    item: ChatMessage;
-    myId: string;
-    onRespondToOffer: (accept: boolean) => void;
-    onRetry: (id: string) => void;
-    messageStyles: ChatMessageStyles;
-    colors: ThemeColors;
-  },
-  next: {
-    item: ChatMessage;
-    myId: string;
-    onRespondToOffer: (accept: boolean) => void;
-    onRetry: (id: string) => void;
-    messageStyles: ChatMessageStyles;
-    colors: ThemeColors;
-  },
-) {
+type ChatMessageBubbleProps = {
+  item: ChatMessage;
+  myId: string;
+  /** Same sender as the previous / next bubble (WhatsApp-style grouping). */
+  groupedWithPrev: boolean;
+  groupedWithNext: boolean;
+  onRespondToOffer: (accept: boolean) => void;
+  onRetry: (id: string) => void;
+  /** Opens the existing full-screen Media Viewer for an image. */
+  onOpenImage: (uri: string) => void;
+  messageStyles: ChatMessageStyles;
+  colors: ThemeColors;
+};
+
+function chatMessagePropsEqual(prev: ChatMessageBubbleProps, next: ChatMessageBubbleProps) {
   const a = prev.item;
   const b = next.item;
   return (
@@ -163,8 +154,11 @@ function chatMessagePropsEqual(
     a.senderId === b.senderId &&
     a.createdAt === b.createdAt &&
     prev.myId === next.myId &&
+    prev.groupedWithPrev === next.groupedWithPrev &&
+    prev.groupedWithNext === next.groupedWithNext &&
     prev.onRespondToOffer === next.onRespondToOffer &&
     prev.onRetry === next.onRetry &&
+    prev.onOpenImage === next.onOpenImage &&
     prev.messageStyles === next.messageStyles &&
     prev.colors === next.colors
   );
@@ -173,18 +167,13 @@ function chatMessagePropsEqual(
 const ChatMessageBubble = memo(function ChatMessageBubble({
   item,
   myId,
+  groupedWithNext,
   onRespondToOffer,
   onRetry,
+  onOpenImage,
   messageStyles,
   colors,
-}: {
-  item: ChatMessage;
-  myId: string;
-  onRespondToOffer: (accept: boolean) => void;
-  onRetry: (id: string) => void;
-  messageStyles: ChatMessageStyles;
-  colors: ThemeColors;
-}) {
+}: ChatMessageBubbleProps) {
   const isMe = item.senderId === myId;
   const [imageFailed, setImageFailed] = useState(false);
   const palette = chatBubbleColors;
@@ -200,6 +189,7 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
         style={[
           messageStyles.bubbleWrap,
           isMe ? messageStyles.bubbleWrapMe : messageStyles.bubbleWrapThem,
+          groupedWithNext && messageStyles.bubbleWrapGrouped,
         ]}
       >
         <View style={[messageStyles.offerCard, isMe && messageStyles.offerCardMe]}>
@@ -242,11 +232,28 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
   const parts = chatMessageParts(item);
   const uploading = item.status === 'uploading' || item.status === 'sending';
   const failed = item.status === 'failed';
+  const mediaOnly = (parts.image || parts.video) && !parts.text && !parts.voice;
+  // The tail corner sits on the last bubble of a sender group only.
+  const tail = !groupedWithNext;
+  const image = item.image;
 
   return (
-    <View style={[messageStyles.bubbleWrap, isMe ? messageStyles.bubbleWrapMe : messageStyles.bubbleWrapThem]}>
-      <View style={[messageStyles.bubble, isMe ? messageStyles.bubbleMe : messageStyles.bubbleThem]}>
-        {parts.image && item.image ? (
+    <View
+      style={[
+        messageStyles.bubbleWrap,
+        isMe ? messageStyles.bubbleWrapMe : messageStyles.bubbleWrapThem,
+        groupedWithNext && messageStyles.bubbleWrapGrouped,
+      ]}
+    >
+      <View
+        style={[
+          messageStyles.bubble,
+          isMe ? messageStyles.bubbleMe : messageStyles.bubbleThem,
+          tail && (isMe ? messageStyles.bubbleMeTail : messageStyles.bubbleThemTail),
+          mediaOnly && messageStyles.bubbleMedia,
+        ]}
+      >
+        {parts.image && image ? (
           imageFailed ? (
             <View style={[messageStyles.bubbleImg, messageStyles.mediaFallback]}>
               <AppIcon name="alert-circle-outline" size={20} color={palette.receivedMeta} />
@@ -255,12 +262,19 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
               </AppText>
             </View>
           ) : (
-            <Image
-              source={{ uri: item.image }}
-              style={messageStyles.bubbleImg}
-              contentFit="cover"
-              onError={() => setImageFailed(true)}
-            />
+            <Pressable
+              onPress={() => onOpenImage(image)}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="عرض الصورة بملء الشاشة"
+              testID="chat-image"
+            >
+              <Image
+                source={{ uri: image }}
+                style={messageStyles.bubbleImg}
+                contentFit="cover"
+                onError={() => setImageFailed(true)}
+              />
+            </Pressable>
           )
         ) : null}
         {parts.video && item.video ? (
@@ -309,14 +323,21 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
             </AppText>
           </Pressable>
         ) : null}
-        <AppText variant="caption" style={[messageStyles.timeText, isMe ? messageStyles.timeTextMe : messageStyles.timeTextThem]}>
-          {timeLabel}
+        <View style={[messageStyles.metaRow, mediaOnly && messageStyles.metaRowMedia]}>
+          <AppText
+            variant="micro"
+            style={isMe ? messageStyles.timeTextMe : messageStyles.timeTextThem}
+          >
+            {timeLabel}
+          </AppText>
           {isMe && !uploading && !failed ? (
-            <AppText variant="caption" style={{ color: item.read ? palette.sentTickRead : palette.sentMeta }}>
-              {' '}✓✓
-            </AppText>
+            <AppIcon
+              name="checkmark-done"
+              size={14}
+              color={item.read ? palette.sentTickRead : palette.sentMeta}
+            />
           ) : null}
-        </AppText>
+        </View>
       </View>
     </View>
   );
@@ -491,13 +512,15 @@ export default function ChatScreen() {
     receiverId,
     receiverName,
     receiverAvatar,
-    accountType: accountTypeParam,
+    receiverVerified: receiverVerifiedParam,
     draftMessage: draftMessageParam,
   } = useLocalSearchParams<{
     threadId?: string;
     receiverId?: string;
     receiverName?: string;
     receiverAvatar?: string;
+    /** '1' when the inbox / contact row already knows the peer is verified. */
+    receiverVerified?: string;
     threadType?: string;
     accountType?: string;
     draftMessage?: string;
@@ -510,6 +533,11 @@ export default function ChatScreen() {
   const composerTextStyle = resolveAppTextStyle({ variant: 'body', color: 'textPrimary' });
   const { me } = useAppUser();
   const { accessToken } = useAuth();
+  const accessTokenRef = useRef(accessToken);
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
+  const hasToken = Boolean(accessToken);
   const MY_ID = me?.id || 'anonymous';
   const listRef = useRef<FlatList>(null);
 
@@ -523,11 +551,16 @@ export default function ChatScreen() {
   useEffect(() => {
     if (threadId) markInboxThreadRead(threadId);
   }, [threadId]);
-  const [peerAccountType, setPeerAccountType] = useState<PeerAccountType | null>(
-    accountTypeParam === 'LIVESTOCK_TRADER' || accountTypeParam === 'USER'
-      ? accountTypeParam
-      : null,
-  );
+  /** Existing verification data (route param, then profile / peer payload). */
+  const [peerVerified, setPeerVerified] = useState(receiverVerifiedParam === '1');
+  /** Existing block relation (users API `isBlocked`). */
+  const [peerBlocked, setPeerBlocked] = useState(false);
+  /** Server-side per-participant mute for this thread. */
+  const [muted, setMuted] = useState(false);
+  const [muteBusy, setMuteBusy] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  /** Image opened in the existing full-screen Media Viewer. */
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
@@ -565,10 +598,6 @@ export default function ChatScreen() {
 
   const receiverUserId = receiverId;
   const activeChatType = 'DIRECT' as const;
-  const chatUiKind = resolveChatUiKind({
-    accountType: peerAccountType ?? accountTypeParam,
-  });
-  const quickReplies = chatUiKind === 'livestock' ? QUICK_REPLIES_LIVESTOCK : [];
   const headerName = receiverName || 'محادثة';
   const headerAvatar = receiverAvatar || undefined;
 
@@ -579,38 +608,36 @@ export default function ChatScreen() {
     }
   }, [isThreadMode, isDirectMode, router]);
 
-  // Resolve peer account type for role-based chat UI (user / livestock trader)
+  // Peer verification + block state from the existing users API.
   useEffect(() => {
-    if (accountTypeParam === 'LIVESTOCK_TRADER' || accountTypeParam === 'USER') {
-      setPeerAccountType(accountTypeParam);
-      if (accountTypeParam !== 'USER') return;
-    }
     if (!receiverId) return;
-
     let cancelled = false;
     fetchUserProfile(receiverId).then((profile) => {
       if (cancelled || !profile) return;
-      const next =
-        profile.accountType ??
-        (profile.listingsCount > 0 ? 'LIVESTOCK_TRADER' : 'USER');
-      setPeerAccountType(next);
+      setPeerVerified(Boolean(profile.verified));
+      setPeerBlocked(Boolean(profile.isBlocked));
     });
     return () => {
       cancelled = true;
     };
-  }, [receiverId, accountTypeParam]);
+  }, [receiverId]);
 
+  // Keyed on "has a token", not on the token string: the refresh that fires
+  // when returning from the image picker must not re-run (and reset) the load.
   useEffect(() => {
-    if (!accessToken) return;
+    if (!hasToken) return;
     let cancelled = false;
     const loadMessages = async (id: string) => {
       const msgRes = await fetch(`${API_BASE}/api/messages/${id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${accessTokenRef.current ?? ''}` },
       });
       if (!msgRes.ok || cancelled) return;
       const msgJson = await msgRes.json();
       if (!cancelled && msgJson.success && msgJson.data?.messages) {
-        setMessages(msgJson.data.messages.map(mapApiMessage));
+        const loaded: ChatMessage[] = msgJson.data.messages.map(mapApiMessage);
+        // Merge, never replace: keeps uploading / just-sent bubbles (voice!).
+        setMessages((prev) => reconcileLoadedMessages(prev, loaded));
+        setMuted(msgJson.data.isMuted === true);
       }
     };
 
@@ -638,7 +665,10 @@ export default function ChatScreen() {
         try {
           // One conversation per pair: reuse it whatever the entry point.
           const peer = await fetchPeerConversation(receiverId);
-          if (cancelled || !peer?.threadId) return;
+          if (cancelled || !peer) return;
+          if (peer.participant) setPeerVerified(Boolean(peer.participant.verified));
+          if (!peer.threadId) return;
+          setMuted(peer.isMuted);
           setThreadId(peer.threadId);
           await loadMessages(peer.threadId);
         } catch (err) {
@@ -652,7 +682,7 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, isThreadMode, isDirectMode, receiverId, threadIdParam]);
+  }, [hasToken, isThreadMode, isDirectMode, receiverId, threadIdParam]);
 
   useChatThreadSocket(accessToken, threadId, (payload) => {
     if (!threadId) return;
@@ -677,7 +707,7 @@ export default function ChatScreen() {
             displayName: receiverName || '',
             arabicName: receiverName || '',
             avatar: receiverAvatar || undefined,
-            verified: false,
+            verified: peerVerified,
           }
         : null,
     });
@@ -731,6 +761,8 @@ export default function ChatScreen() {
         },
         body: JSON.stringify({
           receiverId: receiverUserId,
+          // Store in the conversation this screen shows (and reloads on return).
+          ...(threadId ? { threadId } : {}),
           type: activeChatType,
           ...(bodyText ? { text: bodyText } : {}),
           ...(media ?? {}),
@@ -746,7 +778,8 @@ export default function ChatScreen() {
               real,
             ),
           );
-          if (!threadId && json.data.threadId) setThreadId(json.data.threadId);
+          // Follow the thread the server stored it in (socket room + reload).
+          if (json.data.threadId && json.data.threadId !== threadId) setThreadId(json.data.threadId);
           const resolvedThreadId = json.data.threadId || threadId;
           if (resolvedThreadId) {
             applyInboxThreadPreview({
@@ -767,7 +800,7 @@ export default function ChatScreen() {
                     displayName: receiverName || '',
                     arabicName: receiverName || '',
                     avatar: receiverAvatar || undefined,
-                    verified: false,
+                    verified: peerVerified,
                   }
                 : null,
             });
@@ -1052,19 +1085,89 @@ export default function ChatScreen() {
     void sendMessageRef.current(accept ? 'أوافق على العرض' : 'أرفض العرض');
   }, []);
 
-  const renderMessage = useCallback(
-    ({ item }: { item: ChatMessage }) => (
-      <ChatMessageBubble
-        item={item}
-        myId={MY_ID}
-        onRespondToOffer={respondToOffer}
-        onRetry={retryMessage}
-        messageStyles={messageStyles}
-        colors={colors}
-      />
-    ),
-    [MY_ID, colors, messageStyles, respondToOffer, retryMessage],
+  const openImage = useCallback((uri: string) => setViewerUri(uri), []);
+  const viewerItems = useMemo(
+    () => (viewerUri ? [{ uri: viewerUri, kind: 'image' as const }] : []),
+    [viewerUri],
   );
+
+  const rows = useMemo(() => buildChatRows(messages), [messages]);
+
+  const renderRow = useCallback(
+    ({ item }: { item: ChatRow }) =>
+      item.type === 'day' ? (
+        <View style={styles.datePillWrap} accessibilityRole="header">
+          <AppText variant="micro" style={styles.datePill}>{item.label}</AppText>
+        </View>
+      ) : (
+        <ChatMessageBubble
+          item={item.message}
+          myId={MY_ID}
+          groupedWithPrev={item.groupedWithPrev}
+          groupedWithNext={item.groupedWithNext}
+          onRespondToOffer={respondToOffer}
+          onRetry={retryMessage}
+          onOpenImage={openImage}
+          messageStyles={messageStyles}
+          colors={colors}
+        />
+      ),
+    [MY_ID, colors, messageStyles, openImage, respondToOffer, retryMessage, styles],
+  );
+
+  /** «كتم المحادثة» — server-side, per participant (push only; messages still arrive). */
+  const toggleMute = async () => {
+    if (!threadId || muteBusy) return;
+    const next = !muted;
+    setMuteBusy(true);
+    setMuted(next);
+    const res = await setThreadMuted(threadId, next);
+    if (unmountedRef.current) return;
+    setMuteBusy(false);
+    if (!res.ok) {
+      setMuted(!next);
+      void showToast('تعذّر تحديث كتم المحادثة', 'error');
+      return;
+    }
+    setMuted(res.muted);
+    setInboxThreadMuted(threadId, res.muted);
+    void showToast(res.muted ? 'تم كتم المحادثة' : 'تم إلغاء كتم المحادثة', 'success');
+  };
+
+  /** «حظر الحساب» — existing users block API; old messages stay in the DB. */
+  const toggleBlock = async () => {
+    if (!receiverUserId) return;
+    if (!accessToken) {
+      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لحظر الحساب');
+      return;
+    }
+    const blocking = !peerBlocked;
+    const confirmed = await confirmDestructive(
+      blocking ? 'حظر الحساب' : 'إلغاء الحظر',
+      blocking
+        ? `لن ترى منشورات وإعلانات ${headerName}، ولا يمكنه التواصل معك. تبقى الرسائل السابقة محفوظة.`
+        : `سيتمكن ${headerName} من مراسلتك مجدداً.`,
+      blocking ? 'حظر' : 'إلغاء الحظر',
+    );
+    if (!confirmed) return;
+    const result = await setBlockUser(receiverUserId, blocking);
+    if (!result.ok) {
+      await alertMessage(
+        blocking ? 'تعذر حظر المستخدم' : 'تعذر إلغاء الحظر',
+        result.message,
+        'close-circle-outline',
+      );
+      return;
+    }
+    if (unmountedRef.current) return;
+    setPeerBlocked(result.blocked);
+    if (result.blocked) {
+      void showToast('تم حظر الحساب', 'success');
+      router.back();
+      return;
+    }
+    void showToast('تم إلغاء الحظر', 'info');
+  };
 
   return (
     <Screen edges={['top']} background="surface">
@@ -1074,14 +1177,26 @@ export default function ChatScreen() {
           <SarhBackButton onPress={() => router.back()} color={colors.textPrimary} style={styles.backBtn} />
           <UserProfileLink userId={receiverUserId} style={styles.headerCenter}>
             <Image source={uriSource(headerAvatar)} style={styles.headerAvatar} contentFit="cover" />
-            <View style={{ flex: 1 }}>
+            <View style={styles.headerText}>
               <View style={styles.headerNameRow}>
-                <AppText variant="label" style={styles.headerName} numberOfLines={1}>{headerName}</AppText>
+                <VerifiedInlineName name={headerName} verified={peerVerified}>
+                  <AppText variant="label" style={styles.headerName} numberOfLines={1}>{headerName}</AppText>
+                </VerifiedInlineName>
+                {muted ? (
+                  <AppIcon name="notifications-off-outline" size={14} color={colors.textMuted} />
+                ) : null}
               </View>
             </View>
           </UserProfileLink>
-          <Pressable style={styles.moreBtn} hitSlop={8}>
-            <AppIcon name="ellipsis-vertical" size={18} color={colors.textSecondary} />
+          <Pressable
+            style={styles.moreBtn}
+            hitSlop={8}
+            onPress={() => setMoreOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="المزيد"
+            testID="chat-more-button"
+          >
+            <AppIcon name="ellipsis-vertical" size={20} color={colors.textPrimary} />
           </Pressable>
         </Row>
 
@@ -1089,43 +1204,19 @@ export default function ChatScreen() {
           <FlatList
             ref={listRef}
             style={styles.threadList}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
+            data={rows}
+            keyExtractor={(row) => row.key}
+            renderItem={renderRow}
             contentContainerStyle={styles.messagesList}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
-              messages.length > 0 ? (
-                <View style={styles.datePillWrap}>
-                  <AppText variant="micro" style={styles.datePill}>اليوم</AppText>
-                </View>
-              ) : loadingMessages ? (
+              messages.length === 0 && loadingMessages ? (
                 <ActivityIndicator style={styles.threadLoading} color={chatBubbleColors.accent} />
               ) : null
             }
           />
         </View>
-
-        {quickReplies.length > 0 && !attachOpen && !pendingMedia ? (
-          <View style={styles.quickRepliesWrap}>
-            <FlatList
-              horizontal
-              data={quickReplies}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => sendMessage(item)}
-                  style={styles.quickReply}
-                >
-                  <AppText variant="caption" style={styles.quickReplyText}>{item}</AppText>
-                </Pressable>
-              )}
-              contentContainerStyle={styles.quickRepliesRow}
-              showsHorizontalScrollIndicator={false}
-            />
-          </View>
-        ) : null}
 
         {pendingMedia ? (
           <View style={styles.previewCard} accessibilityLabel="معاينة قبل الإرسال">
@@ -1193,6 +1284,32 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
+        {peerBlocked ? (
+          <View
+            style={[
+              styles.blockedBar,
+              {
+                paddingBottom: keyboardVisible
+                  ? spacing.sm
+                  : Math.max(restingBottom, spacing.sm) + spacing.sm,
+              },
+            ]}
+            accessibilityLiveRegion="polite"
+          >
+            <AppIcon name="block" size={16} color={colors.textMuted} />
+            <AppText variant="caption" color="textSecondary" style={styles.blockedText}>
+              لقد حظرت هذا الحساب. الرسائل السابقة محفوظة.
+            </AppText>
+            <Pressable
+              onPress={() => void toggleBlock()}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="إلغاء الحظر"
+            >
+              <AppText variant="label" style={styles.blockedAction}>إلغاء الحظر</AppText>
+            </Pressable>
+          </View>
+        ) : (
         <ChatComposer
           initialDraft={
             typeof draftMessageParam === 'string' ? draftMessageParam : undefined
@@ -1220,7 +1337,33 @@ export default function ChatScreen() {
             onSend: () => void sendVoice(),
           }}
         />
+        )}
       </ComposerKeyboardView>
+
+      <ChatActionsSheet
+        visible={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        name={headerName}
+        muted={muted}
+        muteAvailable={Boolean(threadId)}
+        muteBusy={muteBusy}
+        onToggleMute={() => void toggleMute()}
+        blocked={peerBlocked}
+        onBlockToggle={() => void toggleBlock()}
+        onViewProfile={
+          receiverUserId
+            ? () => router.push({ pathname: '/users/[id]', params: { id: receiverUserId } } as never)
+            : undefined
+        }
+      />
+
+      {/* Existing full-screen Media Viewer: black backdrop, contain (no crop), X to close. */}
+      <MediaViewerModal
+        visible={Boolean(viewerUri)}
+        items={viewerItems}
+        initialIndex={0}
+        onClose={() => setViewerUri(null)}
+      />
     </Screen>
   );
 }
@@ -1230,16 +1373,14 @@ function createStyles(colors: ThemeColors) {
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderSoft,
     gap: spacing.sm,
   },
   backBtn: {
-    width: 38, height: 38, borderRadius: 12,
-    backgroundColor: colors.bgSurface,
-    borderWidth: 1, borderColor: colors.borderSoft,
+    width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
   },
   headerCenter: {
@@ -1250,15 +1391,16 @@ function createStyles(colors: ThemeColors) {
     minWidth: 0,
   },
   headerAvatar: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: colors.bgElevated,
-    borderWidth: 1.5,
-    borderColor: colors.borderMid,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderSoft,
   },
-  headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  headerText: { flex: 1, minWidth: 0 },
+  headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   headerName: { color: colors.textPrimary, flexShrink: 1 },
   moreBtn: {
-    width: 38, height: 38, borderRadius: 12,
+    width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -1273,39 +1415,32 @@ function createStyles(colors: ThemeColors) {
     backgroundColor: 'transparent',
   },
   messagesList: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
-  datePillWrap: { alignItems: 'center', marginBottom: spacing.md },
+  // Quiet day separator (WhatsApp-style): small neutral pill, AA meta text.
+  datePillWrap: { alignItems: 'center', marginVertical: spacing.sm },
   datePill: {
     backgroundColor: chatBubbleColors.receivedBg,
     color: chatBubbleColors.receivedMeta,
     overflow: 'hidden',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: radius.pill,
   },
-
-  quickRepliesWrap: {
+  blockedBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderSoft,
-  },
-  quickRepliesRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  quickReply: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
     backgroundColor: colors.bgSurface,
-    borderWidth: 1,
-    borderColor: colors.borderMid,
   },
-  quickReplyText: { color: colors.textBrand },
+  blockedText: { flex: 1 },
+  blockedAction: { color: chatBubbleColors.accent },
 
   attachSheet: {
     flexDirection: 'row',
@@ -1420,23 +1555,38 @@ function createMessageStyles(colors: ThemeColors) {
     marginBottom: spacing.sm,
     gap: 8,
   },
+  /** Next bubble is from the same sender: tight WhatsApp-style stacking. */
+  bubbleWrapGrouped: { marginBottom: 2 },
   bubbleWrapMe: { justifyContent: 'flex-start' },
   bubbleWrapThem: { justifyContent: 'flex-end' },
   bubble: {
-    maxWidth: '78%',
-    borderRadius: 18,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    maxWidth: '80%',
+    minWidth: 72,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingTop: 7,
+    paddingBottom: 5,
   },
-  // Sent bubbles sit at the inline start (right in Arabic); the "tail" corner
-  // uses logical start/end so RTL and LTR both point at the outer edge.
   bubbleMe: {
     backgroundColor: chatBubbleColors.sentBg,
-    borderBottomStartRadius: 6,
   },
   bubbleThem: {
     backgroundColor: chatBubbleColors.receivedBg,
+  },
+  // Sent bubbles sit at the inline start (right in Arabic); the "tail" corner
+  // (last bubble of a group) uses logical start/end so RTL and LTR both point
+  // at the outer edge.
+  bubbleMeTail: {
+    borderBottomStartRadius: 6,
+  },
+  bubbleThemTail: {
     borderBottomEndRadius: 6,
+  },
+  /** Image / video only: thin frame around the media, meta over the edge. */
+  bubbleMedia: {
+    paddingHorizontal: 3,
+    paddingTop: 3,
+    paddingBottom: 3,
   },
   bubbleText: { lineHeight: 22 },
   textMe: { color: chatBubbleColors.sentText },
@@ -1460,9 +1610,8 @@ function createMessageStyles(colors: ThemeColors) {
     marginTop: 4,
   },
   bubbleImg: {
-    width: 200, height: 150,
-    borderRadius: radius.md,
-    marginBottom: 4,
+    width: 232, height: 174,
+    borderRadius: 13,
   },
   bubbleVideo: {
     width: 220,
@@ -1472,6 +1621,14 @@ function createMessageStyles(colors: ThemeColors) {
     overflow: 'hidden',
   },
   timeText: { marginTop: 4 },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 3,
+    marginTop: 2,
+  },
+  metaRowMedia: { paddingHorizontal: 6, paddingTop: 3, paddingBottom: 1 },
   timeTextMe: { color: chatBubbleColors.sentMeta },
   timeTextThem: { color: chatBubbleColors.receivedMeta },
   offerCard: {

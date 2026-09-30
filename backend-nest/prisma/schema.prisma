@@ -750,6 +750,8 @@ model MessageThreadState {
   userId   String
   pinnedAt DateTime?
   hiddenAt DateTime?
+  /// Per-participant mute: messages are still stored/delivered, push is skipped.
+  mutedAt  DateTime?
   thread   MessageThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
   user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 

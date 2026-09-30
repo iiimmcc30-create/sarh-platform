@@ -277,7 +277,7 @@ export async function updatePrivacySettings(
   }
 
   if (!userId) {
-    return { settings: null, message: 'تعذّr الاتصال بالخادم' };
+    return { settings: null, message: 'تعذّر الاتصال بالخادم' };
   }
 
   try {
@@ -299,7 +299,7 @@ export async function updatePrivacySettings(
     }
     return { settings: mergePrivacySettings(current, patch) };
   } catch {
-    return { settings: null, message: 'تعذّr الاتصال بالخادم' };
+    return { settings: null, message: 'تعذّر الاتصال بالخادم' };
   }
 }
 
@@ -337,7 +337,7 @@ export async function updateAccountSettings(
       };
     }
   } catch {
-    if (!userId) return { account: null, message: 'تعذّr الاتصال بالخادم' };
+    if (!userId) return { account: null, message: 'تعذّر الاتصال بالخادم' };
   }
 
   if (!userId) return { account: null, message: 'تعذّr حفظ البيانات' };
@@ -356,7 +356,7 @@ export async function updateAccountSettings(
       message: json.messageAr ?? json.message ?? 'تعذّr حفظ البيانات',
     };
   } catch {
-    return { account: null, message: 'تعذّr الاتصال بالخادم' };
+    return { account: null, message: 'تعذّر الاتصال بالخادم' };
   }
 }
 
@@ -406,7 +406,7 @@ export async function changeAccountPhone(
       message: json.messageAr ?? json.message ?? 'تعذّr تحديث رقم الجوال',
     };
   } catch {
-    return { account: null, message: 'تعذّr الاتصال بالخادم' };
+    return { account: null, message: 'تعذّر الاتصال بالخادم' };
   }
 }
 
@@ -549,6 +549,6 @@ export async function setBlockUser(
     );
     return { ok: false, message };
   } catch {
-    return { ok: false, message: 'تعذّr الاتصال بالخادم' };
+    return { ok: false, message: 'تعذّر الاتصال بالخادم' };
   }
 }

@@ -24,6 +24,7 @@ describe('SocketGatewayService chat events', () => {
   const policy = {
     assertCanSendMessage: jest.fn(),
     assertNotBlocked: jest.fn(),
+    isThreadMuted: jest.fn().mockResolvedValue(false),
   };
   const notifications = { notifyUser: jest.fn() };
   let service: SocketGatewayService;
