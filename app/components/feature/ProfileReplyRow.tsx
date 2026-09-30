@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/AppText';
 import { Image, uriSource } from '@/components/ui/AppImage';
+import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -45,6 +46,7 @@ export function ProfileReplyRow({ reply, onPress }: ProfileReplyRowProps) {
               {displayName}
             </AppText>
             {reply.author.verified ? <VerificationBadge size={14} tier={reply.author.verifiedTier} /> : null}
+            <FounderBadge username={reply.author.username} verificationBadgeSize={14} />
             {handle ? (
               <AppText style={styles.handle} numberOfLines={1}>
                 {handle}

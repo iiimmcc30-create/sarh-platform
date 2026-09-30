@@ -554,6 +554,7 @@ export default function ChatScreen() {
   /** Existing verification data (route param, then profile / peer payload). */
   const [peerVerified, setPeerVerified] = useState(receiverVerifiedParam === '1');
   const [peerVerifiedTier, setPeerVerifiedTier] = useState<string | null>(null);
+  const [peerUsername, setPeerUsername] = useState<string | null>(null);
   /** Existing block relation (users API `isBlocked`). */
   const [peerBlocked, setPeerBlocked] = useState(false);
   /** Server-side per-participant mute for this thread. */
@@ -617,6 +618,7 @@ export default function ChatScreen() {
       if (cancelled || !profile) return;
       setPeerVerified(Boolean(profile.verified));
       setPeerVerifiedTier(profile.verifiedTier ?? null);
+      setPeerUsername(profile.username ?? null);
       setPeerBlocked(Boolean(profile.isBlocked));
     });
     return () => {
@@ -1186,7 +1188,7 @@ export default function ChatScreen() {
             <Image source={uriSource(headerAvatar)} style={styles.headerAvatar} contentFit="cover" />
             <View style={styles.headerText}>
               <View style={styles.headerNameRow}>
-                <VerifiedInlineName name={headerName} verified={peerVerified} tier={peerVerifiedTier}>
+                <VerifiedInlineName name={headerName} verified={peerVerified} tier={peerVerifiedTier} username={peerUsername}>
                   <AppText variant="label" style={styles.headerName} numberOfLines={1}>{headerName}</AppText>
                 </VerifiedInlineName>
                 {muted ? (

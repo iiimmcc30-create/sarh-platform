@@ -230,6 +230,7 @@ export function NewMessageSheet({ visible, onClose, onSelect }: Props) {
                     name={item.arabicName || item.displayName}
                     verified={item.verified}
                     tier={item.verifiedTier}
+                    username={item.username}
                   >
                     <AppText variant="label" numberOfLines={1} style={styles.shrink}>
                       {item.arabicName || item.displayName}

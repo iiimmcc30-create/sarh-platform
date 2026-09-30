@@ -2,6 +2,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { MediaViewerSlide } from '@/components/media-viewer/MediaViewerSlide';
+import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
 export { containSizeFromRatio } from '@/lib/mediaContain';
@@ -100,6 +101,7 @@ function ViewerOverlay({
                 {overlay.authorName}
               </AppText>
               {overlay.verified ? <VerificationBadge size={13} tier={overlay.verifiedTier} /> : null}
+              <FounderBadge username={overlay.username} verificationBadgeSize={13} />
             </View>
             {handle ? (
               <AppText style={styles.overlayHandle} numberOfLines={1}>

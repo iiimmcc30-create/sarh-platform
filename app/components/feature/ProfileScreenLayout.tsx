@@ -1,6 +1,7 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
+import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ProfileTabs } from '@/components/feature/ProfileTabs';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
@@ -289,6 +290,7 @@ export function ProfileScreenLayout({
                     {displayName}
                   </AppText>
                   {user.verified ? <VerificationBadge size={18} tier={user.verifiedTier} /> : null}
+                  <FounderBadge username={user.username} verificationBadgeSize={18} />
                 </Row>
 
                 <AppText variant="caption" color="textMuted" numberOfLines={1}>

@@ -111,7 +111,7 @@ export function UserIdentityRow({
   const textBlock = (
     <View style={[styles.profileText, contentStyle]}>
       {/* Shared verified name row (lib/verifiedBadge: size 14, gap 4) - no local badge. */}
-      <VerifiedInlineName name={displayName} verified={verified} tier={verifiedTier} style={styles.nameRow}>
+      <VerifiedInlineName name={displayName} verified={verified} tier={verifiedTier} username={username} style={styles.nameRow}>
         <AppText
           style={[styles.displayName, nameStyle]}
           numberOfLines={nameLines}

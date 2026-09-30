@@ -94,6 +94,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             name={displayName}
             verified={showVerified}
             tier={me.verifiedTier}
+            username={isAuthenticated ? me.username : null}
             nameStyle={styles.name}
             numberOfLines={2}
           />

@@ -1,6 +1,7 @@
 // SAFAT — Full-width post row (X-style feed), no floating cards.
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
+import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { InteractionAction, InteractionBar, ShareAction } from '@/components/ui/InteractionActions';
 import {
@@ -307,6 +308,7 @@ function PostItemComponent({
                   {post.author.arabicName}
                 </AppText>
                 {post.author.verified ? <VerificationBadge size={14} tier={post.author.verifiedTier} /> : null}
+                <FounderBadge username={post.author.username} verificationBadgeSize={14} />
                 {authorRating ? (
                   <View style={[styles.ratingMini, getRtlRow()]}>
                     <AppIcon name="star" size={11} color={colors.gold} />
@@ -385,6 +387,7 @@ function PostItemComponent({
             {post.author.arabicName}
           </AppText>
           {post.author.verified ? <VerificationBadge size={14} tier={post.author.verifiedTier} /> : null}
+          <FounderBadge username={post.author.username} verificationBadgeSize={14} />
           {authorRating ? (
             <View style={[styles.ratingMini, getRtlRow()]}>
               <AppIcon name="star" size={11} color={colors.gold} />

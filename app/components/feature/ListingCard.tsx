@@ -27,6 +27,7 @@ import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { isManagedListing, listingAdvertiserName } from '@/lib/managedListing';
 import { ListingBoostTitleIcons } from '@/components/listing/ListingBoostTitleIcons';
 import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoostState';
+import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 
 interface ListingCardProps {
@@ -169,6 +170,7 @@ function ListingCardInner({
                 contentFit="cover"
               />
               {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
+              <FounderBadge username={seller?.username} verificationBadgeSize={14} />
               <View style={styles.listSellerNameShell}>
                 <Text style={styles.listSellerName} numberOfLines={1}>
                   {sellerName}
@@ -331,6 +333,7 @@ function ListingCardInner({
             contentFit="cover"
           />
           {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
+          <FounderBadge username={seller?.username} verificationBadgeSize={14} />
           <View style={styles.harajSellerNameShell}>
             <Text style={styles.harajSellerName} numberOfLines={1}>
               {sellerName}

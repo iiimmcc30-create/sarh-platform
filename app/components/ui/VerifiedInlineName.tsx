@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { AppText } from '@/components/ui/AppText';
+import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { getRtlRow } from '@/lib/rtl';
 import {
@@ -14,6 +15,8 @@ export type VerifiedInlineNameProps = {
   verified?: boolean;
   /** Badge colour tier ("gold" = merchant); defaults to the blue badge. */
   tier?: string | null;
+  /** Account username; only the founder account also gets the small Sarh mark. */
+  username?: string | null;
   badgeSize?: number;
   nameStyle?: StyleProp<TextStyle>;
   numberOfLines?: number;
@@ -30,6 +33,7 @@ export function VerifiedInlineName({
   name,
   verified = false,
   tier,
+  username,
   badgeSize = FEED_VERIFIED_BADGE_SIZE,
   nameStyle,
   numberOfLines = 1,
@@ -44,6 +48,7 @@ export function VerifiedInlineName({
         </AppText>
       )}
       {shouldShowVerifiedBadge(verified) ? <VerificationBadge size={badgeSize} tier={tier} /> : null}
+      <FounderBadge username={username} verificationBadgeSize={badgeSize} />
     </View>
   );
 }

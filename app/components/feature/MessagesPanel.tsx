@@ -263,7 +263,7 @@ export function MessagesPanel({
                   {chat.isPinned ? (
                     <AppIcon name="pin" size={13} color={colors.textMuted} />
                   ) : null}
-                  <VerifiedInlineName name={title} verified={p.verified} tier={p.verifiedTier} style={styles.flex}>
+                  <VerifiedInlineName name={title} verified={p.verified} tier={p.verifiedTier} username={p.username} style={styles.flex}>
                     <AppText variant="label" numberOfLines={1} style={styles.nameText}>
                       {title}
                     </AppText>

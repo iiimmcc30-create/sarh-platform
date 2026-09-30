@@ -78,6 +78,7 @@ export function ListingCommentsSection({
                       name={c.author.arabicName || c.author.displayName}
                       verified={c.author.verified}
                       tier={c.author.verifiedTier}
+                      username={c.author.username}
                       nameStyle={styles.commentName}
                     />
                     <UserProfileLink userId={c.author.id}>

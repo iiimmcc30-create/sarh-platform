@@ -1,6 +1,7 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { Image, uriSource } from '@/components/ui/AppImage';
+import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import {
   createContext,
@@ -327,6 +328,7 @@ export function PostCommentsList() {
                       {c.author.arabicName || c.author.displayName}
                     </AppText>
                     {c.author.verified ? <VerificationBadge size={13} tier={c.author.verifiedTier} /> : null}
+                    <FounderBadge username={c.author.username} verificationBadgeSize={13} />
                     {c.author.username ? (
                       <AppText style={styles.commentHandle} numberOfLines={1}>
                         @{c.author.username}

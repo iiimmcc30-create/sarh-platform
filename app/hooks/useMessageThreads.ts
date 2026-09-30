@@ -19,6 +19,8 @@ export interface MessageThreadItem {
     displayName: string;
     arabicName: string;
     avatar?: string;
+    /** Account username (used for the founder mark next to the name). */
+    username?: string | null;
     verified: boolean;
     verifiedTier?: string | null;
   } | null;
@@ -63,6 +65,7 @@ function mapThread(t: any, fallbackType: MessageThreadType): MessageThreadItem {
           arabicName:
             t.participant.arabicName || t.participant.displayName || '',
           avatar: t.participant.avatar || undefined,
+          username: t.participant.username ?? null,
           verified: t.participant.verified ?? false,
           verifiedTier: t.participant.verifiedTier ?? null,
         }

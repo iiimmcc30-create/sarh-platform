@@ -588,6 +588,7 @@ export default function ListingDetailScreen() {
                     name={listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
                     verified={listing.seller.verified}
                     tier={listing.seller.verifiedTier}
+                    username={listing.seller.username}
                     style={styles.sellerInlineName}
                   >
                     <AppText variant="cardTitle" color="textSecondary" style={styles.sellerInlineName} numberOfLines={1}>
