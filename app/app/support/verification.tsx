@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,14 +19,10 @@ import { uploadSupportFileFromUri } from '@/services/upload';
 import { AppText, SarhButton, SarhDivider, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 
-const REQUIREMENTS = [
-  'الاسم الكامل كما في الهوية',
-  'رقم الهوية الوطنية',
-  'صورة واضحة للهوية',
-  'للحسابات التجارية: السجل التجاري',
-];
-
-/** Gold (merchant) verification also needs business info + commercial register. */
+/**
+ * Verification is required for the Gold badge only (merchants). The Blue badge
+ * needs no verification request: an active Blue subscription is enough.
+ */
 const GOLD_REQUIREMENTS = [
   'الاسم الكامل كما في الهوية',
   'رقم الهوية الوطنية',
@@ -36,12 +32,11 @@ const GOLD_REQUIREMENTS = [
 ];
 
 type Tier = 'blue' | 'gold';
+/** This form is the Gold (merchant) verification. */
+const tier: Tier = 'gold';
 
 export default function AccountVerificationScreen() {
   const { accessToken } = useAuth();
-  const params = useLocalSearchParams<{ tier?: string }>();
-  const paramTier: Tier | null =
-    params.tier === 'gold' ? 'gold' : params.tier === 'blue' ? 'blue' : null;
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const [request, setRequest] = useState<VerificationRequest | null>(null);
   const [userVerified, setUserVerified] = useState(false);
@@ -52,7 +47,6 @@ export default function AccountVerificationScreen() {
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
-  const [tier, setTier] = useState<Tier>(paramTier ?? 'blue');
 
   const load = useCallback(async () => {
     const data = await fetchVerificationRequest();
@@ -64,10 +58,9 @@ export default function AccountVerificationScreen() {
       setBusinessName(data.request.businessName ?? '');
       setBusinessType(data.request.businessType ?? '');
       setAdditionalInfo(data.request.additionalInfo ?? '');
-      if (!paramTier && data.request.requestedTier) setTier(data.request.requestedTier);
     }
     setLoading(false);
-  }, [paramTier]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -78,14 +71,13 @@ export default function AccountVerificationScreen() {
   const approvedTier: Tier | null =
     request?.approvedTier ?? (request?.status === 'VERIFIED' ? 'blue' : null);
   // Draft / amendments as before; a rejected request can start over, and an
-  // approved Blue verification can apply for Gold (merchant).
+  // earlier (legacy / individual) approval can apply for Gold (merchant).
   const editable =
     !!request &&
     (request.status === 'DRAFT' ||
       request.status === 'NEEDS_AMENDMENTS' ||
       request.status === 'REJECTED' ||
-      (request.status === 'VERIFIED' && tier === 'gold' && approvedTier !== 'gold'));
-  const isGold = tier === 'gold';
+      (request.status === 'VERIFIED' && approvedTier !== 'gold'));
 
   const saveDraft = async (): Promise<boolean> => {
     setSaving(true);
@@ -192,28 +184,14 @@ export default function AccountVerificationScreen() {
 
         <SarhDivider />
 
-        <Section title="نوع التوثيق" gap="xs">
-          <Row gap="sm" wrap>
-            {(['blue', 'gold'] as const).map((t) => (
-              <Pressable
-                key={t}
-                style={[styles.docBtn, tier === t && styles.tierActive]}
-                onPress={() => setTier(t)}
-                disabled={!editable}
-                accessibilityRole="button"
-                accessibilityState={{ selected: tier === t }}
-                accessibilityLabel={t === 'gold' ? 'تاجر — الشارة الذهبية' : 'فرد — الشارة الزرقاء'}
-              >
-                <AppText variant="caption" color={tier === t ? 'primary' : 'textSecondary'}>
-                  {t === 'gold' ? 'تاجر — الشارة الذهبية' : 'فرد — الشارة الزرقاء'}
-                </AppText>
-              </Pressable>
-            ))}
-          </Row>
+        <Section title="توثيق التاجر — الشارة الذهبية" gap="xs">
+          <AppText variant="caption" color="textSecondary" style={styles.requirement}>
+            هذا التوثيق مطلوب للشارة الذهبية فقط. الشارة الزرقاء لا تحتاج أي طلب توثيق: يكفي اشتراك Blue فعّال.
+          </AppText>
         </Section>
 
         <Section title="المتطلبات" gap="xs">
-          {(isGold ? GOLD_REQUIREMENTS : REQUIREMENTS).map((item) => (
+          {GOLD_REQUIREMENTS.map((item) => (
             <AppText key={item} variant="caption" color="textSecondary" style={styles.requirement}>
               • {item}
             </AppText>
@@ -223,8 +201,8 @@ export default function AccountVerificationScreen() {
         <Stack gap="lg">
           <SarhInput appearance="theme" label="الاسم الكامل" value={fullName} onChangeText={setFullName} editable={!!editable} />
           <SarhInput appearance="theme" label="رقم الهوية" value={nationalId} onChangeText={setNationalId} editable={!!editable} />
-          <SarhInput appearance="theme" label={isGold ? 'اسم المنشأة' : 'اسم المنشأة (اختياري)'} value={businessName} onChangeText={setBusinessName} editable={!!editable} />
-          <SarhInput appearance="theme" label={isGold ? 'نوع النشاط' : 'نوع النشاط (اختياري)'} value={businessType} onChangeText={setBusinessType} editable={!!editable} />
+          <SarhInput appearance="theme" label="اسم المنشأة" value={businessName} onChangeText={setBusinessName} editable={!!editable} />
+          <SarhInput appearance="theme" label="نوع النشاط" value={businessType} onChangeText={setBusinessType} editable={!!editable} />
           <SarhInput
             appearance="theme"
             label="معلومات إضافية"
@@ -291,9 +269,6 @@ function createStyles(colors: ThemeColors) {
     fill: { flex: 1, minWidth: 0 },
     reason: { lineHeight: 22 },
     requirement: { lineHeight: 20 },
-    tierActive: {
-      borderColor: colors.textBrand,
-    },
     docBtn: {
       backgroundColor: colors.bgSurface,
       borderRadius: radius.md,

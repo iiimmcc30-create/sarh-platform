@@ -8,6 +8,7 @@ import {
   softDeleteFields,
 } from '../../common/utils/soft-delete.util';
 import type { PaginationQueryDto } from '../dto/admin.dto';
+import { ADMIN_MEMBERSHIP_SELECT } from '../../subscriptions/verification/admin-membership';
 
 const USER_SELECT = {
   id: true,
@@ -137,6 +138,29 @@ export class AdminRepository {
     });
   }
 
+  /** Admin user detail: profile + subscription + verification summary. */
+  findUserDetailById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: { ...OWNER_USER_SELECT, ...ADMIN_MEMBERSHIP_SELECT },
+    });
+  }
+
+  /** Last paid subscription payment per user (current period start). */
+  async findLastPaidSubscriptionPayments(userIds: string[]) {
+    if (!userIds.length) return [];
+    return this.prisma.payment.findMany({
+      where: {
+        userId: { in: userIds },
+        referenceType: 'subscription',
+        status: 'paid',
+      },
+      orderBy: [{ userId: 'asc' }, { createdAt: 'desc' }],
+      distinct: ['userId'],
+      select: { userId: true, paidAt: true, createdAt: true, metadata: true },
+    });
+  }
+
   async listUsers(query: PaginationQueryDto) {
     const { page, pageSize, search } = query;
     const where: Prisma.UserWhereInput = {
@@ -146,7 +170,7 @@ export class AdminRepository {
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        select: USER_SELECT,
+        select: { ...USER_SELECT, ...ADMIN_MEMBERSHIP_SELECT },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

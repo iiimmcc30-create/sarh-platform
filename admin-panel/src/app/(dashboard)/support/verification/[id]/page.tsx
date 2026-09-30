@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { getApiErrorMessage } from '@/services/api.client';
 import { fetchVerificationRequest, updateVerificationRequest } from '@/services/support.service';
+import { type BadgeTier, tierLabel } from '@/lib/membership';
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: 'لم يُرسل',
@@ -85,6 +86,13 @@ export default function VerificationDetailPage() {
             <Badge tone={request.status === 'VERIFIED' ? 'success' : request.status === 'REJECTED' ? 'danger' : 'warning'}>
               {STATUS_LABEL[String(request.status)] ?? String(request.status)}
             </Badge>
+          </p>
+          <p className="text-slate-300">
+            الشارة المطلوبة: {tierLabel((request.requestedTier as BadgeTier | null) ?? 'blue')}
+            {request.requestedTier === 'gold' ? ' — تاجر (سجل تجاري مطلوب)' : ' — فرد / بائع'}
+          </p>
+          <p className="text-slate-300">
+            الشارة المعتمدة: {tierLabel(request.approvedTier as BadgeTier | null)}
           </p>
           <p className="text-slate-300">الاسم: {String(request.fullName ?? '—')}</p>
           <p className="text-slate-300">الهوية: {String(request.nationalId ?? '—')}</p>

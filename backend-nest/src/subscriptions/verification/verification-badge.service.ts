@@ -18,9 +18,10 @@ export type BadgeSyncResult = {
 
 /**
  * Keeps the public badge (`User.verified` + `User.verifiedTier`) in line with
- * the rule: badge only while verification is APPROVED and the verification
- * subscription is ACTIVE. Badges that pre-date this system (verified = true,
- * subscriptionBadge = false) are never revoked here.
+ * the rules: Blue = active Blue subscription (no verification needed); Gold =
+ * active Gold subscription AND approved Gold verification. Badges that
+ * pre-date this system (verified = true, subscriptionBadge = false) are never
+ * revoked here.
  */
 @Injectable()
 export class VerificationBadgeService {

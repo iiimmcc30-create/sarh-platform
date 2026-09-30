@@ -7,8 +7,9 @@ import { normalizePlanSlug } from '../../plans/plan.types';
  *
  * Plans live in the existing `Plan` table (slugs below). Prices are NOT
  * hard-coded here: they come from the Plan rows managed in the admin plans
- * panel. The additive migration seeds both rows inactive with a 0 placeholder
- * price, so nothing can be purchased until an admin sets a real price.
+ * panel (single source of truth). Migration 20260930130000 activates them at
+ * 29 SAR (blue) / 59 SAR (gold) per month. Renewal is manual: reminders plus a
+ * new payment through the existing checkout (no saved card, no auto-charge).
  */
 export type VerificationTier = 'blue' | 'gold';
 
@@ -50,19 +51,28 @@ export function isVerificationPlanSlug(slug: string | null | undefined) {
 }
 
 /**
- * Badge tier shown publicly. Requires BOTH an approved verification and an
- * active badge subscription. Gold needs a gold subscription AND a gold
- * (merchant) approval; otherwise a verified subscriber shows blue.
+ * Tiers that need an approved verification request. Blue does NOT (an active
+ * Blue subscription is enough); Gold needs an approved merchant verification.
+ */
+export const TIER_REQUIRES_VERIFICATION: Record<VerificationTier, boolean> = {
+  blue: false,
+  gold: true,
+};
+
+/**
+ * Badge tier shown publicly (requires an ACTIVE badge subscription):
+ * - Blue subscription → blue badge (no verification needed).
+ * - Gold subscription + approved Gold (merchant) verification → gold badge.
+ * - Gold subscription without a Gold approval → blue badge (never gold).
  */
 export function resolveBadgeTier(params: {
   subscriptionTier: VerificationTier | null;
   approvedTier: VerificationTier | null;
 }): VerificationTier | null {
   const { subscriptionTier, approvedTier } = params;
-  if (!subscriptionTier || !approvedTier) return null;
-  return subscriptionTier === 'gold' && approvedTier === 'gold'
-    ? 'gold'
-    : 'blue';
+  if (!subscriptionTier) return null;
+  if (subscriptionTier === 'gold' && approvedTier === 'gold') return 'gold';
+  return 'blue';
 }
 
 /** Extra daily listings granted by a plan (feature value, tier default fallback). */

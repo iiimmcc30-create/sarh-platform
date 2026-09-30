@@ -193,7 +193,7 @@ export class SupportNotificationsService {
       type: SYSTEM_TYPE,
       titleAr: 'تم قبول طلب التوثيق',
       bodyAr:
-        'مبروك! تم قبول طلب التوثيق. تظهر الشارة على حسابك مع اشتراك التوثيق النشط.',
+        'مبروك! تم قبول طلب التوثيق. تظهر الشارة الذهبية على حسابك مع اشتراك Gold النشط.',
       data: { event: 'account_verification_approved' },
     });
   }

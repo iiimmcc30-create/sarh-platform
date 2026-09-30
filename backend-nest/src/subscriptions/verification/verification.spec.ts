@@ -9,6 +9,7 @@ import {
   effectiveApprovedTier,
   extraDailyListingsForPlan,
   resolveBadgeTier,
+  TIER_REQUIRES_VERIFICATION,
   tierForPlanSlug,
 } from './verification-tiers';
 
@@ -36,26 +37,32 @@ describe('verification tiers', () => {
     expect(tierForPlanSlug('free')).toBeNull();
   });
 
-  it('needs both an approval and an active subscription', () => {
-    expect(
-      resolveBadgeTier({ subscriptionTier: 'blue', approvedTier: null }),
-    ).toBeNull();
+  it('Blue = active subscription only; Gold also needs a Gold approval', () => {
+    // No subscription → no badge, whatever the approval.
     expect(
       resolveBadgeTier({ subscriptionTier: null, approvedTier: 'gold' }),
     ).toBeNull();
     expect(
-      resolveBadgeTier({ subscriptionTier: 'blue', approvedTier: 'blue' }),
-    ).toBe('blue');
+      resolveBadgeTier({ subscriptionTier: null, approvedTier: null }),
+    ).toBeNull();
+    // Blue needs no verification at all.
     expect(
-      resolveBadgeTier({ subscriptionTier: 'gold', approvedTier: 'gold' }),
-    ).toBe('gold');
-    // Gold subscription without a merchant approval shows blue.
-    expect(
-      resolveBadgeTier({ subscriptionTier: 'gold', approvedTier: 'blue' }),
+      resolveBadgeTier({ subscriptionTier: 'blue', approvedTier: null }),
     ).toBe('blue');
     expect(
       resolveBadgeTier({ subscriptionTier: 'blue', approvedTier: 'gold' }),
     ).toBe('blue');
+    // Gold only with an approved Gold (merchant) verification; otherwise blue.
+    expect(
+      resolveBadgeTier({ subscriptionTier: 'gold', approvedTier: 'gold' }),
+    ).toBe('gold');
+    expect(
+      resolveBadgeTier({ subscriptionTier: 'gold', approvedTier: 'blue' }),
+    ).toBe('blue');
+    expect(
+      resolveBadgeTier({ subscriptionTier: 'gold', approvedTier: null }),
+    ).toBe('blue');
+    expect(TIER_REQUIRES_VERIFICATION).toEqual({ blue: false, gold: true });
   });
 
   it('treats requests approved before tiers as blue approvals', () => {
@@ -98,7 +105,19 @@ describe('VerificationBadgeService.decide', () => {
   const approvedBlue = { status: 'VERIFIED', approvedTier: 'blue' };
   const approvedGold = { status: 'VERIFIED', approvedTier: 'gold' };
 
-  it('grants the badge only with approval + active subscription', () => {
+  it('Blue badge with an active Blue subscription alone; Gold badge needs Gold approval', () => {
+    expect(
+      VerificationBadgeService.decide({
+        user: plainUser,
+        request: null,
+        subscription: activeBlue,
+        now,
+      }),
+    ).toEqual({
+      verified: true,
+      verifiedTier: 'blue',
+      subscriptionBadge: true,
+    });
     expect(
       VerificationBadgeService.decide({
         user: plainUser,
@@ -123,19 +142,33 @@ describe('VerificationBadgeService.decide', () => {
       verifiedTier: 'gold',
       subscriptionBadge: true,
     });
+    // Gold subscription without a Gold approval never shows gold.
     expect(
       VerificationBadgeService.decide({
         user: plainUser,
         request: null,
         subscription: activeGold,
         now,
-      }).verified,
-    ).toBe(false);
+      }),
+    ).toEqual({
+      verified: true,
+      verifiedTier: 'blue',
+      subscriptionBadge: true,
+    });
     expect(
       VerificationBadgeService.decide({
         user: plainUser,
         request: { status: 'UNDER_REVIEW', approvedTier: null },
-        subscription: activeBlue,
+        subscription: activeGold,
+        now,
+      }).verifiedTier,
+    ).toBe('blue');
+    // No active subscription → no badge even when approved.
+    expect(
+      VerificationBadgeService.decide({
+        user: plainUser,
+        request: approvedGold,
+        subscription: null,
         now,
       }).verified,
     ).toBe(false);

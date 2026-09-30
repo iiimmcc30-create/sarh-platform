@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ResourcePage, Badge } from '@/components/ui/ResourcePage';
 import { Button } from '@/components/ui/Button';
 import { fetchVerificationRequests } from '@/services/support.service';
+import { type BadgeTier, tierLabel } from '@/lib/membership';
 
 type Row = {
   id: string;
@@ -12,6 +13,8 @@ type Row = {
   fullName?: string;
   nationalId?: string;
   submittedAt?: string;
+  requestedTier?: BadgeTier | null;
+  approvedTier?: BadgeTier | null;
   user?: { arabicName?: string; username?: string };
 };
 
@@ -74,6 +77,15 @@ export default function VerificationRequestsPage() {
         },
         { key: 'fullName', label: 'الاسم' },
         { key: 'nationalId', label: 'الهوية' },
+        {
+          key: 'requestedTier',
+          label: 'الشارة المطلوبة',
+          render: (r) => (
+            <Badge tone={r.requestedTier === 'gold' ? 'warning' : 'info'}>
+              {tierLabel(r.requestedTier ?? 'blue')}
+            </Badge>
+          ),
+        },
         {
           key: 'status',
           label: 'الحالة',

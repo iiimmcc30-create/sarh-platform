@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
   HOME_QUICK_ACCESS_ITEMS,
+  resolveQuickAccessTileMetrics,
   type HomeQuickAccessItem,
 } from '@/lib/homeQuickAccess';
 import { safePush } from '@/lib/safeNavigate';
@@ -29,7 +30,12 @@ function iconColor(
 
 export function HomeQuickAccess() {
   const router = useRouter();
-  const { gutter } = useLayout();
+  const { gutter, width, maxWidth } = useLayout();
+  // Narrow phones: tighter tile padding + label size so the full word fits.
+  const tileMetrics = resolveQuickAccessTileMetrics(
+    maxWidth != null ? Math.min(width, maxWidth) : width,
+    gutter,
+  );
   const { colors: themeColors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c.bgElevated, c.borderHairline));
 
@@ -52,10 +58,14 @@ export function HomeQuickAccess() {
             accessibilityRole="button"
             accessibilityLabel={item.label}
             onPress={() => safePush(item.href, undefined, router)}
-            style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.tile,
+              { paddingHorizontal: tileMetrics.paddingHorizontal },
+              pressed && styles.pressed,
+            ]}
           >
             {/* Horizontal (RTL) row: icon, then the label on the same midline. */}
-            <Row align="center" gap="sm" style={styles.tileRow}>
+            <Row align="center" gap={tileMetrics.iconGap} style={styles.tileRow}>
               <View style={styles.iconBox}>
                 {item.logo ? (
                   <Image source={item.logo} style={styles.logo} contentFit="contain" />
@@ -68,7 +78,14 @@ export function HomeQuickAccess() {
                   />
                 )}
               </View>
-              <AppText variant="label" color="textPrimary" numberOfLines={1} style={styles.label}>
+              <AppText
+                variant="label"
+                color="textPrimary"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+                style={[styles.label, { fontSize: tileMetrics.fontSize }]}
+              >
                 {item.label}
               </AppText>
             </Row>

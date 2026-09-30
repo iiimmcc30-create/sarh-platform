@@ -10,6 +10,7 @@ import {
   VERIFICATION_TIERS,
   effectiveApprovedTier,
   isVerificationTier,
+  TIER_REQUIRES_VERIFICATION,
   tierForPlanSlug,
   type VerificationTier,
 } from './verification-tiers';
@@ -87,6 +88,8 @@ export class VerificationStatusService {
         billingCycle: 'monthly' as const,
         /** Price set by an admin (> 0). 0 = placeholder, not purchasable. */
         priceConfigured: monthlyPrice > 0,
+        /** Blue: subscription only. Gold: approved merchant verification too. */
+        verificationRequired: TIER_REQUIRES_VERIFICATION[tier],
         available: !!row?.isActive && monthlyPrice > 0,
         extraDailyListings: this.permissions.extraDailyListings(perms, slug),
         visibilityBoost: this.permissions.priorityBoost(perms),

@@ -12,6 +12,7 @@ import { managedContactFields } from './lib/managed-listing';
 import { LISTINGS_FEED_CACHE_PATTERN } from '../listings/listings-cache-keys';
 import type { ListingCategory } from '@prisma/client';
 import { authorizeCronCleanup } from './lib/cron-auth';
+import { buildAdminMembership } from '../subscriptions/verification/admin-membership';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import type { AdminLoginDto, PaginationQueryDto } from './dto/admin.dto';
 import {
@@ -176,14 +177,40 @@ export class AdminService {
     return { userId, isActive: false, action };
   }
 
-  listUsers(query: Record<string, unknown>) {
-    return this.repo.listUsers(this.parsePagination(query));
+  async listUsers(query: Record<string, unknown>) {
+    const page = await this.repo.listUsers(this.parsePagination(query));
+    const payments = await this.repo.findLastPaidSubscriptionPayments(
+      page.items.map((u) => u.id),
+    );
+    const lastByUser = new Map(payments.map((p) => [p.userId, p]));
+    return {
+      ...page,
+      items: page.items.map(
+        ({ subscription, accountVerificationRequest, ...user }) => ({
+          ...user,
+          membership: buildAdminMembership(
+            { ...user, subscription, accountVerificationRequest },
+            lastByUser.get(user.id) ?? null,
+          ),
+        }),
+      ),
+    };
   }
 
   async getUser(id: string) {
-    const user = await this.repo.findUserById(id);
-    if (!user) throwApi(404, 'not_found', 'المستخدم غير موجود');
-    return { user };
+    const record = await this.repo.findUserDetailById(id);
+    if (!record) throwApi(404, 'not_found', 'المستخدم غير موجود');
+    const [lastPaid] = await this.repo.findLastPaidSubscriptionPayments([id]);
+    const { subscription, accountVerificationRequest, ...user } = record;
+    return {
+      user: {
+        ...user,
+        membership: buildAdminMembership(
+          { ...user, subscription, accountVerificationRequest },
+          lastPaid ?? null,
+        ),
+      },
+    };
   }
 
   async updateUser(
@@ -661,8 +688,7 @@ export class AdminService {
   async runCleanup() {
     const now = new Date();
     this.logger.info({}, 'Running scheduled cleanup');
-    const [sessions, notifications, stories] =
-      await this.repo.runCleanup(now);
+    const [sessions, notifications, stories] = await this.repo.runCleanup(now);
     const stats = {
       expiredSessions: sessions.count,
       oldNotifications: notifications.count,

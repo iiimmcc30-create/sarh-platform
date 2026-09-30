@@ -1,6 +1,13 @@
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { HOME_BANNER_CTA_HREF, HOME_QUICK_ACCESS_ITEMS } from '@/lib/homeQuickAccess';
+import {
+  HOME_BANNER_CTA_HREF,
+  HOME_QUICK_ACCESS_ITEMS,
+  QUICK_ACCESS_FONT_MAX,
+  QUICK_ACCESS_FONT_MIN,
+  QUICK_ACCESS_LABEL_EM,
+  resolveQuickAccessTileMetrics,
+} from '@/lib/homeQuickAccess';
 
 // The catalog requires a .jpg logo; Jest has no image transform here.
 jest.mock('@/constants/branding', () => ({ MEWA_FALLBACK_AVATAR: 1 }));
@@ -49,7 +56,7 @@ describe('Home quick access: title and tile layout', () => {
 
   it('stays one horizontal row of horizontal tiles (icon + label on one row)', () => {
     expect(quick).toContain('HOME_QUICK_ACCESS_ITEMS.map');
-    expect(quick).toContain('<Row align="center" gap="sm" style={styles.tileRow}>');
+    expect(quick).toContain('<Row align="center" gap={tileMetrics.iconGap} style={styles.tileRow}>');
     expect(quick).not.toMatch(/flexDirection: 'column'|<Stack/);
   });
 
@@ -74,7 +81,7 @@ describe('Home quick access: title and tile layout', () => {
     expect(quick).toMatch(/iconBox: \{\s*width: ICON_BOX,\s*height: ICON_BOX,\s*alignItems: 'center',\s*justifyContent: 'center',/);
     expect(quick).toMatch(/label: \{\s*flexShrink: 1,\s*lineHeight: ICON_BOX,\s*includeFontPadding: false,\s*textAlignVertical: 'center',/);
     expect(quick).toContain('<View style={styles.iconBox}>');
-    expect(quick).toContain('style={styles.label}');
+    expect(quick).toContain('style={[styles.label, { fontSize: tileMetrics.fontSize }]}');
   });
 
   it('uses a compact tile with DS tokens: light corners, thin border, no gradient or heavy shadow', () => {
@@ -84,5 +91,44 @@ describe('Home quick access: title and tile layout', () => {
     expect(quick).toMatch(/tile: \{[^}]*borderRadius: radius\[12\],/);
     expect(quick).toMatch(/tile: \{[^}]*borderWidth: 1,/);
     expect(quick).not.toMatch(/LinearGradient|shadowOpacity|elevation:/);
+  });
+});
+
+describe('Home quick access: full labels on narrow phones (المحفوظات was ellipsized)', () => {
+  // «المحفوظات» measured with HarfBuzz in Tajawal 500: 74.6px at 15px (4.97em).
+  const widest = (fontSize: number) => 4.974 * fontSize;
+  const labelBudget = (m: ReturnType<typeof resolveQuickAccessTileMetrics>) =>
+    m.tileWidth - 2 - 2 * m.paddingHorizontal - 20 - (m.iconGap === 'xs' ? 4 : 8);
+
+  it('root cause: the old fixed chrome left < 51pt for a ~75pt label on 320–360pt phones', () => {
+    for (const w of [320, 360]) {
+      const tile = (w - 2 * 16 - 2 * 8) / 3;
+      expect(tile - 2 - 24 - 20 - 8).toBeLessThan(widest(15) - 20);
+    }
+    expect(QUICK_ACCESS_LABEL_EM).toBeGreaterThanOrEqual(4.974);
+  });
+
+  it.each([320, 340, 360, 375, 390, 412, 430])('fits the full widest label at %ipt (compact gutter 16)', (w) => {
+    const m = resolveQuickAccessTileMetrics(w, 16);
+    expect(m.fontSize).toBeGreaterThanOrEqual(QUICK_ACCESS_FONT_MIN);
+    expect(m.fontSize).toBeLessThanOrEqual(QUICK_ACCESS_FONT_MAX);
+    expect(widest(m.fontSize)).toBeLessThanOrEqual(labelBudget(m));
+  });
+
+  it('keeps the original look where it already fits (web / wide screens)', () => {
+    expect(resolveQuickAccessTileMetrics(720, 24)).toMatchObject({ paddingHorizontal: 12, iconGap: 'sm', fontSize: 15 });
+    expect(resolveQuickAccessTileMetrics(960, 32)).toMatchObject({ paddingHorizontal: 12, iconGap: 'sm', fontSize: 15 });
+    expect(resolveQuickAccessTileMetrics(360, 16).fontSize).toBeGreaterThanOrEqual(13.5);
+  });
+
+  it('wires the metrics into the tile without changing height, radius, border or the equal row', () => {
+    expect(quick).toContain('resolveQuickAccessTileMetrics(');
+    expect(quick).toContain('{ paddingHorizontal: tileMetrics.paddingHorizontal }');
+    expect(quick).toContain('style={[styles.label, { fontSize: tileMetrics.fontSize }]}');
+    expect(quick).toContain('numberOfLines={1}');
+    expect(quick).toContain('adjustsFontSizeToFit');
+    expect(quick).toMatch(/tile: \{[^}]*height: space\[40\],/);
+    expect(quick).toMatch(/tile: \{[^}]*borderRadius: radius\[12\],/);
+    expect(quick).toMatch(/tile: \{\s*flex: 1,\s*minWidth: 0,/);
   });
 });

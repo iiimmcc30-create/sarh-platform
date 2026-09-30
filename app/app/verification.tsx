@@ -1,18 +1,23 @@
-// Sarh — Verification (Blue / Gold badge) subscription page.
-// Typographic layout on a white page: no cards, hairline-separated sections.
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+// Sarh — Verification (Blue / Gold badge) subscribe sheet.
+// Layout follows the approved X-Premium-style mobile sheet: close, hero badge,
+// headline, Blue/Gold tabs, one rounded feature list, the monthly plan, a pill
+// CTA and fine print. The page is ALWAYS dark (black) in light and dark mode.
+// Prices come from the plans API only; renewal is manual (no auto-charge).
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { setStatusBarStyle } from 'expo-status-bar';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { TierBadgeMark } from '@/components/verification/TierBadgeMark';
-import { AppText, SarhButton, SarhDivider } from '@/design-system/components';
+import { SwipeTabIndicator } from '@/components/ui/SwipeTabIndicator';
+import { VerificationHero } from '@/components/verification/VerificationHero';
+import { AppText } from '@/design-system/components';
 import { Screen, ScreenBody, Stack } from '@/design-system/layout';
-import { spacing, type ThemeColors } from '@/constants/theme';
+import { duration } from '@/design-system/tokens';
+import { radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { useLayout } from '@/hooks/useLayout';
+import { useTabLayouts } from '@/hooks/useTabLayouts';
 import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
 import { getRtlRow } from '@/lib/rtl';
 import { VERIFIED_BADGE_COLORS } from '@/lib/verifiedBadge';
@@ -33,21 +38,91 @@ import {
 } from '@/services/verification';
 
 const TIERS: VerificationTierId[] = ['blue', 'gold'];
+const TAB_LABEL: Record<VerificationTierId, string> = { blue: 'Blue', gold: 'Gold' };
 
-function formatPrice(plan: VerificationPlan | undefined): string {
-  if (!plan || !plan.priceConfigured) return 'السعر يُعلن قريباً';
+/**
+ * Fixed dark palette (this screen is black in both themes). Contrast on #000:
+ * text 17:1, secondary 6.9:1 (AA), on the #16181C list 6.1:1 (AA).
+ */
+export const VERIFICATION_DARK = {
+  bg: '#000000',
+  surface: '#16181C',
+  border: '#2F3336',
+  text: '#E7E9EA',
+  textSecondary: '#8B98A5',
+  ctaBg: '#E7E9EA',
+  ctaText: '#0F1419',
+  ctaDisabledBg: '#2F3336',
+  ctaDisabledText: '#8B98A5',
+  danger: '#F4868C',
+} as const;
+const D = VERIFICATION_DARK;
+
+function priceAmount(plan: VerificationPlan | undefined): string | null {
+  // Price comes only from the plans API (Plan table, admin-configurable).
+  if (!plan || !plan.priceConfigured) return null;
   const amount = Number.isInteger(plan.monthlyPrice)
     ? String(plan.monthlyPrice)
     : plan.monthlyPrice.toFixed(2);
-  return `${amount} ر.س / شهرياً`;
+  const currency = !plan.currency || plan.currency === 'SAR' ? 'ر.س' : plan.currency;
+  return `${amount} ${currency}`;
+}
+
+type Feature = { icon: string; label: string; info?: string };
+
+function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefined): Feature[] {
+  const extra = extraDailyFor(plan, tier);
+  const common: Feature[] = [
+    {
+      icon: 'eye-outline',
+      label: 'الشارة في ملفك ومنشوراتك وإعلاناتك ومحادثاتك',
+    },
+  ];
+  if (tier === 'gold') {
+    return [
+      { icon: 'verified', label: 'شارة توثيق ذهبية' },
+      {
+        icon: 'trending-up-outline',
+        label: 'أعلى ظهور لحسابك وإعلاناتك',
+        info: 'أولوية أعلى من الشارة الزرقاء في ترتيب البحث والرئيسية.',
+      },
+      {
+        icon: 'add-circle-outline',
+        label: `+${extra} إعلانات إضافية يومياً`,
+        info: 'تُضاف فوق الحد الأساسي لنشر الإعلانات كل 24 ساعة.',
+      },
+      ...common,
+      {
+        icon: 'storefront-outline',
+        label: 'توثيق التاجر',
+        info: 'تظهر الشارة الذهبية بعد قبول توثيق التاجر: الهوية، بيانات المنشأة، والسجل التجاري.',
+      },
+      { icon: 'time-outline', label: 'المزايا مرتبطة باشتراكك الفعّال' },
+    ];
+  }
+  return [
+    { icon: 'verified', label: 'شارة توثيق زرقاء' },
+    {
+      icon: 'trending-up-outline',
+      label: 'ظهور أعلى لحسابك وإعلاناتك',
+      info: 'أولوية في ترتيب البحث.',
+    },
+    {
+      icon: 'add-circle-outline',
+      label: `+${extra} إعلانات إضافية يومياً`,
+      info: 'تُضاف فوق الحد الأساسي لنشر الإعلانات كل 24 ساعة.',
+    },
+    ...common,
+    { icon: 'checkmark-done-outline', label: 'بدون طلب توثيق: تظهر فور تفعيل الاشتراك' },
+    { icon: 'time-outline', label: 'المزايا مرتبطة باشتراكك الفعّال' },
+  ];
 }
 
 export default function VerificationScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { isDark } = useTheme();
   const { isAuthenticated, accessToken } = useAuth();
   const { isCompact } = useLayout();
-  const styles = useThemedStyles(({ colors: c }) => createStyles(c));
 
   const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [plans, setPlans] = useState<VerificationPlan[]>([]);
@@ -70,11 +145,15 @@ export default function VerificationScreen() {
   useFocusEffect(
     useCallback(() => {
       void load();
-    }, [load]),
+      // Black page in both themes: light status-bar content while focused.
+      setStatusBarStyle('light');
+      return () => setStatusBarStyle(isDark ? 'light' : 'dark');
+    }, [load, isDark]),
   );
 
   const tier: VerificationTierId =
     selected ?? status?.subscription.tier ?? status?.verification.approvedTier ?? 'blue';
+  const tierIndex = TIERS.indexOf(tier);
   const plan = plans.find((p) => p.tier === tier);
   const copy = VERIFICATION_TIER_COPY[tier];
   const sub = status?.subscription;
@@ -83,25 +162,27 @@ export default function VerificationScreen() {
     !!sub && sub.tier === tier && (sub.state === 'active' || sub.state === 'canceled');
   const subscribedOther =
     !!sub && !!sub.tier && sub.tier !== tier && (sub.state === 'active' || sub.state === 'canceled');
+  const renewing = !!sub && sub.tier === tier && (sub.state === 'grace_period' || sub.state === 'expired');
+  const price = priceAmount(plan);
 
-  const comparison = useMemo(
-    () => [
-      { label: 'لون الشارة', blue: 'أزرق', gold: 'ذهبي' },
-      { label: 'مناسبة لـ', blue: 'الأفراد والبائعين', gold: 'التجار والمحترفين' },
-      {
-        label: 'إعلانات إضافية يومياً',
-        blue: `+${extraDailyFor(plans.find((p) => p.tier === 'blue'), 'blue')}`,
-        gold: `+${extraDailyFor(plans.find((p) => p.tier === 'gold'), 'gold')}`,
-      },
-      { label: 'الظهور في البحث والرئيسية', blue: 'أعلى', gold: 'الأعلى' },
-      { label: 'الشارة على الملف والمنشورات والإعلانات والمحادثات', blue: '✓', gold: '✓' },
-      { label: 'التحقق المطلوب', blue: 'الهوية الوطنية', gold: 'الهوية + السجل التجاري' },
-    ],
-    [plans],
-  );
+  // Tabs: one sliding underline (existing SwipeTabIndicator pattern).
+  const { layouts, onTabLayout } = useTabLayouts(TIERS.length);
+  const [progress] = useState(() => new Animated.Value(tierIndex));
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: tierIndex,
+      duration: duration.ui,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, tierIndex]);
+
+  const close = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/' as never);
+  };
 
   const goVerify = () => {
-    router.push({ pathname: '/support/verification', params: { tier } } as never);
+    router.push('/support/verification' as never);
   };
 
   const subscribe = async () => {
@@ -131,11 +212,11 @@ export default function VerificationScreen() {
   const cancelRenewal = async () => {
     const until = formatArabicDate(sub?.renewDate);
     const ok = await confirmDestructive(
-      'إلغاء التجديد',
+      'إلغاء الاشتراك',
       until
-        ? `ستبقى الشارة والمزايا فعّالة حتى ${until}، ولن يتجدد الاشتراك بعدها.`
+        ? `ستبقى الشارة والمزايا فعّالة حتى ${until}، ولن نرسل لك تذكيرات التجديد.`
         : 'ستبقى المزايا فعّالة حتى نهاية الفترة المدفوعة.',
-      'إلغاء التجديد',
+      'إلغاء الاشتراك',
     );
     if (!ok) return;
     setBusy(true);
@@ -145,323 +226,295 @@ export default function VerificationScreen() {
     void load();
   };
 
-  const verificationLine = (() => {
-    if (!verification) return 'لم يبدأ';
-    const base = VERIFICATION_STATE_LABEL_AR[verification.state];
-    if (verification.state === 'approved' && verification.approvedTier) {
-      return `${base} · ${VERIFICATION_TIER_COPY[verification.approvedTier].audience}`;
-    }
-    return base;
-  })();
+  // Verification applies to Gold only (merchant). Blue = active subscription only.
+  const goldApproved = verification?.approvedTier === 'gold';
+  const goldVerificationState = goldApproved
+    ? 'approved'
+    : verification && verification.state !== 'approved'
+      ? verification.state
+      : 'not_started';
+  const verificationLine = VERIFICATION_STATE_LABEL_AR[goldVerificationState];
+  /** Gold checkout opens only after the merchant verification is approved. */
+  const goldLocked = tier === 'gold' && !goldApproved;
 
-  const needsVerification =
-    !verification ||
-    verification.state === 'not_started' ||
-    verification.state === 'rejected' ||
-    verification.state === 'needs_amendments' ||
-    (tier === 'gold' && verification.state === 'approved' && verification.approvedTier !== 'gold');
-
-  const primaryAction = (() => {
+  const cta = ((): { title: string; onPress: () => void; disabled: boolean } => {
+    const none = () => undefined;
     if (!isAuthenticated) {
       return { title: 'سجّل الدخول للاشتراك', onPress: () => router.push('/auth/welcome' as never), disabled: false };
     }
-    if (subscribedHere) return null;
-    if (!plan?.available) {
-      return { title: 'الاشتراك غير متاح بعد', onPress: () => undefined, disabled: true };
+    if (subscribedHere) return { title: 'مشترك', onPress: none, disabled: true };
+    if (subscribedOther && tier === 'blue') return { title: 'مشترك في Gold', onPress: none, disabled: true };
+    if (goldLocked) {
+      return goldVerificationState === 'pending_review'
+        ? { title: 'التحقق قيد المراجعة', onPress: none, disabled: true }
+        : { title: 'أكمل التحقق', onPress: goVerify, disabled: false };
     }
-    const title = subscribedOther && tier === 'gold'
-      ? `الترقية إلى الذهبية · ${formatPrice(plan)}`
-      : `اشترك · ${formatPrice(plan)}`;
-    return { title, onPress: () => void subscribe(), disabled: subscribedOther && tier === 'blue' };
+    if (!plan?.available) return { title: 'غير متاح حالياً', onPress: none, disabled: true };
+    if (renewing) return { title: 'جدّد الآن', onPress: () => void subscribe(), disabled: false };
+    if (subscribedOther && tier === 'gold') {
+      return { title: 'الترقية والدفع', onPress: () => void subscribe(), disabled: false };
+    }
+    return { title: 'الاشتراك والدفع', onPress: () => void subscribe(), disabled: false };
   })();
+
+  const ctaNote = (() => {
+    if (subscribedHere && sub?.state === 'active') {
+      return `اشتراكك فعّال حتى ${formatArabicDate(sub.renewDate)}. جدّد بدفعة جديدة عند موعد التجديد.`;
+    }
+    if (subscribedHere && sub?.state === 'canceled') {
+      return `ألغيت الاشتراك. تبقى الشارة والمزايا حتى ${formatArabicDate(sub.renewDate)}.`;
+    }
+    if (goldLocked) return 'الشارة الذهبية تتطلب قبول توثيق التاجر قبل الاشتراك.';
+    return price
+      ? `تجديد يدوي: ${price} كل شهر عند موعد التجديد، بدون أي خصم تلقائي.`
+      : 'تجديد يدوي كل شهر، بدون أي خصم تلقائي.';
+  })();
+
+  const features = featuresFor(tier, plan);
+  const heroWidth = isCompact ? 240 : 280;
 
   return (
     <Screen edges={['top', 'bottom']} pattern={false} style={styles.screen}>
-      <ScreenHeader variant="screen" title="التوثيق" showBack />
-      <ScreenBody padTop="lg" padBottom="xxxl" width="form" gap="none">
-        {/* Hero */}
-        <View style={styles.hero}>
-          <View style={[styles.heroMarks, getRtlRow()]}>
-            <TierBadgeMark tier="blue" size={isCompact ? 44 : 52} />
-            <TierBadgeMark tier="gold" size={isCompact ? 44 : 52} />
-          </View>
-          <AppText variant="display" align="center" style={styles.heroTitle}>
-            وثّق حسابك في سرح
-          </AppText>
-          <AppText variant="body" color="textSecondary" align="center" style={styles.heroLead}>
-            شارة موثّقة تمنح حسابك وإعلاناتك ثقة أكبر وظهوراً أعلى. تحقّق من هويتك، واشترك شهرياً،
-            وتظهر الشارة فور قبول طلبك.
-          </AppText>
+      <ScreenBody padTop="sm" padBottom="xxxl" width="form" gap="none" style={styles.screen}>
+        {/* Close (inline end = top-left in RTL) */}
+        <View style={[styles.closeRow, getRtlRow()]}>
+          <Pressable
+            onPress={close}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
+            style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
+          >
+            <AppIcon name="close" size={22} color={D.text} />
+          </Pressable>
+        </View>
+
+        <VerificationHero tier={tier} width={heroWidth} />
+
+        <AppText variant="heading2" align="center" style={[styles.text, styles.headline]}>
+          {tier === 'gold' ? 'الشارة الذهبية للتجار الموثّقين' : 'وثّق حسابك بالشارة الزرقاء'}
+        </AppText>
+        <AppText variant="bodySmall" align="center" style={styles.secondary}>
+          {copy.audience}
+        </AppText>
+
+        {/* Blue / Gold tabs with one sliding underline */}
+        <View style={[styles.tabs, getRtlRow()]} accessibilityRole="tablist">
+          {TIERS.map((t, i) => {
+            const active = t === tier;
+            return (
+              <Pressable
+                key={t}
+                onPress={() => setSelected(t)}
+                onLayout={(e) => onTabLayout(i, e)}
+                style={styles.tab}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={t === 'gold' ? 'Gold — الشارة الذهبية' : 'Blue — الشارة الزرقاء'}
+              >
+                <AppText variant="label" style={active ? styles.tabActive : styles.tabIdle}>
+                  {TAB_LABEL[t]}
+                </AppText>
+              </Pressable>
+            );
+          })}
+          <SwipeTabIndicator
+            progress={progress}
+            layouts={layouts}
+            count={TIERS.length}
+            inset={spacing.xl}
+            color={D.text}
+            thickness={2}
+          />
         </View>
 
         {loading ? (
           <View style={styles.loading}>
-            <ActivityIndicator color={colors.textMuted} />
+            <ActivityIndicator color={D.textSecondary} />
           </View>
         ) : null}
 
-        {/* Status */}
-        {isAuthenticated && status ? (
-          <>
-            <SarhDivider />
-            <View style={styles.section}>
-              <AppText variant="caption" color="textMuted" style={styles.eyebrow}>
-                حالتك
+        {/* Feature list: one rounded dark container */}
+        <View style={styles.list}>
+          {features.map((f) => (
+            <View key={f.label} style={[styles.featureRow, getRtlRow()]}>
+              <AppIcon name={f.icon} size={20} color={VERIFIED_BADGE_COLORS[tier]} />
+              <AppText variant="body" style={[styles.text, styles.featureText]}>
+                {f.label}
               </AppText>
-              <View style={[styles.statusRow, getRtlRow()]}>
-                <AppText variant="bodySmall" color="textSecondary">التحقق</AppText>
-                <AppText variant="label" style={styles.statusValue}>{verificationLine}</AppText>
-              </View>
-              {verification?.reviewReason &&
-              (verification.state === 'rejected' || verification.state === 'needs_amendments') ? (
-                <AppText variant="caption" color="danger" style={styles.reason}>
-                  {verification.reviewReason}
-                </AppText>
-              ) : null}
-              <View style={[styles.statusRow, getRtlRow()]}>
-                <AppText variant="bodySmall" color="textSecondary">الاشتراك</AppText>
-                <AppText variant="label" style={styles.statusValue}>
-                  {sub?.tier ? `${VERIFICATION_TIER_COPY[sub.tier].name} · ` : ''}
-                  {sub ? subscriptionStateLabelAr(sub) : 'غير مشترك'}
-                </AppText>
-              </View>
-              <View style={[styles.statusRow, getRtlRow()]}>
-                <AppText variant="bodySmall" color="textSecondary">الشارة</AppText>
-                <View style={[styles.badgeValue, getRtlRow()]}>
-                  {status.badge.visible && status.badge.tier ? (
-                    <TierBadgeMark tier={status.badge.tier} size={18} />
-                  ) : null}
-                  <AppText variant="label" style={styles.statusValue}>
-                    {status.badge.visible
-                      ? status.badge.tier === 'gold'
-                        ? 'ذهبية · ظاهرة'
-                        : 'زرقاء · ظاهرة'
-                      : 'غير ظاهرة'}
-                  </AppText>
-                </View>
-              </View>
-            </View>
-          </>
-        ) : null}
-
-        {/* Plan selector */}
-        <SarhDivider />
-        <View style={styles.section}>
-          <AppText variant="caption" color="textMuted" style={styles.eyebrow}>
-            اختر الشارة
-          </AppText>
-          <View style={[styles.tabs, getRtlRow()]} accessibilityRole="tablist">
-            {TIERS.map((t) => {
-              const active = t === tier;
-              return (
+              {f.info ? (
                 <Pressable
-                  key={t}
-                  onPress={() => setSelected(t)}
-                  style={[styles.tab, active && { borderBottomColor: VERIFIED_BADGE_COLORS[t] }]}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={VERIFICATION_TIER_COPY[t].name}
+                  onPress={() => void alertMessage(f.label, f.info)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={`معلومات: ${f.label}`}
                 >
-                  <View style={[styles.tabInner, getRtlRow()]}>
-                    <TierBadgeMark tier={t} size={20} outline={!active} outlineColor={colors.textMuted} />
-                    <AppText variant="label" color={active ? 'textPrimary' : 'textMuted'}>
-                      {VERIFICATION_TIER_COPY[t].name}
-                    </AppText>
-                  </View>
+                  <AppIcon name="information-circle-outline" size={18} color={D.textSecondary} />
                 </Pressable>
-              );
-            })}
-          </View>
+              ) : null}
+            </View>
+          ))}
+        </View>
 
-          <View style={[styles.planHead, getRtlRow()]}>
-            <TierBadgeMark tier={tier} size={isCompact ? 56 : 64} />
-            <Stack gap="xs" style={styles.planHeadText}>
-              <AppText variant="heading1">{copy.name}</AppText>
-              <AppText variant="bodySmall" color="textSecondary">{copy.audience}</AppText>
-            </Stack>
+        {/* Compact status (signed-in) */}
+        {isAuthenticated && status ? (
+          <View style={styles.status}>
+            <View style={[styles.statusRow, getRtlRow()]}>
+              <AppText variant="caption" style={styles.secondary}>الاشتراك</AppText>
+              <AppText variant="caption" style={[styles.text, styles.statusValue]}>
+                {sub?.tier ? `${TAB_LABEL[sub.tier]} · ` : ''}
+                {sub ? subscriptionStateLabelAr(sub) : 'غير مشترك'}
+              </AppText>
+            </View>
+            {tier === 'gold' ? (
+              <View style={[styles.statusRow, getRtlRow()]}>
+                <AppText variant="caption" style={styles.secondary}>توثيق التاجر</AppText>
+                <AppText variant="caption" style={[styles.text, styles.statusValue]}>{verificationLine}</AppText>
+              </View>
+            ) : null}
+            {tier === 'gold' &&
+            verification?.reviewReason &&
+            (goldVerificationState === 'rejected' || goldVerificationState === 'needs_amendments') ? (
+              <AppText variant="caption" style={styles.danger}>{verification.reviewReason}</AppText>
+            ) : null}
+            <View style={[styles.statusRow, getRtlRow()]}>
+              <AppText variant="caption" style={styles.secondary}>الشارة</AppText>
+              <AppText variant="caption" style={[styles.text, styles.statusValue]}>
+                {status.badge.visible
+                  ? status.badge.tier === 'gold'
+                    ? 'Gold · ظاهرة'
+                    : 'Blue · ظاهرة'
+                  : 'غير ظاهرة'}
+              </AppText>
+            </View>
           </View>
+        ) : null}
 
-          <View style={styles.priceBlock}>
-            <AppText variant="heading2">{formatPrice(plan)}</AppText>
-            <AppText variant="caption" color="textMuted">
-              اشتراك شهري متجدد · يمكنك إلغاء التجديد في أي وقت وتبقى المزايا حتى نهاية الفترة المدفوعة
+        {/* Plan selector: the single monthly option, selected */}
+        <View
+          style={[styles.plan, getRtlRow()]}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: true }}
+          accessibilityLabel={`شهرياً ${price ?? ''}`}
+        >
+          <Stack gap="xs" style={styles.planText}>
+            <AppText variant="label" style={styles.text}>شهرياً</AppText>
+            <AppText variant="heading3" style={styles.text}>
+              {price ? `${price} / الشهر` : '—'}
             </AppText>
-          </View>
-
-          <View style={styles.benefits}>
-            {[
-              `شارة توثيق ${tier === 'gold' ? 'ذهبية' : 'زرقاء'} بجانب اسمك`,
-              copy.visibility,
-              `+${extraDailyFor(plan, tier)} إعلانات إضافية يومياً فوق الحد الأساسي`,
-              'تظهر الشارة في ملفك ومنشوراتك وإعلاناتك ومحادثاتك',
-              'المزايا مرتبطة باشتراكك الفعّال',
-            ].map((line) => (
-              <View key={line} style={[styles.benefitRow, getRtlRow()]}>
-                <AppIcon name="checkmark" size={18} color={VERIFIED_BADGE_COLORS[tier]} />
-                <AppText variant="body" style={styles.benefitText}>{line}</AppText>
-              </View>
-            ))}
-          </View>
-
-          <Stack gap="sm" style={styles.actions}>
-            {primaryAction ? (
-              <SarhButton
-                title={primaryAction.title}
-                fullWidth
-                loading={busy}
-                disabled={primaryAction.disabled || busy}
-                onPress={primaryAction.onPress}
-              />
-            ) : null}
-            {subscribedHere && sub?.state === 'active' ? (
-              <SarhButton
-                title="إلغاء التجديد"
-                variant="ghost"
-                fullWidth
-                disabled={busy}
-                onPress={() => void cancelRenewal()}
-              />
-            ) : null}
-            {subscribedHere && sub?.state === 'canceled' ? (
-              <AppText variant="caption" color="textMuted" align="center">
-                ألغيت التجديد. تبقى الشارة والمزايا حتى {formatArabicDate(sub.renewDate)}.
-              </AppText>
-            ) : null}
-            {subscribedOther && tier === 'blue' ? (
-              <AppText variant="caption" color="textMuted" align="center">
-                لديك اشتراك في الشارة الذهبية. يمكنك الانتقال إلى الزرقاء بعد انتهاء الفترة الحالية.
-              </AppText>
-            ) : null}
-            {isAuthenticated && !plan?.available ? (
-              <AppText variant="caption" color="textMuted" align="center">
-                سيتاح الاشتراك فور اعتماد الأسعار. يمكنك البدء بطلب التحقق الآن.
-              </AppText>
-            ) : null}
-            {isAuthenticated && needsVerification && verification?.state !== 'pending_review' ? (
-              <SarhButton
-                title={
-                  tier === 'gold' ? 'ابدأ التحقق كتاجر' : 'ابدأ التحقق'
-                }
-                variant="secondary"
-                fullWidth
-                onPress={goVerify}
-              />
-            ) : null}
-            {verification?.state === 'pending_review' ? (
-              <AppText variant="caption" color="textMuted" align="center">
-                طلب التحقق قيد المراجعة، وسنُشعرك بالنتيجة.
-              </AppText>
-            ) : null}
+            <AppText variant="caption" style={styles.secondary}>تجديد يدوي كل شهر</AppText>
           </Stack>
+          <AppIcon name="checkmark-circle" size={22} color={D.text} />
         </View>
 
-        {/* Comparison */}
-        <SarhDivider />
-        <View style={styles.section}>
-          <AppText variant="heading3" style={styles.sectionTitle}>المقارنة</AppText>
-          <View style={[styles.compareRow, getRtlRow()]}>
-            <View style={styles.compareLabel} />
-            {TIERS.map((t) => (
-              <View key={t} style={styles.compareCell}>
-                <TierBadgeMark tier={t} size={22} />
-              </View>
-            ))}
-          </View>
-          {comparison.map((row) => (
-            <View key={row.label} style={[styles.compareRow, styles.compareLine, getRtlRow()]}>
-              <AppText variant="bodySmall" color="textSecondary" style={styles.compareLabel}>
-                {row.label}
-              </AppText>
-              <AppText variant="label" align="center" style={styles.compareCell}>{row.blue}</AppText>
-              <AppText variant="label" align="center" style={styles.compareCell}>{row.gold}</AppText>
-            </View>
-          ))}
-        </View>
+        {/* CTA */}
+        <Pressable
+          onPress={cta.onPress}
+          disabled={cta.disabled || busy}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: cta.disabled || busy, busy }}
+          style={({ pressed }) => [
+            styles.cta,
+            (cta.disabled || busy) && styles.ctaDisabled,
+            pressed && styles.pressed,
+          ]}
+        >
+          {busy ? (
+            <ActivityIndicator color={D.ctaText} />
+          ) : (
+            <AppText variant="label" style={cta.disabled ? styles.ctaTextDisabled : styles.ctaText}>
+              {cta.title}
+            </AppText>
+          )}
+        </Pressable>
+        <AppText variant="caption" align="center" style={[styles.secondary, styles.ctaNote]}>
+          {ctaNote}
+        </AppText>
+        {subscribedHere && sub?.state === 'active' ? (
+          <Pressable
+            onPress={() => void cancelRenewal()}
+            disabled={busy}
+            accessibilityRole="button"
+            style={styles.cancel}
+          >
+            <AppText variant="caption" align="center" style={styles.danger}>إلغاء الاشتراك</AppText>
+          </Pressable>
+        ) : null}
 
-        {/* How it works */}
-        <SarhDivider />
-        <View style={styles.section}>
-          <AppText variant="heading3" style={styles.sectionTitle}>كيف يعمل التوثيق</AppText>
-          {[
-            { n: '١', title: 'قدّم طلب التحقق', body: 'الأفراد: الهوية الوطنية. التجار: بيانات المنشأة والسجل التجاري.' },
-            { n: '٢', title: 'اشترك شهرياً', body: 'ادفع عبر بوابة الدفع الآمنة في سرح. يمكنك إلغاء التجديد متى شئت.' },
-            { n: '٣', title: 'تظهر الشارة', body: 'بعد قبول الطلب ومع اشتراك فعّال، وتختفي عند انتهاء الاشتراك.' },
-          ].map((step) => (
-            <View key={step.n} style={[styles.step, getRtlRow()]}>
-              <AppText variant="heading2" color="primary" style={styles.stepNumber}>{step.n}</AppText>
-              <Stack gap="xs" style={styles.stepText}>
-                <AppText variant="label">{step.title}</AppText>
-                <AppText variant="bodySmall" color="textSecondary">{step.body}</AppText>
-              </Stack>
-            </View>
-          ))}
-        </View>
-
-        <SarhDivider />
-        <AppText variant="caption" color="textMuted" align="center" style={styles.footnote}>
-          الشارة لا تُشترى وحدها: تظهر فقط عند قبول طلب التحقق مع اشتراك فعّال.
+        {/* Fine print */}
+        <AppText variant="caption" style={[styles.secondary, styles.finePrint]}>
+          بالاشتراك، فإنك توافق على شروط الاستخدام في سرح. الاشتراك شهري ويُجدَّد يدوياً فقط: لا نحفظ
+          بطاقتك ولا نخصم أي مبلغ تلقائياً. نذكّرك قبل موعد التجديد بـ 7 أيام و3 أيام ويوم واحد وفي يوم
+          التجديد، ولديك مهلة 3 أيام بعده قبل إيقاف المزايا والشارة. يمكنك إلغاء الاشتراك في أي وقت وتبقى
+          المزايا حتى نهاية الفترة المدفوعة. الشارة الزرقاء لا تحتاج أي طلب توثيق، والشارة الذهبية تتطلب
+          قبول توثيق التاجر.
         </AppText>
       </ScreenBody>
     </Screen>
   );
 }
 
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    screen: { backgroundColor: colors.screenRoot },
-    hero: {
-      alignItems: 'center',
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.xxl,
-      gap: spacing.md,
-    },
-    heroMarks: { gap: spacing.md, alignItems: 'center', marginBottom: spacing.sm },
-    heroTitle: { letterSpacing: -0.2 },
-    heroLead: { maxWidth: 460 },
-    loading: { paddingVertical: spacing.lg, alignItems: 'center' },
-    section: { paddingVertical: spacing.xl, gap: spacing.md },
-    sectionTitle: { marginBottom: spacing.xs },
-    eyebrow: { letterSpacing: 0.4 },
-    statusRow: {
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.md,
-      minHeight: 32,
-    },
-    statusValue: { flexShrink: 1, textAlign: 'auto' },
-    badgeValue: { alignItems: 'center', gap: 6, flexShrink: 1 },
-    reason: { lineHeight: 18 },
-    tabs: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderSoft,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 2,
-      borderBottomColor: 'transparent',
-      marginBottom: -StyleSheet.hairlineWidth,
-      alignItems: 'center',
-    },
-    tabInner: { alignItems: 'center', gap: spacing.sm },
-    planHead: { alignItems: 'center', gap: spacing.lg, paddingTop: spacing.md },
-    planHeadText: { flex: 1, minWidth: 0 },
-    priceBlock: { gap: 4 },
-    benefits: { gap: spacing.md, paddingTop: spacing.xs },
-    benefitRow: { alignItems: 'flex-start', gap: spacing.md },
-    benefitText: { flex: 1, minWidth: 0 },
-    actions: { paddingTop: spacing.md },
-    compareRow: { alignItems: 'center', gap: spacing.sm, minHeight: 44 },
-    compareLine: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.borderSoft,
-      paddingVertical: spacing.sm,
-    },
-    compareLabel: { flex: 1.4, minWidth: 0 },
-    compareCell: { flex: 1, alignItems: 'center' },
-    step: { gap: spacing.lg, alignItems: 'flex-start', paddingVertical: spacing.xs },
-    stepNumber: { width: 28, textAlign: 'center' },
-    stepText: { flex: 1, minWidth: 0 },
-    footnote: { paddingVertical: spacing.xl },
-  });
-}
+const styles = StyleSheet.create({
+  screen: { backgroundColor: D.bg },
+  text: { color: D.text },
+  secondary: { color: D.textSecondary },
+  danger: { color: D.danger },
+  pressed: { opacity: 0.7 },
+  closeRow: { justifyContent: 'flex-end', minHeight: 40, alignItems: 'center' },
+  closeBtn: { padding: spacing.xs },
+  headline: { marginTop: spacing.md, letterSpacing: -0.2 },
+  tabs: {
+    marginTop: spacing.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: D.border,
+  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: spacing.md },
+  tabActive: { color: D.text, fontWeight: '700' },
+  tabIdle: { color: D.textSecondary },
+  loading: { paddingVertical: spacing.lg, alignItems: 'center' },
+  list: {
+    marginTop: spacing.lg,
+    backgroundColor: D.surface,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  featureRow: { alignItems: 'center', gap: spacing.md, minHeight: 44, paddingVertical: spacing.xs },
+  featureText: { flex: 1, minWidth: 0 },
+  status: { marginTop: spacing.lg, gap: spacing.xs },
+  statusRow: { justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, minHeight: 24 },
+  statusValue: { flexShrink: 1 },
+  plan: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1.5,
+    borderColor: D.text,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  planText: { flex: 1, minWidth: 0 },
+  cta: {
+    marginTop: spacing.lg,
+    minHeight: 52,
+    borderRadius: radius.pill,
+    backgroundColor: D.ctaBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  ctaDisabled: { backgroundColor: D.ctaDisabledBg },
+  ctaText: { color: D.ctaText, fontWeight: '700' },
+  ctaTextDisabled: { color: D.ctaDisabledText },
+  ctaNote: { marginTop: spacing.sm },
+  cancel: { marginTop: spacing.sm, paddingVertical: spacing.xs },
+  finePrint: {
+    marginTop: spacing.xl,
+    lineHeight: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: D.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+});

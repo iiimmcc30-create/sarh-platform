@@ -7,7 +7,10 @@ import {
   getSubscriptionStatus,
   hasPaidAccess,
   isPaidPlan,
+  RENEWAL_DAY_REMINDER,
+  RENEWAL_REMINDER_DAYS,
   shouldBlockSubscriptionPayment,
+  SUBSCRIPTION_GRACE_DAYS,
   type SubscriptionStatus,
 } from '../../lib/subscription-lifecycle';
 import { LoggerService } from '../../common/services/logger.service';
@@ -17,6 +20,14 @@ import { SubscriptionLifecycleRepository } from '../repositories/subscription-li
 import { SubscriptionCacheService } from './subscription-cache.service';
 import { PlanPermissionService } from '../../plans/plan-permission.service';
 import { VerificationBadgeService } from '../verification/verification-badge.service';
+import { tierForPlanSlug } from '../verification/verification-tiers';
+
+function planDisplayNameAr(planId: string): string {
+  const tier = tierForPlanSlug(planId);
+  if (tier === 'blue') return 'اشتراك الشارة الزرقاء';
+  if (tier === 'gold') return 'اشتراك الشارة الذهبية';
+  return `باقة ${planId}`;
+}
 
 export type SubscriptionView = {
   id: string;
@@ -263,8 +274,8 @@ export class SubscriptionLifecycleService {
     await this.notifications.notifyUser({
       userId,
       type: 'subscription_renew',
-      titleAr: 'تم إلغاء التجديد التلقائي',
-      bodyAr: `سيظل اشتراكك فعّالاً حتى ${updated.renewDate.toLocaleDateString('ar-SA')}.`,
+      titleAr: 'تم إلغاء تجديد الاشتراك',
+      bodyAr: `ستبقى مزاياك فعّالة حتى ${updated.renewDate.toLocaleDateString('ar-SA')}، ولن نرسل تذكيرات تجديد.`,
       data: { renewDate: updated.renewDate.toISOString() },
     });
 
@@ -282,14 +293,16 @@ export class SubscriptionLifecycleService {
     const shouldSend = await this.cache.markReminderSent(row.userId, kind, ttl);
     if (!shouldSend) return;
 
+    const planLabel = planDisplayNameAr(row.planId);
     const titleAr =
       daysLeft <= 0
-        ? 'انتهى اشتراكك'
+        ? 'اليوم موعد تجديد اشتراكك'
         : `تذكير: اشتراكك ينتهي خلال ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'}`;
+    // Renewal is manual (no automatic card charge): always ask for a new payment.
     const bodyAr =
       daysLeft <= 0
-        ? 'انتهت صلاحية اشتراكك. جدّد الآن لاستعادة المزايا.'
-        : `باقة ${row.planId} تنتهي في ${new Date(row.renewDate).toLocaleDateString('ar-SA')}. جدّد لتجنب انقطاع الخدمة.`;
+        ? `انتهت فترة ${planLabel}. جدّد بدفعة جديدة خلال ${SUBSCRIPTION_GRACE_DAYS} أيام للحفاظ على المزايا والشارة.`
+        : `${planLabel} تنتهي في ${new Date(row.renewDate).toLocaleDateString('ar-SA')}. التجديد يدوي: جدّد بدفعة جديدة لتجنب انقطاع المزايا.`;
 
     await this.notifications.notifyUser({
       userId: row.userId,
@@ -319,19 +332,25 @@ export class SubscriptionLifecycleService {
     }
   }
 
+  /**
+   * Manual-renewal reminders at exactly 7, 3 and 1 day(s) before renewDate
+   * (the day-0 renewal-day reminder is sent by processExpirationBatch when the
+   * grace period starts). Each milestone is sent once per period (cache key
+   * dedupe); the cron runs every few hours so every 24h window is covered.
+   */
   async processReminderBatch(now: Date = new Date()): Promise<number> {
     let sent = 0;
-    for (const days of [7, 3, 1]) {
-      const rows = await this.repo.findPaidSubscriptionsRenewingWithin(
-        days,
-        now,
-      );
-      for (const row of rows) {
-        const left = daysUntilRenewDate(row.renewDate, now);
-        if (left > 0 && left <= days) {
-          await this.sendRenewalReminder(row, left);
-          sent++;
-        }
+    const horizon = Math.max(...RENEWAL_REMINDER_DAYS);
+    const milestones = new Set<number>(RENEWAL_REMINDER_DAYS);
+    const rows = await this.repo.findPaidSubscriptionsRenewingWithin(
+      horizon,
+      now,
+    );
+    for (const row of rows) {
+      const left = daysUntilRenewDate(row.renewDate, now);
+      if (milestones.has(left)) {
+        await this.sendRenewalReminder(row, left);
+        sent++;
       }
     }
     return sent;
@@ -355,7 +374,8 @@ export class SubscriptionLifecycleService {
       if (status === 'grace_period') {
         const left = daysUntilRenewDate(row.renewDate, now);
         if (left <= 0) {
-          await this.sendRenewalReminder(row, 0);
+          // Renewal-day reminder (once per period): pay again during grace.
+          await this.sendRenewalReminder(row, RENEWAL_DAY_REMINDER);
         }
       }
     }
@@ -399,7 +419,7 @@ export class SubscriptionLifecycleService {
       userId,
       type: 'subscription_renew',
       titleAr: '❌ فشل تجديد الاشتراك',
-      bodyAr: 'تعذر تجديد اشتراكك تلقائياً. يرجى الدفع يدوياً.',
+      bodyAr: 'لم تكتمل عملية الدفع. يمكنك إعادة المحاولة بدفعة جديدة.',
       data: { planId },
     });
   }

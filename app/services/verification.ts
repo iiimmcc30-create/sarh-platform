@@ -17,6 +17,8 @@ export type VerificationPlan = {
   billingCycle: 'monthly';
   /** False while the price is still the 0 placeholder (admin must set it). */
   priceConfigured: boolean;
+  /** Blue: false (subscription only). Gold: true (approved merchant verification). */
+  verificationRequired?: boolean;
   /** Active plan with a real price: can be purchased. */
   available: boolean;
   extraDailyListings: number;
@@ -104,7 +106,7 @@ export function subscriptionStateLabelAr(
   const date = formatArabicDate(sub.renewDate);
   switch (sub.state) {
     case 'active':
-      return date ? `فعّال · يتجدد في ${date}` : 'فعّال';
+      return date ? `فعّال حتى ${date} · تجديد يدوي` : 'فعّال';
     case 'canceled':
       return date ? `ملغى · فعّال حتى ${date}` : 'ملغى';
     case 'grace_period':

@@ -11,6 +11,21 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export type SubscriptionStatus =
   'active' | 'expired' | 'cancelled' | 'grace_period' | 'downgraded';
 
+/**
+ * Renewal is MANUAL: there is no saved card and no automatic charge anywhere.
+ * Reminders go out this many days before `renewDate`, plus one on the renewal
+ * day itself (day 0, sent once the period has ended and grace has started).
+ * The user renews by paying again through the existing checkout.
+ */
+export const RENEWAL_REMINDER_DAYS = [7, 3, 1] as const;
+export const RENEWAL_DAY_REMINDER = 0;
+
+/**
+ * `autoRenew` is a renewal-INTENT flag only (it never triggers a charge):
+ * - true  → renewal reminders are sent and the grace period applies;
+ * - false → the user cancelled: benefits stay until `renewDate`, no grace,
+ *           no reminders.
+ */
 export type SubscriptionRow = {
   planId: string;
   renewDate: Date;

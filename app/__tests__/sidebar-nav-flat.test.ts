@@ -44,7 +44,7 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     // News stays reachable (pages/API/Search) but is no longer a sidebar row.
     expect(panel).not.toContain('قطاع الأخبار');
     expect(panel).not.toContain("route: '/news'");
-    expect(panel).toContain("{ key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },");
+    expect(panel).toContain("{ key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },");
     expect(panel).toContain("label: 'الترويج'");
     expect(panel).toContain('مركز المعلومات');
     expect(panel).toContain("route: '/settings/info'");
@@ -68,7 +68,7 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     const createAt = panel.indexOf("label: 'إضافة عرض'");
     const feedAt = panel.indexOf("label: 'موردو الأعلاف'");
     const ministryAt = panel.indexOf("label: 'خدمات الوزارة'");
-    const verificationAt = panel.indexOf("label: 'التوثيق'");
+    const verificationAt = panel.indexOf("label: 'Verification'");
     const promoteAt = panel.indexOf("label: 'الترويج'");
     const infoAt = panel.indexOf("label: 'مركز المعلومات'");
     const settingsAt = panel.indexOf("label: 'الإعدادات والخصوصية'");

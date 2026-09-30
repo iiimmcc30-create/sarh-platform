@@ -5,6 +5,15 @@ import { ResourcePage, Badge } from '@/components/ui/ResourcePage';
 import { Button } from '@/components/ui/Button';
 import { fetchUsers, updateUser, deleteUser } from '@/services/admin.service';
 import { getApiErrorMessage } from '@/services/api.client';
+import {
+  type AdminMembership,
+  formatDate,
+  planLabel,
+  subscriptionStatus,
+  tierLabel,
+  VERIFICATION_STATE_LABEL,
+  VERIFICATION_STATE_TONE,
+} from '@/lib/membership';
 
 type UserRow = {
   id: string;
@@ -14,7 +23,9 @@ type UserRow = {
   role: string;
   isActive: boolean;
   verified: boolean;
+  verifiedTier?: string | null;
   createdAt: string;
+  membership?: AdminMembership;
 };
 
 export default function UsersPage() {
@@ -37,6 +48,54 @@ export default function UsersPage() {
           label: 'الحالة',
           render: (r) => (
             <Badge tone={r.isActive ? 'success' : 'danger'}>{r.isActive ? 'نشط' : 'محظور'}</Badge>
+          ),
+        },
+        {
+          key: 'badge',
+          label: 'شارة التوثيق',
+          render: (r) =>
+            r.membership?.badge.visible ? (
+              <Badge tone={r.membership.badge.tier === 'gold' ? 'warning' : 'info'}>
+                {tierLabel(r.membership.badge.tier)}
+                {r.membership.badge.legacy ? ' (قديمة)' : ''}
+              </Badge>
+            ) : (
+              '—'
+            ),
+        },
+        {
+          key: 'verification',
+          label: 'التوثيق',
+          render: (r) =>
+            r.membership ? (
+              <Badge tone={VERIFICATION_STATE_TONE[r.membership.verification.state]}>
+                {VERIFICATION_STATE_LABEL[r.membership.verification.state]}
+              </Badge>
+            ) : (
+              '—'
+            ),
+        },
+        {
+          key: 'subscription',
+          label: 'الاشتراك',
+          render: (r) => {
+            const st = subscriptionStatus(r.membership);
+            return (
+              <div className="space-y-1">
+                <div className="text-xs text-slate-400">{planLabel(r.membership)}</div>
+                <Badge tone={st.tone}>{st.label}</Badge>
+              </div>
+            );
+          },
+        },
+        {
+          key: 'renewDate',
+          label: 'البداية / التجديد',
+          render: (r) => (
+            <div className="text-xs text-slate-300">
+              <div>{formatDate(r.membership?.subscription.startedAt)}</div>
+              <div>{formatDate(r.membership?.subscription.renewDate)}</div>
+            </div>
           ),
         },
       ]}
