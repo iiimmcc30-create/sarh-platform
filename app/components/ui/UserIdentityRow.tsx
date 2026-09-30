@@ -28,6 +28,8 @@ export type UserIdentityRowProps = {
   displayName: string;
   username?: string;
   verified?: boolean;
+  /** Badge tier ("gold" = merchant badge). */
+  verifiedTier?: string | null;
   /** Defaults to sidebar green action border when set; pass 0 for flat lists. */
   avatarSize?: number;
   avatarRadius?: number;
@@ -60,6 +62,7 @@ export function UserIdentityRow({
   displayName,
   username,
   verified = false,
+  verifiedTier,
   avatarSize = USER_IDENTITY.sidebarAvatarSize,
   avatarRadius = USER_IDENTITY.sidebarAvatarRadius,
   avatarBorderWidth = USER_IDENTITY.sidebarAvatarBorder,
@@ -108,7 +111,7 @@ export function UserIdentityRow({
   const textBlock = (
     <View style={[styles.profileText, contentStyle]}>
       {/* Shared verified name row (lib/verifiedBadge: size 14, gap 4) - no local badge. */}
-      <VerifiedInlineName name={displayName} verified={verified} style={styles.nameRow}>
+      <VerifiedInlineName name={displayName} verified={verified} tier={verifiedTier} style={styles.nameRow}>
         <AppText
           style={[styles.displayName, nameStyle]}
           numberOfLines={nameLines}

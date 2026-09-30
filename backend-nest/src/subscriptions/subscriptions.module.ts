@@ -7,6 +7,9 @@ import { SubscriptionLifecycleRepository } from './repositories/subscription-lif
 import { SubscriptionCacheService } from './services/subscription-cache.service';
 import { SubscriptionLifecycleService } from './services/subscription-lifecycle.service';
 import { SubscriptionEntitlementService } from './services/subscription-entitlement.service';
+import { VerificationBadgeService } from './verification/verification-badge.service';
+import { VerificationStatusService } from './verification/verification-status.service';
+import { VerificationController } from './verification/verification.controller';
 
 /** @deprecated Use SubscriptionEntitlementService */
 export { SubscriptionEntitlementService as SubscriptionEntitlementsService } from './services/subscription-entitlement.service';
@@ -14,7 +17,7 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
 @Global()
 @Module({
   imports: [PlansModule],
-  controllers: [SubscriptionsController],
+  controllers: [SubscriptionsController, VerificationController],
   providers: [
     SubscriptionsService,
     SubscriptionsRepository,
@@ -22,6 +25,8 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     SubscriptionCacheService,
     SubscriptionLifecycleService,
     SubscriptionEntitlementService,
+    VerificationBadgeService,
+    VerificationStatusService,
   ],
   exports: [
     SubscriptionsService,
@@ -29,6 +34,7 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     SubscriptionLifecycleService,
     SubscriptionEntitlementService,
     SubscriptionLifecycleRepository,
+    VerificationBadgeService,
   ],
 })
 export class SubscriptionsModule {}

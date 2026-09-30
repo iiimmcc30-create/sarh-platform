@@ -553,6 +553,7 @@ export default function ChatScreen() {
   }, [threadId]);
   /** Existing verification data (route param, then profile / peer payload). */
   const [peerVerified, setPeerVerified] = useState(receiverVerifiedParam === '1');
+  const [peerVerifiedTier, setPeerVerifiedTier] = useState<string | null>(null);
   /** Existing block relation (users API `isBlocked`). */
   const [peerBlocked, setPeerBlocked] = useState(false);
   /** Server-side per-participant mute for this thread. */
@@ -615,6 +616,7 @@ export default function ChatScreen() {
     fetchUserProfile(receiverId).then((profile) => {
       if (cancelled || !profile) return;
       setPeerVerified(Boolean(profile.verified));
+      setPeerVerifiedTier(profile.verifiedTier ?? null);
       setPeerBlocked(Boolean(profile.isBlocked));
     });
     return () => {
@@ -666,7 +668,10 @@ export default function ChatScreen() {
           // One conversation per pair: reuse it whatever the entry point.
           const peer = await fetchPeerConversation(receiverId);
           if (cancelled || !peer) return;
-          if (peer.participant) setPeerVerified(Boolean(peer.participant.verified));
+          if (peer.participant) {
+            setPeerVerified(Boolean(peer.participant.verified));
+            setPeerVerifiedTier(peer.participant.verifiedTier ?? null);
+          }
           if (!peer.threadId) return;
           setMuted(peer.isMuted);
           setThreadId(peer.threadId);
@@ -708,6 +713,7 @@ export default function ChatScreen() {
             arabicName: receiverName || '',
             avatar: receiverAvatar || undefined,
             verified: peerVerified,
+            verifiedTier: peerVerifiedTier,
           }
         : null,
     });
@@ -801,6 +807,7 @@ export default function ChatScreen() {
                     arabicName: receiverName || '',
                     avatar: receiverAvatar || undefined,
                     verified: peerVerified,
+                    verifiedTier: peerVerifiedTier,
                   }
                 : null,
             });
@@ -1179,7 +1186,7 @@ export default function ChatScreen() {
             <Image source={uriSource(headerAvatar)} style={styles.headerAvatar} contentFit="cover" />
             <View style={styles.headerText}>
               <View style={styles.headerNameRow}>
-                <VerifiedInlineName name={headerName} verified={peerVerified}>
+                <VerifiedInlineName name={headerName} verified={peerVerified} tier={peerVerifiedTier}>
                   <AppText variant="label" style={styles.headerName} numberOfLines={1}>{headerName}</AppText>
                 </VerifiedInlineName>
                 {muted ? (

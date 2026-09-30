@@ -41,6 +41,7 @@ export function mapListingComment(c: {
     arabicName: string;
     avatar?: string | null;
     verified?: boolean;
+    verifiedTier?: string | null;
   };
 }): PostComment {
   return {
@@ -55,6 +56,7 @@ export function mapListingComment(c: {
       arabicName: c.author.arabicName || '',
       avatar: c.author.avatar ?? undefined,
       verified: c.author.verified ?? false,
+      verifiedTier: c.author.verifiedTier ?? null,
       followers: 0,
       following: 0,
       rating: null,

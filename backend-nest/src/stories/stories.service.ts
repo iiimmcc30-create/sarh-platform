@@ -337,6 +337,7 @@ export class StoriesService {
         arabicName: r.viewer.arabicName,
         avatar: r.viewer.avatar,
         verified: r.viewer.verified,
+        verifiedTier: r.viewer.verifiedTier ?? null,
         viewedAt: r.createdAt,
       })),
     };
@@ -430,5 +431,4 @@ export class StoriesService {
     if (viewerId) await this.cache.del(`stories:feed:${viewerId}`);
     await this.cache.delPattern('stories:feed:*');
   }
-
 }

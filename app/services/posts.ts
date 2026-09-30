@@ -21,6 +21,7 @@ function mapAuthor(author: Record<string, unknown> | null | undefined): User {
     arabicName: String(author?.arabicName ?? ''),
     avatar: author?.avatar ? String(author.avatar) : undefined,
     verified: Boolean(author?.verified),
+    verifiedTier: typeof author?.verifiedTier === 'string' ? author.verifiedTier : null,
     isAI: Boolean(author?.isAI),
     followers: Number(author?.followersCount ?? 0),
     following: Number(author?.followingCount ?? 0),

@@ -168,7 +168,7 @@ function ListingCardInner({
                 style={styles.listAvatar}
                 contentFit="cover"
               />
-              {seller?.verified ? <VerificationBadge size={14} /> : null}
+              {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
               <View style={styles.listSellerNameShell}>
                 <Text style={styles.listSellerName} numberOfLines={1}>
                   {sellerName}
@@ -330,7 +330,7 @@ function ListingCardInner({
             style={styles.harajAvatar}
             contentFit="cover"
           />
-          {seller?.verified ? <VerificationBadge size={14} /> : null}
+          {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
           <View style={styles.harajSellerNameShell}>
             <Text style={styles.harajSellerName} numberOfLines={1}>
               {sellerName}

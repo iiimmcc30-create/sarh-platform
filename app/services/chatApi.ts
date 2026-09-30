@@ -9,6 +9,7 @@ export type ChatPeer = {
   avatar?: string | null;
   username?: string | null;
   verified: boolean;
+  verifiedTier?: string | null;
 };
 
 export type ChatContact = ChatPeer & {

@@ -16,6 +16,7 @@ export type PublicUserProfile = {
   coverImage?: string;
   bio?: string;
   verified: boolean;
+  verifiedTier?: string | null;
   isAI?: boolean;
   country?: string;
   role?: string;
@@ -136,6 +137,7 @@ export type ConnectionUser = {
   arabicName: string;
   avatar?: string;
   verified: boolean;
+  verifiedTier?: string | null;
   isFollowing: boolean;
 };
 
@@ -507,6 +509,7 @@ export type BlockedUser = {
   arabicName: string;
   avatar?: string;
   verified: boolean;
+  verifiedTier?: string | null;
   blockedAt: string;
 };
 

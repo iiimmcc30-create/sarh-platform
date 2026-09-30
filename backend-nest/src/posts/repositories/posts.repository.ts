@@ -13,6 +13,7 @@ export const POST_AUTHOR_SELECT = {
   arabicName: true,
   avatar: true,
   verified: true,
+  verifiedTier: true,
   isAI: true,
 } as const;
 

@@ -61,6 +61,7 @@ type BackendListing = {
     arabicName?: string;
     avatar?: string;
     verified?: boolean;
+    verifiedTier?: string | null;
     country?: string;
   };
 };
@@ -123,6 +124,7 @@ function mapListing(l: BackendListing): Listing {
       arabicName: l.seller!.arabicName || '',
       avatar: l.seller!.avatar,
       verified: l.seller!.verified ?? false,
+      verifiedTier: l.seller!.verifiedTier ?? null,
       followers: 0,
       following: 0,
       rating: null,

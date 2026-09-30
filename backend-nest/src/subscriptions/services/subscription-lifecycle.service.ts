@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { PlanAudience } from '@prisma/client';
 import { PlanResolverService } from '../../plans/plan-resolver.service';
 import {
@@ -16,6 +16,7 @@ import { EmailQueueService } from '../../queue/services/email-queue.service';
 import { SubscriptionLifecycleRepository } from '../repositories/subscription-lifecycle.repository';
 import { SubscriptionCacheService } from './subscription-cache.service';
 import { PlanPermissionService } from '../../plans/plan-permission.service';
+import { VerificationBadgeService } from '../verification/verification-badge.service';
 
 export type SubscriptionView = {
   id: string;
@@ -56,6 +57,7 @@ export class SubscriptionLifecycleService {
     private readonly logger: LoggerService,
     private readonly permissions: PlanPermissionService,
     private readonly planResolver: PlanResolverService,
+    @Optional() private readonly verificationBadge?: VerificationBadgeService,
   ) {}
 
   enrichSubscription(
@@ -109,6 +111,7 @@ export class SubscriptionLifecycleService {
       resetCounters: true,
     });
     await this.cache.invalidate(params.userId);
+    await this.verificationBadge?.syncQuietly(params.userId);
     await this.notifyRenewalSuccess(
       params.userId,
       params.targetPlanId,
@@ -208,6 +211,8 @@ export class SubscriptionLifecycleService {
 
     await this.repo.downgradeToFreeTx(userId, previousPlanId, audience);
     await this.cache.invalidate(userId);
+    // Verification badge ends with its subscription (legacy badges are kept).
+    await this.verificationBadge?.syncQuietly(userId);
 
     const titleAr =
       reason === 'refund' ? 'تم استرداد مبلغ الاشتراك' : 'انتهى اشتراكك';
@@ -363,6 +368,9 @@ export class SubscriptionLifecycleService {
     amount: number,
     currency: string,
   ): Promise<void> {
+    // Called by Payment Core after a successful subscription payment:
+    // grant/refresh the verification badge when the request is approved.
+    await this.verificationBadge?.syncQuietly(userId);
     await this.notifications.notifyUser({
       userId,
       type: 'subscription_renew',

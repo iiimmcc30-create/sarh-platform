@@ -42,6 +42,8 @@ export const PLAN_ICONS: Record<string, string> = {
 export const PLAN_NAMES_AR: Record<string, string> = {
   free: 'مجاني',
   'sarh-pro': 'سرح برو',
+  'blue-badge': 'الشارة الزرقاء',
+  'gold-badge': 'الشارة الذهبية',
 };
 
 export const PLAN_DESC_AR: Record<string, string> = {
@@ -54,6 +56,7 @@ export const HIDDEN_PLAN_FEATURE_KEYS = new Set(['storeCommission']);
 
 export const FEATURE_LABELS_AR: Record<string, string> = {
   maxAdsPer24Hours: 'الحد الأقصى للإعلانات يومياً',
+  extraDailyListings: 'إعلانات يومية إضافية',
   monthlyFeaturedAds: 'إعلانات مميزة شهرياً',
   monthlyPinnedAds: 'إعلانات مثبتة شهرياً',
   monthlyLiveHours: 'ساعات البث المباشر شهرياً',

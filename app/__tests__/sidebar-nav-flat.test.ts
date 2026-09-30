@@ -41,7 +41,10 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(panel).toContain('موردو الأعلاف');
     expect(panel).toContain("label: 'خدمات الوزارة'");
     expect(panel).toContain("route: '/ministry?tab=services'");
-    expect(panel).toContain('قطاع الأخبار');
+    // News stays reachable (pages/API/Search) but is no longer a sidebar row.
+    expect(panel).not.toContain('قطاع الأخبار');
+    expect(panel).not.toContain("route: '/news'");
+    expect(panel).toContain("{ key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },");
     expect(panel).toContain("label: 'الترويج'");
     expect(panel).toContain('مركز المعلومات');
     expect(panel).toContain("route: '/settings/info'");
@@ -65,7 +68,7 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     const createAt = panel.indexOf("label: 'إضافة عرض'");
     const feedAt = panel.indexOf("label: 'موردو الأعلاف'");
     const ministryAt = panel.indexOf("label: 'خدمات الوزارة'");
-    const newsAt = panel.indexOf("label: 'قطاع الأخبار'");
+    const verificationAt = panel.indexOf("label: 'التوثيق'");
     const promoteAt = panel.indexOf("label: 'الترويج'");
     const infoAt = panel.indexOf("label: 'مركز المعلومات'");
     const settingsAt = panel.indexOf("label: 'الإعدادات والخصوصية'");
@@ -73,12 +76,12 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(profileAt).toBeGreaterThan(-1);
     expect(createAt).toBeGreaterThan(profileAt);
     const bookmarksAt = panel.indexOf("route: '/bookmarks'");
-    expect(bookmarksAt).toBeGreaterThan(createAt);
+    expect(verificationAt).toBeGreaterThan(createAt);
+    expect(bookmarksAt).toBeGreaterThan(verificationAt);
     expect(bookmarksAt).toBeLessThan(feedAt);
     expect(feedAt).toBeGreaterThan(createAt);
     expect(ministryAt).toBeGreaterThan(feedAt);
-    expect(newsAt).toBeGreaterThan(ministryAt);
-    expect(promoteAt).toBeGreaterThan(newsAt);
+    expect(promoteAt).toBeGreaterThan(ministryAt);
     expect(infoAt).toBeGreaterThan(promoteAt);
     expect(settingsAt).toBeGreaterThan(infoAt);
     expect(helpAt).toBeGreaterThan(settingsAt);

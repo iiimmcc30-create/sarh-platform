@@ -26,6 +26,8 @@ export interface User {
   avatar?: string;
   coverImage?: string;
   verified: boolean;
+  /** Verification badge tier: "blue" | "gold" (null = legacy blue). */
+  verifiedTier?: string | null;
   isAI?: boolean;
   followers: number;
   following: number;

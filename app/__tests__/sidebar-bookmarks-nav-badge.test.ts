@@ -92,7 +92,9 @@ describe('bottom navigation - no active line, light icon motion', () => {
 describe('verified badge - unified with the Feed', () => {
   it('uses the Feed badge size and gap', () => {
     const feed = src('components/feature/PostItem.tsx');
-    expect(feed).toContain(`<VerificationBadge size={${FEED_VERIFIED_BADGE_SIZE}} />`);
+    expect(feed).toContain(
+      `<VerificationBadge size={${FEED_VERIFIED_BADGE_SIZE}} tier={post.author.verifiedTier} />`,
+    );
     expect(feed).toContain(`gap: ${VERIFIED_BADGE_GAP},`);
     expect(VERIFIED_BADGE_GAP).toBeGreaterThanOrEqual(3);
     expect(VERIFIED_BADGE_GAP).toBeLessThanOrEqual(6);
@@ -155,12 +157,16 @@ describe('sidebar - العلامات المرجعية is a plain menu row', () =
     expect(panel).not.toContain("route: '/favorites'");
   });
 
-  it('sits directly under إضافة عرض and opens /bookmarks with close-then-navigate', () => {
+  it('sits under إضافة عرض / التوثيق and opens /bookmarks with close-then-navigate', () => {
     const row = "{ key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },";
     expect(panel).toContain(row);
     const createAt = panel.indexOf("key: 'create-listing'");
     const nextRowAt = panel.indexOf('\n', createAt) + 1;
-    expect(panel.indexOf(row)).toBe(panel.indexOf('{', nextRowAt));
+    // Verification sits directly under إضافة عرض, bookmarks right after it.
+    const verificationRow = "{ key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },";
+    expect(panel.indexOf(verificationRow)).toBe(panel.indexOf('{', nextRowAt));
+    const afterVerification = panel.indexOf('\n', panel.indexOf(verificationRow)) + 1;
+    expect(panel.indexOf(row)).toBe(panel.indexOf('{', afterVerification));
     expect(panel.indexOf(row)).toBeLessThan(panel.indexOf("key: 'feed-suppliers'"));
     // Rendered by the same PRIMARY_ITEMS row as the others; go() = closeThenPush(route).
     expect(panel).toContain('PRIMARY_ITEMS.map((item) => (');

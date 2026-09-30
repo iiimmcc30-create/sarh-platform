@@ -248,6 +248,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       avatar: u.avatar || undefined,
       coverImage: u.coverImage || undefined,
       verified: u.verified ?? false,
+      verifiedTier: typeof u.verifiedTier === 'string' ? u.verifiedTier : null,
       isAI: u.isAI ?? false,
       followers: u.followersCount ?? u.followers ?? 0,
       following: u.followingCount ?? u.following ?? 0,
@@ -460,6 +461,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       arabicName: user.arabicName || user.displayName || prev.arabicName,
       avatar: user.avatar ?? prev.avatar,
       verified: user.verified ?? prev.verified,
+      verifiedTier: user.verifiedTier !== undefined ? user.verifiedTier : prev.verifiedTier,
       country: (user.country as User['country']) || prev.country || 'SA',
     }));
   }, [user]);

@@ -79,6 +79,7 @@ function formatUser(user: {
   arabicName: string;
   avatar: string | null;
   verified: boolean;
+  verifiedTier?: string | null;
   isAI?: boolean;
   country: string;
   role: string;
@@ -93,6 +94,7 @@ function formatUser(user: {
     arabicName: user.arabicName,
     avatar: user.avatar,
     verified: user.verified,
+    verifiedTier: user.verifiedTier ?? null,
     isAI: user.isAI ?? false,
     country: user.country,
     role: user.role,

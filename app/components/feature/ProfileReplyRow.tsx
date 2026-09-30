@@ -44,7 +44,7 @@ export function ProfileReplyRow({ reply, onPress }: ProfileReplyRowProps) {
             <AppText style={styles.name} numberOfLines={1}>
               {displayName}
             </AppText>
-            {reply.author.verified ? <VerificationBadge size={14} /> : null}
+            {reply.author.verified ? <VerificationBadge size={14} tier={reply.author.verifiedTier} /> : null}
             {handle ? (
               <AppText style={styles.handle} numberOfLines={1}>
                 {handle}

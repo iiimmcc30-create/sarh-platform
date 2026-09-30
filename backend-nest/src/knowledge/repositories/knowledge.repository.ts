@@ -72,6 +72,7 @@ export class KnowledgeRepository {
         bio: true,
         isAI: true,
         verified: true,
+        verifiedTier: true,
       },
     });
   }
@@ -98,6 +99,7 @@ export class KnowledgeRepository {
             arabicName: true,
             avatar: true,
             verified: true,
+            verifiedTier: true,
             isAI: true,
           },
         },
@@ -244,6 +246,7 @@ export class KnowledgeRepository {
             arabicName: true,
             avatar: true,
             verified: true,
+            verifiedTier: true,
             isAI: true,
           },
         },

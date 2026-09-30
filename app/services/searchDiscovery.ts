@@ -26,6 +26,7 @@ export type ExploreAccountItem = {
   arabicName?: string;
   avatar?: string;
   verified?: boolean;
+  verifiedTier?: string | null;
   followers?: number;
 };
 

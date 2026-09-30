@@ -10,6 +10,7 @@ const listUserSelect = {
   arabicName: true,
   avatar: true,
   verified: true,
+  verifiedTier: true,
   isAI: true,
   bio: true,
   country: true,
@@ -27,6 +28,7 @@ const profileSelect = {
   coverImage: true,
   bio: true,
   verified: true,
+  verifiedTier: true,
   isAI: true,
   country: true,
   role: true,
@@ -55,6 +57,7 @@ const connectionUserSelect = {
   arabicName: true,
   avatar: true,
   verified: true,
+  verifiedTier: true,
 } satisfies Prisma.UserSelect;
 
 const changeStateSelect = {
@@ -74,6 +77,7 @@ const updateUserSelect = {
   coverImage: true,
   bio: true,
   verified: true,
+  verifiedTier: true,
   country: true,
   rating: true,
   reviewCount: true,

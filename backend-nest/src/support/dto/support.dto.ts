@@ -102,6 +102,11 @@ export class UpsertVerificationDto {
   @IsString()
   @MaxLength(2000)
   additionalInfo?: string;
+
+  /** Verification tier applied for: blue (individual) or gold (merchant). */
+  @IsOptional()
+  @IsEnum(['blue', 'gold'])
+  requestedTier?: 'blue' | 'gold';
 }
 
 export class VerificationDocumentDto {

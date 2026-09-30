@@ -74,6 +74,7 @@ const LISTING_SELECT = {
       arabicName: true,
       avatar: true,
       verified: true,
+      verifiedTier: true,
       country: true,
     },
   },
@@ -104,6 +105,7 @@ const POST_SEARCH_SELECT = {
       arabicName: true,
       avatar: true,
       verified: true,
+      verifiedTier: true,
     },
   },
 } satisfies Prisma.PostSelect;
@@ -383,6 +385,7 @@ export class UnifiedSearchRepository {
         arabicName: true,
         avatar: true,
         verified: true,
+        verifiedTier: true,
         bio: true,
         createdAt: true,
         _count: { select: { followers: true } },

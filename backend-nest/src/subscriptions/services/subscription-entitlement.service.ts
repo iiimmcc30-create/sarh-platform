@@ -10,7 +10,7 @@ import {
 } from '../../lib/subscription-lifecycle';
 import { throwApi } from '../../common/exceptions/api.exception';
 import {
-  LISTING_DAILY_LIMIT_MESSAGE_AR,
+  listingDailyLimitMessageAr,
   resolveListingCreateDailyLimit,
 } from '../../listings/listing-policy';
 import { SubscriptionLifecycleRepository } from '../repositories/subscription-lifecycle.repository';
@@ -102,9 +102,14 @@ export class SubscriptionEntitlementService {
     const dailyLimit = resolveListingCreateDailyLimit(
       actor?.role,
       this.permissions.maxAdsPer24Hours(perms),
+      this.permissions.extraDailyListings(perms, ctx.planSlug),
     );
     if (!dailyLimit.unlimited && row.dailyAdsUsed >= dailyLimit.limit) {
-      throwApi(403, 'listing_limit', LISTING_DAILY_LIMIT_MESSAGE_AR);
+      throwApi(
+        403,
+        'listing_limit',
+        listingDailyLimitMessageAr(dailyLimit.limit),
+      );
     }
 
     if (params.featured) {

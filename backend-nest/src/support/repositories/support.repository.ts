@@ -309,6 +309,8 @@ export class SupportRepository {
       businessName?: string | null;
       businessType?: string | null;
       additionalInfo?: string | null;
+      requestedTier?: string | null;
+      approvedTier?: string | null;
       status?:
         'DRAFT' | 'UNDER_REVIEW' | 'NEEDS_AMENDMENTS' | 'VERIFIED' | 'REJECTED';
     },

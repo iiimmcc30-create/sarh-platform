@@ -349,6 +349,7 @@ export default function UserProfileScreen() {
     arabicName: profile.arabicName,
     avatar: profile.avatar,
     verified: profile.verified,
+    verifiedTier: profile.verifiedTier ?? null,
     isAI: profile.isAI,
     bio: profile.bio,
     country: profile.country,

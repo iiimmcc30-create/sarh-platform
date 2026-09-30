@@ -8,6 +8,7 @@ const VIEWER_SELECT = {
   arabicName: true,
   avatar: true,
   verified: true,
+  verifiedTier: true,
 } as const;
 
 @Injectable()

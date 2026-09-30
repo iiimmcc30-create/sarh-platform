@@ -13,6 +13,7 @@ export const STORY_USER_SELECT = {
   arabicName: true,
   avatar: true,
   verified: true,
+  verifiedTier: true,
   country: true,
 } as const;
 
@@ -112,5 +113,4 @@ export class StoriesRepository {
   countReactions(storyId: string) {
     return this.prisma.storyReaction.count({ where: { storyId } });
   }
-
 }

@@ -137,6 +137,7 @@ export default function ProfileConnectionsScreen() {
             displayName={item.arabicName || item.displayName || item.username}
             username={item.username}
             verified={item.verified}
+            verifiedTier={item.verifiedTier}
             avatarSize={USER_IDENTITY.listAvatarSize}
             avatarRadius={USER_IDENTITY.listAvatarRadius}
             avatarBorderWidth={USER_IDENTITY.listAvatarBorder}

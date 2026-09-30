@@ -139,6 +139,7 @@ export default function ProfileScreen() {
       arabicName: me.arabicName,
       avatar: me.avatar,
       verified: me.verified,
+      verifiedTier: me.verifiedTier ?? null,
       bio: me.bio,
       country: me.country,
       followersCount: me.followers,

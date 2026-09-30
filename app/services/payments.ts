@@ -190,7 +190,9 @@ function navigateAfterPaymentCancelled(
       break;
     case 'subscription':
     case 'listing_fee':
-      router.replace('/promote' as never);
+      router.replace(
+        (returnParams?.returnTo === 'verification' ? '/verification' : '/promote') as never,
+      );
       break;
     case 'commission':
       if (returnParams?.listingId) {

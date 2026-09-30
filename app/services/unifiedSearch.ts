@@ -129,6 +129,7 @@ type BackendListing = {
     arabicName?: string;
     avatar?: string;
     verified?: boolean;
+    verifiedTier?: string | null;
     country?: string;
   };
   marketCategory?: { id: string; nameAr: string; requiresWeight?: boolean } | null;
@@ -189,6 +190,7 @@ function mapListingFromSearch(data: Record<string, unknown>): Listing | null {
       arabicName: l.seller!.arabicName || '',
       avatar: l.seller!.avatar,
       verified: l.seller!.verified ?? false,
+      verifiedTier: l.seller!.verifiedTier ?? null,
       followers: 0,
       following: 0,
       rating: null,

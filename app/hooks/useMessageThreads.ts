@@ -20,6 +20,7 @@ export interface MessageThreadItem {
     arabicName: string;
     avatar?: string;
     verified: boolean;
+    verifiedTier?: string | null;
   } | null;
   lastMessage: string | null;
   lastMessageAt: string;
@@ -63,6 +64,7 @@ function mapThread(t: any, fallbackType: MessageThreadType): MessageThreadItem {
             t.participant.arabicName || t.participant.displayName || '',
           avatar: t.participant.avatar || undefined,
           verified: t.participant.verified ?? false,
+          verifiedTier: t.participant.verifiedTier ?? null,
         }
       : null,
     lastMessage: t.lastMessage,

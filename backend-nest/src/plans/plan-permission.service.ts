@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { PlanAudience } from '@prisma/client';
 import { PlanResolverService } from './plan-resolver.service';
+import { extraDailyListingsForPlan } from '../subscriptions/verification/verification-tiers';
 import {
   isUnlimited,
   permissionBoolean,
@@ -87,6 +88,11 @@ export class PlanPermissionService {
 
   hasVerifiedBadge(permissions: PlanPermissions): boolean {
     return permissionBoolean(permissions, 'verifiedBadge');
+  }
+
+  /** Extra daily listings on top of the base allowance (verification plans). */
+  extraDailyListings(permissions: PlanPermissions, planSlug: string): number {
+    return extraDailyListingsForPlan(planSlug, permissions.extraDailyListings);
   }
 
   priorityBoost(permissions: PlanPermissions): number {

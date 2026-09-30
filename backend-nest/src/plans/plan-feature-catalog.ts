@@ -19,6 +19,15 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     suggestedValue: '1',
   },
   {
+    key: 'extraDailyListings',
+    labelAr: 'إعلانات يومية إضافية',
+    descriptionAr:
+      'عدد الإعلانات الإضافية فوق الحد اليومي الأساسي (باقات التوثيق: الأزرق +3، الذهبي +6)',
+    valueType: 'NUMBER',
+    audiences: ['USER'],
+    suggestedValue: '0',
+  },
+  {
     key: 'monthlyFeaturedAds',
     labelAr: 'إعلانات مميزة شهرياً',
     descriptionAr: 'عدد الإعلانات المميزة المسموح بها كل شهر',

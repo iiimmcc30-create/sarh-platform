@@ -18,6 +18,7 @@ const USER_SELECT = {
   avatar: true,
   role: true,
   verified: true,
+  verifiedTier: true,
   isActive: true,
   country: true,
   createdAt: true,

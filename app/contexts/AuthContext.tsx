@@ -26,6 +26,7 @@ export interface AuthUser {
   username: string;
   avatar?: string;
   verified: boolean;
+  verifiedTier?: string | null;
   country?: string;
   role?: string;
   subscription?: { plan: string; expiresAt: string } | null;

@@ -125,6 +125,7 @@ function RootNavigator() {
         <Stack.Screen name="favorites" />
         <Stack.Screen name="bookmarks" />
         <Stack.Screen name="promote" />
+        <Stack.Screen name="verification" />
         <Stack.Screen name="subscription" />
         <Stack.Screen name="payment" />
         <Stack.Screen name="payment/checkout" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />

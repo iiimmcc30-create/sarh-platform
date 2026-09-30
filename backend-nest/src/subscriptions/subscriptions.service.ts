@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import {
   getSubscriptionStatus,
   isPaidPlan,
@@ -6,6 +6,7 @@ import {
 import { RedisCacheService } from '../redis/services/redis-cache.service';
 import { SubscriptionsRepository } from './repositories/subscriptions.repository';
 import { SubscriptionLifecycleService } from './services/subscription-lifecycle.service';
+import { VerificationBadgeService } from './verification/verification-badge.service';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class SubscriptionsService {
     private readonly repo: SubscriptionsRepository,
     private readonly cache: RedisCacheService,
     private readonly lifecycle: SubscriptionLifecycleService,
+    @Optional() private readonly verificationBadge?: VerificationBadgeService,
   ) {}
 
   async getMine(user: JwtPayload) {
@@ -23,6 +25,9 @@ export class SubscriptionsService {
     }
 
     const view = await this.lifecycle.getForUser(user.userId);
+    // Self-heal the verification badge after checkout returns (the NI sync
+    // path does not emit a subscription hook).
+    await this.verificationBadge?.syncQuietly(user.userId);
     const payload = view ?? {
       ...subscription,
       status: 'active' as const,

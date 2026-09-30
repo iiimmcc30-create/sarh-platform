@@ -26,10 +26,10 @@ type NavItem = {
 const PRIMARY_ITEMS: NavItem[] = [
   { key: 'profile', icon: 'person-outline', label: 'الملف الشخصي', route: '/(tabs)/profile' },
   { key: 'create-listing', icon: 'add-circle-outline', label: 'إضافة عرض', route: '/create/listing' },
+  { key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },
   { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
   { key: 'feed-suppliers', icon: 'leaf', label: 'موردو الأعلاف', route: '/feed-suppliers' },
   { key: 'ministry', icon: 'briefcase-outline', label: 'خدمات الوزارة', route: '/ministry?tab=services' },
-  { key: 'news', icon: 'newspaper-outline', label: 'قطاع الأخبار', route: '/news' },
   { key: 'promote', icon: 'megaphone-outline', label: 'الترويج', route: '/promote' },
 ];
 
@@ -93,6 +93,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
           <VerifiedInlineName
             name={displayName}
             verified={showVerified}
+            tier={me.verifiedTier}
             nameStyle={styles.name}
             numberOfLines={2}
           />

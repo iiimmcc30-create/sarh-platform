@@ -27,6 +27,11 @@ model User {
   publicPhone                         String?
   publicEmail                         String?
   verified                            Boolean                           @default(false)
+  /// Badge colour: "blue" | "gold". Null = legacy verified (rendered blue).
+  verifiedTier                        String?
+  /// True when `verified` was granted by an active verification subscription
+  /// (so it is revoked when the subscription ends). Legacy badges stay false.
+  subscriptionBadge                   Boolean                           @default(false)
   isAI                                Boolean                           @default(false)
   country                             Country                           @default(SA)
   role                                Role                              @default(USER)
@@ -1016,6 +1021,10 @@ model AccountVerificationRequest {
   id             String                           @id @default(uuid())
   userId         String                           @unique
   status         AccountVerificationStatus        @default(DRAFT)
+  /// Tier the user applied for: "blue" (individual) | "gold" (merchant).
+  requestedTier  String?
+  /// Tier currently approved by admin review (kept while an upgrade is reviewed).
+  approvedTier   String?
   fullName       String?
   nationalId     String?
   businessName   String?

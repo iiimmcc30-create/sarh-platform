@@ -110,6 +110,7 @@ export default function PaymentResultScreen() {
     boostType?: string;
     durationDays?: string;
     gatewayReturn?: string;
+    returnTo?: string;
   }>();
   const {
     paymentId,
@@ -119,7 +120,11 @@ export default function PaymentResultScreen() {
     durationDays: paramDurationDays,
   } = params;
   const context = normalizeContext(rawContext);
-  const copy = CONTEXT_COPY[context];
+  // Verification (Blue / Gold) subscriptions return to their own page.
+  const toVerification = context === 'subscription' && params.returnTo === 'verification';
+  const copy = toVerification
+    ? { ...CONTEXT_COPY.subscription, primaryLabel: 'التوثيق', secondaryLabel: 'الملف الشخصي' }
+    : CONTEXT_COPY[context];
   const { refetchSubscription } = useSubscription();
   const { refetchData } = useApp();
   const { accessToken } = useAuth();
@@ -211,7 +216,7 @@ export default function PaymentResultScreen() {
   const goPrimary = useCallback(() => {
     switch (context) {
       case 'subscription':
-        router.replace('/(tabs)/profile' as never);
+        router.replace((toVerification ? '/verification' : '/(tabs)/profile') as never);
         break;
       case 'listing_fee':
         router.replace('/promote' as never);
@@ -234,11 +239,11 @@ export default function PaymentResultScreen() {
       default:
         router.replace('/(tabs)/profile' as never);
     }
-  }, [context, listingId, router]);
+  }, [context, listingId, router, toVerification]);
 
   const goSecondary = useCallback(() => {
     if (context === 'subscription') {
-      router.replace('/subscription' as never);
+      router.replace((toVerification ? '/(tabs)/profile' : '/subscription') as never);
       return;
     }
     if (context === 'boost' || context === 'promotion') {
@@ -246,7 +251,7 @@ export default function PaymentResultScreen() {
       return;
     }
     router.replace('/promote' as never);
-  }, [context, router]);
+  }, [context, router, toVerification]);
 
   const iconTint =
     syncState === 'paid'

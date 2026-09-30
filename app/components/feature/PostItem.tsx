@@ -217,6 +217,7 @@ function PostItemComponent({
         username: post.author.username,
         avatar: post.author.avatar,
         verified: post.author.verified,
+        verifiedTier: post.author.verifiedTier,
         text: bodyText,
         likes: post.likes,
         comments: post.comments,
@@ -305,7 +306,7 @@ function PostItemComponent({
                 <AppText style={styles.name} numberOfLines={1}>
                   {post.author.arabicName}
                 </AppText>
-                {post.author.verified ? <VerificationBadge size={14} /> : null}
+                {post.author.verified ? <VerificationBadge size={14} tier={post.author.verifiedTier} /> : null}
                 {authorRating ? (
                   <View style={[styles.ratingMini, getRtlRow()]}>
                     <AppIcon name="star" size={11} color={colors.gold} />
@@ -383,7 +384,7 @@ function PostItemComponent({
           <AppText style={styles.name} numberOfLines={1}>
             {post.author.arabicName}
           </AppText>
-          {post.author.verified ? <VerificationBadge size={14} /> : null}
+          {post.author.verified ? <VerificationBadge size={14} tier={post.author.verifiedTier} /> : null}
           {authorRating ? (
             <View style={[styles.ratingMini, getRtlRow()]}>
               <AppIcon name="star" size={11} color={colors.gold} />
@@ -528,6 +529,7 @@ function arePropsEqual(prev: PostItemProps, next: PostItemProps): boolean {
     a.author.id === b.author.id &&
     a.author.avatar === b.author.avatar &&
     a.author.verified === b.author.verified &&
+    a.author.verifiedTier === b.author.verifiedTier &&
     a.author.arabicName === b.author.arabicName &&
     a.author.username === b.author.username &&
     a.author.rating === b.author.rating

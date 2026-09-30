@@ -191,8 +191,9 @@ export class SupportNotificationsService {
     await this.notifications.notifyUser({
       userId,
       type: SYSTEM_TYPE,
-      titleAr: 'تم توثيق حسابك',
-      bodyAr: 'مبروك! تم قبول طلب التوثيق',
+      titleAr: 'تم قبول طلب التوثيق',
+      bodyAr:
+        'مبروك! تم قبول طلب التوثيق. تظهر الشارة على حسابك مع اشتراك التوثيق النشط.',
       data: { event: 'account_verification_approved' },
     });
   }

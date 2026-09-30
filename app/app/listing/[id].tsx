@@ -178,6 +178,7 @@ export default function ListingDetailScreen() {
           arabicName: raw.seller?.arabicName || '',
           avatar: raw.seller?.avatar,
           verified: raw.seller?.verified ?? false,
+          verifiedTier: raw.seller?.verifiedTier ?? null,
           followers: raw.seller?.followersCount ?? raw.seller?.followers ?? 0,
           following: raw.seller?.followingCount ?? 0,
           rating: typeof raw.seller?.rating === 'number' ? raw.seller.rating : null,
@@ -586,6 +587,7 @@ export default function ListingDetailScreen() {
                   <VerifiedInlineName
                     name={listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
                     verified={listing.seller.verified}
+                    tier={listing.seller.verifiedTier}
                     style={styles.sellerInlineName}
                   >
                     <AppText variant="cardTitle" color="textSecondary" style={styles.sellerInlineName} numberOfLines={1}>

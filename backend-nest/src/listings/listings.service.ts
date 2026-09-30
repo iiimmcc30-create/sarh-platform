@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { shouldCreateFee } from '../lib/commissions';
+import { hasPaidAccess } from '../lib/subscription-lifecycle';
 import {
   calculateListingFeeAmount,
   LISTING_COVENANT_VERSION,
@@ -121,12 +122,33 @@ export class ListingsService {
 
   private sellerPriorityBoost(
     seller?: {
-      subscription?: { planId?: string; planAudience?: 'USER' };
+      subscription?: {
+        planId?: string;
+        planAudience?: 'USER';
+        renewDate?: Date | string | null;
+        autoRenew?: boolean;
+      };
       verified?: boolean;
     } | null,
   ): number {
-    const planId = seller?.subscription?.planId ?? 'free';
-    const audience = seller?.subscription?.planAudience ?? 'USER';
+    const sub = seller?.subscription;
+    let planId = sub?.planId ?? 'free';
+    // Visibility follows the ACTIVE subscription only (an expired paid plan
+    // that the expiry job has not downgraded yet ranks like free).
+    if (planId !== 'free' && sub?.renewDate) {
+      const renewDate = new Date(sub.renewDate);
+      if (
+        !Number.isNaN(renewDate.getTime()) &&
+        !hasPaidAccess({
+          planId,
+          renewDate,
+          autoRenew: sub.autoRenew ?? false,
+        })
+      ) {
+        planId = 'free';
+      }
+    }
+    const audience = sub?.planAudience ?? 'USER';
     const resolved = this.planResolver.resolveSync(planId, audience);
     if (resolved) {
       return this.planPermissions.priorityBoost(resolved.permissions);
@@ -290,47 +312,53 @@ export class ListingsService {
     const now = new Date();
 
     // Oldest-first keeps the database order; ranking only applies to the default feed.
-    const sorted = oldestFirst ? items : [...items].sort((a, b) => {
-      const pinnedDiff =
-        Number(isPinnedActive(b, now)) - Number(isPinnedActive(a, now));
-      if (pinnedDiff !== 0) return pinnedDiff;
-      const featuredDiff =
-        Number(isFeaturedActive(b, now)) - Number(isFeaturedActive(a, now));
-      if (featuredDiff !== 0) return featuredDiff;
-      if (search && search.length >= 2) {
-        const promoDiff =
-          promotionSearchScore(effectivePromotionWeight(b, now)) -
-          promotionSearchScore(effectivePromotionWeight(a, now));
-        if (promoDiff !== 0) return promoDiff;
-      }
-      const priorityDiff =
-        this.sellerPriorityBoost(
-          b.seller as {
-            subscription?: {
-              planId?: string;
-              planAudience?: 'USER';
-            };
-            verified?: boolean;
-          },
-        ) -
-        this.sellerPriorityBoost(
-          a.seller as {
-            subscription?: {
-              planId?: string;
-              planAudience?: 'USER';
-            };
-            verified?: boolean;
-          },
-        );
-      if (priorityDiff !== 0) return priorityDiff;
-      const weightDiff =
-        effectivePromotionWeight(b, now) - effectivePromotionWeight(a, now);
-      if (weightDiff !== 0) return weightDiff;
-      const createdDiff =
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (createdDiff !== 0) return createdDiff;
-      return String(b.id).localeCompare(String(a.id));
-    });
+    const sorted = oldestFirst
+      ? items
+      : [...items].sort((a, b) => {
+          const pinnedDiff =
+            Number(isPinnedActive(b, now)) - Number(isPinnedActive(a, now));
+          if (pinnedDiff !== 0) return pinnedDiff;
+          const featuredDiff =
+            Number(isFeaturedActive(b, now)) - Number(isFeaturedActive(a, now));
+          if (featuredDiff !== 0) return featuredDiff;
+          if (search && search.length >= 2) {
+            const promoDiff =
+              promotionSearchScore(effectivePromotionWeight(b, now)) -
+              promotionSearchScore(effectivePromotionWeight(a, now));
+            if (promoDiff !== 0) return promoDiff;
+          }
+          const priorityDiff =
+            this.sellerPriorityBoost(
+              b.seller as {
+                subscription?: {
+                  planId?: string;
+                  planAudience?: 'USER';
+                  renewDate?: Date | string | null;
+                  autoRenew?: boolean;
+                };
+                verified?: boolean;
+              },
+            ) -
+            this.sellerPriorityBoost(
+              a.seller as {
+                subscription?: {
+                  planId?: string;
+                  planAudience?: 'USER';
+                  renewDate?: Date | string | null;
+                  autoRenew?: boolean;
+                };
+                verified?: boolean;
+              },
+            );
+          if (priorityDiff !== 0) return priorityDiff;
+          const weightDiff =
+            effectivePromotionWeight(b, now) - effectivePromotionWeight(a, now);
+          if (weightDiff !== 0) return weightDiff;
+          const createdDiff =
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          if (createdDiff !== 0) return createdDiff;
+          return String(b.id).localeCompare(String(a.id));
+        });
 
     const ranked =
       suggested || promoted || oldestFirst

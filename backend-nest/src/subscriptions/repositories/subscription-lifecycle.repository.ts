@@ -4,6 +4,7 @@ import { normalizePlanSlug, buildPermissions } from '../../plans/plan.types';
 import { PlanPermissionService } from '../../plans/plan-permission.service';
 import { PlanResolverService } from '../../plans/plan-resolver.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isVerificationPlanSlug } from '../verification/verification-tiers';
 
 const SUBSCRIPTION_SELECT = {
   id: true,
@@ -130,13 +131,17 @@ export class SubscriptionLifecycleRepository {
         },
       });
 
-      await this.applyVerifiedBadgeSideEffect(
-        tx,
-        userId,
-        'free',
-        audience,
-        true,
-      );
+      // Verification plans manage the badge through VerificationBadgeService
+      // (it keeps pre-existing badges); other plans keep the legacy behaviour.
+      if (!isVerificationPlanSlug(previousPlanId)) {
+        await this.applyVerifiedBadgeSideEffect(
+          tx,
+          userId,
+          'free',
+          audience,
+          true,
+        );
+      }
 
       return { previousPlanId };
     });
@@ -190,7 +195,6 @@ export class SubscriptionLifecycleRepository {
             data: { verified: true },
           });
         }
-
       }
     });
   }

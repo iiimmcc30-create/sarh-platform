@@ -97,6 +97,10 @@ export type VerificationRequest = {
   businessName?: string | null;
   businessType?: string | null;
   additionalInfo?: string | null;
+  /** Tier applied for: blue (individual) | gold (merchant). */
+  requestedTier?: 'blue' | 'gold' | null;
+  /** Tier currently approved (kept while a Gold upgrade is reviewed). */
+  approvedTier?: 'blue' | 'gold' | null;
   reviewReason?: string | null;
   submittedAt?: string | null;
   documents?: VerificationDocument[];
@@ -208,6 +212,7 @@ export async function saveVerificationDraft(payload: {
   businessName?: string;
   businessType?: string;
   additionalInfo?: string;
+  requestedTier?: 'blue' | 'gold';
 }): Promise<{ ok: boolean; error?: string }> {
   const res = await authFetch(`${API_BASE}/api/support/verification`, {
     method: 'PATCH',

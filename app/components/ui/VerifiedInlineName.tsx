@@ -12,6 +12,8 @@ import {
 export type VerifiedInlineNameProps = {
   name: string;
   verified?: boolean;
+  /** Badge colour tier ("gold" = merchant); defaults to the blue badge. */
+  tier?: string | null;
   badgeSize?: number;
   nameStyle?: StyleProp<TextStyle>;
   numberOfLines?: number;
@@ -27,6 +29,7 @@ export type VerifiedInlineNameProps = {
 export function VerifiedInlineName({
   name,
   verified = false,
+  tier,
   badgeSize = FEED_VERIFIED_BADGE_SIZE,
   nameStyle,
   numberOfLines = 1,
@@ -40,7 +43,7 @@ export function VerifiedInlineName({
           {name}
         </AppText>
       )}
-      {shouldShowVerifiedBadge(verified) ? <VerificationBadge size={badgeSize} /> : null}
+      {shouldShowVerifiedBadge(verified) ? <VerificationBadge size={badgeSize} tier={tier} /> : null}
     </View>
   );
 }

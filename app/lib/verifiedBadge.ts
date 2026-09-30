@@ -15,3 +15,24 @@ export function shouldShowVerifiedBadge(verified: unknown): boolean {
 export function sidebarShowsVerifiedBadge(isAuthenticated: boolean, verified: unknown): boolean {
   return isAuthenticated && shouldShowVerifiedBadge(verified);
 }
+
+/** Verification badge tiers (Blue = individuals/sellers, Gold = merchants). */
+export type VerifiedTier = 'blue' | 'gold';
+
+/** Badge fills. Blue is the existing badge colour; gold is the merchant tier. */
+export const VERIFIED_BADGE_COLORS: Record<VerifiedTier, string> = {
+  blue: '#1D9BF0',
+  gold: '#C9A227',
+};
+
+/**
+ * Tier used for the badge colour. Only an explicit "gold" is gold; anything
+ * else (including legacy verified users with no tier) keeps the blue badge.
+ */
+export function resolveVerifiedTier(tier: unknown): VerifiedTier {
+  return tier === 'gold' ? 'gold' : 'blue';
+}
+
+export function verifiedBadgeColor(tier: unknown): string {
+  return VERIFIED_BADGE_COLORS[resolveVerifiedTier(tier)];
+}

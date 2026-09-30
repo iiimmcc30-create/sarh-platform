@@ -13,6 +13,7 @@ const SELLER_SELECT = {
   arabicName: true,
   avatar: true,
   verified: true,
+  verifiedTier: true,
   country: true,
 } as const;
 
@@ -51,7 +52,12 @@ export class ListingsRepository {
           select: {
             ...SELLER_SELECT,
             subscription: {
-              select: { planId: true, planAudience: true },
+              select: {
+                planId: true,
+                planAudience: true,
+                renewDate: true,
+                autoRenew: true,
+              },
             },
           },
         },
@@ -307,6 +313,7 @@ export class ListingsRepository {
             arabicName: true,
             avatar: true,
             verified: true,
+            verifiedTier: true,
           },
         },
       },
@@ -326,6 +333,7 @@ export class ListingsRepository {
               arabicName: true,
               avatar: true,
               verified: true,
+              verifiedTier: true,
             },
           },
         },

@@ -52,6 +52,7 @@ export class UsersService {
       arabicName: u.arabicName,
       avatar: u.avatar,
       verified: u.verified,
+      verifiedTier: u.verifiedTier ?? null,
       bio: u.bio,
       country: u.country,
       followers: u._count.followers,
@@ -326,6 +327,7 @@ export class UsersService {
         arabicName: row.blocked.arabicName,
         avatar: row.blocked.avatar,
         verified: row.blocked.verified,
+        verifiedTier: row.blocked.verifiedTier ?? null,
         blockedAt: row.createdAt,
       })),
     };
@@ -528,9 +530,7 @@ export class UsersService {
     };
   }
 
-  private resolveAccountType(
-    user: ProfileUser,
-  ): 'USER' | 'LIVESTOCK_TRADER' {
+  private resolveAccountType(user: ProfileUser): 'USER' | 'LIVESTOCK_TRADER' {
     if (user._count.listings > 0) return 'LIVESTOCK_TRADER';
     return 'USER';
   }
@@ -625,6 +625,7 @@ export class UsersService {
       coverImage: updated.coverImage,
       bio: updated.bio,
       verified: updated.verified,
+      verifiedTier: updated.verifiedTier ?? null,
       country: updated.country,
       rating: updated.reviewCount > 0 ? updated.rating : null,
       reviewCount: updated.reviewCount,
@@ -652,6 +653,7 @@ export class UsersService {
       coverImage: user.coverImage,
       bio: user.bio,
       verified: user.verified,
+      verifiedTier: user.verifiedTier ?? null,
       isAI: user.isAI ?? false,
       country: user.country,
       role: user.role,

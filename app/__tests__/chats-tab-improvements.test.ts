@@ -236,7 +236,7 @@ describe('Chats list screen', () => {
   it('verified badge uses the existing VerifiedInlineName everywhere names show in chats', () => {
     expect(panel).toContain('<VerifiedInlineName name={title} verified={p.verified}');
     expect(src('components/feature/NewMessageSheet.tsx')).toContain('<VerifiedInlineName');
-    expect(src('app/chat.tsx')).toContain('<VerifiedInlineName name={headerName} verified={peerVerified}>');
+    expect(src('app/chat.tsx')).toContain('<VerifiedInlineName name={headerName} verified={peerVerified} tier={peerVerifiedTier}>');
     for (const f of ['components/feature/MessagesPanel.tsx', 'components/feature/NewMessageSheet.tsx']) {
       expect(src(f)).not.toContain('checkmark-circle');
     }

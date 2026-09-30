@@ -44,6 +44,7 @@ export type ProfileDisplayUser = {
   arabicName: string;
   avatar?: string;
   verified: boolean;
+  verifiedTier?: string | null;
   isAI?: boolean;
   bio?: string;
   country?: string;
@@ -287,7 +288,7 @@ export function ProfileScreenLayout({
                   >
                     {displayName}
                   </AppText>
-                  {user.verified ? <VerificationBadge size={18} /> : null}
+                  {user.verified ? <VerificationBadge size={18} tier={user.verifiedTier} /> : null}
                 </Row>
 
                 <AppText variant="caption" color="textMuted" numberOfLines={1}>

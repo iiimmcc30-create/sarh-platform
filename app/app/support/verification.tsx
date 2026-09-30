@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,8 +26,22 @@ const REQUIREMENTS = [
   'للحسابات التجارية: السجل التجاري',
 ];
 
+/** Gold (merchant) verification also needs business info + commercial register. */
+const GOLD_REQUIREMENTS = [
+  'الاسم الكامل كما في الهوية',
+  'رقم الهوية الوطنية',
+  'صورة واضحة للهوية',
+  'اسم المنشأة ونوع النشاط',
+  'صورة السجل التجاري',
+];
+
+type Tier = 'blue' | 'gold';
+
 export default function AccountVerificationScreen() {
   const { accessToken } = useAuth();
+  const params = useLocalSearchParams<{ tier?: string }>();
+  const paramTier: Tier | null =
+    params.tier === 'gold' ? 'gold' : params.tier === 'blue' ? 'blue' : null;
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const [request, setRequest] = useState<VerificationRequest | null>(null);
   const [userVerified, setUserVerified] = useState(false);
@@ -38,6 +52,7 @@ export default function AccountVerificationScreen() {
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
+  const [tier, setTier] = useState<Tier>(paramTier ?? 'blue');
 
   const load = useCallback(async () => {
     const data = await fetchVerificationRequest();
@@ -49,9 +64,10 @@ export default function AccountVerificationScreen() {
       setBusinessName(data.request.businessName ?? '');
       setBusinessType(data.request.businessType ?? '');
       setAdditionalInfo(data.request.additionalInfo ?? '');
+      if (!paramTier && data.request.requestedTier) setTier(data.request.requestedTier);
     }
     setLoading(false);
-  }, []);
+  }, [paramTier]);
 
   useFocusEffect(
     useCallback(() => {
@@ -59,12 +75,19 @@ export default function AccountVerificationScreen() {
     }, [load]),
   );
 
+  const approvedTier: Tier | null =
+    request?.approvedTier ?? (request?.status === 'VERIFIED' ? 'blue' : null);
+  // Draft / amendments as before; a rejected request can start over, and an
+  // approved Blue verification can apply for Gold (merchant).
   const editable =
-    request &&
-    !userVerified &&
-    (request.status === 'DRAFT' || request.status === 'NEEDS_AMENDMENTS');
+    !!request &&
+    (request.status === 'DRAFT' ||
+      request.status === 'NEEDS_AMENDMENTS' ||
+      request.status === 'REJECTED' ||
+      (request.status === 'VERIFIED' && tier === 'gold' && approvedTier !== 'gold'));
+  const isGold = tier === 'gold';
 
-  const saveDraft = async () => {
+  const saveDraft = async (): Promise<boolean> => {
     setSaving(true);
     const res = await saveVerificationDraft({
       fullName,
@@ -72,14 +95,23 @@ export default function AccountVerificationScreen() {
       businessName,
       businessType,
       additionalInfo,
+      requestedTier: tier,
     });
     setSaving(false);
     if (!res.ok) Alert.alert('تعذر الحفظ', res.error ?? 'حاول مرة أخرى');
     else void load();
+    return res.ok;
+  };
+
+  /** Documents can only be attached to a draft: restart/upgrade first. */
+  const ensureDraft = async (): Promise<boolean> => {
+    if (request?.status === 'DRAFT' || request?.status === 'NEEDS_AMENDMENTS') return true;
+    return saveDraft();
   };
 
   const uploadDocument = async (type: 'NATIONAL_ID' | 'COMMERCIAL_REGISTER' | 'OTHER') => {
     if (!accessToken) return;
+    if (!(await ensureDraft())) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('الإذن مطلوب', 'يرجى السماح بالوصول للصور');
@@ -116,7 +148,7 @@ export default function AccountVerificationScreen() {
   };
 
   const submit = async () => {
-    await saveDraft();
+    if (!(await saveDraft())) return;
     setSaving(true);
     const res = await submitVerificationRequest();
     setSaving(false);
@@ -145,10 +177,12 @@ export default function AccountVerificationScreen() {
         <Stack gap="xs">
           <AppText variant="caption" color="textMuted">حالة الطلب</AppText>
           <AppText variant="cardTitle" color="primary">
-            {userVerified
-              ? 'موثق'
-              : VERIFICATION_STATUS_LABEL_AR[request?.status ?? 'DRAFT']}
+            {VERIFICATION_STATUS_LABEL_AR[request?.status ?? 'DRAFT']}
+            {approvedTier ? ` · ${approvedTier === 'gold' ? 'تاجر (ذهبية)' : 'فرد (زرقاء)'}` : ''}
           </AppText>
+          {userVerified && !approvedTier ? (
+            <AppText variant="caption" color="textMuted">حسابك يحمل شارة التوثيق الحالية.</AppText>
+          ) : null}
           {request?.reviewReason ? (
             <AppText variant="body" color="danger" style={styles.reason}>
               {request.reviewReason}
@@ -158,8 +192,28 @@ export default function AccountVerificationScreen() {
 
         <SarhDivider />
 
+        <Section title="نوع التوثيق" gap="xs">
+          <Row gap="sm" wrap>
+            {(['blue', 'gold'] as const).map((t) => (
+              <Pressable
+                key={t}
+                style={[styles.docBtn, tier === t && styles.tierActive]}
+                onPress={() => setTier(t)}
+                disabled={!editable}
+                accessibilityRole="button"
+                accessibilityState={{ selected: tier === t }}
+                accessibilityLabel={t === 'gold' ? 'تاجر — الشارة الذهبية' : 'فرد — الشارة الزرقاء'}
+              >
+                <AppText variant="caption" color={tier === t ? 'primary' : 'textSecondary'}>
+                  {t === 'gold' ? 'تاجر — الشارة الذهبية' : 'فرد — الشارة الزرقاء'}
+                </AppText>
+              </Pressable>
+            ))}
+          </Row>
+        </Section>
+
         <Section title="المتطلبات" gap="xs">
-          {REQUIREMENTS.map((item) => (
+          {(isGold ? GOLD_REQUIREMENTS : REQUIREMENTS).map((item) => (
             <AppText key={item} variant="caption" color="textSecondary" style={styles.requirement}>
               • {item}
             </AppText>
@@ -169,8 +223,8 @@ export default function AccountVerificationScreen() {
         <Stack gap="lg">
           <SarhInput appearance="theme" label="الاسم الكامل" value={fullName} onChangeText={setFullName} editable={!!editable} />
           <SarhInput appearance="theme" label="رقم الهوية" value={nationalId} onChangeText={setNationalId} editable={!!editable} />
-          <SarhInput appearance="theme" label="اسم المنشأة (اختياري)" value={businessName} onChangeText={setBusinessName} editable={!!editable} />
-          <SarhInput appearance="theme" label="نوع النشاط (اختياري)" value={businessType} onChangeText={setBusinessType} editable={!!editable} />
+          <SarhInput appearance="theme" label={isGold ? 'اسم المنشأة' : 'اسم المنشأة (اختياري)'} value={businessName} onChangeText={setBusinessName} editable={!!editable} />
+          <SarhInput appearance="theme" label={isGold ? 'نوع النشاط' : 'نوع النشاط (اختياري)'} value={businessType} onChangeText={setBusinessType} editable={!!editable} />
           <SarhInput
             appearance="theme"
             label="معلومات إضافية"
@@ -237,6 +291,9 @@ function createStyles(colors: ThemeColors) {
     fill: { flex: 1, minWidth: 0 },
     reason: { lineHeight: 22 },
     requirement: { lineHeight: 20 },
+    tierActive: {
+      borderColor: colors.textBrand,
+    },
     docBtn: {
       backgroundColor: colors.bgSurface,
       borderRadius: radius.md,

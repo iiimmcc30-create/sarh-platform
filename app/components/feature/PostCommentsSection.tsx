@@ -92,6 +92,7 @@ function mapComment(c: {
     arabicName: string;
     avatar?: string | null;
     verified?: boolean;
+    verifiedTier?: string | null;
   };
 }): PostComment {
   return {
@@ -105,6 +106,7 @@ function mapComment(c: {
       arabicName: c.author.arabicName || '',
       avatar: c.author.avatar ?? undefined,
       verified: c.author.verified ?? false,
+      verifiedTier: c.author.verifiedTier ?? null,
       followers: 0,
       following: 0,
       rating: null,
@@ -324,7 +326,7 @@ export function PostCommentsList() {
                     <AppText style={styles.commentName} numberOfLines={1}>
                       {c.author.arabicName || c.author.displayName}
                     </AppText>
-                    {c.author.verified ? <VerificationBadge size={13} /> : null}
+                    {c.author.verified ? <VerificationBadge size={13} tier={c.author.verifiedTier} /> : null}
                     {c.author.username ? (
                       <AppText style={styles.commentHandle} numberOfLines={1}>
                         @{c.author.username}

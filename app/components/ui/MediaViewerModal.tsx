@@ -42,6 +42,7 @@ export type MediaViewerOverlay = {
   username?: string;
   avatar?: string;
   verified?: boolean;
+  verifiedTier?: string | null;
   text?: string;
   likes?: number;
   comments?: number;
@@ -98,7 +99,7 @@ function ViewerOverlay({
               <AppText style={styles.overlayName} numberOfLines={1}>
                 {overlay.authorName}
               </AppText>
-              {overlay.verified ? <VerificationBadge size={13} /> : null}
+              {overlay.verified ? <VerificationBadge size={13} tier={overlay.verifiedTier} /> : null}
             </View>
             {handle ? (
               <AppText style={styles.overlayHandle} numberOfLines={1}>

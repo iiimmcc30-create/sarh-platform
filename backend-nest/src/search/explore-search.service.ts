@@ -36,10 +36,7 @@ export function withEffectiveExploreSections(
       ? section
       : {
           ...section,
-          items: rankByEffectiveBoost(
-            section.items as BoostFlagFields[],
-            now,
-          ),
+          items: rankByEffectiveBoost(section.items as BoostFlagFields[], now),
         },
   );
 }
@@ -85,6 +82,8 @@ export class ExploreSearchService {
         const posts = u._count?.posts ?? 0;
         const score =
           (u.verified ? 20 : 0) +
+          // Gold (merchant) verification ranks above Blue in account discovery.
+          (u.verified && u.verifiedTier === 'gold' ? 10 : 0) +
           Math.log2(1 + followers) * 6 +
           Math.log2(1 + posts) * 4;
         return { user: u, score };
@@ -98,6 +97,7 @@ export class ExploreSearchService {
         arabicName: user.arabicName,
         avatar: user.avatar,
         verified: user.verified,
+        verifiedTier: user.verifiedTier ?? null,
         followers: user._count?.followers ?? 0,
       }));
 

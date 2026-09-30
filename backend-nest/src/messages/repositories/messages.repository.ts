@@ -9,6 +9,7 @@ const PARTICIPANT_SELECT = {
   avatar: true,
   username: true,
   verified: true,
+  verifiedTier: true,
 } as const;
 
 const SENDER_SELECT = {

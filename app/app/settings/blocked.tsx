@@ -79,6 +79,7 @@ export default function BlockedUsersScreen() {
                     displayName={user.arabicName || user.displayName}
                     username={user.username}
                     verified={user.verified}
+                    verifiedTier={user.verifiedTier}
                     avatarSize={USER_IDENTITY.listAvatarSize}
                     avatarRadius={USER_IDENTITY.listAvatarRadius}
                     avatarBorderWidth={USER_IDENTITY.listAvatarBorder}

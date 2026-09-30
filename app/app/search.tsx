@@ -681,6 +681,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
           displayName?: string;
           avatar?: string;
           verified?: boolean;
+          verifiedTier?: string | null;
         };
         return (
           <UserIdentityRow
@@ -688,6 +689,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
             displayName={user.arabicName || user.displayName || user.username || item.title}
             username={user.username}
             verified={user.verified}
+            verifiedTier={user.verifiedTier}
             avatarSize={USER_IDENTITY.listAvatarSize}
             avatarRadius={USER_IDENTITY.listAvatarRadius}
             avatarBorderWidth={USER_IDENTITY.listAvatarBorder}
@@ -938,6 +940,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
                 displayName={user.arabicName || user.displayName || user.username}
                 username={user.username}
                 verified={user.verified}
+                verifiedTier={user.verifiedTier}
                 avatarSize={USER_IDENTITY.listAvatarSize}
                 avatarRadius={USER_IDENTITY.listAvatarRadius}
                 avatarBorderWidth={USER_IDENTITY.listAvatarBorder}

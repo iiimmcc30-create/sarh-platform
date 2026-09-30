@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import { PrismaService } from '../../prisma/prisma.service';
 import { throwApi } from '../../common/exceptions/api.exception';
@@ -10,6 +10,11 @@ import type {
   VerificationDocumentDto,
 } from '../dto/support.dto';
 import { VERIFICATION_STATUS_LABEL_AR } from '../constants/support.constants';
+import { VerificationBadgeService } from '../../subscriptions/verification/verification-badge.service';
+import {
+  effectiveApprovedTier,
+  isVerificationTier,
+} from '../../subscriptions/verification/verification-tiers';
 
 function assertSupportFileKeyOwnedByUser(
   fileKey: string,
@@ -51,6 +56,7 @@ export class AccountVerificationService {
     private readonly repo: SupportRepository,
     private readonly notifications: SupportNotificationsService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly badge?: VerificationBadgeService,
   ) {}
 
   getMeta() {
@@ -71,6 +77,24 @@ export class AccountVerificationService {
         'رقم الهوية الوطنية',
         'صورة واضحة للهوية الوطنية',
         'للحسابات التجارية: اسم المنشأة ونوع النشاط والسجل التجاري',
+      ],
+      tiers: [
+        {
+          value: 'blue',
+          labelAr: 'الشارة الزرقاء — للأفراد والبائعين',
+          requirements: ['الاسم الكامل', 'رقم الهوية الوطنية', 'صورة الهوية'],
+        },
+        {
+          value: 'gold',
+          labelAr: 'الشارة الذهبية — للتجار والبائعين المحترفين',
+          requirements: [
+            'الاسم الكامل',
+            'رقم الهوية الوطنية',
+            'صورة الهوية',
+            'اسم المنشأة ونوع النشاط',
+            'صورة السجل التجاري',
+          ],
+        },
       ],
     };
   }
@@ -94,7 +118,22 @@ export class AccountVerificationService {
 
   async upsertDraft(user: JwtPayload, dto: UpsertVerificationDto) {
     const existing = await this.repo.getVerificationByUserId(user.userId);
-    if (existing && !['DRAFT', 'NEEDS_AMENDMENTS'].includes(existing.status)) {
+    const requestedTier = isVerificationTier(dto.requestedTier)
+      ? dto.requestedTier
+      : undefined;
+    const approved = effectiveApprovedTier(existing);
+    // Start over after a rejection, or apply for Gold on top of an approved Blue.
+    const restartAfterReject = existing?.status === 'REJECTED';
+    const goldUpgrade =
+      existing?.status === 'VERIFIED' &&
+      requestedTier === 'gold' &&
+      approved !== 'gold';
+    if (
+      existing &&
+      !['DRAFT', 'NEEDS_AMENDMENTS'].includes(existing.status) &&
+      !restartAfterReject &&
+      !goldUpgrade
+    ) {
       throwApi(400, 'invalid_status', 'لا يمكن تعديل الطلب في حالته الحالية');
     }
 
@@ -104,6 +143,9 @@ export class AccountVerificationService {
       businessName: dto.businessName?.trim(),
       businessType: dto.businessType?.trim(),
       additionalInfo: dto.additionalInfo?.trim(),
+      ...(requestedTier ? { requestedTier } : {}),
+      // Keep the current approval while a Gold upgrade is being reviewed.
+      ...(goldUpgrade ? { approvedTier: approved } : {}),
       status:
         existing?.status === 'NEEDS_AMENDMENTS' ? 'NEEDS_AMENDMENTS' : 'DRAFT',
     });
@@ -156,6 +198,25 @@ export class AccountVerificationService {
     if (!hasIdDoc) {
       throwApi(400, 'missing_documents', 'يرجى إرفاق صورة الهوية الوطنية');
     }
+    if (request.requestedTier === 'gold') {
+      if (!request.businessName?.trim() || !request.businessType?.trim()) {
+        throwApi(
+          400,
+          'missing_fields',
+          'الشارة الذهبية للتجار: يرجى تعبئة اسم المنشأة ونوع النشاط',
+        );
+      }
+      const hasRegister = request.documents.some(
+        (d) => d.type === 'COMMERCIAL_REGISTER',
+      );
+      if (!hasRegister) {
+        throwApi(
+          400,
+          'missing_documents',
+          'الشارة الذهبية للتجار: يرجى إرفاق السجل التجاري',
+        );
+      }
+    }
 
     const updated = await this.repo.updateVerification(request.id, {
       status: 'UNDER_REVIEW',
@@ -206,10 +267,23 @@ export class AccountVerificationService {
       throwApi(400, 'reason_required', 'يرجى كتابة سبب الرفض أو التعديل');
     }
 
+    // Approved tier: what the user applied for (gold = merchant), blue by default.
+    // Rejecting an approved request revokes it; rejecting an upgrade keeps the
+    // previous approval.
+    let approvedTier: string | null | undefined;
+    if (status === 'VERIFIED') {
+      approvedTier = isVerificationTier(existing.requestedTier)
+        ? existing.requestedTier
+        : 'blue';
+    } else if (status === 'REJECTED' && existing.status === 'VERIFIED') {
+      approvedTier = null;
+    }
+
     const updated = await this.repo.updateVerification(id, {
       status,
       reviewReason: reviewReason?.trim(),
       adminNotes: adminNotes?.trim(),
+      ...(approvedTier !== undefined ? { approvedTier } : {}),
       reviewedBy: { connect: { id: staff.userId } },
       reviewedAt: status ? new Date() : undefined,
     });
@@ -232,10 +306,8 @@ export class AccountVerificationService {
           reviewReason ?? '',
         );
       } else if (status === 'VERIFIED') {
-        await this.prisma.user.update({
-          where: { id: existing.userId },
-          data: { verified: true },
-        });
+        // The public badge needs BOTH this approval and an active
+        // verification subscription (VerificationBadgeService decides).
         await this.notifications.notifyVerificationApproved(existing.userId);
       } else if (status === 'REJECTED') {
         await this.notifications.notifyVerificationRejected(
@@ -243,6 +315,7 @@ export class AccountVerificationService {
           reviewReason ?? '',
         );
       }
+      await this.badge?.syncQuietly(existing.userId);
     }
 
     return { request: updated };
