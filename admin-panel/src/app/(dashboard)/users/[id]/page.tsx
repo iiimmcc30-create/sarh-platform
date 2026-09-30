@@ -9,6 +9,7 @@ import { fetchUser, updateUser } from '@/services/admin.service';
 import {
   type AdminMembership,
   formatDate,
+  badgeColor,
   planLabel,
   subscriptionStatus,
   tierLabel,
@@ -59,7 +60,7 @@ export default function UserDetailPage() {
               <p>
                 <span className="text-slate-500">شارة التوثيق: </span>
                 {membership.badge.visible ? (
-                  <Badge tone={membership.badge.tier === 'gold' ? 'warning' : 'info'}>
+                  <Badge tone={badgeColor(membership.badge.color ?? membership.badge.tier) === 'gold' ? 'warning' : 'info'}>
                     {tierLabel(membership.badge.tier)}
                     {membership.badge.legacy ? ' (توثيق قديم)' : ''}
                   </Badge>

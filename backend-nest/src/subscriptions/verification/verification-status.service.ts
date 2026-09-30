@@ -5,12 +5,16 @@ import { PlanPermissionService } from '../../plans/plan-permission.service';
 import { getSubscriptionStatus } from '../../lib/subscription-lifecycle';
 import { SubscriptionsRepository } from '../repositories/subscriptions.repository';
 import { VerificationBadgeService } from './verification-badge.service';
+import { GoldDocumentGateService } from './gold-document-gate.service';
 import {
+  BADGE_COLOR_FOR_TIER,
   VERIFICATION_PLAN_SLUGS,
   VERIFICATION_TIERS,
+  VERIFICATION_TIER_DEFAULTS,
+  badgeColorForTier,
   effectiveApprovedTier,
-  isVerificationTier,
-  TIER_REQUIRES_VERIFICATION,
+  isReviewTier,
+  TIER_REQUIRES_DOCUMENT,
   tierForPlanSlug,
   type VerificationTier,
 } from './verification-tiers';
@@ -64,6 +68,7 @@ export class VerificationStatusService {
     private readonly subscriptionsRepo: SubscriptionsRepository,
     private readonly permissions: PlanPermissionService,
     private readonly badge: VerificationBadgeService,
+    private readonly goldGate: GoldDocumentGateService,
   ) {}
 
   async getPlans() {
@@ -88,11 +93,17 @@ export class VerificationStatusService {
         billingCycle: 'monthly' as const,
         /** Price set by an admin (> 0). 0 = placeholder, not purchasable. */
         priceConfigured: monthlyPrice > 0,
-        /** Blue: subscription only. Gold: approved merchant verification too. */
-        verificationRequired: TIER_REQUIRES_VERIFICATION[tier],
+        /** Badge colour: Blue and Blue+ = blue, Gold = gold. */
+        badgeColor: BADGE_COLOR_FOR_TIER[tier],
+        /** Gold only: a merchant document is required before payment. */
+        documentRequired: TIER_REQUIRES_DOCUMENT[tier],
+        /** @deprecated same as documentRequired (kept for older app builds). */
+        verificationRequired: TIER_REQUIRES_DOCUMENT[tier],
         available: !!row?.isActive && monthlyPrice > 0,
         extraDailyListings: this.permissions.extraDailyListings(perms, slug),
-        visibilityBoost: this.permissions.priorityBoost(perms),
+        /** Seller visibility priority (Blue 1 < Blue+ 2 < Gold 3). */
+        visibilityBoost: this.permissions.priorityBoost(perms, slug),
+        visibilityLevel: VERIFICATION_TIER_DEFAULTS[tier].visibilityLevel,
       };
     });
   }
@@ -112,7 +123,7 @@ export class VerificationStatusService {
 
     const badge = await this.badge.sync(userId);
 
-    const [request, lastPayment, plans] = await Promise.all([
+    const [request, lastPayment, plans, goldDocument] = await Promise.all([
       this.prisma.accountVerificationRequest.findUnique({
         where: { userId },
         select: {
@@ -132,6 +143,7 @@ export class VerificationStatusService {
         select: { metadata: true },
       }),
       this.getPlans(),
+      this.goldGate.check(userId),
     ]);
 
     const meta = (lastPayment?.metadata ?? {}) as Record<string, unknown>;
@@ -149,7 +161,7 @@ export class VerificationStatusService {
       verification: {
         state: mapVerificationState(request),
         requestStatus: request?.status ?? null,
-        requestedTier: isVerificationTier(request?.requestedTier)
+        requestedTier: isReviewTier(request?.requestedTier)
           ? request.requestedTier
           : null,
         approvedTier,
@@ -157,6 +169,14 @@ export class VerificationStatusService {
         submittedAt: request?.submittedAt ?? null,
         reviewedAt: request?.reviewedAt ?? null,
       },
+      /** Gold payment gate (same rule PaymentsService enforces). */
+      goldDocument: goldDocument.ok
+        ? { ready: true, code: null, messageAr: null }
+        : {
+            ready: false,
+            code: goldDocument.code,
+            messageAr: goldDocument.messageAr,
+          },
       subscription: {
         id: subscription?.id ?? null,
         state: sub.state,
@@ -168,6 +188,7 @@ export class VerificationStatusService {
       badge: {
         visible: badge?.verified ?? false,
         tier: badge?.verified ? (badge.verifiedTier ?? 'blue') : null,
+        color: badge?.verified ? badgeColorForTier(badge.verifiedTier) : null,
         /** Badge that pre-dates tiered verification (kept, shown blue). */
         legacy: !!badge?.verified && !badge.verifiedTier,
       },

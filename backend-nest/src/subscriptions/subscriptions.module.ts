@@ -9,6 +9,7 @@ import { SubscriptionLifecycleService } from './services/subscription-lifecycle.
 import { SubscriptionEntitlementService } from './services/subscription-entitlement.service';
 import { VerificationBadgeService } from './verification/verification-badge.service';
 import { VerificationStatusService } from './verification/verification-status.service';
+import { GoldDocumentGateService } from './verification/gold-document-gate.service';
 import { VerificationController } from './verification/verification.controller';
 
 /** @deprecated Use SubscriptionEntitlementService */
@@ -27,6 +28,7 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     SubscriptionEntitlementService,
     VerificationBadgeService,
     VerificationStatusService,
+    GoldDocumentGateService,
   ],
   exports: [
     SubscriptionsService,
@@ -35,6 +37,7 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     SubscriptionEntitlementService,
     SubscriptionLifecycleRepository,
     VerificationBadgeService,
+    GoldDocumentGateService,
   ],
 })
 export class SubscriptionsModule {}

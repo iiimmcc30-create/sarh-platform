@@ -13,7 +13,7 @@ import { VERIFICATION_STATUS_LABEL_AR } from '../constants/support.constants';
 import { VerificationBadgeService } from '../../subscriptions/verification/verification-badge.service';
 import {
   effectiveApprovedTier,
-  isVerificationTier,
+  isReviewTier,
 } from '../../subscriptions/verification/verification-tiers';
 
 function assertSupportFileKeyOwnedByUser(
@@ -80,11 +80,6 @@ export class AccountVerificationService {
       ],
       tiers: [
         {
-          value: 'blue',
-          labelAr: 'الشارة الزرقاء — للأفراد والبائعين',
-          requirements: ['الاسم الكامل', 'رقم الهوية الوطنية', 'صورة الهوية'],
-        },
-        {
           value: 'gold',
           labelAr: 'الشارة الذهبية — للتجار والبائعين المحترفين',
           requirements: [
@@ -118,7 +113,7 @@ export class AccountVerificationService {
 
   async upsertDraft(user: JwtPayload, dto: UpsertVerificationDto) {
     const existing = await this.repo.getVerificationByUserId(user.userId);
-    const requestedTier = isVerificationTier(dto.requestedTier)
+    const requestedTier = isReviewTier(dto.requestedTier)
       ? dto.requestedTier
       : undefined;
     const approved = effectiveApprovedTier(existing);
@@ -244,7 +239,45 @@ export class AccountVerificationService {
   async getAdmin(id: string) {
     const request = await this.repo.getVerificationById(id);
     if (!request) throwApi(404, 'not_found', 'الطلب غير موجود');
-    return { request };
+    // Gold subscription payments linked to this request (read-only):
+    // PaymentsService stores { requestId, documentId } on each Gold payment.
+    const goldPayments = await this.prisma.payment.findMany({
+      where: {
+        userId: request.userId,
+        referenceType: 'subscription',
+        metadata: { path: ['goldVerification', 'requestId'], equals: id },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        status: true,
+        createdAt: true,
+        paidAt: true,
+        metadata: true,
+      },
+    });
+    return {
+      request,
+      goldPayments: goldPayments.map((p) => {
+        const meta = (p.metadata ?? {}) as Record<string, unknown>;
+        const link = (meta.goldVerification ?? {}) as Record<string, unknown>;
+        return {
+          id: p.id,
+          amount: p.amount,
+          currency: p.currency,
+          status: p.status,
+          createdAt: p.createdAt,
+          paidAt: p.paidAt,
+          planId:
+            typeof meta.targetPlanId === 'string' ? meta.targetPlanId : null,
+          documentId:
+            typeof link.documentId === 'string' ? link.documentId : null,
+        };
+      }),
+    };
   }
 
   async updateAdmin(
@@ -272,7 +305,7 @@ export class AccountVerificationService {
     // previous approval.
     let approvedTier: string | null | undefined;
     if (status === 'VERIFIED') {
-      approvedTier = isVerificationTier(existing.requestedTier)
+      approvedTier = isReviewTier(existing.requestedTier)
         ? existing.requestedTier
         : 'blue';
     } else if (status === 'REJECTED' && existing.status === 'VERIFIED') {

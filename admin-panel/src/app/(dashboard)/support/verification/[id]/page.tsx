@@ -6,8 +6,12 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { getApiErrorMessage } from '@/services/api.client';
-import { fetchVerificationRequest, updateVerificationRequest } from '@/services/support.service';
-import { type BadgeTier, tierLabel } from '@/lib/membership';
+import {
+  type GoldPaymentLink,
+  fetchVerificationRequest,
+  updateVerificationRequest,
+} from '@/services/support.service';
+import { type BadgeTier, formatDate, tierLabel } from '@/lib/membership';
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: 'لم يُرسل',
@@ -17,10 +21,24 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: 'مرفوض',
 };
 
+const DOCUMENT_TYPE_LABEL: Record<string, string> = {
+  NATIONAL_ID: 'الهوية الوطنية',
+  COMMERCIAL_REGISTER: 'السجل التجاري',
+  OTHER: 'مستند آخر',
+};
+
+const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  pending: 'بانتظار الدفع',
+  paid: 'مدفوع',
+  failed: 'فشل',
+  refunded: 'مسترد',
+};
+
 export default function VerificationDetailPage() {
   const { id } = useParams<{ id: string }>()!;
   const router = useRouter();
   const [request, setRequest] = useState<Record<string, unknown> | null>(null);
+  const [goldPayments, setGoldPayments] = useState<GoldPaymentLink[]>([]);
   const [reviewReason, setReviewReason] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
   const [error, setError] = useState('');
@@ -31,6 +49,7 @@ export default function VerificationDetailPage() {
     try {
       const res = await fetchVerificationRequest(id);
       setRequest(res.request);
+      setGoldPayments(res.goldPayments ?? []);
       setReviewReason(String(res.request.reviewReason ?? ''));
       setAdminNotes(String(res.request.adminNotes ?? ''));
     } catch (e: unknown) {
@@ -89,7 +108,7 @@ export default function VerificationDetailPage() {
           </p>
           <p className="text-slate-300">
             الشارة المطلوبة: {tierLabel((request.requestedTier as BadgeTier | null) ?? 'blue')}
-            {request.requestedTier === 'gold' ? ' — تاجر (سجل تجاري مطلوب)' : ' — فرد / بائع'}
+            {request.requestedTier === 'gold' ? ' — تاجر (السجل التجاري مطلوب قبل دفع Gold)' : ' — فرد / بائع'}
           </p>
           <p className="text-slate-300">
             الشارة المعتمدة: {tierLabel(request.approvedTier as BadgeTier | null)}
@@ -104,18 +123,45 @@ export default function VerificationDetailPage() {
             {documents.length === 0 ? (
               <p className="text-sm text-slate-500">لا توجد مستندات</p>
             ) : (
-              documents.map((doc) => (
-                <a
-                  key={String(doc.id)}
-                  href={String(doc.fileUrl)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-emerald-400 text-sm underline"
-                >
-                  {String(doc.originalFileName || doc.type)}
-                </a>
+              documents.map((doc) => {
+                const linked = goldPayments.some((p) => p.documentId === doc.id);
+                return (
+                  <div key={String(doc.id)} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-slate-400">{DOCUMENT_TYPE_LABEL[String(doc.type)] ?? String(doc.type)}:</span>
+                    <a
+                      href={String(doc.fileUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-emerald-400 underline"
+                    >
+                      {String(doc.originalFileName || doc.type)}
+                    </a>
+                    {linked ? <Badge tone="warning">مرتبط بدفع Gold</Badge> : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="space-y-2 pt-2">
+            <p className="text-sm text-slate-400">مدفوعات Gold المرتبطة بهذا الطلب</p>
+            {goldPayments.length === 0 ? (
+              <p className="text-sm text-slate-500">لا توجد مدفوعات Gold مرتبطة</p>
+            ) : (
+              goldPayments.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+                  <Badge tone={p.status === 'paid' ? 'success' : p.status === 'failed' ? 'danger' : 'default'}>
+                    {PAYMENT_STATUS_LABEL[p.status] ?? p.status}
+                  </Badge>
+                  <span>
+                    {p.amount} {p.currency}
+                  </span>
+                  <span className="text-slate-500">{formatDate(p.paidAt ?? p.createdAt)}</span>
+                </div>
               ))
             )}
+            <p className="text-xs text-slate-500">
+              لا يُنشأ دفع Gold إلا بعد إرفاق السجل التجاري وإرسال الطلب. الشارة الذهبية تظهر بعد القبول هنا.
+            </p>
           </div>
         </div>
 

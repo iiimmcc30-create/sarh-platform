@@ -43,6 +43,7 @@ export const PLAN_NAMES_AR: Record<string, string> = {
   free: 'مجاني',
   'sarh-pro': 'سرح برو',
   'blue-badge': 'الشارة الزرقاء',
+  'blue-plus-badge': 'Blue+ الشارة الزرقاء',
   'gold-badge': 'الشارة الذهبية',
 };
 

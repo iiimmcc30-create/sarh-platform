@@ -25,6 +25,7 @@ import { tierForPlanSlug } from '../verification/verification-tiers';
 function planDisplayNameAr(planId: string): string {
   const tier = tierForPlanSlug(planId);
   if (tier === 'blue') return 'اشتراك الشارة الزرقاء';
+  if (tier === 'blue_plus') return 'اشتراك Blue+ (الشارة الزرقاء)';
   if (tier === 'gold') return 'اشتراك الشارة الذهبية';
   return `باقة ${planId}`;
 }

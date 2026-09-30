@@ -11,6 +11,7 @@ import { PlansService } from '../plans/plans.service';
 import { PaidServicesService } from '../settings/paid-services.service';
 import { IntegrationCheckoutService } from '../integrations/services/integration-checkout.service';
 import { fetchNiOrderResolved, verifyNiOrderForCheckout } from './ni-client';
+import { GoldDocumentGateService } from '../subscriptions/verification/gold-document-gate.service';
 
 jest.mock('./ni-client', () => {
   const actual = jest.requireActual('./ni-client') as Record<string, unknown>;
@@ -99,6 +100,10 @@ describe('PaymentsService', () => {
         { provide: PlansService, useValue: plans },
         { provide: RedisCacheService, useValue: cache },
         { provide: PaidServicesService, useValue: paidServices },
+        {
+          provide: GoldDocumentGateService,
+          useValue: { assertCanPurchase: jest.fn().mockResolvedValue(null) },
+        },
         {
           provide: IntegrationCheckoutService,
           useValue: {

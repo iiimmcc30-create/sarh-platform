@@ -8,7 +8,9 @@ import { getApiErrorMessage } from '@/services/api.client';
 import {
   type AdminMembership,
   formatDate,
+  badgeColor,
   planLabel,
+  planPriceLabel,
   subscriptionStatus,
   tierLabel,
   VERIFICATION_STATE_LABEL,
@@ -55,7 +57,7 @@ export default function UsersPage() {
           label: 'شارة التوثيق',
           render: (r) =>
             r.membership?.badge.visible ? (
-              <Badge tone={r.membership.badge.tier === 'gold' ? 'warning' : 'info'}>
+              <Badge tone={badgeColor(r.membership.badge.color ?? r.membership.badge.tier) === 'gold' ? 'warning' : 'info'}>
                 {tierLabel(r.membership.badge.tier)}
                 {r.membership.badge.legacy ? ' (قديمة)' : ''}
               </Badge>
@@ -83,6 +85,9 @@ export default function UsersPage() {
             return (
               <div className="space-y-1">
                 <div className="text-xs text-slate-400">{planLabel(r.membership)}</div>
+                {planPriceLabel(r.membership) ? (
+                  <div className="text-xs text-slate-500">{planPriceLabel(r.membership)}</div>
+                ) : null}
                 <Badge tone={st.tone}>{st.label}</Badge>
               </div>
             );

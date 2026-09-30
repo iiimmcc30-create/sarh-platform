@@ -55,23 +55,43 @@ describe('verification page + flow', () => {
   const service = src('services/verification.ts');
   const hero = src('components/verification/VerificationHero.tsx');
 
-  it('offers exactly the Blue and Gold plans as tabs with one sliding underline', () => {
-    expect(page).toContain("const TIERS: VerificationTierId[] = ['blue', 'gold'];");
-    expect(page).toContain("const TAB_LABEL: Record<VerificationTierId, string> = { blue: 'Blue', gold: 'Gold' };");
+  it('offers exactly Blue, Blue+ and Gold (in order) as tabs with one sliding underline', () => {
+    expect(service).toContain("export type VerificationTierId = 'blue' | 'blue_plus' | 'gold';");
+    expect(service).toContain("VERIFICATION_TIER_ORDER: readonly VerificationTierId[] = ['blue', 'blue_plus', 'gold']");
+    expect(page).toContain('const TIERS = VERIFICATION_TIER_ORDER;');
     expect(page).toContain('<SwipeTabIndicator');
     expect(page).toContain('accessibilityRole="tab"');
+    expect(service).toContain("label: 'Blue+'");
     expect(service).toContain("name: 'الشارة الزرقاء'");
     expect(service).toContain("name: 'الشارة الذهبية'");
     expect(service).toContain('defaultExtraDaily: 3');
     expect(service).toContain('defaultExtraDaily: 6');
+    expect(service).toContain('defaultExtraDaily: 10');
+  });
+
+  it('Blue and Blue+ use the blue badge; only Gold is gold', () => {
+    expect(service).toContain("return tier === 'gold' ? 'gold' : 'blue';");
+    expect(resolveVerifiedTier('blue_plus')).toBe('blue');
+    expect(verifiedBadgeColor('blue_plus')).toBe(VERIFIED_BADGE_COLORS.blue);
+    expect(page).toContain('<VerificationHero tier={color}');
+  });
+
+  it('compares the 3 plans without cards: price, daily listings, visibility, badge, document', () => {
+    for (const label of ['السعر الشهري', 'إعلانات يومية', 'أولوية الظهور', 'الشارة', 'مستند']) {
+      expect(page).toContain(`label: '${label}'`);
+    }
+    expect(page).toContain('style={styles.compare}');
+    expect(page).toContain("compareDivider: { borderTopWidth: StyleSheet.hairlineWidth");
+    expect(page).not.toMatch(/compare[A-Za-z]*: \{[^}]*backgroundColor/);
   });
 
   it('follows the reference sheet: close, hero badge, headline, list, monthly plan, pill CTA, fine print', () => {
     const order = [
       'accessibilityLabel="إغلاق"',
-      '<VerificationHero tier={tier}',
+      '<VerificationHero tier={color}',
       'variant="heading2"',
       'accessibilityRole="tablist"',
+      'style={styles.compare}',
       'style={styles.list}',
       'style={[styles.plan, getRtlRow()]}',
       'styles.cta,',
@@ -114,8 +134,8 @@ describe('verification page + flow', () => {
     expect(page).toContain('/ الشهر');
     expect(page).not.toContain('السعر يُعلن قريباً');
     expect(page).not.toMatch(/monthlyPrice:\s*\d/);
-    expect(page).not.toMatch(/\b(29|59)\b/);
-    expect(service).not.toMatch(/\b(29|59)\b/);
+    expect(page).not.toMatch(/\b(29|59|99)\b/);
+    expect(service).not.toMatch(/\b(29|59|99)\b/);
     // No fake reference content.
     expect(page).not.toMatch(/50%|خصم بنسبة|سنوي|Grok|yearly/i);
   });
@@ -130,10 +150,11 @@ describe('verification page + flow', () => {
     expect(service).not.toContain('يتجدد في');
   });
 
-  it('CTA adapts: subscribed / renew / complete Gold verification', () => {
+  it('CTA adapts: subscribed / higher plan / renew / upgrade / Gold document', () => {
     expect(page).toContain("title: 'مشترك'");
-    expect(page).toContain("title: 'أكمل التحقق', onPress: goVerify");
-    expect(page).toContain("title: 'التحقق قيد المراجعة'");
+    expect(page).toContain('مشترك في ${ltr(VERIFICATION_TIER_COPY[sub.tier].label)}');
+    expect(page).toContain("title: 'أرفق المستند للمتابعة', onPress: goDocument");
+    expect(page).toContain("title: 'المستند قيد المراجعة'");
     expect(page).toContain("title: 'الترقية والدفع'");
   });
 
@@ -150,16 +171,20 @@ describe('verification page + flow', () => {
     expect(src('app/payment/result.tsx')).toContain("params.returnTo === 'verification'");
   });
 
-  it('verification is Gold-only (merchant); Blue needs no verification step', () => {
+  it('Gold requires a document before payment; Blue and Blue+ need none', () => {
     const form = src('app/support/verification.tsx');
     expect(form).toContain('GOLD_REQUIREMENTS');
     expect(form).toContain("const tier: Tier = 'gold';");
     expect(form).toContain('requestedTier: tier');
     expect(form).toContain('صورة السجل التجاري');
-    expect(form).not.toContain("'فرد — الشارة الزرقاء'");
-    expect(form).not.toMatch(/const REQUIREMENTS\b/);
-    expect(page).toContain("{tier === 'gold' ? (");
-    expect(page).toContain("const goldLocked = tier === 'gold' && !goldApproved;");
-    expect(page).toContain('بدون طلب توثيق: تظهر فور تفعيل الاشتراك');
+    expect(form).toContain('باقتا Blue وBlue+ لا تحتاجان أي مستند');
+    expect(page).toContain('مستند مطلوب قبل الدفع');
+    expect(page).toContain('const docLocked = docRequired && !goldReady;');
+    expect(page).toContain("status?.goldDocument?.ready === true");
+    expect(page).toContain('بدون مستندات أو تحقق هوية');
+    expect(service).toContain('return plan?.documentRequired ?? plan?.verificationRequired ?? tier === \'gold\';');
+    // The API error code for a missing Gold document reaches the page.
+    expect(service).toContain("code: typeof json.error === 'string' ? json.error : undefined");
+    expect(page).toContain("res.code?.startsWith('gold_')");
   });
 });

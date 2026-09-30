@@ -6,9 +6,9 @@ import type { JwtPayload } from '../../common/types/jwt-payload.interface';
 import { VerificationStatusService } from './verification-status.service';
 
 /**
- * Verification subscriptions (Blue / Gold badge).
+ * Verification subscriptions (Blue / Blue+ / Gold).
  * Checkout goes through the existing POST /payments/initiate
- * (type = subscription, planId = blue-badge | gold-badge, billingCycle = monthly);
+ * (type = subscription, planId = blue-badge | blue-plus-badge | gold-badge, billingCycle = monthly);
  * cancel goes through the existing POST /subscriptions/cancel.
  */
 @Controller('verification')

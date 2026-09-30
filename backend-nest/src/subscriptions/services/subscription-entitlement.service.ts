@@ -261,7 +261,7 @@ export class SubscriptionEntitlementService {
   planPriorityBoost(planSlug: string, audience: PlanAudience): number {
     const plan = this.planResolver.resolveSync(planSlug, audience);
     if (!plan) return 0;
-    return this.permissions.priorityBoost(plan.permissions);
+    return this.permissions.priorityBoost(plan.permissions, plan.slug);
   }
 
   async enrichSubscriptionView(

@@ -1,18 +1,14 @@
 import { readFileSync, readdirSync } from 'fs';
 import path from 'path';
 import type { FeatureValueType } from '@prisma/client';
-import { buildPermissions } from '../../plans/plan.types';
-import { PlanPermissionService } from '../../plans/plan-permission.service';
 import {
   getEffectivePlanSlug,
   hasPaidAccess,
   RENEWAL_REMINDER_DAYS,
   SUBSCRIPTION_GRACE_DAYS,
 } from '../../lib/subscription-lifecycle';
-import { resolveListingCreateDailyLimit } from '../../listings/listing-policy';
 import { SubscriptionLifecycleService } from '../services/subscription-lifecycle.service';
 import { VerificationBadgeService } from './verification-badge.service';
-import { VerificationStatusService } from './verification-status.service';
 import { buildAdminMembership } from './admin-membership';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -61,7 +57,6 @@ function seededPlans() {
 }
 
 describe('verification plans: prices and benefits', () => {
-  const permissions = new PlanPermissionService({} as never);
   const plans = seededPlans();
   const blue = plans.find((p) => p.slug === 'blue-badge')!;
   const gold = plans.find((p) => p.slug === 'gold-badge')!;
@@ -84,57 +79,8 @@ describe('verification plans: prices and benefits', () => {
     expect(gold).toMatchObject({ monthlyPrice: 59, isActive: true });
   });
 
-  it('plans API exposes Blue 29 SAR and Gold 59 SAR monthly, purchasable', async () => {
-    const prisma = { plan: { findMany: jest.fn().mockResolvedValue(plans) } };
-    const svc = new VerificationStatusService(
-      prisma as never,
-      {} as never,
-      permissions,
-      {} as never,
-    );
-    const out = await svc.getPlans();
-    expect(
-      out.map((p) => [
-        p.tier,
-        p.monthlyPrice,
-        p.currency,
-        p.billingCycle,
-        p.available,
-      ]),
-    ).toEqual([
-      ['blue', 29, 'SAR', 'monthly', true],
-      ['gold', 59, 'SAR', 'monthly', true],
-    ]);
-    // Blue needs no verification; Gold needs an approved merchant verification.
-    expect(out.map((p) => p.verificationRequired)).toEqual([false, true]);
-  });
-
-  it('Blue gives +3 and Gold +6 daily listings on top of the base limit', () => {
-    const extraBlue = permissions.extraDailyListings(
-      buildPermissions(blue.features),
-      'blue-badge',
-    );
-    const extraGold = permissions.extraDailyListings(
-      buildPermissions(gold.features),
-      'gold-badge',
-    );
-    expect(extraBlue).toBe(3);
-    expect(extraGold).toBe(6);
-    const base = resolveListingCreateDailyLimit('USER', 0).limit;
-    expect(resolveListingCreateDailyLimit('USER', 0, extraBlue).limit).toBe(
-      base + 3,
-    );
-    expect(resolveListingCreateDailyLimit('USER', 0, extraGold).limit).toBe(
-      base + 6,
-    );
-  });
-
-  it('Gold visibility priority is higher than Blue (existing priorityBoost)', () => {
-    const b = permissions.priorityBoost(buildPermissions(blue.features));
-    const g = permissions.priorityBoost(buildPermissions(gold.features));
-    expect(b).toBeGreaterThan(0);
-    expect(g).toBeGreaterThan(b);
-  });
+  // Final plan values (Blue 29 / Blue+ 59 / Gold 99, +3 / +6 / +10) are
+  // covered by verification-plans-final.spec.ts (migration 20260930150000).
 });
 
 describe('manual renewal lifecycle', () => {
@@ -284,7 +230,7 @@ describe('manual renewal lifecycle', () => {
           planId: 'gold-badge',
           renewDate,
           autoRenew: true,
-          plan: { name: 'الشارة الذهبية', monthlyPrice: 59, currency: 'SAR' },
+          plan: { name: 'الشارة الذهبية', monthlyPrice: 99, currency: 'SAR' },
         },
         accountVerificationRequest: {
           status: 'VERIFIED',
@@ -299,12 +245,17 @@ describe('manual renewal lifecycle', () => {
       },
       at(-5 * DAY),
     );
-    expect(m.badge).toEqual({ visible: true, tier: 'gold', legacy: false });
+    expect(m.badge).toEqual({
+      visible: true,
+      tier: 'gold',
+      color: 'gold',
+      legacy: false,
+    });
     expect(m.verification.state).toBe('approved');
     expect(m.subscription).toMatchObject({
       state: 'active',
       tier: 'gold',
-      monthlyPrice: 59,
+      monthlyPrice: 99,
       renewDate,
       startedAt: new Date('2026-10-02T09:00:00Z'),
     });
@@ -312,7 +263,12 @@ describe('manual renewal lifecycle', () => {
       { verified: true, verifiedTier: null, subscription: null },
       null,
     );
-    expect(legacy.badge).toEqual({ visible: true, tier: 'blue', legacy: true });
+    expect(legacy.badge).toEqual({
+      visible: true,
+      tier: 'blue',
+      color: 'blue',
+      legacy: true,
+    });
     expect(legacy.subscription.state).toBe('none');
   });
 });

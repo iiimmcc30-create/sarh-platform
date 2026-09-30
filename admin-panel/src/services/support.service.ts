@@ -48,9 +48,21 @@ export async function fetchVerificationRequests(params: ListParams = {}) {
   return unwrap<Paginated<Record<string, unknown>>>(res);
 }
 
+/** Gold subscription payment linked to a verification request (document). */
+export type GoldPaymentLink = {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  paidAt: string | null;
+  planId: string | null;
+  documentId: string | null;
+};
+
 export async function fetchVerificationRequest(id: string) {
   const res = await apiClient.get(`/admin/support/verification/${id}`);
-  return unwrap<{ request: Record<string, unknown> }>(res);
+  return unwrap<{ request: Record<string, unknown>; goldPayments?: GoldPaymentLink[] }>(res);
 }
 
 export async function updateVerificationRequest(id: string, body: Record<string, unknown>) {

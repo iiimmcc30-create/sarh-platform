@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { PlanAudience } from '@prisma/client';
 import { PlanResolverService } from './plan-resolver.service';
-import { extraDailyListingsForPlan } from '../subscriptions/verification/verification-tiers';
+import {
+  extraDailyListingsForPlan,
+  visibilityLevelForPlan,
+} from '../subscriptions/verification/verification-tiers';
 import {
   isUnlimited,
   permissionBoolean,
@@ -95,7 +98,16 @@ export class PlanPermissionService {
     return extraDailyListingsForPlan(planSlug, permissions.extraDailyListings);
   }
 
-  priorityBoost(permissions: PlanPermissions): number {
+  /**
+   * Seller visibility priority used to rank listings. Verification plans use
+   * their tier level (Blue 1 < Blue+ 2 < Gold 3) while prioritySearch is on;
+   * other plans keep the feature-based levels.
+   */
+  priorityBoost(permissions: PlanPermissions, planSlug?: string): number {
+    const tierLevel = visibilityLevelForPlan(planSlug);
+    if (tierLevel != null) {
+      return this.hasPrioritySearch(permissions) ? tierLevel : 0;
+    }
     if (!this.hasPrioritySearch(permissions)) return 0;
     if (this.hasPriorityHome(permissions)) return 3;
     if (this.hasVerifiedBadge(permissions)) return 2;

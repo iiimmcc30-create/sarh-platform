@@ -14,6 +14,10 @@ import { AppNotificationsService } from '../queue/services/app-notifications.ser
 import { SubscriptionCacheService } from '../subscriptions/services/subscription-cache.service';
 import { SubscriptionLifecycleService } from '../subscriptions/services/subscription-lifecycle.service';
 import { SubscriptionEntitlementService } from '../subscriptions/services/subscription-entitlement.service';
+import {
+  GoldDocumentGateService,
+  type GoldPurchaseLink,
+} from '../subscriptions/verification/gold-document-gate.service';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
 import { LISTINGS_FEED_CACHE_PATTERN } from '../listings/listings-cache-keys';
 import { PlansService } from '../plans/plans.service';
@@ -121,6 +125,7 @@ export class PaymentsService
     private readonly paidServices: PaidServicesService,
     @Inject(forwardRef(() => IntegrationCheckoutService))
     private readonly integrationCheckout: IntegrationCheckoutService,
+    private readonly goldDocumentGate: GoldDocumentGateService,
   ) {}
 
   private async invalidateListingCaches(listingId?: string) {
@@ -577,6 +582,7 @@ export class PaymentsService
       saleAmount,
     } = dto;
 
+    let goldPurchase: GoldPurchaseLink | null = null;
     if (type === 'subscription') {
       if (!planId || !billingCycle) {
         throwApi(400, 'validation_error', 'يجب تحديد الباقة ودورة الفوترة');
@@ -599,6 +605,12 @@ export class PaymentsService
           `المبلغ غير مطابق. المبلغ الصحيح: ${expectedAmount} ريال`,
         );
       }
+      // Gold verification plan: a valid merchant document must be attached
+      // (server-side; direct API calls cannot skip it). Blue / Blue+ pass.
+      goldPurchase = await this.goldDocumentGate.assertCanPurchase(
+        user.userId,
+        normalizedPlan,
+      );
     }
 
     if (!referenceId) throwApi(400, 'ref_required', 'معرّف المرجع مطلوب');
@@ -653,6 +665,7 @@ export class PaymentsService
       ...(type === 'subscription' && planId && billingCycle
         ? { targetPlanId: planId, billingCycle }
         : {}),
+      ...(goldPurchase ? { goldVerification: goldPurchase } : {}),
     };
 
     const pendingParams = {

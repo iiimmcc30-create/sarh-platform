@@ -4,8 +4,12 @@ import {
   type SubscriptionRow,
 } from '../../lib/subscription-lifecycle';
 import {
+  badgeColorForTier,
   effectiveApprovedTier,
+  isReviewTier,
   isVerificationTier,
+  type BadgeColor,
+  type ReviewTier,
   type VerificationTier,
 } from './verification-tiers';
 import {
@@ -72,15 +76,17 @@ export type LastPaidSubscription = {
 export type AdminMembership = {
   badge: {
     visible: boolean;
-    /** blue | gold; legacy verified users without a tier show blue. */
+    /** blue | blue_plus | gold; legacy verified users without a tier show blue. */
     tier: VerificationTier | null;
+    /** Badge colour: blue (Blue, Blue+, legacy) or gold (approved Gold). */
+    color: BadgeColor | null;
     legacy: boolean;
   };
   verification: {
     state: VerificationState;
     requestStatus: string | null;
-    requestedTier: VerificationTier | null;
-    approvedTier: VerificationTier | null;
+    requestedTier: ReviewTier | null;
+    approvedTier: ReviewTier | null;
     submittedAt: Date | null;
     reviewedAt: Date | null;
   };
@@ -129,12 +135,13 @@ export function buildAdminMembership(
     badge: {
       visible: !!user.verified,
       tier: badgeTier,
+      color: user.verified ? badgeColorForTier(user.verifiedTier) : null,
       legacy: !!user.verified && !user.subscriptionBadge && !user.verifiedTier,
     },
     verification: {
       state: mapVerificationState(request),
       requestStatus: request?.status ?? null,
-      requestedTier: isVerificationTier(request?.requestedTier)
+      requestedTier: isReviewTier(request?.requestedTier)
         ? request.requestedTier
         : null,
       approvedTier: effectiveApprovedTier(request),

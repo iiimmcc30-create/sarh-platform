@@ -151,7 +151,10 @@ export class ListingsService {
     const audience = sub?.planAudience ?? 'USER';
     const resolved = this.planResolver.resolveSync(planId, audience);
     if (resolved) {
-      return this.planPermissions.priorityBoost(resolved.permissions);
+      return this.planPermissions.priorityBoost(
+        resolved.permissions,
+        resolved.slug,
+      );
     }
     return seller?.verified ? 1 : 0;
   }

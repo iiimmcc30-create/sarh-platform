@@ -1,16 +1,28 @@
 /**
  * Verification badge + subscription summary returned by the admin users
  * endpoints (`membership` on GET /admin/users and GET /admin/users/:id).
+ * Plans: Blue (blue badge), Blue+ (blue badge), Gold (gold badge, document
+ * required before payment).
  */
-export type BadgeTier = 'blue' | 'gold';
+export type PlanTier = 'blue' | 'blue_plus' | 'gold';
+/** Tier accepted by labels (plan tier or review tier). */
+export type BadgeTier = PlanTier;
+/** Tier of the verification (document) review. */
+export type ReviewTier = 'blue' | 'gold';
 
 export type AdminMembership = {
-  badge: { visible: boolean; tier: BadgeTier | null; legacy: boolean };
+  badge: {
+    visible: boolean;
+    tier: PlanTier | null;
+    /** Badge colour: only Gold is gold (Blue+ stays blue). */
+    color?: 'blue' | 'gold' | null;
+    legacy: boolean;
+  };
   verification: {
     state: 'not_started' | 'pending_review' | 'needs_amendments' | 'approved' | 'rejected';
     requestStatus: string | null;
-    requestedTier: BadgeTier | null;
-    approvedTier: BadgeTier | null;
+    requestedTier: ReviewTier | null;
+    approvedTier: ReviewTier | null;
     submittedAt: string | null;
     reviewedAt: string | null;
   };
@@ -21,7 +33,7 @@ export type AdminMembership = {
     currency: string | null;
     state: 'none' | 'active' | 'canceled' | 'grace_period' | 'expired';
     lifecycle: string;
-    tier: BadgeTier | null;
+    tier: PlanTier | null;
     startedAt: string | null;
     renewDate: string | null;
     renewalIntent: boolean;
@@ -30,10 +42,16 @@ export type AdminMembership = {
 
 export type Tone = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
-export const BADGE_TIER_LABEL: Record<BadgeTier, string> = {
-  blue: 'Blue Badge · الشارة الزرقاء',
-  gold: 'Gold Badge · الشارة الذهبية',
+export const BADGE_TIER_LABEL: Record<PlanTier, string> = {
+  blue: 'Blue · الشارة الزرقاء',
+  blue_plus: 'Blue+ · الشارة الزرقاء',
+  gold: 'Gold · الشارة الذهبية',
 };
+
+/** Only Gold is gold; Blue, Blue+ and legacy badges are blue. */
+export function badgeColor(tier: string | null | undefined): 'blue' | 'gold' {
+  return tier === 'gold' ? 'gold' : 'blue';
+}
 
 export function tierLabel(tier: BadgeTier | null | undefined): string {
   return tier ? BADGE_TIER_LABEL[tier] : '—';
@@ -86,6 +104,13 @@ export function subscriptionStatus(m: AdminMembership | undefined): { label: str
   if (s.tier || s.state !== 'none') return { label: STATE_LABEL[s.state], tone: STATE_TONE[s.state] };
   const label = LIFECYCLE_LABEL[s.lifecycle] ?? s.lifecycle;
   return { label, tone: s.lifecycle === 'active' ? 'success' : s.lifecycle === 'free' ? 'default' : 'warning' };
+}
+
+/** Monthly price of the current plan, e.g. "59 SAR / شهر". */
+export function planPriceLabel(m: AdminMembership | undefined): string {
+  const s = m?.subscription;
+  if (!s?.monthlyPrice) return '';
+  return `${s.monthlyPrice} ${s.currency ?? 'SAR'} / شهر`;
 }
 
 export function planLabel(m: AdminMembership | undefined): string {

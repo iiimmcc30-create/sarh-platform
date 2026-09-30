@@ -1,12 +1,19 @@
-// Verification subscriptions (Blue / Gold badge).
+// Verification subscriptions (Blue / Blue+ / Gold).
 // Status: GET /api/verification/status. Checkout: the existing Payment Core
 // entry point POST /api/payments/initiate (type = subscription). Cancel: the
 // existing POST /api/subscriptions/cancel. No new payment flow here.
+// Gold needs a merchant document (commercial register) submitted for review
+// before payment; the API rejects Gold payments without it.
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import type { InitiatedPayment } from '@/services/payments';
 
-export type VerificationTierId = 'blue' | 'gold';
+/** Plan tiers in display order. Blue and Blue+ show the blue badge. */
+export type VerificationTierId = 'blue' | 'blue_plus' | 'gold';
+/** Tier of the verification (document) review. */
+export type ReviewTierId = 'blue' | 'gold';
+
+export const VERIFICATION_TIER_ORDER: readonly VerificationTierId[] = ['blue', 'blue_plus', 'gold'];
 
 export type VerificationPlan = {
   tier: VerificationTierId;
@@ -17,12 +24,18 @@ export type VerificationPlan = {
   billingCycle: 'monthly';
   /** False while the price is still the 0 placeholder (admin must set it). */
   priceConfigured: boolean;
-  /** Blue: false (subscription only). Gold: true (approved merchant verification). */
+  /** Badge colour: Blue / Blue+ = blue, Gold = gold. */
+  badgeColor?: 'blue' | 'gold';
+  /** Gold only: a document is required before payment. */
+  documentRequired?: boolean;
+  /** @deprecated same as documentRequired. */
   verificationRequired?: boolean;
   /** Active plan with a real price: can be purchased. */
   available: boolean;
   extraDailyListings: number;
   visibilityBoost: number;
+  /** 1 = Blue, 2 = Blue+, 3 = Gold (highest). */
+  visibilityLevel?: number;
 };
 
 export type VerificationState =
@@ -39,17 +52,25 @@ export type VerificationSubscriptionState =
   | 'grace_period'
   | 'expired';
 
+export type GoldDocumentStatus = {
+  ready: boolean;
+  code: 'gold_document_required' | 'gold_document_not_submitted' | 'gold_verification_rejected' | null;
+  messageAr: string | null;
+};
+
 export type VerificationStatus = {
   plans: VerificationPlan[];
   verification: {
     state: VerificationState;
     requestStatus: string | null;
-    requestedTier: VerificationTierId | null;
-    approvedTier: VerificationTierId | null;
+    requestedTier: ReviewTierId | null;
+    approvedTier: ReviewTierId | null;
     reviewReason: string | null;
     submittedAt: string | null;
     reviewedAt: string | null;
   };
+  /** Gold payment gate (same rule the API enforces). */
+  goldDocument?: GoldDocumentStatus;
   subscription: {
     id: string | null;
     state: VerificationSubscriptionState;
@@ -58,26 +79,63 @@ export type VerificationStatus = {
     renewDate: string | null;
     autoRenew: boolean;
   };
-  badge: { visible: boolean; tier: VerificationTierId | null; legacy: boolean };
+  badge: {
+    visible: boolean;
+    tier: VerificationTierId | null;
+    color?: 'blue' | 'gold' | null;
+    legacy: boolean;
+  };
   billing: { cycle: 'monthly'; automaticCharge: boolean; renewal: string };
 };
 
-/** Product copy per tier (benefit numbers come from the plan when available). */
+/** Only Gold is gold; Blue, Blue+ (and legacy) are blue. */
+export function badgeColorOf(tier: unknown): 'blue' | 'gold' {
+  return tier === 'gold' ? 'gold' : 'blue';
+}
+
+export function tierRank(tier: VerificationTierId | null | undefined): number {
+  return tier ? VERIFICATION_TIER_ORDER.indexOf(tier) : -1;
+}
+
+/** Product copy per tier (numbers come from the plan when available). */
 export const VERIFICATION_TIER_COPY: Record<
   VerificationTierId,
-  { name: string; audience: string; visibility: string; defaultExtraDaily: number }
+  {
+    label: string;
+    name: string;
+    audience: string;
+    visibility: string;
+    visibilityShort: string;
+    defaultExtraDaily: number;
+    defaultVisibilityLevel: number;
+  }
 > = {
   blue: {
+    label: 'Blue',
     name: 'الشارة الزرقاء',
     audience: 'للأفراد والبائعين',
-    visibility: 'ظهور أعلى لحسابك وإعلاناتك',
+    visibility: 'ظهور أعلى من الحساب العادي',
+    visibilityShort: 'مرتفعة',
     defaultExtraDaily: 3,
+    defaultVisibilityLevel: 1,
+  },
+  blue_plus: {
+    label: 'Blue+',
+    name: 'Blue+ الشارة الزرقاء',
+    audience: 'للمستخدمين النشطين',
+    visibility: 'أولوية ظهور أعلى من Blue',
+    visibilityShort: 'أعلى',
+    defaultExtraDaily: 6,
+    defaultVisibilityLevel: 2,
   },
   gold: {
+    label: 'Gold',
     name: 'الشارة الذهبية',
     audience: 'للتجار والبائعين المحترفين',
-    visibility: 'أعلى ظهور لحسابك وإعلاناتك',
-    defaultExtraDaily: 6,
+    visibility: 'أعلى أولوية ظهور',
+    visibilityShort: 'الأعلى',
+    defaultExtraDaily: 10,
+    defaultVisibilityLevel: 3,
   },
 };
 
@@ -122,6 +180,15 @@ export function extraDailyFor(plan: VerificationPlan | undefined, tier: Verifica
   return plan?.extraDailyListings ?? VERIFICATION_TIER_COPY[tier].defaultExtraDaily;
 }
 
+export function visibilityLevelFor(plan: VerificationPlan | undefined, tier: VerificationTierId): number {
+  return plan?.visibilityLevel ?? VERIFICATION_TIER_COPY[tier].defaultVisibilityLevel;
+}
+
+/** Gold only: document required before payment (API value, Gold by default). */
+export function documentRequiredFor(plan: VerificationPlan | undefined, tier: VerificationTierId): boolean {
+  return plan?.documentRequired ?? plan?.verificationRequired ?? tier === 'gold';
+}
+
 export async function fetchVerificationStatus(): Promise<VerificationStatus | null> {
   try {
     const res = await authFetch(`${API_BASE}/api/verification/status`);
@@ -149,7 +216,7 @@ export async function initiateVerificationSubscription(params: {
   plan: VerificationPlan;
   subscriptionId: string;
   method?: string;
-}): Promise<InitiatedPayment & { ok: boolean; error?: string }> {
+}): Promise<InitiatedPayment & { ok: boolean; error?: string; code?: string }> {
   const { plan, subscriptionId, method = 'mada' } = params;
   const copy = VERIFICATION_TIER_COPY[plan.tier];
   try {
@@ -170,7 +237,11 @@ export async function initiateVerificationSubscription(params: {
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) {
-      return { ok: false, error: json.messageAr ?? json.message ?? 'تعذّر بدء عملية الدفع' };
+      return {
+        ok: false,
+        error: json.messageAr ?? json.message ?? 'تعذّر بدء عملية الدفع',
+        code: typeof json.error === 'string' ? json.error : undefined,
+      };
     }
     const data = (json.data ?? {}) as InitiatedPayment;
     return { ok: true, ...data };

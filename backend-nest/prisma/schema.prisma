@@ -27,7 +27,8 @@ model User {
   publicPhone                         String?
   publicEmail                         String?
   verified                            Boolean                           @default(false)
-  /// Badge colour: "blue" | "gold". Null = legacy verified (rendered blue).
+  /// Badge tier: "blue" | "blue_plus" | "gold" (only "gold" is the gold badge;
+  /// blue_plus and null = legacy verified render the blue badge).
   verifiedTier                        String?
   /// True when `verified` was granted by an active verification subscription
   /// (so it is revoked when the subscription ends). Legacy badges stay false.

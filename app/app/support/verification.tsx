@@ -20,8 +20,9 @@ import { AppText, SarhButton, SarhDivider, SarhInput } from '@/design-system/com
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 
 /**
- * Verification is required for the Gold badge only (merchants). The Blue badge
- * needs no verification request: an active Blue subscription is enough.
+ * Verification is required for the Gold plan only (merchants): the commercial
+ * register must be attached and submitted before Gold payment (enforced by the
+ * API). Blue and Blue+ need no verification request or document.
  */
 const GOLD_REQUIREMENTS = [
   'الاسم الكامل كما في الهوية',
@@ -186,7 +187,7 @@ export default function AccountVerificationScreen() {
 
         <Section title="توثيق التاجر — الشارة الذهبية" gap="xs">
           <AppText variant="caption" color="textSecondary" style={styles.requirement}>
-            هذا التوثيق مطلوب للشارة الذهبية فقط. الشارة الزرقاء لا تحتاج أي طلب توثيق: يكفي اشتراك Blue فعّال.
+            هذا التوثيق مطلوب لباقة Gold فقط: أرفق السجل التجاري وأرسل الطلب للمراجعة قبل الدفع، وتظهر الشارة الذهبية بعد قبوله. باقتا Blue وBlue+ لا تحتاجان أي مستند.
           </AppText>
         </Section>
 

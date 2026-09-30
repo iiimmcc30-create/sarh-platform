@@ -32,6 +32,7 @@ const legacyUser = {
 describe('verification tiers', () => {
   it('maps plan slugs to tiers', () => {
     expect(tierForPlanSlug('blue-badge')).toBe('blue');
+    expect(tierForPlanSlug('blue-plus-badge')).toBe('blue_plus');
     expect(tierForPlanSlug('gold-badge')).toBe('gold');
     expect(tierForPlanSlug('sarh-pro')).toBeNull();
     expect(tierForPlanSlug('free')).toBeNull();
@@ -62,7 +63,18 @@ describe('verification tiers', () => {
     expect(
       resolveBadgeTier({ subscriptionTier: 'gold', approvedTier: null }),
     ).toBe('blue');
-    expect(TIER_REQUIRES_VERIFICATION).toEqual({ blue: false, gold: true });
+    // Blue+ keeps the blue badge (never gold).
+    expect(
+      resolveBadgeTier({ subscriptionTier: 'blue_plus', approvedTier: null }),
+    ).toBe('blue_plus');
+    expect(
+      resolveBadgeTier({ subscriptionTier: 'blue_plus', approvedTier: 'gold' }),
+    ).toBe('blue_plus');
+    expect(TIER_REQUIRES_VERIFICATION).toEqual({
+      blue: false,
+      blue_plus: false,
+      gold: true,
+    });
   });
 
   it('treats requests approved before tiers as blue approvals', () => {
@@ -78,9 +90,10 @@ describe('verification tiers', () => {
     expect(effectiveApprovedTier(null)).toBeNull();
   });
 
-  it('extra daily listings: Blue +3, Gold +6, feature value wins', () => {
+  it('extra daily listings: Blue +3, Blue+ +6, Gold +10, feature value wins', () => {
     expect(extraDailyListingsForPlan('blue-badge', undefined)).toBe(3);
-    expect(extraDailyListingsForPlan('gold-badge', undefined)).toBe(6);
+    expect(extraDailyListingsForPlan('blue-plus-badge', undefined)).toBe(6);
+    expect(extraDailyListingsForPlan('gold-badge', undefined)).toBe(10);
     expect(extraDailyListingsForPlan('gold-badge', 8)).toBe(8);
     expect(extraDailyListingsForPlan('free', undefined)).toBe(0);
   });

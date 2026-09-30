@@ -22,7 +22,7 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     key: 'extraDailyListings',
     labelAr: 'إعلانات يومية إضافية',
     descriptionAr:
-      'عدد الإعلانات الإضافية فوق الحد اليومي الأساسي (باقات التوثيق: الأزرق +3، الذهبي +6)',
+      'عدد الإعلانات الإضافية فوق الحد اليومي الأساسي (باقات التوثيق: Blue +3، Blue+ +6، Gold +10)',
     valueType: 'NUMBER',
     audiences: ['USER'],
     suggestedValue: '0',
