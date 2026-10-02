@@ -15,6 +15,17 @@ import { safePush } from '@/lib/safeNavigate';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { TrendingTopicRow } from '@/components/feature/TrendingTopicRow';
 import {
+  ListingCardSkeleton,
+  NewsCardSkeleton,
+  PostCardSkeleton,
+  SectionTitleSkeleton,
+  ServiceCardSkeleton,
+  SkeletonRegion,
+  ThumbRowSkeleton,
+  TrendingListSkeleton,
+  UserIdentityRowSkeleton,
+} from '@/components/ui/skeleton';
+import {
   EXPLORE_TRENDING_PREVIEW,
   TRENDING_SECTION_TITLE,
   toTrendingRows,
@@ -879,9 +890,10 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const trendingRows = useMemo(() => toTrendingRows(trendingItems), [trendingItems]);
 
   const trendingBlock = !trendingLoaded ? (
-    <Stack gap="md" align="center" style={[styles.hintBox, { paddingHorizontal: gutter }]}>
-      <ActivityIndicator color={colors.electricBright} />
-    </Stack>
+    // First load: plain X-style rows (same padding/lines as TrendingTopicRow).
+    <SkeletonRegion>
+      <TrendingListSkeleton count={8} />
+    </SkeletonRegion>
   ) : trendingRows.length === 0 ? (
     <AppText
       variant="caption"
@@ -899,13 +911,9 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     // Social discovery only: trending, suggested accounts, feed suppliers, then content.
     // Listings and market categories from the API are never rendered here.
     const visibleSections = orderExploreSections(exploreSections);
-    if (exploreLoading && visibleSections.length === 0) {
-      return (
-        <Stack gap="md" align="center" style={[styles.hintBox, { paddingHorizontal: gutter }]}>
-          <ActivityIndicator color={colors.electricBright} />
-        </Stack>
-      );
-    }
+    // First load: skeleton sections in the real order (trending, then accounts).
+    // Recent searches are local data, so they render for real in between.
+    const exploreSkeleton = exploreLoading && visibleSections.length === 0;
 
     // "المواضيع المتداولة" leads the Search page (full hashtags as written);
     // recent searches and the other discovery sections follow unchanged.
@@ -1028,6 +1036,14 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
 
     return (
       <Stack gap="lg">
+        {exploreSkeleton ? (
+          <SkeletonRegion>
+            <Stack gap="none">
+              <SectionTitleSkeleton style={{ paddingHorizontal: gutter }} />
+              <TrendingListSkeleton count={EXPLORE_TRENDING_PREVIEW} />
+            </Stack>
+          </SkeletonRegion>
+        ) : null}
         {trendingSections.map(renderSection)}
 
         {recentSearches.length > 0 ? (
@@ -1059,6 +1075,16 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
           </Stack>
         ) : null}
 
+        {exploreSkeleton ? (
+          <SkeletonRegion>
+            <Stack gap="sm" style={{ paddingHorizontal: gutter }}>
+              <SectionTitleSkeleton width="30%" />
+              {[0, 1, 2].map((i) => (
+                <UserIdentityRowSkeleton key={i} style={styles.userRow} />
+              ))}
+            </Stack>
+          </SkeletonRegion>
+        ) : null}
         {otherSections.map(renderSection)}
       </Stack>
     );
@@ -1067,7 +1093,11 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const newsIdle = (
     <Stack gap="sm" style={{ paddingHorizontal: gutter }}>
       {!newsLoaded ? (
-        <ActivityIndicator color={colors.electricBright} />
+        <SkeletonRegion>
+          {Array.from({ length: 7 }, (_, i) => (
+            <ThumbRowSkeleton key={i} />
+          ))}
+        </SkeletonRegion>
       ) : stories.length === 0 ? (
         <AppText variant="caption" color="textMuted" align="center">
           لا توجد أخبار حالياً
@@ -1090,7 +1120,11 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const servicesIdle = (
     <Stack gap="md" style={{ paddingHorizontal: gutter }}>
       {!servicesLoaded ? (
-        <ActivityIndicator color={colors.electricBright} />
+        <SkeletonRegion style={styles.skeletonStack}>
+          {[0, 1, 2, 3].map((i) => (
+            <ServiceCardSkeleton key={i} />
+          ))}
+        </SkeletonRegion>
       ) : services.length === 0 ? (
         <AppText variant="caption" color="textMuted" align="center">
           لا توجد خدمات حالياً
@@ -1108,6 +1142,56 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
       )}
     </Stack>
   );
+
+  /** Skeleton rows for a results page, matching `resultFrame` + `renderResult`. */
+  const renderResultsSkeleton = () => {
+    const inset = [styles.insetResult, { paddingHorizontal: gutter }];
+    switch (filter) {
+      case 'listings':
+        return [0, 1, 2, 3, 4].map((i) => (
+          <View key={i} style={styles.listingResult}>
+            <ListingCardSkeleton />
+          </View>
+        ));
+      case 'posts':
+        return [0, 1, 2, 3].map((i) => <PostCardSkeleton key={i} withMedia={i === 1} />);
+      case 'users':
+        return [0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <View key={i} style={inset}>
+            <UserIdentityRowSkeleton style={styles.userRow} />
+          </View>
+        ));
+      case 'news':
+        return [0, 1, 2].map((i) => (
+          <View key={i} style={inset}>
+            <NewsCardSkeleton />
+          </View>
+        ));
+      case 'services':
+        return [0, 1, 2, 3].map((i) => (
+          <View key={i} style={inset}>
+            <ServiceCardSkeleton />
+          </View>
+        ));
+      default:
+        // "all": latest mixed results — accounts first, then listings and posts.
+        return (
+          <>
+            {[0, 1].map((i) => (
+              <View key={`u${i}`} style={inset}>
+                <UserIdentityRowSkeleton style={styles.userRow} />
+              </View>
+            ))}
+            {[0, 1].map((i) => (
+              <View key={`l${i}`} style={styles.listingResult}>
+                <ListingCardSkeleton />
+              </View>
+            ))}
+            <PostCardSkeleton />
+          </>
+        );
+    }
+  };
 
   const idleForSection =
     section === 'explore'
@@ -1219,10 +1303,8 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
                 ) : null}
 
                 {loading && totalResults === 0 ? (
-                  <Stack gap="md" align="center" style={[styles.loadingBox, { paddingHorizontal: gutter }]}>
-                    <ActivityIndicator color={colors.glow} />
-                    <AppText variant="caption" color="textMuted">جاري البحث...</AppText>
-                  </Stack>
+                  // First results load: rows shaped like the active filter's real rows.
+                  <SkeletonRegion>{renderResultsSkeleton()}</SkeletonRegion>
                 ) : null}
 
                 {error && totalResults === 0 ? (
@@ -1430,7 +1512,8 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       backgroundColor: colors.bgDeep,
     },
     resultBody: { flex: 1, justifyContent: 'center' },
-    loadingBox: { paddingVertical: 32 },
+    /** = servicesIdle Stack gap="md". */
+    skeletonStack: { gap: space[12] },
     hintBox: { paddingVertical: 24 },
     noResults: { paddingVertical: 48 },
   });

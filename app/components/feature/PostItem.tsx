@@ -35,6 +35,7 @@ import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { requireAuth } from '@/lib/postInteractions';
 import { fetchUserProfile, setFollowUser } from '@/services/users';
+import { POST_ITEM_LAYOUT } from '@/components/feature/postItemLayout';
 
 const HASHTAG_BLUE = '#1D9BF0';
 
@@ -553,12 +554,12 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       paddingHorizontal: spacing.md,
       paddingTop: spacing.md,
       paddingBottom: spacing.sm,
-      gap: 12,
+      gap: POST_ITEM_LAYOUT.rowGap,
     },
     avatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: POST_ITEM_LAYOUT.avatar,
+      height: POST_ITEM_LAYOUT.avatar,
+      borderRadius: POST_ITEM_LAYOUT.avatar / 2,
       backgroundColor: colors.bgSurface,
       flexShrink: 0,
     },

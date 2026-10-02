@@ -1,5 +1,6 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { ListingCard } from '@/components/feature/ListingCard';
+import { ListingCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppFlatList } from '@/components/ui/AppFlatList';
 import { ds } from '@/constants/designSystem';
@@ -272,50 +273,66 @@ export default function MarketBrowseScreen() {
     </View>
   );
 
+  // First load only: skeleton rows; a refetch with rows keeps them visible.
+  const firstLoad = (loading || loadFailed) && items.length === 0;
+
   return (
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader variant="screen" showBack title={headerTitle} />
       <ScreenBody scroll={false} gutter={false}>
-        {(loading || loadFailed) && items.length === 0 ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.electric} />
-          </View>
-        ) : (
-          <AppFlatList
-            data={filtered}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id}
-            ListHeaderComponent={ListHeader}
-            ListEmptyComponent={
-              loading || loadFailed ? (
-                <Stack gap="md" align="center" style={styles.empty}>
-                  <ActivityIndicator color={colors.electric} />
-                </Stack>
-              ) : (
-                <Stack gap="md" align="center" style={styles.empty}>
-                  <AppText variant="heading2" align="center">
-                    🔍
+        {/* One list for every phase: header (search/filters) stays, rows swap in place. */}
+        <AppFlatList
+          data={filtered}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={
+            firstLoad && loading ? (
+              <SkeletonRegion>
+                {Array.from({ length: 6 }, (_, i) => (
+                  <ListingCardSkeleton key={i} />
+                ))}
+              </SkeletonRegion>
+            ) : loadFailed ? (
+              <Stack gap="sm" align="center" style={styles.empty}>
+                <AppText variant="body" color="textMuted" align="center">
+                  تعذّر تحميل الإعلانات
+                </AppText>
+                <Pressable
+                  onPress={() => void loadFirstPage()}
+                  accessibilityRole="button"
+                  accessibilityLabel="إعادة المحاولة"
+                  hitSlop={8}
+                >
+                  <AppText variant="body" color="primary">
+                    إعادة المحاولة
                   </AppText>
-                  <AppText variant="body" color="textMuted" align="center">
-                    لا توجد إعلانات في هذا التصنيف
-                  </AppText>
-                </Stack>
-              )
-            }
-            ListFooterComponent={
-              <View style={styles.listFooter}>
-                {loadingMore ? <ActivityIndicator color={colors.electric} /> : null}
-              </View>
-            }
-            onEndReachedThreshold={0.4}
-            onEndReached={() => {
-              void loadNextPage();
-            }}
-            initialNumToRender={12}
-            maxToRenderPerBatch={10}
-            windowSize={8}
-          />
-        )}
+                </Pressable>
+              </Stack>
+            ) : (
+              <Stack gap="md" align="center" style={styles.empty}>
+                <AppText variant="heading2" align="center">
+                  🔍
+                </AppText>
+                <AppText variant="body" color="textMuted" align="center">
+                  لا توجد إعلانات في هذا التصنيف
+                </AppText>
+              </Stack>
+            )
+          }
+          ListFooterComponent={
+            <View style={styles.listFooter}>
+              {loadingMore ? <ActivityIndicator color={colors.electric} /> : null}
+            </View>
+          }
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            void loadNextPage();
+          }}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={8}
+        />
       </ScreenBody>
     </Screen>
   );
@@ -362,11 +379,6 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
   });
 }

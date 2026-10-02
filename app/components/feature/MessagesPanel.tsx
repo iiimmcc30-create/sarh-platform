@@ -1,14 +1,14 @@
 // SAFAT — Messages inbox (Premium · RTL · Mobile-first)
+import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image } from '@/components/ui/AppImage';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { functional } from '@/design-system';
+import { functional, typography as dsType } from '@/design-system';
 import { AppText, SarhButton, SarhInput } from '@/design-system/components';
 import { Row, Stack } from '@/design-system/layout';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   RefreshControl,
   StyleSheet,
   View,
@@ -337,12 +337,40 @@ export function MessagesPanel({
       ) : null}
 
       {showInitialSpinner ? (
-        <Stack gap="sm" align="center" style={styles.empty}>
-          <ActivityIndicator size="large" color={colors.electricBright} />
-          <AppText variant="caption" color="textMuted" align="center">
-            جاري تحميل المحادثات...
-          </AppText>
-        </Stack>
+        // First load: conversation rows built from the real row styles (chatRow,
+        // 52px avatar, name/time line, preview line) — no centred spinner.
+        <SkeletonRegion style={styles.list}>
+          {Array.from({ length: 9 }, (_, i) => (
+            <View key={i} style={[styles.chatRow, { paddingHorizontal: gutter }]}>
+              <SkeletonPulse>
+                <Row gap="md" align="center">
+                  <SkeletonCircle size={52} />
+                  <Stack gap="xs" style={styles.chatBody}>
+                    <Row justify="between" align="center" gap="sm">
+                      <SkeletonText
+                        fontSize={dsType.label.fontSize}
+                        lineHeight={dsType.label.lineHeight}
+                        widths={[i % 2 ? '44%' : '58%']}
+                        style={styles.flex}
+                      />
+                      <SkeletonText
+                        fontSize={dsType.micro.fontSize}
+                        lineHeight={dsType.micro.lineHeight}
+                        widths={[28]}
+                        style={styles.skeletonTime}
+                      />
+                    </Row>
+                    <SkeletonText
+                      fontSize={dsType.caption.fontSize}
+                      lineHeight={dsType.caption.lineHeight}
+                      widths={[i % 3 ? '76%' : '62%']}
+                    />
+                  </Stack>
+                </Row>
+              </SkeletonPulse>
+            </View>
+          ))}
+        </SkeletonRegion>
       ) : showUnauthorized ? (
         <Stack gap="sm" align="center" style={styles.empty}>
           <View style={styles.emptyIconWrap}>
@@ -432,6 +460,7 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.borderSoft,
     },
     chatBody: { flex: 1, minWidth: 0 },
+    skeletonTime: { alignSelf: 'auto', width: 28 },
     flex: { flex: 1, minWidth: 0 },
     nameText: { flexShrink: 1 },
     unreadBadge: {

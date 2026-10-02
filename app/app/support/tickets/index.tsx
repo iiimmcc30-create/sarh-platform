@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { SkeletonBox, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -48,7 +49,26 @@ export default function SupportTicketsScreen() {
         />
 
         {loading && items.length === 0 ? (
-          <ActivityIndicator style={styles.loader} />
+          // First load: ticket cards in the real SarhCard chrome with skeleton bones.
+          <SkeletonRegion style={styles.list}>
+            {[0, 1, 2, 3].map((i) => (
+              <SarhCard key={i} level="card" padding="md">
+                <SkeletonPulse>
+                  <Stack gap="sm">
+                    <Row gap="sm" justify="between" align="center">
+                      <SkeletonText fontSize={12} lineHeight={18} widths={[72]} style={styles.skeletonFixed} />
+                      <SkeletonBox width={64} height={26} radius={radius.pill} />
+                    </Row>
+                    <SkeletonText fontSize={15} lineHeight={20} widths={[i % 2 ? '58%' : '80%']} />
+                    <Row gap="sm" justify="between" align="center">
+                      <SkeletonText fontSize={12} lineHeight={18} widths={[88]} style={styles.skeletonFixed} />
+                      <SkeletonBox width={14} height={14} radius={7} />
+                    </Row>
+                  </Stack>
+                </SkeletonPulse>
+              </SarhCard>
+            ))}
+          </SkeletonRegion>
         ) : items.length === 0 ? (
           <Stack gap="sm" align="center" style={styles.empty}>
             <AppIcon name="ticket" size={32} color={colors.textMuted} />
@@ -105,7 +125,7 @@ export default function SupportTicketsScreen() {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    loader: { marginTop: spacing.xl },
+    skeletonFixed: { alignSelf: 'auto', width: 96 },
     list: { gap: spacing.md, paddingBottom: spacing.huge },
     empty: { paddingVertical: spacing.xxl },
     statusPill: {

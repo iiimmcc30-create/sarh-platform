@@ -1,7 +1,9 @@
 // Powered by OnSpace.AI
+import { PostDetailSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { PostItem } from '@/components/feature/PostItem';
 import {
+  CommentsSkeleton,
   PostCommentsComposer,
   PostCommentsList,
   PostCommentsProvider,
@@ -10,7 +12,6 @@ import {
 import { Screen, ScreenBody } from '@/design-system/layout';
 import { type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
-import { useTheme } from '@/hooks/useTheme';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
@@ -23,7 +24,6 @@ import { mapPostFromApi } from '@/services/posts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   StyleSheet,
   View,
@@ -43,7 +43,6 @@ export default function PostDetailScreen() {
   const postId = id ? decodeURIComponent(id) : '';
   const router = useRouter();
   const { keyboardVisible, restingBottom } = useComposerKeyboardPad();
-  const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const { isAuthenticated } = useAuth();
   const {
@@ -176,10 +175,12 @@ export default function PostDetailScreen() {
     return (
       <Screen edges={['top']}>
         <ScreenHeader variant="screen" title="منشور" showBack />
-        <ScreenBody scroll={false}>
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.electricBright} size="large" />
-          </View>
+        {/* First load: the detail post + comment rows as skeletons in the same body. */}
+        <ScreenBody gutter={false} padBottom="xl">
+          <SkeletonRegion>
+            <PostDetailSkeleton />
+          </SkeletonRegion>
+          <CommentsSkeleton />
         </ScreenBody>
       </Screen>
     );
@@ -254,11 +255,6 @@ function createStyles(_colors: ThemeColors) {
   return StyleSheet.create({
     flex: {
       flex: 1,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
   });
 }

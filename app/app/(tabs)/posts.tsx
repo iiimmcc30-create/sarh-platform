@@ -4,7 +4,6 @@
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   ListRenderItemInfo,
   Pressable,
   RefreshControl,
@@ -27,6 +26,7 @@ import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { PostItem } from '@/components/feature/PostItem';
+import { PostCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { CreatePostFab } from '@/components/feature/CreatePostFab';
 import { requireAuth } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
@@ -76,7 +76,8 @@ export default function PostsScreen() {
   });
   const feedTab: FeedTab = FEED_TABS[feedPager.index] ?? 'for_you';
   const [headerH, setHeaderH] = useState(() => shellIdentityStackH(insets.top) + space[32]);
-  const [loadingFeed, setLoadingFeed] = useState(false);
+  // Cold start with no cached feed paints skeleton rows from the first frame.
+  const [loadingFeed, setLoadingFeed] = useState(() => posts.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const loadedTabs = useRef<Set<FeedTab>>(new Set());
   const postsLenRef = useRef(posts.length);
@@ -180,6 +181,14 @@ export default function PostsScreen() {
     </Stack>
   );
 
+  const FeedSkeleton = (
+    <SkeletonRegion>
+      {[false, true, false, false].map((withMedia, i) => (
+        <PostCardSkeleton key={i} withMedia={withMedia} />
+      ))}
+    </SkeletonRegion>
+  );
+
   return (
     <Screen edges={[]}>
       <AppChromeLayer onHeight={setHeaderH}>
@@ -216,32 +225,28 @@ export default function PostsScreen() {
           renderPage={(_page, active) =>
             // Both tabs share the one AppContext feed: only the selected page mounts the list.
             active ? (
-              loadingFeed && posts.length === 0 ? (
-                <Stack gap="md" align="center" fill style={[styles.empty, { paddingTop: headerH }]}>
-                  <ActivityIndicator color={colors.electricBright} />
-                </Stack>
-              ) : (
-                <AppFlatList
-                  data={posts}
-                  renderItem={renderItem}
-                  keyExtractor={keyExtractor}
-                  contentContainerStyle={[styles.scroll, { paddingTop: headerH }]}
-                  ListEmptyComponent={ListEmpty}
-                  ListFooterComponent={<View style={styles.listFooter} />}
-                  refreshControl={
-                    <RefreshControl
-                      refreshing={refreshing}
-                      onRefresh={() => void loadFeed(feedTab, { refresh: true })}
-                      tintColor={colors.electricBright}
-                    />
-                  }
-                  initialNumToRender={6}
-                  maxToRenderPerBatch={4}
-                  windowSize={7}
-                  viewabilityConfig={viewabilityConfig}
-                  onViewableItemsChanged={onViewableItemsChanged}
-                />
-              )
+              // One list for every phase: first load shows PostItem-shaped
+              // skeleton rows in place (no centred spinner); refresh keeps posts.
+              <AppFlatList
+                data={posts}
+                renderItem={renderItem}
+                keyExtractor={keyExtractor}
+                contentContainerStyle={[styles.scroll, { paddingTop: headerH }]}
+                ListEmptyComponent={loadingFeed && posts.length === 0 ? FeedSkeleton : ListEmpty}
+                ListFooterComponent={<View style={styles.listFooter} />}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={() => void loadFeed(feedTab, { refresh: true })}
+                    tintColor={colors.electricBright}
+                  />
+                }
+                initialNumToRender={6}
+                maxToRenderPerBatch={4}
+                windowSize={7}
+                viewabilityConfig={viewabilityConfig}
+                onViewableItemsChanged={onViewableItemsChanged}
+              />
             ) : null
           }
         />

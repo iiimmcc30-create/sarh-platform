@@ -23,7 +23,6 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -38,6 +37,13 @@ import { collectListingMedia, listingVideoViewerIndex } from '@/lib/postMedia';
 import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { ListingCommentsSection } from '@/components/feature/ListingCommentsSection';
+import {
+  SkeletonCircle,
+  SkeletonImage,
+  SkeletonPulse,
+  SkeletonRegion,
+  SkeletonText,
+} from '@/components/ui/skeleton';
 import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
 import { ListingFeePaymentSheet } from '@/components/listing/ListingFeePaymentSheet';
 import { ListingDeleteDialog } from '@/components/listing/ListingDeleteDialog';
@@ -308,8 +314,28 @@ export default function ListingDetailScreen() {
     return (
       <Screen edges={['top']}>
         <ScreenHeader variant="screen" title="" showBack />
-        <ScreenBody scroll={false}>
-          <ActivityIndicator style={{ marginTop: 80 }} color={colors.electricBright} />
+        <ScreenBody scroll={false} gutter={false} width="full">
+          <SkeletonRegion>
+            <SkeletonPulse>
+              <View style={styles.headerSection}>
+                <View style={styles.titleBlock}>
+                  <SkeletonText fontSize={20} lineHeight={28} lines={2} widths={['92%', '58%']} />
+                </View>
+                <Row gap="sm" align="center" style={styles.headerMetaRow}>
+                  <SkeletonText fontSize={12} lineHeight={18} widths={[72]} />
+                  <SkeletonText fontSize={12} lineHeight={18} widths={[56]} />
+                </Row>
+                <Row gap="sm" align="center" style={styles.sellerRow}>
+                  <SkeletonCircle size={28} />
+                  <SkeletonText fontSize={18} lineHeight={26} widths={[120]} />
+                </Row>
+              </View>
+              <SkeletonImage height={screenWidth * 0.72} />
+              <View style={styles.descriptionSection}>
+                <SkeletonText fontSize={16} lineHeight={24} lines={3} widths={['100%', '94%', '62%']} />
+              </View>
+            </SkeletonPulse>
+          </SkeletonRegion>
         </ScreenBody>
       </Screen>
     );

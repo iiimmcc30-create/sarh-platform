@@ -1,6 +1,6 @@
+import { SkeletonBox, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   LayoutAnimation,
   Platform,
   Pressable,
@@ -12,7 +12,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { spacing } from '@/constants/theme';
-import { motion } from '@/design-system';
+import { motion, typography as dsType } from '@/design-system';
 import { useTheme } from '@/hooks/useTheme';
 import { AppText, SarhButton, SarhChip, SarhChipRow, SarhDivider, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
@@ -91,7 +91,27 @@ export default function SupportFaqScreen() {
         </Stack>
 
         {loading && faqs.length === 0 ? (
-          <ActivityIndicator />
+          // First load: collapsed FAQ rows (category meta, question, chevron, divider).
+          <SkeletonRegion>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <View key={i}>
+                <SkeletonPulse style={styles.faqRow}>
+                  <Row gap="md" align="start">
+                    <Stack gap="xs" style={styles.fill}>
+                      <SkeletonText fontSize={dsType.micro.fontSize} lineHeight={dsType.micro.lineHeight} widths={['22%']} />
+                      <SkeletonText
+                        fontSize={dsType.heading3.fontSize}
+                        lineHeight={dsType.heading3.lineHeight}
+                        widths={[i % 2 ? '62%' : '84%']}
+                      />
+                    </Stack>
+                    <SkeletonBox width={18} height={18} radius={9} />
+                  </Row>
+                </SkeletonPulse>
+                {i < 5 ? <SarhDivider /> : null}
+              </View>
+            ))}
+          </SkeletonRegion>
         ) : faqs.length === 0 ? (
           <AppText variant="body" color="textMuted" align="center">
             لا توجد أسئلة مطابقة

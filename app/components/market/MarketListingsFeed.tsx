@@ -4,6 +4,9 @@ import { MarketCategoryPicker } from '@/components/market/MarketCategoryPicker';
 import { RegionCityPicker } from '@/components/market/RegionCityPicker';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { AppFlatList } from '@/components/ui/AppFlatList';
+import { ListingCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
+import { LISTING_CARD_SKELETON_HEIGHT } from '@/components/ui/skeleton/ListingCardSkeleton';
+import { skeletonFillCount } from '@/components/ui/skeleton/skeletonTokens';
 import { AppText } from '@/design-system/components';
 import { Stack } from '@/design-system/layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,8 +47,10 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
   type ListRenderItemInfo,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -84,6 +89,13 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     const { accessToken } = useAuth();
     const { colors } = useTheme();
     const { categories, reload: reloadCategories } = useMarketCategories();
+    const { height: windowHeight } = useWindowDimensions();
+    // First load fills the visible area with rows of the real ListingCard height.
+    const skeletonCount = skeletonFillCount(
+      windowHeight - padTop,
+      LISTING_CARD_SKELETON_HEIGHT + spacing.sm,
+      { min: 4, max: 8 },
+    );
     const lastCategoriesFocusAt = useRef(0);
     const listRef = useRef<FlatList<Listing>>(null);
     const loadingMoreRef = useRef(false);
@@ -428,9 +440,31 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           ItemSeparatorComponent={ListSeparator}
           ListEmptyComponent={
             orderLoading || loading || (loadFailed && items.length === 0) ? (
-              <Stack gap="md" align="center" style={styles.empty}>
-                <ActivityIndicator color={colors.electric} />
-              </Stack>
+              orderLoading || loading ? (
+                // First load / sort switch: skeleton rows inside the same list,
+                // same card size and separator as the real ListingCard rows.
+                <SkeletonRegion style={styles.skeletonList}>
+                  {Array.from({ length: skeletonCount }, (_, i) => (
+                    <ListingCardSkeleton key={i} />
+                  ))}
+                </SkeletonRegion>
+              ) : (
+                <Stack gap="sm" align="center" style={styles.empty}>
+                  <AppText variant="body" color="textMuted" align="center">
+                    تعذّر تحميل الإعلانات
+                  </AppText>
+                  <Pressable
+                    onPress={() => void loadFirstPage()}
+                    accessibilityRole="button"
+                    accessibilityLabel="إعادة المحاولة"
+                    hitSlop={8}
+                  >
+                    <AppText variant="body" color="primary">
+                      إعادة المحاولة
+                    </AppText>
+                  </Pressable>
+                </Stack>
+              )
             ) : (
               <Stack gap="md" align="center" style={styles.empty}>
                 <AppText variant="heading2" align="center">
@@ -514,6 +548,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   empty: { paddingVertical: spacing.xxxl },
+  /** Same vertical rhythm as rows + ItemSeparatorComponent. */
+  skeletonList: { gap: spacing.sm },
 });
 
 export default MarketListingsFeed;

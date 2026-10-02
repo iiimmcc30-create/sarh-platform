@@ -2,11 +2,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Share, StyleSheet, View } from 'react-native';
+import { Alert, Share, StyleSheet, View } from 'react-native';
 import { AppText } from '@/design-system/components';
-import { Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { Stack } from '@/design-system/layout';
 import { space } from '@/design-system/tokens';
-import { useTheme } from '@/hooks/useTheme';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -23,6 +22,7 @@ import { useSellerListingsPager } from '@/hooks/useSellerListingsPager';
 import type { Post } from '@/services/types';
 import { promptReport } from '@/services/reports';
 import { ListingCard } from '@/components/feature/ListingCard';
+import { ListingCardSkeleton, PostCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { SellerListingsPaginationFooter } from '@/components/feature/SellerListingsPaginationFooter';
 import { PostItem } from '@/components/feature/PostItem';
 import { ProfileReplyRow } from '@/components/feature/ProfileReplyRow';
@@ -40,8 +40,21 @@ import { safeReplace } from '@/lib/safeNavigate';
 import { SHARE_ICON } from '@/lib/interactionActions';
 
 /** Layout only — an empty tab still needs vertical presence in the feed. */
+/** Stand-in identity while the profile request is in flight (rendered as skeleton). */
+const LOADING_PROFILE_USER: ProfileDisplayUser = {
+  id: '',
+  username: '',
+  displayName: '',
+  arabicName: '',
+  verified: false,
+  followersCount: 0,
+  followingCount: 0,
+  postsCount: 0,
+};
+
 const styles = StyleSheet.create({
-  centered: { alignItems: 'center', justifyContent: 'center' },
+  /** = ProfileScreenLayout postsFeed gap between tab rows. */
+  skeletonList: { gap: space[4] },
   emptyState: { paddingVertical: space[48] },
 });
 
@@ -59,7 +72,6 @@ export default function UserProfileScreen() {
     deletePost,
   } = useApp();
   const { accessToken, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { colors: themeColors } = useTheme();
 
   const isOwnProfile = !id || id === me.id;
   const targetId = id || me.id;
@@ -70,11 +82,14 @@ export default function UserProfileScreen() {
   const [postsLoadFailed, setPostsLoadFailed] = useState(false);
   const [listingsLoadFailed, setListingsLoadFailed] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  /** Target whose posts + first listings page have settled (first-load skeletons until then). */
+  const [extrasLoadedFor, setExtrasLoadedFor] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [ratingVisible, setRatingVisible] = useState(false);
   const {
     listings: userListings,
     hasMore,
+    loading: listingsLoading,
     loadingMore,
     loadMoreFailed,
     loadFirstPage,
@@ -144,6 +159,7 @@ export default function UserProfileScreen() {
       setListingsLoadFailed(true);
     }
     loadedExtrasForRef.current = requestedId;
+    setExtrasLoadedFor(requestedId);
   }, [fetchAuthoritativeProfile, id, loadFirstPage, me.id]);
 
   useFocusEffect(
@@ -212,13 +228,36 @@ export default function UserProfileScreen() {
     } as never);
   };
 
+  const extrasPending = extrasLoadedFor !== targetId;
+
+  const postsSkeleton = (
+    <SkeletonRegion style={styles.skeletonList}>
+      {[false, true, false].map((withMedia, i) => (
+        <PostCardSkeleton key={i} withMedia={withMedia} />
+      ))}
+    </SkeletonRegion>
+  );
+
+  const listingsSkeleton = (
+    <SkeletonRegion style={styles.skeletonList}>
+      {[0, 1, 2, 3].map((i) => (
+        <ListingCardSkeleton key={i} />
+      ))}
+    </SkeletonRegion>
+  );
+
+  const renderLoadError = (message: string) => (
+    <Stack gap="none" align="center" style={styles.emptyState}>
+      <AppText variant="body" color="textMuted">
+        {message}
+      </AppText>
+    </Stack>
+  );
+
   const renderPosts = () => {
+    if (userPosts.length === 0 && extrasPending) return postsSkeleton;
     if (postsLoadFailed && userPosts.length === 0) {
-      return (
-        <Stack gap="none" align="center" style={styles.emptyState}>
-          <ActivityIndicator color={themeColors.electricBright} />
-        </Stack>
-      );
+      return renderLoadError('تعذّر تحميل المنشورات، اسحب للتحديث');
     }
     if (userPosts.length === 0) {
       return (
@@ -255,24 +294,30 @@ export default function UserProfileScreen() {
     </View>
   );
 
-  const renderActivityEmpty = (message: string, loading?: boolean) => (
-    <Stack gap="none" align="center" style={styles.emptyState}>
-      {loading ? (
-        <ActivityIndicator color={themeColors.electricBright} />
-      ) : (
+  const renderActivityEmpty = (message: string, loading?: boolean, rows: 'reply' | 'post' = 'post') =>
+    loading ? (
+      <SkeletonRegion style={styles.skeletonList}>
+        {[0, 1, 2].map((i) => (
+          <PostCardSkeleton key={i} bodyLines={rows === 'reply' ? 1 : 2} showActions={rows !== 'reply'} />
+        ))}
+      </SkeletonRegion>
+    ) : (
+      <Stack gap="none" align="center" style={styles.emptyState}>
         <AppText variant="body" color="textMuted">
           {message}
         </AppText>
-      )}
-    </Stack>
-  );
+      </Stack>
+    );
 
   const renderReplies = () => {
+    if (activity.replies.length === 0 && activity.loading.replies) {
+      return renderActivityEmpty('', true, 'reply');
+    }
     if (activity.failed.replies && activity.replies.length === 0) {
-      return renderActivityEmpty('', true);
+      return renderLoadError('تعذّر تحميل الردود، اسحب للتحديث');
     }
     if (activity.replies.length === 0) {
-      return renderActivityEmpty('لا توجد ردود بعد', activity.loading.replies);
+      return renderActivityEmpty('لا توجد ردود بعد');
     }
     return activity.replies.map((reply) => (
       <ProfileReplyRow
@@ -284,22 +329,22 @@ export default function UserProfileScreen() {
   };
 
   const renderReposts = () => {
-    if (activity.failed.reposts && activity.reposts.length === 0) {
+    if (activity.reposts.length === 0 && activity.loading.reposts) {
       return renderActivityEmpty('', true);
     }
+    if (activity.failed.reposts && activity.reposts.length === 0) {
+      return renderLoadError('تعذّر تحميل إعادة النشر، اسحب للتحديث');
+    }
     if (activity.reposts.length === 0) {
-      return renderActivityEmpty('لا توجد إعادة نشر بعد', activity.loading.reposts);
+      return renderActivityEmpty('لا توجد إعادة نشر بعد');
     }
     return activity.reposts.map((post) => renderPost(post, { attribution: true }));
   };
 
   const renderAds = () => {
+    if (userListings.length === 0 && (extrasPending || listingsLoading)) return listingsSkeleton;
     if (listingsLoadFailed && userListings.length === 0) {
-      return (
-        <Stack gap="none" align="center" style={styles.emptyState}>
-          <ActivityIndicator color={themeColors.electricBright} />
-        </Stack>
-      );
+      return renderLoadError('تعذّر تحميل الإعلانات، اسحب للتحديث');
     }
     if (userListings.length === 0) {
       return (
@@ -332,13 +377,28 @@ export default function UserProfileScreen() {
     );
   };
 
+  const handleBack = () => {
+    const action = resolveProfileBack(router.canGoBack());
+    if (action.kind === 'back') router.back();
+    else safeReplace(action.href, undefined, router);
+  };
+
   if (!profile) {
+    // Same layout instance as the loaded profile (fragment slot 0): toolbar and
+    // tabs are real, identity + tab content are skeletons until the user arrives.
     return (
-      <Screen edges={['top']} pattern={false}>
-        <ScreenBody scroll={false} style={styles.centered}>
-          <ActivityIndicator size="large" color={themeColors.electricBright} />
-        </ScreenBody>
-      </Screen>
+      <>
+        <ProfileScreenLayout
+          mode="visitor"
+          loading
+          user={LOADING_PROFILE_USER}
+          onBack={handleBack}
+          postsContent={postsSkeleton}
+          adsContent={listingsSkeleton}
+          repliesContent={renderActivityEmpty('', true, 'reply')}
+          repostsContent={renderActivityEmpty('', true)}
+        />
+      </>
     );
   }
 
@@ -441,11 +501,7 @@ export default function UserProfileScreen() {
         user={profileUser}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        onBack={() => {
-          const action = resolveProfileBack(router.canGoBack());
-          if (action.kind === 'back') router.back();
-          else safeReplace(action.href, undefined, router);
-        }}
+        onBack={handleBack}
         onShare={handleShareProfile}
         onMenu={() => void handleMenu()}
         onFollowersPress={() => openConnections('followers')}

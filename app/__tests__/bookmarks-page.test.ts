@@ -197,12 +197,17 @@ describe('never mixed, lazy, with simple empty/loading states', () => {
     expect(page).toContain('setLimit((n) => n + BOOKMARKS_PAGE_SIZE)');
   });
 
-  it('has a distinct empty message per tab and the spinner loading pattern', () => {
+  it('has a distinct empty message per tab and the skeleton loading pattern', () => {
     expect(bookmarkEmptyText('favorites')).toBe('لا توجد عروض في المفضلة بعد');
     expect(bookmarkEmptyText('saved')).toBe('لا توجد منشورات محفوظة بعد');
     expect(page).toContain("<BookmarksEmpty text={bookmarkEmptyText('favorites')} />");
     expect(page).toContain("<BookmarksEmpty text={bookmarkEmptyText('saved')} />");
-    expect(page).toContain('<ActivityIndicator color={color} />');
+    // First load shows skeleton rows shaped like each tab's real rows (no spinner).
+    expect(page).toContain('<BookmarksLoading kind="listings" />');
+    expect(page).toContain('<BookmarksLoading kind="posts" />');
+    expect(page).toContain('<ListingCardSkeleton key={i} />');
+    expect(page).toContain('<PostCardSkeleton key={i} withMedia={withMedia} />');
+    expect(page).not.toContain('<ActivityIndicator color={color} />');
   });
 });
 

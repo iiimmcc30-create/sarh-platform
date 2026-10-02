@@ -1,3 +1,4 @@
+import { ListingCardSkeleton, PostCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { PostItem } from '@/components/feature/PostItem';
@@ -268,7 +269,7 @@ function FavoritesPage() {
       nestedScrollEnabled
       ListEmptyComponent={
         loading ? (
-          <BookmarksLoading color={colors.electric} />
+          <BookmarksLoading kind="listings" />
         ) : (
           <BookmarksEmpty text={bookmarkEmptyText('favorites')} />
         )
@@ -341,7 +342,7 @@ function SavedPage() {
       nestedScrollEnabled
       ListEmptyComponent={
         loading ? (
-          <BookmarksLoading color={colors.electricBright} />
+          <BookmarksLoading kind="posts" />
         ) : (
           <BookmarksEmpty text={bookmarkEmptyText('saved')} />
         )
@@ -362,12 +363,21 @@ function SavedPage() {
   );
 }
 
-function BookmarksLoading({ color }: { color: string }) {
+/** First load: skeleton rows shaped like the tab's real rows (offer cards / posts). */
+function BookmarksLoading({ kind }: { kind: 'listings' | 'posts' }) {
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
-  return (
-    <Stack gap="md" align="center" style={styles.empty}>
-      <ActivityIndicator color={color} />
-    </Stack>
+  return kind === 'listings' ? (
+    <SkeletonRegion style={styles.skeletonListings}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <ListingCardSkeleton key={i} />
+      ))}
+    </SkeletonRegion>
+  ) : (
+    <SkeletonRegion>
+      {[false, true, false].map((withMedia, i) => (
+        <PostCardSkeleton key={i} withMedia={withMedia} />
+      ))}
+    </SkeletonRegion>
   );
 }
 
@@ -420,6 +430,9 @@ function createStyles(colors: ThemeColors) {
     },
     listSeparator: {
       height: spacing.sm,
+    },
+    skeletonListings: {
+      gap: spacing.sm,
     },
     listFooter: {
       alignItems: 'center',
