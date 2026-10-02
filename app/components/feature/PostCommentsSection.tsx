@@ -1,3 +1,4 @@
+import { CommentRowSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { Image, uriSource } from '@/components/ui/AppImage';
@@ -288,7 +289,7 @@ export function PostCommentsList() {
   }, [comments, highlightCommentId]);
 
   if (loading && comments.length === 0) {
-    return <ActivityIndicator color={colors.electricBright} style={styles.loader} />;
+    return <CommentsSkeleton />;
   }
 
   if (loadError && comments.length === 0) {
@@ -366,6 +367,17 @@ export function PostCommentsList() {
   );
 }
 
+/** First load of comments: rows shaped like the real comment rows (no spinner). */
+export function CommentsSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <SkeletonRegion>
+      {Array.from({ length: count }, (_, i) => (
+        <CommentRowSkeleton key={i} lines={i === 1 ? 2 : 1} />
+      ))}
+    </SkeletonRegion>
+  );
+}
+
 export function PostCommentsComposer() {
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
@@ -431,9 +443,6 @@ export const PostCommentsSection = forwardRef<PostCommentsSectionRef, PostCommen
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    loader: {
-      paddingVertical: spacing.lg,
-    },
     empty: {
       ...typography.feedBody,
       color: colors.textMuted,

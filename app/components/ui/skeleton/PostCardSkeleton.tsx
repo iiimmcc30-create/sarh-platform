@@ -32,6 +32,52 @@ type Props = {
   showActions?: boolean;
 };
 
+/**
+ * = PostItem `variant="detail"`: padded header (avatar, name + handle), three
+ * body lines (marginTop 12), meta line and the five-slot action bar
+ * (detail hides the views action).
+ */
+export function PostDetailSkeleton() {
+  const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
+  return (
+    <View style={styles.wrap}>
+      <SkeletonPulse style={styles.detailPad}>
+        <View style={[styles.detailHeader, getRtlRow()]}>
+          <SkeletonCircle size={P.avatar} />
+          <View style={styles.main}>
+            <SkeletonText
+              fontSize={typography.cardHeading.fontSize}
+              lineHeight={typography.cardHeading.lineHeight}
+              widths={['38%']}
+            />
+            <SkeletonText fontSize={typography.caption.fontSize} lineHeight={typography.caption.lineHeight} widths={['24%']} />
+          </View>
+        </View>
+        <SkeletonText
+          fontSize={typography.body.fontSize}
+          lineHeight={24}
+          lines={3}
+          widths={['100%', '94%', '62%']}
+          style={styles.detailBody}
+        />
+        <SkeletonText
+          fontSize={typography.caption.fontSize}
+          lineHeight={typography.caption.lineHeight}
+          widths={['46%']}
+          style={styles.detailBody}
+        />
+        <View style={[styles.actions, getRtlRow()]}>
+          {Array.from({ length: FEED_ACTIONS - 1 }, (_, i) => (
+            <View key={i} style={styles.actionSlot}>
+              <SkeletonCircle size={INTERACTION_ICON_SIZE} />
+            </View>
+          ))}
+        </View>
+      </SkeletonPulse>
+    </View>
+  );
+}
+
 export function PostCardSkeleton({ withMedia = false, bodyLines = 2, showActions = true }: Props) {
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
   const nameBar = skeletonTextBarHeight(typography.cardHeading.fontSize, typography.cardHeading.lineHeight);
@@ -88,6 +134,17 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     main: {
       flex: 1,
       minWidth: 0,
+    },
+    detailPad: {
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+    },
+    detailHeader: {
+      alignItems: 'flex-start',
+      gap: P.rowGap,
+    },
+    detailBody: {
+      marginTop: 12,
     },
     metaLine: {
       alignItems: 'center',

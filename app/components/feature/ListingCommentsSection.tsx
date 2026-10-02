@@ -1,8 +1,8 @@
+import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -47,7 +47,30 @@ export function ListingCommentsSection({
         </View>
 
         {loading && comments.length === 0 ? (
-          <ActivityIndicator color={colors.electricBright} style={styles.loader} />
+          // First load: rows built with the real row styles and the same
+          // CoverTrailRow, so name/avatar/time land exactly where real ones do.
+          <SkeletonRegion style={styles.list}>
+            {[0, 1, 2].map((index) => (
+              <View
+                key={index}
+                style={[
+                  layout === 'edge' ? styles.commentRow : styles.commentCard,
+                  layout === 'edge' && index < 2 && styles.commentRowDivider,
+                ]}
+              >
+                <SkeletonPulse style={styles.skeletonInner}>
+                  <View style={[styles.commentCardHeader, getRtlRow()]}>
+                    <SkeletonText fontSize={typography.micro.fontSize} lineHeight={typography.micro.lineHeight} widths={[40]} style={styles.skeletonTime} />
+                    <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
+                      <SkeletonText fontSize={typography.micro.fontSize} lineHeight={typography.micro.lineHeight} widths={[72]} style={styles.skeletonName} />
+                      <SkeletonCircle size={28} />
+                    </CoverTrailRow>
+                  </View>
+                  <SkeletonText fontSize={typography.feedBody.fontSize} lineHeight={22} widths={[index === 1 ? '88%' : '64%']} />
+                </SkeletonPulse>
+              </View>
+            ))}
+          </SkeletonRegion>
         ) : loadError && comments.length === 0 ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{loadError}</Text>
@@ -174,8 +197,16 @@ function createStyles(colors: ThemeColors, layout: 'card' | 'edge') {
       ...typography.feedTitle,
       color: colors.electricBright,
     },
-    loader: {
-      paddingVertical: spacing.lg,
+    skeletonInner: {
+      gap: spacing.xs,
+    },
+    skeletonTime: {
+      alignSelf: 'auto',
+      width: 40,
+    },
+    skeletonName: {
+      alignSelf: 'auto',
+      width: 72,
     },
     empty: {
       ...typography.feedBody,

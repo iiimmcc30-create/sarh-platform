@@ -8,7 +8,8 @@ export {
   SkeletonText,
 } from './SkeletonPrimitives';
 export { ListingCardSkeleton, LISTING_CARD_SKELETON_HEIGHT } from './ListingCardSkeleton';
-export { PostCardSkeleton } from './PostCardSkeleton';
+export { PostCardSkeleton, PostDetailSkeleton } from './PostCardSkeleton';
+export { CommentRowSkeleton } from './CommentRowSkeleton';
 export { ProfileActionsSkeleton, ProfileHeaderSkeleton } from './ProfileHeaderSkeleton';
 export {
   NewsCardSkeleton,
