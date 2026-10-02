@@ -32,7 +32,7 @@ export function skeletonColor(scheme: 'light' | 'dark'): string {
  */
 export function skeletonTextBarHeight(fontSize: number, lineHeight: number): number {
   const bar = Math.round(fontSize * 0.72);
-  return Math.max(6, Math.min(bar, lineHeight));
+  return Math.min(Math.max(6, bar), lineHeight);
 }
 
 /**
