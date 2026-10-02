@@ -1,7 +1,7 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { spacing, type ThemeColors } from '@/constants/theme';
-import { motion } from '@/design-system';
+import { motion, typography as ds } from '@/design-system';
 import { AppText } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -15,11 +15,11 @@ import {
 } from '@/services/categories';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
+
+/** Subcategory rows while the category loads. */
+const SUB_SKELETON_WIDTHS = ['42%', '56%', '36%', '50%', '46%', '60%'] as const;
 
 export default function MarketSubcategoriesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -89,11 +89,27 @@ export default function MarketSubcategoriesScreen() {
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader variant="screen" showBack title={headerTitle} />
 
-      {loading ? (
-        <ScreenBody scroll={false}>
-          <Stack fill align="center" style={styles.center}>
-            <ActivityIndicator color={colors.electric} />
-          </Stack>
+      {loading && subs.length === 0 ? (
+        <ScreenBody scroll={false} gap="md">
+          <AppText variant="body" color="textMuted">
+            اختر النوع
+          </AppText>
+          <SkeletonRegion>
+            <Stack gap="sm">
+              {SUB_SKELETON_WIDTHS.map((width, i) => (
+                <View key={i} style={styles.row}>
+                  <SkeletonPulse>
+                    <Row justify="end" gap="sm">
+                      <SkeletonCircle size={16} />
+                      <View style={styles.rowLabel}>
+                        <SkeletonText fontSize={ds.label.fontSize} lineHeight={ds.label.lineHeight} widths={[width]} />
+                      </View>
+                    </Row>
+                  </SkeletonPulse>
+                </View>
+              ))}
+            </Stack>
+          </SkeletonRegion>
         </ScreenBody>
       ) : error ? (
         <ScreenBody scroll={false}>

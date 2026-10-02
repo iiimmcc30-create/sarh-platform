@@ -1,9 +1,10 @@
 import { AppText, SarhButton } from '@/design-system/components';
+import { buttonMetrics, typography as ds } from '@/design-system';
+import { SkeletonBox, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
-import { useTheme } from '@/hooks/useTheme';
 import { rtlForwardIcon } from '@/lib/rtl';
 import {
   OFFICIAL_SERVICE_CATEGORY_META,
@@ -17,13 +18,15 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+
+/** catBadge: caption line (18) + paddingVertical 5 × 2. */
+const CATEGORY_BADGE_HEIGHT = 28;
 
 type DetailTab = 'steps' | 'conditions' | 'documents';
 
@@ -35,7 +38,6 @@ const DETAIL_TABS: Array<{ key: DetailTab; label: string }> = [
 
 export default function MinistryServiceDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const [service, setService] = useState<OfficialService | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,8 +91,50 @@ export default function MinistryServiceDetailsScreen() {
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader variant="screen" title="تفاصيل الخدمة" showBack />
       {loading ? (
-        <ScreenBody scroll={false}>
-          <ActivityIndicator color={colors.electricBright} style={styles.loader} />
+        <ScreenBody scroll={false} gap="md">
+          <SkeletonRegion style={styles.skeletonColumn}>
+            <SkeletonPulse style={styles.heroCard}>
+              <SkeletonText fontSize={ds.heading2.fontSize} lineHeight={ds.heading2.lineHeight} widths={['70%']} />
+              <SkeletonBox width={88} height={CATEGORY_BADGE_HEIGHT} radius={radius.pill} />
+              <SkeletonText
+                fontSize={ds.bodySmall.fontSize}
+                lineHeight={ds.bodySmall.lineHeight}
+                lines={2}
+                widths={['100%', '64%']}
+              />
+              <SkeletonBox
+                height={buttonMetrics.size.md.minHeight}
+                radius={buttonMetrics.radius}
+                style={styles.startCta}
+              />
+            </SkeletonPulse>
+            <SkeletonPulse style={styles.metaCard}>
+              {Array.from({ length: 2 }, (_, i) => (
+                <Stack key={i} gap="xs">
+                  <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['28%']} />
+                  <SkeletonText fontSize={ds.body.fontSize} lineHeight={ds.body.lineHeight} widths={['46%']} />
+                </Stack>
+              ))}
+            </SkeletonPulse>
+            <View style={styles.tabStrip}>
+              {DETAIL_TABS.map((item, index) => (
+                <View key={item.key} style={styles.tabChip}>
+                  <AppText variant="caption" color={index === 0 ? 'primary' : 'textMuted'}>
+                    {item.label}
+                  </AppText>
+                  {index === 0 ? <View style={styles.tabLine} /> : <View style={styles.tabLineOff} />}
+                </View>
+              ))}
+            </View>
+            <SkeletonPulse style={styles.tabCard}>
+              <SkeletonText
+                fontSize={ds.bodySmall.fontSize}
+                lineHeight={ds.bodySmall.lineHeight}
+                lines={4}
+                widths={['100%', '92%', '96%', '54%']}
+              />
+            </SkeletonPulse>
+          </SkeletonRegion>
         </ScreenBody>
       ) : !service ? (
         <ScreenBody scroll={false}>
@@ -181,7 +225,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    loader: { marginTop: spacing.xxl },
+    skeletonColumn: { gap: spacing.md },
     empty: { justifyContent: 'center' },
     heroCard: {
       backgroundColor: colors.bgSurface,
@@ -206,6 +250,7 @@ function createStyles(colors: ThemeColors) {
       gap: spacing.md,
     },
     tabStrip: {
+      flexDirection: 'row',
       gap: spacing.lg,
       paddingHorizontal: 2,
     },

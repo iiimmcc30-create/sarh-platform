@@ -6,6 +6,14 @@ import { MEWA_FALLBACK_AVATAR, MEWA_FALLBACK_COVER, MEWA_USERNAME } from '@/cons
 import { sarhProfileShareUrl } from '@/constants/sarhOfficial';
 import { spacing, type ThemeColors } from '@/constants/theme';
 import { AppText, SarhButton } from '@/design-system/components';
+import { typography as ds } from '@/design-system';
+import {
+  PostCardSkeleton,
+  ServiceCardSkeleton,
+  SkeletonPulse,
+  SkeletonRegion,
+  SkeletonText,
+} from '@/components/ui/skeleton';
 import { Row, Screen, ScreenBody } from '@/design-system/layout';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { useApp } from '@/hooks/useApp';
@@ -29,7 +37,6 @@ import type { Post } from '@/services/types';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -222,7 +229,8 @@ export default function MinistryProfileScreen() {
     if (postsLoadFailed && posts.length === 0) {
       return (
         <View style={styles.empty}>
-          <ActivityIndicator color={colors.electricBright} />
+          <AppText variant="body" color="textMuted">تعذّر تحميل المنشورات</AppText>
+          <SarhButton title="إعادة المحاولة" variant="secondary" size="sm" onPress={() => void onRefresh()} />
         </View>
       );
     }
@@ -275,6 +283,58 @@ export default function MinistryProfileScreen() {
     );
   };
 
+  /** First load only: a tab shows its skeleton while its own data has not arrived yet. */
+  const accountPending = loading && !account;
+  const tabPending =
+    loading &&
+    (tab === 'info' ? !account : tab === 'posts' ? posts.length === 0 : services.length === 0);
+
+  const renderTabSkeleton = () => {
+    if (tab === 'posts') {
+      return (
+        <SkeletonRegion>
+          {Array.from({ length: 3 }, (_, i) => (
+            <PostCardSkeleton key={i} withMedia={i === 1} />
+          ))}
+        </SkeletonRegion>
+      );
+    }
+    if (tab === 'services') {
+      return (
+        <SkeletonRegion style={styles.serviceList}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <ServiceCardSkeleton key={i} />
+          ))}
+        </SkeletonRegion>
+      );
+    }
+    return (
+      <SkeletonRegion style={styles.block}>
+        <SkeletonPulse style={styles.skeletonStack}>
+          <SkeletonText fontSize={ds.heading3.fontSize} lineHeight={ds.heading3.lineHeight} widths={['22%']} />
+          <SkeletonText
+            fontSize={ds.bodySmall.fontSize}
+            lineHeight={ds.bodySmall.lineHeight}
+            lines={3}
+            widths={['100%', '96%', '58%']}
+          />
+          <SkeletonText
+            fontSize={ds.heading3.fontSize}
+            lineHeight={ds.heading3.lineHeight}
+            widths={['26%']}
+            style={styles.sectionSpaced}
+          />
+          {Array.from({ length: 3 }, (_, i) => (
+            <View key={i} style={styles.infoRow}>
+              <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['24%']} />
+              <SkeletonText fontSize={ds.body.fontSize} lineHeight={ds.body.lineHeight} widths={['52%']} />
+            </View>
+          ))}
+        </SkeletonPulse>
+      </SkeletonRegion>
+    );
+  };
+
   return (
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader
@@ -316,15 +376,34 @@ export default function MinistryProfileScreen() {
         </View>
 
         <View style={styles.identity}>
-          <Row justify="center" align="center" gap="sm" style={styles.nameRow}>
-            <AppText variant="heading2" align="center">
-              {account?.arabicName || ''}
-            </AppText>
-            {account?.verified ? <VerificationBadge size={18} /> : null}
-          </Row>
-          <AppText variant="caption" color="primary">
-            {followersLabel}
-          </AppText>
+          {accountPending ? (
+            <SkeletonPulse style={styles.identitySkeleton}>
+              <SkeletonText
+                fontSize={ds.heading2.fontSize}
+                lineHeight={ds.heading2.lineHeight}
+                widths={['48%']}
+                align="center"
+              />
+              <SkeletonText
+                fontSize={ds.caption.fontSize}
+                lineHeight={ds.caption.lineHeight}
+                widths={['24%']}
+                align="center"
+              />
+            </SkeletonPulse>
+          ) : (
+            <>
+              <Row justify="center" align="center" gap="sm" style={styles.nameRow}>
+                <AppText variant="heading2" align="center">
+                  {account?.arabicName || ''}
+                </AppText>
+                {account?.verified ? <VerificationBadge size={18} /> : null}
+              </Row>
+              <AppText variant="caption" color="primary">
+                {followersLabel}
+              </AppText>
+            </>
+          )}
           {account?.bio ? (
             <AppText variant="bodySmall" color="textMuted" align="center">
               {account.bio}
@@ -360,8 +439,8 @@ export default function MinistryProfileScreen() {
           })}
         </Row>
 
-        {loading && !account ? (
-          <ActivityIndicator color={colors.electricBright} style={styles.loader} />
+        {tabPending || accountPending ? (
+          renderTabSkeleton()
         ) : tab === 'info' ? (
           renderInfo()
         ) : tab === 'posts' ? (
@@ -459,7 +538,8 @@ function createStyles(colors: ThemeColors) {
       marginTop: 8,
       height: 2,
     },
-    loader: { marginTop: spacing.xl },
+    identitySkeleton: { width: '100%', alignItems: 'center', gap: spacing.sm },
+    skeletonStack: { gap: spacing.sm },
     block: {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.lg,
@@ -475,6 +555,7 @@ function createStyles(colors: ThemeColors) {
     empty: {
       paddingVertical: spacing.xxl,
       alignItems: 'center',
+      gap: spacing.md,
     },
     serviceList: {
       paddingHorizontal: spacing.lg,

@@ -91,6 +91,26 @@ const SKELETON_SCREENS = [
   'app/listing/[id].tsx',
   'components/feature/PostCommentsSection.tsx',
   'components/feature/ListingCommentsSection.tsx',
+  'app/support/tickets/[id].tsx',
+  'app/ministry/index.tsx',
+  'app/ministry/services/[id].tsx',
+  'app/feed-suppliers/[id].tsx',
+  'app/info/policy/[slug].tsx',
+  'components/feature/NewMessageSheet.tsx',
+  'app/market/categories/[id].tsx',
+  'components/feature/ListingCommentsModal.tsx',
+];
+
+/** Detail screens whose only spinner was the first-load one. */
+const SPINNER_FREE_SCREENS = [
+  'app/support/tickets/[id].tsx',
+  'app/ministry/index.tsx',
+  'app/ministry/services/[id].tsx',
+  'app/feed-suppliers/[id].tsx',
+  'app/info/policy/[slug].tsx',
+  'app/market/categories/[id].tsx',
+  'app/post/[id].tsx',
+  'app/listing/[id].tsx',
 ];
 
 describe('first-load skeletons replace full-screen spinners', () => {
@@ -107,6 +127,31 @@ describe('first-load skeletons replace full-screen spinners', () => {
       '{loadingMore ? <ActivityIndicator',
     );
     expect(src('app/market/browse.tsx')).toContain('{loadingMore ? <ActivityIndicator');
+  });
+
+  for (const file of SPINNER_FREE_SCREENS) {
+    it(`${file} no longer uses ActivityIndicator`, () => {
+      expect(src(file)).not.toContain('ActivityIndicator');
+    });
+  }
+
+  it('gates each first-load skeleton on missing data, so refreshes keep content', () => {
+    expect(src('app/support/tickets/[id].tsx')).toContain('loading && !ticket');
+    expect(src('app/info/policy/[slug].tsx')).toContain('loading && sections.length === 0');
+    expect(src('app/market/categories/[id].tsx')).toContain('loading && subs.length === 0');
+    expect(src('components/feature/NewMessageSheet.tsx')).toContain('loading && base.length === 0');
+    expect(src('components/feature/ListingCommentsModal.tsx')).toContain(
+      'loading && comments.length === 0',
+    );
+    const ministry = src('app/ministry/index.tsx');
+    expect(ministry).toContain('const accountPending = loading && !account;');
+    expect(ministry).toContain("tab === 'posts' ? posts.length === 0 : services.length === 0");
+  });
+
+  it('shows an error with retry (not an endless spinner) when ministry posts fail', () => {
+    const ministry = src('app/ministry/index.tsx');
+    expect(ministry).toContain('setPostsLoadFailed(true)');
+    expect(ministry).toContain('تعذّر تحميل المنشورات');
   });
 
   it('does not export skeletons from the design-system barrel', () => {

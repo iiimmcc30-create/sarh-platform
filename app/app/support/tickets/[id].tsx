@@ -1,8 +1,18 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { AppText, SarhAvatar, SarhButton, SarhDivider, SarhSurface, SarhInput } from '@/design-system/components';
+import {
+  AVATAR_SIZE,
+  AppText,
+  SarhAvatar,
+  SarhButton,
+  SarhDivider,
+  SarhSurface,
+  SarhInput,
+} from '@/design-system/components';
+import { typography as ds } from '@/design-system';
+import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { showToast } from '@/lib/toast';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -18,6 +28,14 @@ import {
   type SupportTicketDetail,
   type SupportTicketMessage,
 } from '@/services/support';
+
+/** First-load placeholder thread: alternating support / customer bubbles. */
+const TICKET_SKELETON_BUBBLES = [
+  { mine: false, lines: 2 },
+  { mine: true, lines: 1 },
+  { mine: false, lines: 2 },
+  { mine: true, lines: 2 },
+] as const;
 
 function isSystemHandoff(msg: SupportTicketMessage) {
   return (
@@ -71,8 +89,56 @@ export default function SupportTicketDetailScreen() {
     return (
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader variant="screen" title={SUPPORT_CUSTOMER_SERVICE.name} showBack />
-        <ScreenBody scroll={false} style={styles.centered}>
-          <ActivityIndicator />
+        <Row gap="md" style={styles.identity}>
+          <SarhAvatar
+            source={SUPPORT_CUSTOMER_SERVICE.avatarSource}
+            name={SUPPORT_CUSTOMER_SERVICE.assistantName}
+            size="md"
+            accessibilityLabel={SUPPORT_CUSTOMER_SERVICE.assistantName}
+          />
+          <Stack gap="none" style={styles.fill}>
+            <AppText variant="bodyMedium">{SUPPORT_CUSTOMER_SERVICE.name}</AppText>
+            <SkeletonPulse>
+              <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['46%']} />
+            </SkeletonPulse>
+          </Stack>
+        </Row>
+        <SarhDivider />
+        <ScreenBody scroll={false} padTop="lg" gap="sm">
+          <SkeletonRegion>
+            <Stack gap="sm">
+              {TICKET_SKELETON_BUBBLES.map((bubble, index) => (
+                <View
+                  key={index}
+                  style={[styles.bubbleWrap, bubble.mine ? styles.bubbleMineWrap : styles.bubbleOtherWrap]}
+                >
+                  <SkeletonPulse style={styles.msgRow}>
+                    <Row gap="sm" align="end">
+                      {!bubble.mine ? <SkeletonCircle size={AVATAR_SIZE.sm} /> : null}
+                      <Stack
+                        gap="xs"
+                        style={[
+                          styles.bubble,
+                          styles.skeletonBubble,
+                          bubble.mine ? styles.bubbleMine : styles.bubbleOther,
+                        ]}
+                      >
+                        {!bubble.mine ? (
+                          <SkeletonText fontSize={ds.micro.fontSize} lineHeight={ds.micro.lineHeight} widths={['40%']} />
+                        ) : null}
+                        <SkeletonText
+                          fontSize={ds.body.fontSize}
+                          lineHeight={ds.body.lineHeight}
+                          lines={bubble.lines}
+                          widths={bubble.lines > 1 ? ['100%', '72%'] : ['100%']}
+                        />
+                      </Stack>
+                    </Row>
+                  </SkeletonPulse>
+                </View>
+              ))}
+            </Stack>
+          </SkeletonRegion>
         </ScreenBody>
       </Screen>
     );
@@ -189,7 +255,6 @@ export default function SupportTicketDetailScreen() {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    centered: { alignItems: 'center', justifyContent: 'center' },
     fill: { flex: 1, minWidth: 0 },
     identity: {
       paddingHorizontal: spacing.lg,
@@ -205,6 +270,7 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: spacing.sm,
       borderRadius: radius.lg,
     },
+    skeletonBubble: { width: '72%' },
     bubbleMine: {
       backgroundColor: colors.bgElevated,
     },

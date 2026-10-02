@@ -8,7 +8,8 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { AppText, SarhInput } from '@/design-system/components';
-import { radius, space } from '@/design-system';
+import { radius, space, typography as ds } from '@/design-system';
+import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { useTheme } from '@/hooks/useTheme';
 import {
   fetchMessageContacts,
@@ -29,6 +30,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+/** Contact row avatar (styles.avatar). */
+const CONTACT_AVATAR = 44;
+const CONTACT_SKELETON_NAME_WIDTHS = ['48%', '62%', '40%', '56%', '44%', '52%'] as const;
 
 const SOURCE_LABEL: Record<ChatContact['source'], string> = {
   recent: 'محادثة سابقة',
@@ -185,9 +190,20 @@ export function NewMessageSheet({ visible, onClose, onSelect }: Props) {
           />
         </View>
         {loading && base.length === 0 ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.electricBright} />
-          </View>
+          <SkeletonRegion style={styles.listContent}>
+            {CONTACT_SKELETON_NAME_WIDTHS.map((width, i) => (
+              <View key={i} style={[styles.row, { borderBottomColor: colors.borderSoft }]}>
+                <SkeletonPulse style={styles.skeletonRowInner}>
+                  <SkeletonCircle size={CONTACT_AVATAR} />
+                  <View style={styles.flex}>
+                    <SkeletonText fontSize={ds.label.fontSize} lineHeight={ds.label.lineHeight} widths={[width]} />
+                    <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['34%']} />
+                  </View>
+                  <SkeletonCircle size={18} />
+                </SkeletonPulse>
+              </View>
+            ))}
+          </SkeletonRegion>
         ) : (
           <FlatList
             data={results}
@@ -287,7 +303,8 @@ const styles = StyleSheet.create({
     paddingVertical: space[12],
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  avatar: { width: 44, height: 44, borderRadius: 22 },
+  avatar: { width: CONTACT_AVATAR, height: CONTACT_AVATAR, borderRadius: CONTACT_AVATAR / 2 },
+  skeletonRowInner: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space[12] },
   flex: { flex: 1, minWidth: 0 },
   shrink: { flexShrink: 1 },
   center: { paddingVertical: space[32], paddingHorizontal: space[24], alignItems: 'center' },

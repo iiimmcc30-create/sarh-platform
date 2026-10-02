@@ -1,8 +1,15 @@
 import { FeedSupplierContactActions } from '@/components/feed-suppliers/FeedSupplierContactActions';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
-import { colors, space } from '@/design-system';
-import { AppText, SarhAvatar } from '@/design-system/components';
+import { buttonMetrics, space, typography as ds } from '@/design-system';
+import { AVATAR_SIZE, AppText, SarhAvatar } from '@/design-system/components';
+import {
+  SkeletonBox,
+  SkeletonCircle,
+  SkeletonPulse,
+  SkeletonRegion,
+  SkeletonText,
+} from '@/components/ui/skeleton';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 import { supplierPlace } from '@/lib/feedSuppliers';
 import { cloudinaryFitUrl } from '@/lib/listingMedia';
@@ -10,7 +17,10 @@ import { showToast } from '@/lib/toast';
 import { fetchFeedSupplier, type FeedSupplier } from '@/services/feedSuppliers';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+
+/** Labeled contact buttons (call / WhatsApp / mail) while the supplier loads. */
+const CONTACT_SKELETON_WIDTHS = [84, 104, 80] as const;
 
 export default function FeedSupplierDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,8 +52,45 @@ export default function FeedSupplierDetailsScreen() {
     return (
       <Screen edges={['top']}>
         <ScreenHeader variant="screen" title="موردو الأعلاف" showBack />
-        <ScreenBody scroll={false}>
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+        <ScreenBody scroll={false} padTop="md" gap="section">
+          <SkeletonRegion style={styles.skeletonColumn}>
+            <SkeletonPulse>
+              <Row gap="md" align="center">
+                <SkeletonCircle size={AVATAR_SIZE.xl} />
+                <Stack gap="xs" style={styles.identity}>
+                  <SkeletonText fontSize={ds.heading3.fontSize} lineHeight={ds.heading3.lineHeight} widths={['62%']} />
+                  <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['40%']} />
+                </Stack>
+              </Row>
+            </SkeletonPulse>
+            <SkeletonPulse>
+              <SkeletonText
+                fontSize={ds.bodySmall.fontSize}
+                lineHeight={ds.bodySmall.lineHeight}
+                lines={3}
+                widths={['100%', '94%', '60%']}
+              />
+            </SkeletonPulse>
+            <SkeletonPulse style={styles.skeletonCaptions}>
+              <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['56%']} />
+              <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['44%']} />
+              <SkeletonText fontSize={ds.caption.fontSize} lineHeight={ds.caption.lineHeight} widths={['32%']} />
+            </SkeletonPulse>
+            <Section title="تواصل">
+              <SkeletonPulse>
+                <Row gap="sm" wrap>
+                  {CONTACT_SKELETON_WIDTHS.map((width, i) => (
+                    <SkeletonBox
+                      key={i}
+                      width={width}
+                      height={buttonMetrics.size.sm.minHeight}
+                      radius={buttonMetrics.radius}
+                    />
+                  ))}
+                </Row>
+              </SkeletonPulse>
+            </Section>
+          </SkeletonRegion>
         </ScreenBody>
       </Screen>
     );
@@ -138,7 +185,8 @@ export default function FeedSupplierDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  loader: { marginTop: space[32] },
+  skeletonColumn: { gap: space[24] },
+  skeletonCaptions: { gap: space[24] },
   identity: { flex: 1, minWidth: 0 },
   name: { flexShrink: 1, minWidth: 0 },
 });

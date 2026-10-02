@@ -28,6 +28,7 @@ import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { CoverTrailRow } from '@/components/ui/CoverTrailRow';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { AppText } from '@/components/ui/AppText';
+import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 
 type ListingCommentsModalProps = {
   visible: boolean;
@@ -150,9 +151,46 @@ export function ListingCommentsModal({
           </View>
 
           {loading && comments.length === 0 ? (
-            <View style={styles.center}>
-              <ActivityIndicator color={colors.electricBright} />
-            </View>
+            // First load: cards built with the real card styles and CoverTrailRow.
+            <SkeletonRegion style={[styles.list, styles.listContent]}>
+              {[0, 1, 2].map((index) => (
+                <View key={index} style={styles.commentCard}>
+                  <SkeletonPulse style={styles.skeletonInner}>
+                    <View style={[styles.commentCardHeader, getRtlRow()]}>
+                      <SkeletonText
+                        fontSize={typography.micro.fontSize}
+                        lineHeight={typography.micro.lineHeight}
+                        widths={[40]}
+                        style={styles.skeletonTime}
+                      />
+                      <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
+                        <SkeletonText
+                          fontSize={typography.micro.fontSize}
+                          lineHeight={typography.micro.lineHeight}
+                          widths={[72]}
+                          style={styles.skeletonName}
+                        />
+                        <SkeletonCircle size={28} />
+                      </CoverTrailRow>
+                    </View>
+                    <SkeletonText
+                      fontSize={typography.feedBody.fontSize}
+                      lineHeight={22}
+                      widths={[index === 1 ? '88%' : '64%']}
+                    />
+                    <View style={[styles.replyBtn, getRtlRow()]}>
+                      <SkeletonCircle size={14} />
+                      <SkeletonText
+                        fontSize={typography.micro.fontSize}
+                        lineHeight={typography.micro.lineHeight}
+                        widths={[18]}
+                        style={styles.skeletonReply}
+                      />
+                    </View>
+                  </SkeletonPulse>
+                </View>
+              ))}
+            </SkeletonRegion>
           ) : loadError && comments.length === 0 ? (
             <View style={styles.center}>
               <Text style={styles.errorText}>{loadError}</Text>
@@ -357,6 +395,21 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.sm,
+    },
+    skeletonInner: {
+      gap: spacing.sm,
+    },
+    skeletonTime: {
+      alignSelf: 'auto',
+      width: 40,
+    },
+    skeletonName: {
+      alignSelf: 'auto',
+      width: 72,
+    },
+    skeletonReply: {
+      alignSelf: 'auto',
+      width: 18,
     },
     commentMeta: {
       minWidth: 0,
