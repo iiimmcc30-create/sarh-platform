@@ -13,6 +13,7 @@ import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { SkeletonRegion, UserIdentityRowSkeleton } from '@/components/ui/skeleton';
 
 export default function BlockedUsersScreen() {
   const { colors } = useTheme();
@@ -61,7 +62,15 @@ export default function BlockedUsersScreen() {
         </AppText>
 
         {loading && users.length === 0 ? (
-          <ActivityIndicator color={colors.electricBright} style={styles.loader} />
+          // First load: identity rows with the unblock pill (96 × caption + 2×8).
+          <SkeletonRegion>
+            {[0, 1, 2, 3].map((i) => (
+              <Stack key={i} gap="none">
+                <UserIdentityRowSkeleton trailingPill={96} trailingPillHeight={34} style={styles.row} />
+                {i < 3 ? <SarhDivider /> : null}
+              </Stack>
+            ))}
+          </SkeletonRegion>
         ) : users.length === 0 ? (
           <Stack gap="sm" align="center" style={styles.emptyBox}>
             <AppIcon name="block" size={32} color={colors.textMuted} />
@@ -121,7 +130,6 @@ function createStyles(colors: ThemeColors) {
     description: {
       lineHeight: 20,
     },
-    loader: { marginTop: spacing.xl },
     emptyBox: {
       paddingVertical: spacing.xxl,
     },

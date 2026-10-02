@@ -1,6 +1,6 @@
 // SAFAT — Notification Center (مركز الإشعارات)
 import { EmptyState } from '@/components/ui/EmptyState';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { NotificationCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { NotificationCard } from '@/components/notifications/NotificationCard';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,16 +65,8 @@ export default function NotificationsScreen() {
     );
   };
 
-  if (loading && notifications.length === 0) {
-    return (
-      <Screen edges={['top', 'bottom']}>
-        <ScreenHeader variant="screen" title="الإشعارات" showBack />
-        <ScreenBody scroll={false}>
-          <LoadingState message="جاري تحميل الإشعارات..." />
-        </ScreenBody>
-      </Screen>
-    );
-  }
+  // First load: card-shaped skeletons inside the same list (header stays real).
+  const firstLoad = loading && notifications.length === 0;
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -115,7 +107,7 @@ export default function NotificationsScreen() {
             style={styles.listFill}
             contentContainerStyle={[
               styles.list,
-              notifications.length === 0 && styles.listEmpty,
+              notifications.length === 0 && !firstLoad && styles.listEmpty,
             ]}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.glow} />
@@ -124,11 +116,19 @@ export default function NotificationsScreen() {
             onEndReachedThreshold={0.35}
             ListFooterComponent={renderFooter}
             ListEmptyComponent={
-              <EmptyState
-                title="لا توجد إشعارات"
-                description="ستظهر هنا إشعارات نشاطك وطلباتك."
-                icon="notifications-outline"
-              />
+              firstLoad ? (
+                <SkeletonRegion style={styles.skeletonList}>
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <NotificationCardSkeleton key={i} />
+                  ))}
+                </SkeletonRegion>
+              ) : (
+                <EmptyState
+                  title="لا توجد إشعارات"
+                  description="ستظهر هنا إشعارات نشاطك وطلباتك."
+                  icon="notifications-outline"
+                />
+              )
             }
             showsVerticalScrollIndicator={false}
           />
@@ -159,6 +159,8 @@ function createStyles(colors: ThemeColors) {
     listEmpty: {
       flexGrow: 1,
     },
+    /** = list gap between cells. */
+    skeletonList: { gap: 12 },
     footerLoader: {
       paddingVertical: 16,
       alignItems: 'center',

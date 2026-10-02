@@ -4,7 +4,8 @@ import { UserIdentityRow, USER_IDENTITY } from '@/components/ui/UserIdentityRow'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { SkeletonRegion, UserIdentityRowSkeleton } from '@/components/ui/skeleton';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useLayout } from '@/hooks/useLayout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -197,9 +198,18 @@ export default function ProfileConnectionsScreen() {
         </Row>
 
         {loading && users.length === 0 ? (
-          <Stack gap="none" align="center" fill style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.electricBright} />
-          </Stack>
+          // First load: identity rows (avatar, name, @handle, follow pill) in place.
+          <SkeletonRegion>
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <View key={i}>
+                <UserIdentityRowSkeleton
+                  trailingPill={84}
+                  style={{ ...styles.userRow, paddingHorizontal: gutter }}
+                />
+                {i < 7 ? <SarhDivider /> : null}
+              </View>
+            ))}
+          </SkeletonRegion>
         ) : (
           <FlatList
             key={activeTab}
@@ -230,7 +240,6 @@ export default function ProfileConnectionsScreen() {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    centered: { justifyContent: 'center' },
     /** Segmented control: a real selection affordance, not a decorative card. */
     tabs: {
       marginBottom: spacing.md,

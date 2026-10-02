@@ -4,7 +4,7 @@
  */
 import { StyleSheet, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
 import { USER_IDENTITY } from '@/components/ui/UserIdentityRow';
-import { typography as ds } from '@/design-system';
+import { buttonMetrics, typography as ds } from '@/design-system';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRtlRow } from '@/lib/rtl';
@@ -65,10 +65,15 @@ export function SectionTitleSkeleton({
 export function UserIdentityRowSkeleton({
   avatarSize = USER_IDENTITY.listAvatarSize,
   avatarRadius = USER_IDENTITY.listAvatarRadius,
+  trailingPill,
+  trailingPillHeight = buttonMetrics.size.sm.minHeight,
   style,
 }: {
   avatarSize?: number;
   avatarRadius?: number;
+  /** Trailing small pill button (e.g. SarhButton size="sm" follow): width × 32. */
+  trailingPill?: number;
+  trailingPillHeight?: number;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -78,6 +83,9 @@ export function UserIdentityRowSkeleton({
         <SkeletonText fontSize={16} lineHeight={24} widths={['46%']} />
         <SkeletonText fontSize={12} lineHeight={18} widths={['28%']} />
       </View>
+      {trailingPill ? (
+        <SkeletonBox width={trailingPill} height={trailingPillHeight} radius={radius.pill} />
+      ) : null}
     </SkeletonPulse>
   );
 }

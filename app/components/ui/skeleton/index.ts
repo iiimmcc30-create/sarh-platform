@@ -24,3 +24,4 @@ export {
   skeletonFillCount,
   type LoadPhase,
 } from './skeletonTokens';
+export { NotificationCardSkeleton } from './NotificationCardSkeleton';

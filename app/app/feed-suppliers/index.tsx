@@ -1,9 +1,11 @@
+import { SkeletonBox, SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
+import { AVATAR_SIZE } from '@/design-system/components/resolvers';
 import { FeedSupplierContactActions } from '@/components/feed-suppliers/FeedSupplierContactActions';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Image } from '@/components/ui/AppImage';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
-import { colors, functional, motion, radius, space } from '@/design-system';
+import { colors, functional, motion, radius, space, typography as dsType } from '@/design-system';
 import { AppText, SarhAvatar, SarhDivider } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -15,7 +17,7 @@ import { showToast } from '@/lib/toast';
 import { fetchFeedSuppliers, type FeedSupplier } from '@/services/feedSuppliers';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 const HERO_IMAGE = require('../../assets/images/feed-suppliers-hero.jpg');
 const HERO_ASPECT = 1408 / 768;
@@ -84,7 +86,33 @@ export default function FeedSuppliersScreen() {
 
         <Section title="الموردون">
           {loading && !hasData ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            // First load: supplier rows (lg avatar, name, description, place, contact buttons).
+            <SkeletonRegion>
+              {[0, 1, 2, 3].map((i) => (
+                <View key={i}>
+                  {i > 0 ? <SarhDivider /> : null}
+                  <SkeletonPulse style={styles.row}>
+                    <Row gap="md" align="start">
+                      <SkeletonCircle size={AVATAR_SIZE.lg} />
+                      <View style={styles.copy}>
+                        <SkeletonText fontSize={dsType.label.fontSize} lineHeight={dsType.label.lineHeight} widths={['48%']} />
+                        <SkeletonText
+                          fontSize={dsType.caption.fontSize}
+                          lineHeight={dsType.caption.lineHeight}
+                          lines={2}
+                          widths={['100%', '66%']}
+                        />
+                        <SkeletonText fontSize={dsType.caption.fontSize} lineHeight={dsType.caption.lineHeight} widths={['30%']} />
+                        <Row gap="sm">
+                          <SkeletonBox width={space[40]} height={space[40]} radius={12} />
+                          <SkeletonBox width={space[40]} height={space[40]} radius={12} />
+                        </Row>
+                      </View>
+                    </Row>
+                  </SkeletonPulse>
+                </View>
+              ))}
+            </SkeletonRegion>
           ) : suppliers.length === 0 ? (
             <AppText variant="bodySmall" color="textMuted" align="center">
               لا يوجد موردون متاحون حالياً
@@ -174,7 +202,6 @@ function createStyles() {
       color: functional.onPrimary,
       opacity: 0.88,
     },
-    loader: { marginTop: space[24] },
     row: {
       paddingVertical: space[12],
     },
