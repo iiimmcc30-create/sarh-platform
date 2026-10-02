@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSellerListingsPager } from '@/hooks/useSellerListingsPager';
 import { sarhProfileShareUrl } from '@/constants/sarhOfficial';
 import { ListingCard } from '@/components/feature/ListingCard';
+import { ListingCardSkeleton, PostCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { SellerListingsPaginationFooter } from '@/components/feature/SellerListingsPaginationFooter';
 import { PostItem } from '@/components/feature/PostItem';
 import { ProfileReplyRow } from '@/components/feature/ProfileReplyRow';
@@ -33,6 +34,10 @@ const PROFILE_FOCUS_TTL_MS = 60_000;
 /** Layout only — an empty tab still needs vertical presence in the feed. */
 const EMPTY_STATE = StyleSheet.create({
   block: { paddingVertical: space[48] },
+}).block;
+/** = ProfileScreenLayout postsFeed gap between tab rows. */
+const SKELETON_LIST = StyleSheet.create({
+  block: { gap: space[4] },
 }).block;
 
 export default function ProfileScreen() {
@@ -63,11 +68,14 @@ export default function ProfileScreen() {
   const {
     listings: myListings,
     hasMore,
+    loading: listingsLoading,
     loadingMore,
     loadMoreFailed,
     loadFirstPage,
     loadNextPage,
   } = useSellerListingsPager({ sellerId: me.id, accessToken });
+  /** False until the first listings request settles (ads tab shows skeleton rows). */
+  const [listingsSettled, setListingsSettled] = useState(false);
   const activity = useProfileActivity(me.id);
   const repostName = me.arabicName || me.displayName || me.username;
 
@@ -97,6 +105,8 @@ export default function ProfileScreen() {
         await loadFirstPage();
       } catch {
         /* keep current listings */
+      } finally {
+        setListingsSettled(true);
       }
       return;
     }
@@ -112,6 +122,8 @@ export default function ProfileScreen() {
       listingsLoadedForUser.current = me.id;
     } catch {
       /* keep current listings */
+    } finally {
+      setListingsSettled(true);
     }
   }, [loadFirstPage, me.id]);
 
@@ -239,17 +251,25 @@ export default function ProfileScreen() {
     </View>
   );
 
-  const renderActivityEmpty = (message: string, loading?: boolean) => (
-    <Stack gap="md" align="center" style={EMPTY_STATE}>
-      <AppText variant="body" color="textMuted">
-        {loading ? 'جاري التحميل...' : message}
-      </AppText>
-    </Stack>
-  );
+  const renderActivityEmpty = (message: string, loading?: boolean, rows: 'reply' | 'post' = 'post') =>
+    loading ? (
+      // First load of an activity tab: rows shaped like the real reply / post rows.
+      <SkeletonRegion style={SKELETON_LIST}>
+        {[0, 1, 2].map((i) => (
+          <PostCardSkeleton key={i} bodyLines={rows === 'reply' ? 1 : 2} showActions={rows !== 'reply'} />
+        ))}
+      </SkeletonRegion>
+    ) : (
+      <Stack gap="md" align="center" style={EMPTY_STATE}>
+        <AppText variant="body" color="textMuted">
+          {message}
+        </AppText>
+      </Stack>
+    );
 
   const renderReplies = () => {
     if (activity.replies.length === 0) {
-      return renderActivityEmpty('لا توجد ردود بعد', activity.loading.replies);
+      return renderActivityEmpty('لا توجد ردود بعد', activity.loading.replies, 'reply');
     }
     return activity.replies.map((reply) => (
       <ProfileReplyRow
@@ -275,6 +295,15 @@ export default function ProfileScreen() {
   };
 
   const renderAds = () => {
+    if (myListings.length === 0 && (!listingsSettled || listingsLoading)) {
+      return (
+        <SkeletonRegion style={SKELETON_LIST}>
+          {[0, 1, 2, 3].map((i) => (
+            <ListingCardSkeleton key={i} />
+          ))}
+        </SkeletonRegion>
+      );
+    }
     if (myListings.length === 0) {
       return (
         <Stack gap="md" align="center" style={EMPTY_STATE}>

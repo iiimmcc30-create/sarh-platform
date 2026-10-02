@@ -10,7 +10,8 @@ import { fetchEditorialStories, type EditorialStory } from '@/services/editorial
 import { cloudinaryFitUrl } from '@/lib/listingMedia';
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { NewsCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { type ThemeColors } from '@/constants/theme';
 
 const NEWS_REFRESH_TTL_MS = 60_000;
@@ -50,40 +51,41 @@ export default function NewsScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader variant="screen" title="الأخبار" showBack />
-      {showInitialSpinner ? (
-        <ScreenBody scroll={false}>
-          <ActivityIndicator style={styles.loader} />
-        </ScreenBody>
-      ) : (
-        <ScreenBody padTop="lg" padBottom="xxxl" gap="md">
-          {stories.length === 0 ? (
-            <AppText variant="bodySmall" color="textMuted" align="center">
-              لا توجد أخبار حالياً
-            </AppText>
-          ) : (
-            stories.map((story, index) => (
-              <Pressable
-                key={story.id}
-                style={styles.card}
-                onPress={() => setViewerIndex(index)}
+      <ScreenBody padTop="lg" padBottom="xxxl" gap="md">
+        {showInitialSpinner ? (
+          // First load: card-shaped skeletons in the same scroll body (no spinner).
+          <SkeletonRegion style={styles.skeletonList}>
+            {[0, 1, 2, 3].map((i) => (
+              <NewsCardSkeleton key={i} />
+            ))}
+          </SkeletonRegion>
+        ) : stories.length === 0 ? (
+          <AppText variant="bodySmall" color="textMuted" align="center">
+            لا توجد أخبار حالياً
+          </AppText>
+        ) : (
+          stories.map((story, index) => (
+            <Pressable
+              key={story.id}
+              style={styles.card}
+              onPress={() => setViewerIndex(index)}
+            >
+              <Image source={uriSource(cloudinaryFitUrl(story.imageUrl, 'wide'))} style={styles.image} contentFit="cover" />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.72)']}
+                style={styles.gradient}
+              />
+              <AppText
+                variant="heading3"
+                numberOfLines={2}
+                style={[styles.title, { color: functional.onPrimary }]}
               >
-                <Image source={uriSource(cloudinaryFitUrl(story.imageUrl, 'wide'))} style={styles.image} contentFit="cover" />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.72)']}
-                  style={styles.gradient}
-                />
-                <AppText
-                  variant="heading3"
-                  numberOfLines={2}
-                  style={[styles.title, { color: functional.onPrimary }]}
-                >
-                  {story.titleAr}
-                </AppText>
-              </Pressable>
-            ))
-          )}
-        </ScreenBody>
-      )}
+                {story.titleAr}
+              </AppText>
+            </Pressable>
+          ))
+        )}
+      </ScreenBody>
       {viewerIndex != null ? (
         <EditorialStoryViewer
           stories={stories}
@@ -97,7 +99,8 @@ export default function NewsScreen() {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    loader: { marginTop: 48 },
+    /** = ScreenBody gap="md" between cards. */
+    skeletonList: { gap: 12 },
     card: {
       height: 168,
       borderRadius: 18,

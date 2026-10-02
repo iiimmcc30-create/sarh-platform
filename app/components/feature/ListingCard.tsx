@@ -29,6 +29,7 @@ import { ListingBoostTitleIcons } from '@/components/listing/ListingBoostTitleIc
 import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoostState';
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { LISTING_LIST_LAYOUT } from '@/components/feature/listingCardLayout';
 
 interface ListingCardProps {
   listing: Listing;
@@ -55,8 +56,8 @@ const CATEGORY_ICONS: Record<Listing['category'], string> = {
 
 const NEW_LISTING_MS = 24 * 60 * 60 * 1000;
 /** Square list thumb — matches the Haraj market row, never stretches. */
-const LIST_THUMB = 120;
-const LIST_THUMB_RADIUS = 14;
+const LIST_THUMB = LISTING_LIST_LAYOUT.thumb;
+const LIST_THUMB_RADIUS = LISTING_LIST_LAYOUT.thumbRadius;
 
 function listingTimeLabel(listing: Listing): string {
   if (listing.createdAt) return formatRelativeTimeAr(listing.createdAt);
@@ -387,8 +388,8 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     alignItems: 'flex-start',
     flexGrow: 0,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    gap: 12,
+    paddingVertical: LISTING_LIST_LAYOUT.rowPaddingVertical,
+    gap: LISTING_LIST_LAYOUT.rowGap,
     backgroundColor: _scheme === 'light' ? '#FFFFFF' : colors.bgSurface,
   },
   listContent: {
@@ -469,9 +470,9 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     minWidth: 0,
   },
   listAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: LISTING_LIST_LAYOUT.avatar,
+    height: LISTING_LIST_LAYOUT.avatar,
+    borderRadius: LISTING_LIST_LAYOUT.avatar / 2,
     backgroundColor: colors.bgElevated,
     flexShrink: 0,
   },

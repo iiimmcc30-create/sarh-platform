@@ -5,6 +5,7 @@ import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ProfileTabs } from '@/components/feature/ProfileTabs';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
+import { ProfileActionsSkeleton, ProfileHeaderSkeleton } from '@/components/ui/skeleton';
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Animated, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { ds } from '@/constants/designSystem';
@@ -84,6 +85,12 @@ type ProfileScreenLayoutProps = {
   isFollowing?: boolean;
   initialTab?: ProfileTabKey;
   onAdsNearEnd?: () => void;
+  /**
+   * Profile request still in flight (no cached user yet): the identity block and
+   * visitor actions render as skeletons in place; toolbar, tabs and tab content
+   * keep their real positions, so nothing shifts when the user arrives.
+   */
+  loading?: boolean;
 };
 
 function formatStatCount(n: number): string {
@@ -133,6 +140,7 @@ export function ProfileScreenLayout({
   isFollowing = false,
   initialTab = 'posts',
   onAdsNearEnd,
+  loading = false,
 }: ProfileScreenLayoutProps) {
   const { colors: themeColors } = useTheme();
   const { gutter } = useLayout();
@@ -277,130 +285,134 @@ export function ProfileScreenLayout({
             </Row>
           </Row>
 
-          <Row gap="md" align="start" style={inset}>
-            <Stack gap="sm" fill>
-              <Stack gap="xs">
-                <Row gap="xs" align="center" style={styles.nameRow}>
-                  <AppText
-                    variant="cardTitle"
-                    color="textPrimary"
-                    numberOfLines={2}
-                    style={styles.nameShell}
-                  >
-                    {displayName}
+          {loading ? (
+            <ProfileHeaderSkeleton style={inset} />
+          ) : (
+            <Row gap="md" align="start" style={inset}>
+              <Stack gap="sm" fill>
+                <Stack gap="xs">
+                  <Row gap="xs" align="center" style={styles.nameRow}>
+                    <AppText
+                      variant="cardTitle"
+                      color="textPrimary"
+                      numberOfLines={2}
+                      style={styles.nameShell}
+                    >
+                      {displayName}
+                    </AppText>
+                    {user.verified ? <VerificationBadge size={18} tier={user.verifiedTier} /> : null}
+                    <FounderBadge username={user.username} verificationBadgeSize={18} />
+                  </Row>
+
+                  <AppText variant="caption" color="textMuted" numberOfLines={1}>
+                    @{user.username}
                   </AppText>
-                  {user.verified ? <VerificationBadge size={18} tier={user.verifiedTier} /> : null}
-                  <FounderBadge username={user.username} verificationBadgeSize={18} />
+
+                  <Pressable
+                    onPress={onRatePress}
+                    disabled={!onRatePress}
+                    style={({ pressed }) => [
+                      styles.ratingRow,
+                      pressed && onRatePress ? styles.ratingRowPressed : null,
+                    ]}
+                  >
+                    <Row gap="xs" align="center">
+                      <Row gap="none" align="center" style={styles.starsRow}>
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <AppIcon
+                            key={n}
+                            name={hasRating && n <= filledStars ? 'star' : 'star-outline'}
+                            size={11}
+                            color={
+                              hasRating && n <= filledStars
+                                ? themeColors.gold
+                                : themeColors.textSubtle
+                            }
+                          />
+                        ))}
+                      </Row>
+                      {ratingLabel ? (
+                        <AppText variant="caption" color="textPrimary">
+                          {ratingLabel}
+                        </AppText>
+                      ) : null}
+                      {(user.reviewCount ?? 0) > 0 ? (
+                        <AppText variant="caption" color="textMuted">
+                          ({user.reviewCount})
+                        </AppText>
+                      ) : null}
+                    </Row>
+                  </Pressable>
+                </Stack>
+
+                <Row gap="none" align="stretch" style={styles.statsRow}>
+                  {stats.map((stat, index) => {
+                    const body = (
+                      <Stack gap="xs" align="center" style={styles.statItem}>
+                        <AppText variant="cardTitle" color="textPrimary" align="center">
+                          {stat.value}
+                        </AppText>
+                        <AppText variant="caption" color="textMuted" align="center">
+                          {stat.label}
+                        </AppText>
+                      </Stack>
+                    );
+
+                    return (
+                      <Row key={stat.key} gap="none" align="stretch" fill>
+                        {index > 0 ? <View style={styles.statDivider} /> : null}
+                        {stat.onPress ? (
+                          <Pressable style={styles.statPress} onPress={stat.onPress}>
+                            {body}
+                          </Pressable>
+                        ) : (
+                          body
+                        )}
+                      </Row>
+                    );
+                  })}
                 </Row>
 
-                <AppText variant="caption" color="textMuted" numberOfLines={1}>
-                  @{user.username}
-                </AppText>
-
-                <Pressable
-                  onPress={onRatePress}
-                  disabled={!onRatePress}
-                  style={({ pressed }) => [
-                    styles.ratingRow,
-                    pressed && onRatePress ? styles.ratingRowPressed : null,
-                  ]}
-                >
-                  <Row gap="xs" align="center">
-                    <Row gap="none" align="center" style={styles.starsRow}>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <AppIcon
-                          key={n}
-                          name={hasRating && n <= filledStars ? 'star' : 'star-outline'}
-                          size={11}
-                          color={
-                            hasRating && n <= filledStars
-                              ? themeColors.gold
-                              : themeColors.textSubtle
-                          }
-                        />
-                      ))}
-                    </Row>
-                    {ratingLabel ? (
-                      <AppText variant="caption" color="textPrimary">
-                        {ratingLabel}
-                      </AppText>
-                    ) : null}
-                    {(user.reviewCount ?? 0) > 0 ? (
-                      <AppText variant="caption" color="textMuted">
-                        ({user.reviewCount})
-                      </AppText>
-                    ) : null}
-                  </Row>
-                </Pressable>
+                {user.bio ? (
+                  <AppText variant="body" color="textSecondary" numberOfLines={4} style={styles.bio}>
+                    {user.bio}
+                  </AppText>
+                ) : null}
               </Stack>
 
-              <Row gap="none" align="stretch" style={styles.statsRow}>
-                {stats.map((stat, index) => {
-                  const body = (
-                    <Stack gap="xs" align="center" style={styles.statItem}>
-                      <AppText variant="cardTitle" color="textPrimary" align="center">
-                        {stat.value}
-                      </AppText>
-                      <AppText variant="caption" color="textMuted" align="center">
-                        {stat.label}
-                      </AppText>
-                    </Stack>
-                  );
-
-                  return (
-                    <Row key={stat.key} gap="none" align="stretch" fill>
-                      {index > 0 ? <View style={styles.statDivider} /> : null}
-                      {stat.onPress ? (
-                        <Pressable style={styles.statPress} onPress={stat.onPress}>
-                          {body}
-                        </Pressable>
-                      ) : (
-                        body
-                      )}
-                    </Row>
-                  );
-                })}
-              </Row>
-
-              {user.bio ? (
-                <AppText variant="body" color="textSecondary" numberOfLines={4} style={styles.bio}>
-                  {user.bio}
-                </AppText>
-              ) : null}
-            </Stack>
-
-            <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} style={styles.avatarCol}>
-              {hasStoryRing ? (
-                <LinearGradient
-                  colors={[themeColors.electricBright, themeColors.cyan, '#34D399']}
-                  style={styles.avatarRing}
-                  start={{ x: 0, y: 1 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <View style={styles.avatarClip}>
+              <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} style={styles.avatarCol}>
+                {hasStoryRing ? (
+                  <LinearGradient
+                    colors={[themeColors.electricBright, themeColors.cyan, '#34D399']}
+                    style={styles.avatarRing}
+                    start={{ x: 0, y: 1 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <View style={styles.avatarClip}>
+                      <Image
+                        source={uriSource(user.avatar)}
+                        style={styles.avatarImg}
+                        contentFit="cover"
+                      />
+                    </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.avatarPlain}>
                     <Image
                       source={uriSource(user.avatar)}
                       style={styles.avatarImg}
                       contentFit="cover"
                     />
                   </View>
-                </LinearGradient>
-              ) : (
-                <View style={styles.avatarPlain}>
-                  <Image
-                    source={uriSource(user.avatar)}
-                    style={styles.avatarImg}
-                    contentFit="cover"
-                  />
-                </View>
-              )}
-              {mode === 'own' && onEditAvatar ? (
-                <Pressable style={styles.cameraBtn} onPress={onEditAvatar} hitSlop={8}>
-                  <AppIcon name="camera-outline" size={14} color="#fff" />
-                </Pressable>
-              ) : null}
-            </Pressable>
-          </Row>
+                )}
+                {mode === 'own' && onEditAvatar ? (
+                  <Pressable style={styles.cameraBtn} onPress={onEditAvatar} hitSlop={8}>
+                    <AppIcon name="camera-outline" size={14} color="#fff" />
+                  </Pressable>
+                ) : null}
+              </Pressable>
+            </Row>
+          )}
 
           {/* My Profile only: equal outline pills above the tabs (Share + Edit Profile). */}
           {isOwnProfile && (onShare || onEditProfile) ? (
@@ -427,6 +439,8 @@ export function ProfileScreenLayout({
           ) : null}
 
           {/* Other user's profile: the original Follow + Message actions only (share stays in the ⋯ menu). */}
+          {loading && mode === 'visitor' ? <ProfileActionsSkeleton style={inset} /> : null}
+
           {mode === 'visitor' && (onFollow || onMessage) ? (
             <Row gap="sm" align="center" style={[styles.actionsRow, inset]}>
               {onMessage ? (
