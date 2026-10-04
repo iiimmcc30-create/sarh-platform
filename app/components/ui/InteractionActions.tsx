@@ -9,19 +9,19 @@ import {
   INTERACTION_BAR_STYLE,
   INTERACTION_BUTTON_STYLE,
   INTERACTION_COUNT_FONT_SIZE,
+  INTERACTION_COUNT_LINE_HEIGHT,
+  INTERACTION_COUNT_MIN_FONT_SCALE,
   INTERACTION_HIT_SLOP,
-  INTERACTION_ICON_COUNT_GAP,
   INTERACTION_ICON_SIZE,
   INTERACTION_PENDING_OPACITY,
-  INTERACTION_PRESS_IN_MS,
-  INTERACTION_PRESS_OPACITY,
-  INTERACTION_PRESS_OUT_MS,
-  INTERACTION_PRESS_SCALE,
+  INTERACTION_PULSE_DOWN_MS,
+  INTERACTION_PULSE_SCALE,
+  INTERACTION_PULSE_UP_MS,
   SHARE_ICON,
   SHARE_LABEL,
   shouldShowInteractionCount,
 } from '@/lib/interactionActions';
-import { memo, useCallback, useRef, type ReactNode } from 'react';
+import { memo, useCallback, useState, type ReactNode } from 'react';
 import {
   Animated,
   Pressable,
@@ -63,61 +63,62 @@ function InteractionActionComponent({
   pending = false,
   readOnly = false,
 }: InteractionActionProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(1));
 
-  const animateTo = useCallback(
-    (toScale: number, toOpacity: number, duration: number) => {
-      Animated.parallel([
-        Animated.timing(scale, { toValue: toScale, duration, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: toOpacity, duration, useNativeDriver: true }),
-      ]).start();
-    },
-    [scale, opacity],
-  );
+  // Icon-only pulse (transform, native driver): never changes layout.
+  const pulse = useCallback(() => {
+    scale.stopAnimation();
+    scale.setValue(1);
+    Animated.sequence([
+      Animated.timing(scale, {
+        toValue: INTERACTION_PULSE_SCALE,
+        duration: INTERACTION_PULSE_UP_MS,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, { toValue: 1, duration: INTERACTION_PULSE_DOWN_MS, useNativeDriver: true }),
+    ]).start();
+  }, [scale]);
 
-  const pressIn = useCallback(
-    () => animateTo(INTERACTION_PRESS_SCALE, INTERACTION_PRESS_OPACITY, INTERACTION_PRESS_IN_MS),
-    [animateTo],
-  );
-  const pressOut = useCallback(
-    () => animateTo(1, 1, INTERACTION_PRESS_OUT_MS),
-    [animateTo],
-  );
+  const handlePress = useCallback(() => {
+    pulse();
+    onPress?.();
+  }, [pulse, onPress]);
 
-  const glyph = (
-    <>
-      <AppIcon name={icon} size={INTERACTION_ICON_SIZE} color={color} variant={filled ? 'sr' : 'rr'} />
-      {shouldShowInteractionCount(count) ? (
-        <AppText style={[styles.count, countStyle, { color: countColor ?? color }]}>
-          {formatCount ? formatCount(count) : String(count)}
-        </AppText>
-      ) : null}
-    </>
+  // Same icon box for outline and filled; the count shrinks to fit instead of widening.
+  const iconNode = (
+    <AppIcon name={icon} size={INTERACTION_ICON_SIZE} color={color} variant={filled ? 'sr' : 'rr'} />
   );
+  const countNode = shouldShowInteractionCount(count) ? (
+    <AppText
+      style={[styles.count, countStyle, { color: countColor ?? color }]}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={INTERACTION_COUNT_MIN_FONT_SCALE}
+    >
+      {formatCount ? formatCount(count) : String(count)}
+    </AppText>
+  ) : null;
 
   if (readOnly) {
     return (
       <View style={[styles.button, getRtlRow()]} accessibilityRole="text" accessibilityLabel={label}>
-        {glyph}
+        <View style={styles.icon}>{iconNode}</View>
+        {countNode}
       </View>
     );
   }
 
   return (
     <Pressable
-      onPress={onPress}
-      onPressIn={pressIn}
-      onPressOut={pressOut}
+      onPress={handlePress}
       hitSlop={INTERACTION_HIT_SLOP}
       style={pending ? [styles.button, getRtlRow(), styles.pending] : [styles.button, getRtlRow()]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={pending ? { busy: true } : undefined}
     >
-      <Animated.View style={[styles.glyph, getRtlRow(), { transform: [{ scale }], opacity }]}>
-        {glyph}
-      </Animated.View>
+      <Animated.View style={[styles.icon, { transform: [{ scale }] }]}>{iconNode}</Animated.View>
+      {countNode}
     </Pressable>
   );
 }
@@ -145,12 +146,17 @@ const styles = StyleSheet.create({
   button: {
     ...INTERACTION_BUTTON_STYLE,
   },
-  glyph: {
+  icon: {
+    width: INTERACTION_ICON_SIZE,
+    height: INTERACTION_ICON_SIZE,
     alignItems: 'center',
-    gap: INTERACTION_ICON_COUNT_GAP,
+    justifyContent: 'center',
   },
   count: {
+    flexShrink: 1,
     fontSize: INTERACTION_COUNT_FONT_SIZE,
+    lineHeight: INTERACTION_COUNT_LINE_HEIGHT,
+    fontVariant: ['tabular-nums'],
   },
   pending: {
     opacity: INTERACTION_PENDING_OPACITY,

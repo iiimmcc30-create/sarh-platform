@@ -10,7 +10,7 @@
 
 /** Icon glyph size inside every interaction button. */
 export const INTERACTION_ICON_SIZE = 20;
-/** Minimum width and height of each button (visible touch box). */
+/** Minimum width and the fixed height of each button (visible touch box). */
 export const INTERACTION_TOUCH_MIN = 36;
 /** Extra invisible hit area around each button on every side. */
 export const INTERACTION_HIT_SLOP = 8;
@@ -18,6 +18,10 @@ export const INTERACTION_HIT_SLOP = 8;
 export const INTERACTION_ICON_COUNT_GAP = 4;
 /** Count label font size. */
 export const INTERACTION_COUNT_FONT_SIZE = 12;
+/** Fixed count line height so the row height never depends on the glyphs shown. */
+export const INTERACTION_COUNT_LINE_HEIGHT = 16;
+/** Long counts shrink (never wrap or widen the button) down to this scale. */
+export const INTERACTION_COUNT_MIN_FONT_SCALE = 0.75;
 
 /** Bar: buttons spread edge to edge of their content column, vertically centered. */
 export const INTERACTION_BAR_JUSTIFY = 'space-between' as const;
@@ -41,13 +45,12 @@ export const SHARE_ICON = 'share-social-outline';
 export const SHARE_LABEL = 'مشاركة';
 
 /**
- * Press feedback: quick scale + fade (transform/opacity only, native driver),
- * timing curves with no spring, so there is no bounce and no layout change.
+ * Tap feedback: a short scale pulse on the icon only (1 -> 1.15 -> 1), RN Animated
+ * timing with the native driver. A transform never changes layout, so nothing moves.
  */
-export const INTERACTION_PRESS_SCALE = 0.9;
-export const INTERACTION_PRESS_OPACITY = 0.7;
-export const INTERACTION_PRESS_IN_MS = 80;
-export const INTERACTION_PRESS_OUT_MS = 140;
+export const INTERACTION_PULSE_SCALE = 1.15;
+export const INTERACTION_PULSE_UP_MS = 90;
+export const INTERACTION_PULSE_DOWN_MS = 130;
 /** Dim level while a request for this action is in flight. */
 export const INTERACTION_PENDING_OPACITY = 0.6;
 
@@ -63,7 +66,10 @@ export type InteractionButtonStyle = {
   flexDirection: 'row';
   alignItems: 'center';
   gap: number;
-  minHeight: number;
+  flexGrow: number;
+  flexShrink: number;
+  flexBasis: number;
+  height: number;
   minWidth: number;
 };
 
@@ -77,14 +83,20 @@ export const INTERACTION_BAR_STYLE: InteractionBarStyle = {
 };
 
 /**
- * Button box. `flexDirection: 'row'` starts at the inline start, so in Arabic the
- * icon sits on the right and the count follows it (I18nManager RTL).
+ * Button box: every button gets an equal, fixed share of the bar (flex 1 / basis 0)
+ * and a fixed height, so its size never depends on the count text (9 -> 10, count
+ * appearing at 0 -> 1) or on liked/reposted/saved state, and neighbours never shift.
+ * `flexDirection: 'row'` starts at the inline start, so in Arabic the icon sits on the
+ * right and the count follows it (I18nManager RTL).
  */
 export const INTERACTION_BUTTON_STYLE: InteractionButtonStyle = {
   flexDirection: 'row',
   alignItems: 'center',
   gap: INTERACTION_ICON_COUNT_GAP,
-  minHeight: INTERACTION_TOUCH_MIN,
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  height: INTERACTION_TOUCH_MIN,
   minWidth: INTERACTION_TOUCH_MIN,
 };
 

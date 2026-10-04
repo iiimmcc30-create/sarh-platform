@@ -15,10 +15,9 @@ import {
   INTERACTION_ICON_COUNT_GAP,
   INTERACTION_ICON_SIZE,
   INTERACTION_LIKE_RED,
-  INTERACTION_PRESS_IN_MS,
-  INTERACTION_PRESS_OPACITY,
-  INTERACTION_PRESS_OUT_MS,
-  INTERACTION_PRESS_SCALE,
+  INTERACTION_PULSE_DOWN_MS,
+  INTERACTION_PULSE_SCALE,
+  INTERACTION_PULSE_UP_MS,
   INTERACTION_REPOST_GREEN,
   INTERACTION_TOUCH_MIN,
   SHARE_ICON,
@@ -95,7 +94,10 @@ describe('interaction tokens = Media Viewer values (single source)', () => {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      minHeight: 36,
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+      height: 36,
       minWidth: 36,
     });
     expect(INTERACTION_BAR_STYLE).toEqual({
@@ -118,12 +120,10 @@ describe('interaction tokens = Media Viewer values (single source)', () => {
     expect(shouldShowInteractionCount(null)).toBe(false);
   });
 
-  it('press feedback is light and quick (no bounce)', () => {
-    expect(INTERACTION_PRESS_SCALE).toBeGreaterThanOrEqual(0.88);
-    expect(INTERACTION_PRESS_SCALE).toBeLessThan(1);
-    expect(INTERACTION_PRESS_OPACITY).toBeGreaterThanOrEqual(0.6);
-    expect(INTERACTION_PRESS_IN_MS).toBeLessThanOrEqual(100);
-    expect(INTERACTION_PRESS_OUT_MS).toBeLessThanOrEqual(180);
+  it('tap feedback is a light, quick icon pulse (no bounce)', () => {
+    expect(INTERACTION_PULSE_SCALE).toBeGreaterThan(1);
+    expect(INTERACTION_PULSE_SCALE).toBeLessThanOrEqual(1.15);
+    expect(INTERACTION_PULSE_UP_MS + INTERACTION_PULSE_DOWN_MS).toBeLessThanOrEqual(250);
   });
 
   it('the tokens module stays pure (no React Native import)', () => {
@@ -139,7 +139,6 @@ describe('shared InteractionActions component', () => {
     expect(comp).toContain('size={INTERACTION_ICON_SIZE}');
     expect(comp).toContain('...INTERACTION_BUTTON_STYLE');
     expect(comp).toContain('...INTERACTION_BAR_STYLE');
-    expect(comp).toContain('gap: INTERACTION_ICON_COUNT_GAP');
     expect(comp).toContain('fontSize: INTERACTION_COUNT_FONT_SIZE');
     expect(comp).not.toMatch(/hitSlop=\{\d/);
     expect(comp).not.toMatch(/size=\{\d/);
@@ -152,14 +151,14 @@ describe('shared InteractionActions component', () => {
     expect(comp).not.toContain("direction: 'ltr'");
   });
 
-  it('animates only transform/opacity with RN Animated timing (no spring, no Reanimated)', () => {
+  it('animates only the icon transform with RN Animated timing (no spring, no Reanimated)', () => {
     expect(comp).toContain("from 'react-native'");
     expect(comp).toContain('Animated.timing(scale');
-    expect(comp).toContain('Animated.timing(opacity');
+    expect(comp).toContain('Animated.sequence(');
     expect(comp).toContain('useNativeDriver: true');
-    expect(comp).toContain('onPressIn={pressIn}');
-    expect(comp).toContain('onPressOut={pressOut}');
-    expect(comp).toContain('{ transform: [{ scale }], opacity }');
+    expect(comp).toContain('onPress={handlePress}');
+    expect(comp).toContain('<Animated.View style={[styles.icon, { transform: [{ scale }] }]}>{iconNode}</Animated.View>');
+    expect(comp).not.toContain('onPressIn=');
     expect(comp).not.toContain('Animated.spring');
     expect(comp).not.toContain('bounciness');
     expect(comp).not.toContain('reanimated');
