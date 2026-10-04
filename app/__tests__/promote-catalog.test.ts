@@ -95,13 +95,11 @@ describe('promote catalog SSOT', () => {
       'utf8',
     );
     expect(screen).toContain('displayPrice = selectedDuration?.amount');
-    expect(screen).toContain('formatPromoteAmount');
+    expect(screen).toContain('formatSar(displayPrice)');
     expect(screen).toContain('ملخص التعزيز');
-    expect(screen).toContain('المتابعة للدفع');
-    expect(screen).toContain('<BottomAction>');
+    expect(screen).toContain('متابعة للدفع');
+    expect(screen).toContain("<BottomAction summary={{ label: 'الإجمالي', value: totalLabel }}>");
     expect(screen).not.toContain('quotedAmount');
-    expect(screen).not.toContain('ر.س');
     expect(screen).not.toContain('السعر النهائي يُحدَّد من الخادم');
-    expect(screen).not.toContain('summary={{');
   });
 });

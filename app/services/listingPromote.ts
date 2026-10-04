@@ -178,6 +178,22 @@ export type InitiatePromotePaymentResult = {
   boostId?: string;
 };
 
+/**
+ * Error from the boost / promotion initiate endpoints. `message` is unchanged
+ * (server messageAr); `code` / `status` let the screen pick friendly copy.
+ */
+export class PromotePaymentError extends Error {
+  readonly code?: string;
+  readonly status: number;
+
+  constructor(message: string, code: string | undefined, status: number) {
+    super(message);
+    this.name = 'PromotePaymentError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
 export async function fetchPromoteQuote(
   goal: PromotionGoal,
   durationHours: number,
@@ -226,7 +242,11 @@ export async function initiatePromotePayment(
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.success) {
-    throw new Error(json.messageAr ?? json.message ?? 'تعذّر بدء عملية الدفع');
+    throw new PromotePaymentError(
+      json.messageAr ?? json.message ?? 'تعذّر بدء عملية الدفع',
+      typeof json.error === 'string' ? json.error : undefined,
+      res.status,
+    );
   }
 
   const data = json.data ?? {};
