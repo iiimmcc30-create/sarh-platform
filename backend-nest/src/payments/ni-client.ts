@@ -224,6 +224,41 @@ export function extractNiOrderReference(
   return null;
 }
 
+/**
+ * Log-safe view of an NI identity (access-token) response: never the token itself.
+ * Keeps token_type / expiry / token length and NI error codes for diagnostics.
+ */
+export function summarizeNiAuthResponse(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') {
+    return { bodyType: data == null ? 'empty' : typeof data };
+  }
+  const body = data as Record<string, unknown>;
+  const token = typeof body.access_token === 'string' ? body.access_token : '';
+  const summary: Record<string, unknown> = {
+    hasAccessToken: Boolean(token),
+    ...(token ? { accessTokenLength: token.length } : {}),
+  };
+  for (const key of ['token_type', 'expires_in', 'refresh_expires_in', 'scope']) {
+    if (body[key] !== undefined) summary[key] = body[key];
+  }
+  const errors = Array.isArray(body.errors) ? body.errors : null;
+  if (errors) {
+    summary.errors = errors.slice(0, 3).map((e) => {
+      const row = (e ?? {}) as Record<string, unknown>;
+      return {
+        errorCode: row.errorCode,
+        message: row.message,
+        domain: row.domain,
+      };
+    });
+  }
+  if (typeof body.message === 'string') summary.message = body.message;
+  if (typeof body.code === 'string' || typeof body.code === 'number') {
+    summary.code = body.code;
+  }
+  return summary;
+}
+
 function logHttpError(
   log: NiLogFn | undefined,
   event: string,
@@ -294,7 +329,7 @@ async function getAccessToken(log?: NiLogFn): Promise<string> {
     log?.('auth_response', {
       httpStatus: status,
       attemptBody: attempt.body,
-      niResponseBody: data,
+      niResponseBody: summarizeNiAuthResponse(data),
     });
 
     if (data?.access_token) {
@@ -310,7 +345,12 @@ async function getAccessToken(log?: NiLogFn): Promise<string> {
       JSON.stringify(data || { status }).slice(0, 300);
   }
 
-  logHttpError(log, 'auth_failed', lastStatus, lastBody);
+  logHttpError(
+    log,
+    'auth_failed',
+    lastStatus,
+    summarizeNiAuthResponse(lastBody),
+  );
   throw new NiGatewayError(
     `NI access token failed — تحقق من NI_API_KEY / NI_BASIC_AUTH / NI_REALM. (${lastDetail})`,
     'auth',

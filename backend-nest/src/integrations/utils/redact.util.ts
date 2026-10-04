@@ -4,6 +4,9 @@ const SECRET_KEYS = [
   'api_key',
   'access_token',
   'accessToken',
+  'refresh_token',
+  'refreshToken',
+  'id_token',
   'client_secret',
   'clientSecret',
   'password',
@@ -16,9 +19,10 @@ const SECRET_KEYS = [
   'ciphertext',
 ];
 
+/** Never reveals the start of a secret; long values keep only length + last 4. */
 function maskValue(value: string): string {
-  if (value.length <= 8) return '***';
-  return `${value.slice(0, 4)}…${value.slice(-2)}`;
+  if (value.length <= 16) return '***';
+  return `***…${value.slice(-4)} (len ${value.length})`;
 }
 
 export function redactSensitive(value: unknown): unknown {

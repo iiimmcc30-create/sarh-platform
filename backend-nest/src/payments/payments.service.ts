@@ -200,7 +200,10 @@ export class PaymentsService
   }
 
   private niLog: NiLogFn = (event, data) => {
-    this.logger.info({ niEvent: event, ...data }, `NI ${event}`);
+    this.logger.info(
+      { niEvent: event, ...(redactSensitive(data) as object) },
+      `NI ${event}`,
+    );
   };
 
   private resolveNiOrderRef(payment: {
