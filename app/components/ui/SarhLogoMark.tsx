@@ -33,12 +33,17 @@ export const SARH_LOGO_INK = '#1D1C1C';
 export const SARH_LOGO_INK_DARK = '#FFFFFF';
 /** Diamond fill sampled from the official app icon. */
 export const SARH_LOGO_DIAMOND = '#0C4132';
+/**
+ * Diamond on dark surfaces: same hue as SARH_LOGO_DIAMOND (163deg), lighter so it
+ * reads >= 3:1 on the dark bg / surface / raised tiers. Not used by the app icons.
+ */
+export const SARH_LOGO_DIAMOND_DARK = '#237B62';
 
-/** Official icon colours for the in-app mark: black waves (white in dark mode) + green diamond. */
+/** Official icon colours for the in-app mark: black waves + green diamond (white waves, lighter green diamond in dark mode). */
 export function sarhLogoColors(isDark: boolean): { color: string; accentColor: string } {
   return {
     color: isDark ? SARH_LOGO_INK_DARK : SARH_LOGO_INK,
-    accentColor: SARH_LOGO_DIAMOND,
+    accentColor: isDark ? SARH_LOGO_DIAMOND_DARK : SARH_LOGO_DIAMOND,
   };
 }
 

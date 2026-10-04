@@ -66,6 +66,8 @@ describe('in-app Sarh mark colours match the icon', () => {
     expect(mark).toContain("export const SARH_LOGO_INK_DARK = '#FFFFFF'");
     expect(mark).toContain("export const SARH_LOGO_DIAMOND = '#0C4132'");
     expect(mark).toContain('isDark ? SARH_LOGO_INK_DARK : SARH_LOGO_INK');
+    expect(mark).toContain("export const SARH_LOGO_DIAMOND_DARK = '#237B62'");
+    expect(mark).toContain('isDark ? SARH_LOGO_DIAMOND_DARK : SARH_LOGO_DIAMOND');
   });
 
   it.each([
@@ -76,6 +78,31 @@ describe('in-app Sarh mark colours match the icon', () => {
     const src = read(rel);
     expect(src).toContain('{...sarhLogoColors(isDark)}');
     expect(src).not.toMatch(/<SarhLogoMark[^>]*electric/);
+  });
+
+  it('dark-mode diamond keeps the brand hue and reaches 3:1 on dark surfaces', () => {
+    const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lum = (h: string) => {
+      const [r, g, b] = hex(h).map(lin);
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const hue = (h: string) => {
+      const [r, g, b] = hex(h);
+      const max = Math.max(r, g, b);
+      const d = max - Math.min(r, g, b);
+      const raw = max === g ? (b - r) / d + 2 : max === b ? (r - g) / d + 4 : ((g - b) / d) % 6;
+      return (raw * 60 + 360) % 360;
+    };
+    for (const bg of ['#07131C', '#0C1C27', '#102633']) {
+      expect(contrast('#237B62', bg)).toBeGreaterThanOrEqual(3);
+    }
+    expect(Math.abs(hue('#237B62') - hue('#0C4132'))).toBeLessThan(2);
+    expect(lum('#237B62')).toBeGreaterThan(lum('#0C4132'));
   });
 
   it('launch splash draws waves in icon black and the diamond in icon green', () => {
