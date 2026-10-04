@@ -45,7 +45,7 @@ describe('light mode surface hierarchy', () => {
     expect(messages).toContain('HomeAppBar');
     expect(messages).toContain('shape="pill"');
     expect(appBar).toContain('tone="background"');
-    expect(appBar).toContain('themeColors.electric');
+    expect(appBar).toContain('{...sarhLogoColors(isDark)}');
     expect(appBar).toContain('themeColors.textPrimary');
     expect(appBar).toContain('themeColors.screenRoot');
     expect(appBar).toContain("scheme === 'light' ? ds.light : ds.dark");

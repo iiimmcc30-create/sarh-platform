@@ -1,5 +1,5 @@
 import { NotificationBellButton } from '@/components/notifications/NotificationBellButton';
-import { SarhLogoMark } from '@/components/ui/SarhLogoMark';
+import { SarhLogoMark, sarhLogoColors } from '@/components/ui/SarhLogoMark';
 import { ds } from '@/constants/designSystem';
 import { type ThemeColors } from '@/constants/theme';
 import { radius, space } from '@/design-system';
@@ -138,8 +138,7 @@ export function HomeAppBar({
               <View pointerEvents="none" style={styles.logoSlot}>
                 <SarhLogoMark
                   size={SHELL_LOGO_SIZE}
-                  color={isDark ? '#FFFFFF' : '#000000'}
-                  accentColor={themeColors.electric}
+                  {...sarhLogoColors(isDark)}
                 />
               </View>
             )}

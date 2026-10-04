@@ -10,6 +10,8 @@ import {
 } from '@/lib/launchSplash';
 import { markPerf } from '@/lib/perfDev';
 import {
+  SARH_LOGO_DIAMOND,
+  SARH_LOGO_INK,
   SARH_LOGO_MARK_ASPECT,
   SARH_LOGO_MARK_PATHS,
   SARH_LOGO_MARK_VIEWBOX_HEIGHT,
@@ -32,8 +34,9 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /** Pure white launch surface (matches the native splash background in app.json). */
 const SPLASH_BG = sarh.color.lightSurface;
-const LOGO_INK = sarh.color.lightText;
-const LOGO_ACCENT = sarh.color.lightAction;
+/** Official icon colours (white surface): black waves + dark-green diamond. */
+const LOGO_INK = SARH_LOGO_INK;
+const LOGO_ACCENT = SARH_LOGO_DIAMOND;
 const SUBTITLE_INK = sarh.color.lightTextSecondary;
 /** Outline width while drawing (viewBox units of the 611×417 mark). */
 const DRAW_STROKE = 5;

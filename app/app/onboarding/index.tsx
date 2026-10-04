@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { OnboardingDots } from '@/components/onboarding/OnboardingDots';
 import { AppText } from '@/components/ui/AppText';
-import { SarhLogoMark } from '@/components/ui/SarhLogoMark';
+import { SarhLogoMark, sarhLogoColors } from '@/components/ui/SarhLogoMark';
 import { BRAND_NAME_AR } from '@/constants/brandCopy';
 import {
   ONBOARDING_NEXT_LABEL,
@@ -33,7 +33,7 @@ const CONTENT_MAX_WIDTH = 440;
 export default function OnboardingScreen() {
   const { width: windowWidth, height } = useWindowDimensions();
   const { completeOnboarding } = useOnboarding();
-  const { colors } = useTheme();
+  const { isDark } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
 
   const [finishing, setFinishing] = useState(false);
@@ -100,7 +100,7 @@ export default function OnboardingScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <View style={styles.brand}>
-            <SarhLogoMark size={20} color={colors.textPrimary} accentColor={colors.electric} />
+            <SarhLogoMark size={20} {...sarhLogoColors(isDark)} />
             <AppText style={styles.brandName}>{BRAND_NAME_AR}</AppText>
           </View>
           <Animated.View

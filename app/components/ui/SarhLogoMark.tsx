@@ -27,6 +27,21 @@ const DIAMOND =
 
 export const SARH_LOGO_MARK_PATHS = [WAVE_BOTTOM, WAVE_TOP, DIAMOND] as const;
 
+/** Wave ink sampled from the official app icon (`assets/images/icon.png`). */
+export const SARH_LOGO_INK = '#1D1C1C';
+/** Wave ink on dark surfaces, so the mark stays visible in dark mode. */
+export const SARH_LOGO_INK_DARK = '#FFFFFF';
+/** Diamond fill sampled from the official app icon. */
+export const SARH_LOGO_DIAMOND = '#0C4132';
+
+/** Official icon colours for the in-app mark: black waves (white in dark mode) + green diamond. */
+export function sarhLogoColors(isDark: boolean): { color: string; accentColor: string } {
+  return {
+    color: isDark ? SARH_LOGO_INK_DARK : SARH_LOGO_INK,
+    accentColor: SARH_LOGO_DIAMOND,
+  };
+}
+
 type SarhLogoMarkProps = {
   /** Height in points. Width follows the original mark aspect. */
   size?: number;

@@ -36,7 +36,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#040C0E"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true
     },
@@ -78,8 +78,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
-          "color": "#040C0E",
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#0C4132",
           "defaultChannel": "default",
           "enableBackgroundRemoteNotifications": true
         }

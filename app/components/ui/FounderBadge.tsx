@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/AppText';
-import { SarhLogoMark } from '@/components/ui/SarhLogoMark';
+import { SarhLogoMark, sarhLogoColors } from '@/components/ui/SarhLogoMark';
 import { useTheme } from '@/hooks/useTheme';
 import { FEED_VERIFIED_BADGE_SIZE } from '@/lib/verifiedBadge';
 import {
@@ -52,8 +52,7 @@ export function FounderBadge({
     >
       <SarhLogoMark
         size={height}
-        color={isDark ? '#FFFFFF' : '#000000'}
-        accentColor={colors.electric}
+        {...sarhLogoColors(isDark)}
       />
       {isWeb && hovered ? (
         <View
