@@ -14,7 +14,7 @@ import {
 import { AppFlatList } from '@/components/ui/AppFlatList';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { AppChromeLayer } from '@/components/navigation/AppChromeLayer';
-import { HomeAppBar, shellIdentityStackH } from '@/components/ui/HomeAppBar';
+import { FLUSH_TABS_CONTENT_GAP, HomeAppBar, shellIdentityStackH } from '@/components/ui/HomeAppBar';
 import { ds } from '@/constants/designSystem';
 import { type ThemeColors } from '@/constants/theme';
 import { HEADER_TAB_INDICATOR_OVERHANG, HEADER_TAB_INDICATOR_THICKNESS } from '@/lib/tabPager';
@@ -240,7 +240,7 @@ export default function PostsScreen() {
                 data={posts}
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
-                contentContainerStyle={[styles.scroll, { paddingTop: headerH }]}
+                contentContainerStyle={[styles.scroll, { paddingTop: headerH + FLUSH_TABS_CONTENT_GAP }]}
                 ListEmptyComponent={loadingFeed && posts.length === 0 ? FeedSkeleton : ListEmpty}
                 ListFooterComponent={<View style={styles.listFooter} />}
                 refreshControl={

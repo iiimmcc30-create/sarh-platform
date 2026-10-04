@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: ds.tabBar.marginH,
   },
-  /** Thin X-style bar: hairline top border, no shadow, single 48px icon row. */
+  /** Thin X-style bar: hairline top border, no shadow, single ds.tabBar.height (52px) icon row. */
   bar: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.xs,

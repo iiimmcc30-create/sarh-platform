@@ -120,7 +120,8 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     const profile = src('app/(tabs)/profile.tsx');
     const layout = src('components/feature/ProfileScreenLayout.tsx');
     expect(profile).not.toContain('onSettings=');
-    expect(layout).toContain("backgroundColor: 'transparent'");
+    // Sticky tabs strip: same surface as the bottom tab bar (no card).
+    expect(layout).toContain("backgroundColor: (scheme === 'light' ? ds.light : ds.dark).tabBar");
     expect(layout).not.toContain('MENU_CARD');
   });
 

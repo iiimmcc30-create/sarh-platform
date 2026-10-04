@@ -145,3 +145,28 @@ describe('Profile tabs: same label contrast as Feed/Search', () => {
     expect(tabs).toMatch(/tabLabelActive: \{\n\s+\.\.\.resolveAppFontFace\('700'\),\n\s+color: scheme === 'dark' \? colors\.textPrimary : colors\.electric,/);
   });
 });
+
+describe('top headers share the bottom tab bar surface; flush tab headers give content a top gap', () => {
+  const bar = src('components/ui/HomeAppBar.tsx');
+  const search = src('app/search.tsx');
+  const feed = src('app/(tabs)/posts.tsx');
+  const profile = src('components/feature/ProfileScreenLayout.tsx');
+  const tabBar = src('components/navigation/FloatingTabBar.tsx');
+
+  it('HomeAppBar / Search session chrome / Profile sticky tabs use tokens.tabBar (97%, no blur)', () => {
+    expect(tabBar).toContain('backgroundColor: tokens.tabBar');
+    expect(bar).toContain('backgroundColor: tokens.tabBar,\n      borderBottomColor: tokens.glassBorder,');
+    expect(bar).toContain('borderBottomWidth: StyleSheet.hairlineWidth');
+    expect(search).not.toMatch(/backgroundColor: tokens\.glass\b,/);
+    expect(search.match(/backgroundColor: tokens\.tabBar,/g)?.length).toBe(2);
+    expect(profile).toContain("tabsBar: {\n      backgroundColor: (scheme === 'light' ? ds.light : ds.dark).tabBar,");
+    for (const text of [bar, search, profile]) expect(text).not.toMatch(/BlurView|expo-blur/);
+  });
+
+  it('content (not the header) carries the gap under a flush tab header', () => {
+    expect(bar).toContain('export const FLUSH_TABS_CONTENT_GAP = space[12];');
+    expect(search).toContain("padTop={collapseEnabled ? 'md' : 'none'}");
+    expect(search).toContain("flushBottom={phase === 'home' || phase === 'results'}");
+    expect(feed).toContain('paddingTop: headerH + FLUSH_TABS_CONTENT_GAP');
+  });
+});

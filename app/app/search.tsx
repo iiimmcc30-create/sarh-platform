@@ -1289,6 +1289,8 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
 
       <Animated.View style={[styles.bodyWrap, { paddingTop: bodyPaddingTop }]}>
       <ScreenBody
+        // Flush tab header (no strip under the underline): the content owns the top gap (FLUSH_TABS_CONTENT_GAP = md).
+        padTop={collapseEnabled ? 'md' : 'none'}
         padBottom={hideTabBar || !isTab ? 'xxxl' : 'md'}
         gutter={false}
         bottomInset={isTab && phase === 'home' ? 'tabBar' : 'none'}
@@ -1434,8 +1436,9 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     bodyWrap: {
       flex: 1,
     },
+    /** Same surface as the bottom tab bar (tokens.tabBar, no blur). */
     sessionShell: {
-      backgroundColor: tokens.glass,
+      backgroundColor: tokens.tabBar,
       borderBottomColor: tokens.glassBorder,
       borderBottomWidth: StyleSheet.hairlineWidth,
     },
@@ -1445,7 +1448,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       start: 0,
       end: 0,
       zIndex: 2,
-      backgroundColor: tokens.glass,
+      backgroundColor: tokens.tabBar,
     },
     resultsInner: {
       width: '100%',

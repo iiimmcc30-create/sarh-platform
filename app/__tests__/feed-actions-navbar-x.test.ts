@@ -82,8 +82,8 @@ describe('X-style action row: 4 equal main actions + compact bookmark/share grou
 describe('X-style bottom tab bar: thin, near-opaque, hairline top border', () => {
   const tabs = src('components/navigation/FloatingTabBar.tsx');
 
-  it('is a single 48px row (was 8 + 52)', () => {
-    expect(ds.tabBar.height).toBe(48);
+  it('is a single 52px row (was 8 + 52, then 48)', () => {
+    expect(ds.tabBar.height).toBe(52);
     expect(tabs).toContain('height: ds.tabBar.height');
     expect(tabs).not.toContain('minHeight: 52');
     expect(tabs).not.toContain('paddingTop: spacing.sm');

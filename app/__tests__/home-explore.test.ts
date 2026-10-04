@@ -175,7 +175,7 @@ describe('HomeAppBar chrome', () => {
     expect(src).toContain('minHeight: BAR_H');
     expect(src).not.toContain('variant="heading3"');
     expect(src).not.toContain('onProfilePress');
-    expect(src).toContain('tokens.glass');
+    expect(src).toContain('backgroundColor: tokens.tabBar');
     expect(src).toContain('tokens.glassBorder');
     expect(src).not.toContain('ambientShadow');
   });

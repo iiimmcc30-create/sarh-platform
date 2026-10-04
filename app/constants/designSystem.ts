@@ -87,8 +87,8 @@ export const ds = {
   },
 
   tabBar: {
-    /** Thin X-style tab chrome: one 48px icon row (+ safe-area / marginBottom below). */
-    height: 48,
+    /** Thin X-style tab chrome: one 52px icon row (+ safe-area / marginBottom below). */
+    height: 52,
     fabSize: 22,
     fabLift: 0,
     marginH: 0,

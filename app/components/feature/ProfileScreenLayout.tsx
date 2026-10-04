@@ -620,8 +620,9 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       minHeight: PROFILE_ACTION_PILL_HEIGHT,
       paddingHorizontal: PROFILE_ACTION_PILL_PADDING_H,
     },
+    /** Sticky tabs: same opaque-ish surface as the bottom tab bar so posts never show through. */
     tabsBar: {
-      backgroundColor: 'transparent',
+      backgroundColor: (scheme === 'light' ? ds.light : ds.dark).tabBar,
       marginTop: spacing.md,
     },
     postsFeed: {

@@ -71,6 +71,12 @@ type HomeAppBarProps = {
   flushBottom?: boolean;
 };
 
+/**
+ * Gap between a flush tab header (flushBottom) and the first content block:
+ * the header ends at the tab underline, so the content carries the breathing room.
+ */
+export const FLUSH_TABS_CONTENT_GAP = space[12];
+
 /** Home header: user avatar, centered Sarh mark, notifications. */
 export function HomeAppBar({
   onAvatarPress,
@@ -177,8 +183,9 @@ export function HomeAppBar({
 function createColorStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   const tokens = scheme === 'light' ? ds.light : ds.dark;
   return StyleSheet.create({
+    /** Same surface as the bottom tab bar (tokens.tabBar, 97%, no blur) + hairline border. */
     shell: {
-      backgroundColor: tokens.glass,
+      backgroundColor: tokens.tabBar,
       borderBottomColor: tokens.glassBorder,
     },
     avatar: {
