@@ -25,15 +25,16 @@ import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { getProfileTabs, type ProfileTabKey } from '@/lib/profileTabs';
-import { SHARE_LABEL } from '@/lib/interactionActions';
 import {
   PROFILE_ACTION_PILL_GAP,
   PROFILE_ACTION_PILL_HEIGHT,
+  PROFILE_ACTION_PILL_PADDING_H,
   PROFILE_ACTION_PILL_SHAPE,
   PROFILE_ACTION_PILL_VARIANT,
   PROFILE_BACK_BUTTON_SIZE,
   PROFILE_BACK_LABEL,
   PROFILE_EDIT_LABEL,
+  PROFILE_SHARE_LABEL,
 } from '@/lib/profileHeader';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
 
@@ -419,7 +420,7 @@ export function ProfileScreenLayout({
             <Row gap="md" align="center" style={[styles.ownActionsRow, inset]}>
               {onShare ? (
                 <SarhButton
-                  title={SHARE_LABEL}
+                  title={PROFILE_SHARE_LABEL}
                   variant={PROFILE_ACTION_PILL_VARIANT}
                   shape={PROFILE_ACTION_PILL_SHAPE}
                   onPress={onShare}
@@ -617,7 +618,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       flexShrink: 1,
       flexBasis: 0,
       minHeight: PROFILE_ACTION_PILL_HEIGHT,
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: PROFILE_ACTION_PILL_PADDING_H,
     },
     tabsBar: {
       backgroundColor: 'transparent',

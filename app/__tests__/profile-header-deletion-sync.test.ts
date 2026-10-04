@@ -13,16 +13,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   PROFILE_ACTION_PILL_GAP,
   PROFILE_ACTION_PILL_HEIGHT,
+  PROFILE_ACTION_PILL_PADDING_H,
   PROFILE_ACTION_PILL_SHAPE,
   PROFILE_ACTION_PILL_VARIANT,
   PROFILE_BACK_BUTTON_SIZE,
   PROFILE_BACK_FALLBACK_ROUTE,
   PROFILE_EDIT_LABEL,
   PROFILE_EDIT_ROUTE,
+  PROFILE_SHARE_LABEL,
   resolveProfileBack,
 } from '@/lib/profileHeader';
 import { isTabBarHiddenForRoute, TAB_BAR_HIDDEN_ROUTES } from '@/lib/tabBarVisibility';
-import { SHARE_LABEL } from '@/lib/interactionActions';
 import {
   applyDeletionToCounts,
   decrementCount,
@@ -88,12 +89,15 @@ describe('profile header', () => {
     const pill = layout.slice(layout.indexOf('    pill: {'), layout.indexOf('},', layout.indexOf('    pill: {')));
     expect(pill).toContain('flexBasis: 0');
     expect(pill).toContain('minHeight: PROFILE_ACTION_PILL_HEIGHT');
+    // Long labels fit on one line: tighter side padding, both pills share the row equally.
+    expect(pill).toContain('paddingHorizontal: PROFILE_ACTION_PILL_PADDING_H');
+    expect(PROFILE_ACTION_PILL_PADDING_H).toBe(8);
     expect(pill).not.toMatch(/shadow|elevation|gradient/i);
     expect(layout).toContain('gap: PROFILE_ACTION_PILL_GAP');
   });
 
   it('puts Share first (right in RTL) then Edit, text only, above the tabs', () => {
-    const share = layout.indexOf('title={SHARE_LABEL}');
+    const share = layout.indexOf('title={PROFILE_SHARE_LABEL}');
     const edit = layout.indexOf('title={PROFILE_EDIT_LABEL}');
     expect(share).toBeGreaterThan(-1);
     expect(edit).toBeGreaterThan(share);
@@ -102,7 +106,7 @@ describe('profile header', () => {
     expect(row).toContain('onPress={onShare}');
     expect(row).toContain('onPress={onEditProfile}');
     expect(row).toContain('isOwnProfile && (onShare || onEditProfile)');
-    expect(SHARE_LABEL).toBe('مشاركة');
+    expect(PROFILE_SHARE_LABEL).toBe('مشاركة الملف الشخصي');
     expect(PROFILE_EDIT_LABEL).toBe('تعديل الملفّ الشخصيّ');
   });
 
@@ -112,6 +116,10 @@ describe('profile header', () => {
     expect(own).toContain('onBack={handleBack}');
     expect(own).toContain('onEditProfile={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}');
     expect(own).toMatch(/Share\.share\(/);
+    // The share pill shares the profile link.
+    expect(own).toContain('const profileUrl = sarhProfileShareUrl(me.username);');
+    expect(own).toContain('url: profileUrl,');
+    expect(src('constants/sarhOfficial.ts')).toContain('return `${SARH_OFFICIAL_SITE}/u/${username}`;');
     expect(PROFILE_EDIT_ROUTE).toBe('/profile/edit');
     const other = src('app/users/[id].tsx');
     expect(other).toContain('onShare={handleShareProfile}');
@@ -128,7 +136,7 @@ describe('profile header', () => {
     it('My Profile shows Share + Edit Profile and no Follow / Message', () => {
       expect(ownStart).toBeGreaterThan(-1);
       expect(visitorStart).toBeGreaterThan(ownStart);
-      expect(ownBlock).toContain('title={SHARE_LABEL}');
+      expect(ownBlock).toContain('title={PROFILE_SHARE_LABEL}');
       expect(ownBlock).toContain('title={PROFILE_EDIT_LABEL}');
       expect(ownBlock).not.toContain('onFollow');
       expect(ownBlock).not.toContain('onMessage');
@@ -141,7 +149,7 @@ describe('profile header', () => {
       expect(visitorBlock).toContain("'متابعة'");
       expect(visitorBlock).toContain('onPress={onMessage}');
       expect(visitorBlock).toContain('onPress={onFollow}');
-      expect(visitorBlock).not.toContain('SHARE_LABEL');
+      expect(visitorBlock).not.toContain('PROFILE_SHARE_LABEL');
       expect(visitorBlock).not.toContain('onShare');
       expect(visitorBlock).not.toContain('PROFILE_EDIT_LABEL');
       expect(visitorBlock).not.toContain('onEditProfile');
@@ -149,7 +157,7 @@ describe('profile header', () => {
       expect(visitorBlock).toContain('<Row gap="sm" align="center" style={[styles.actionsRow, inset]}>');
       expect(visitorBlock.match(/style=\{styles\.actionBtnFlex\}/g)).toHaveLength(2);
       // Share and Edit pills appear exactly once in the whole layout (own row only).
-      expect(layout.match(/title=\{SHARE_LABEL\}/g)).toHaveLength(1);
+      expect(layout.match(/title=\{PROFILE_SHARE_LABEL\}/g)).toHaveLength(1);
       expect(layout.match(/title=\{PROFILE_EDIT_LABEL\}/g)).toHaveLength(1);
     });
 

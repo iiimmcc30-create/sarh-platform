@@ -12,6 +12,10 @@ export const PROFILE_ACTION_PILL_SHAPE = 'pill' as const;
 export const PROFILE_BACK_BUTTON_SIZE = 40;
 export const PROFILE_BACK_LABEL = 'رجوع';
 export const PROFILE_EDIT_LABEL = 'تعديل الملفّ الشخصيّ';
+/** My Profile share pill: shares the profile link (sarhProfileShareUrl). */
+export const PROFILE_SHARE_LABEL = 'مشاركة الملف الشخصي';
+/** Pill side padding: tight enough that both long labels fit on one line on narrow phones. */
+export const PROFILE_ACTION_PILL_PADDING_H = 8;
 /** Existing edit profile route (unchanged). */
 export const PROFILE_EDIT_ROUTE = '/profile/edit';
 /** Where Back lands when there is no history (deep link / cold start). */

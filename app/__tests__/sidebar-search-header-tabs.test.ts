@@ -136,3 +136,12 @@ describe('interaction buttons: one step smaller (X), higher contrast, 4-bar view
     expect(glyph.match(/'M[\d.]+ 20[vV]/g)?.length).toBe(4);
   });
 });
+
+describe('Profile tabs: same label contrast as Feed/Search', () => {
+  it('idle textSecondary, active bold with its existing strong color', () => {
+    const tabs = src('components/feature/ProfileTabs.tsx');
+    expect(tabs).not.toContain("color={active ? 'textPrimary' : 'textMuted'}");
+    expect(tabs).toContain("color={active ? 'textPrimary' : 'textSecondary'}");
+    expect(tabs).toMatch(/tabLabelActive: \{\n\s+\.\.\.resolveAppFontFace\('700'\),\n\s+color: scheme === 'dark' \? colors\.textPrimary : colors\.electric,/);
+  });
+});

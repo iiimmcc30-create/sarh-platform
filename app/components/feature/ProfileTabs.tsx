@@ -4,6 +4,7 @@ import { AppScrollView } from '@/components/ui/AppScrollView';
 import { SwipeTabIndicator } from '@/components/ui/SwipeTabIndicator';
 import { AppText } from '@/design-system/components';
 import { duration } from '@/design-system/tokens';
+import { resolveAppFontFace } from '@/constants/fonts';
 import { spacing, type ThemeColors } from '@/constants/theme';
 import { useLayout } from '@/hooks/useLayout';
 import { useRevealActiveTab, useTabLayouts } from '@/hooks/useTabLayouts';
@@ -126,7 +127,7 @@ function ProfileTabButton({
     >
       <AppText
         variant="label"
-        color={active ? 'textPrimary' : 'textMuted'}
+        color={active ? 'textPrimary' : 'textSecondary'}
         style={active ? styles.tabLabelActive : undefined}
         numberOfLines={1}
       >
@@ -161,7 +162,9 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       paddingBottom: 10,
       position: 'relative',
     },
+    /** Active: bold + strong color; idle labels are textSecondary (same contrast as Feed/Search tabs). */
     tabLabelActive: {
+      ...resolveAppFontFace('700'),
       color: scheme === 'dark' ? colors.textPrimary : colors.electric,
     },
     indicator: {
