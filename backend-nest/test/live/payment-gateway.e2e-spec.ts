@@ -8,7 +8,7 @@
  *   - If the NI outlet is INACTIVE / unreachable → a STRUCTURED 502
  *     `payment_gateway_error` (never a crash / 500), surfacing the NI reason.
  *
- * Outlet reference: 36a1f0d3-6a8f-4287-958f-f151ae17146d (NI_OUTLET_ID).
+ * Outlet reference: read from NI_OUTLET_ID (env only — never hardcode it here).
  * Live check: `node scripts/test-ni-gateway.js` — auth + hosted checkout URL.
  */
 import request from 'supertest';
