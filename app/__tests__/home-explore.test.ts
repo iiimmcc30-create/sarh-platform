@@ -119,16 +119,15 @@ describe('login screen layout', () => {
   });
 });
 
-describe('auth welcome screen', () => {
-  it('shows square brand mark and start / have-account actions', () => {
+describe('auth welcome route', () => {
+  it('is only a redirect to login (old welcome screen removed from launch)', () => {
     const src = fs.readFileSync(
       path.join(__dirname, '../app/auth/welcome.tsx'),
       'utf8',
     );
-    expect(src).toContain('SarhLogoMark');
-    expect(src).toContain('/auth/register');
-    expect(src).toContain('/auth/phone');
-    expect(src).toContain('useAuthCopy');
+    expect(src).toContain('<Redirect href="/auth/phone" />');
+    expect(src).not.toContain('SarhButton');
+    expect(src).not.toContain('LinearGradient');
   });
 });
 

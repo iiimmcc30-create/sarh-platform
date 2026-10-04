@@ -73,7 +73,7 @@ export default function PhoneLoginScreen() {
         colors={[colors.bgDeep, colors.bgPrimary, colors.bgDeep]}
         style={StyleSheet.absoluteFill}
       />
-      <ScreenHeader variant="screen" title={copy.loginTitle} showBack onBackPress={() => router.replace('/auth/welcome')} />
+      <ScreenHeader variant="screen" title={copy.loginTitle} showBack={router.canGoBack()} />
       <ScreenBody
         padTop="lg"
         padBottom="xxxl"

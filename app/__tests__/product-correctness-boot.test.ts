@@ -105,10 +105,10 @@ describe('M1 single boot navigation source', () => {
     ).toEqual({ type: 'replace', href: '/onboarding' });
   });
 
-  it('sends onboarding-complete unauthenticated users to welcome', () => {
+  it('sends onboarding-complete unauthenticated users to login (no welcome screen)', () => {
     expect(resolveBootNavigation(base)).toEqual({
       type: 'replace',
-      href: '/auth/welcome',
+      href: '/auth/phone',
     });
   });
 
@@ -137,7 +137,7 @@ describe('M1 single boot navigation source', () => {
         ...base,
         firstSegment: 'legacy-route',
       }),
-    ).toEqual({ type: 'replace', href: '/auth/welcome' });
+    ).toEqual({ type: 'replace', href: '/auth/phone' });
   });
 
   it('does not keep a public legacy-route exception before onboarding', () => {

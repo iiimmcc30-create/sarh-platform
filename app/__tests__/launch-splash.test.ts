@@ -1,0 +1,104 @@
+import { readFileSync } from 'fs';
+import path from 'path';
+import {
+  LAUNCH_LOGO_START_SCALE,
+  LAUNCH_SPLASH_TIMING,
+  SARH_LOGO_PATH_LENGTHS,
+  launchSplashLayout,
+  launchSplashTotalMs,
+  shouldExitLaunchSplash,
+} from '@/lib/launchSplash';
+import { AUTH_ENTRY_HREF, resolveBootNavigation } from '@/lib/bootRouting';
+
+const root = path.join(__dirname, '..');
+const src = (p: string) => readFileSync(path.join(root, p), 'utf8');
+const ASPECT = 611 / 417;
+
+describe('launch splash timing', () => {
+  it('keeps the intro calm (~1.8–2.6 s) and short with reduce motion', () => {
+    const total = launchSplashTotalMs(false);
+    expect(total).toBeGreaterThanOrEqual(1800);
+    expect(total).toBeLessThanOrEqual(2600);
+    expect(launchSplashTotalMs(true)).toBeLessThan(900);
+    expect(LAUNCH_SPLASH_TIMING.exitDuration).toBeLessThanOrEqual(400);
+  });
+
+  it('draws first, then settles, then shows text', () => {
+    const t = LAUNCH_SPLASH_TIMING;
+    expect(t.fillDelay).toBeLessThan(t.settleDelay);
+    expect(t.settleDelay).toBeLessThan(t.titleDelay);
+    expect(t.titleDelay).toBeLessThan(t.subtitleDelay);
+    expect(LAUNCH_LOGO_START_SCALE).toBeGreaterThan(1);
+    expect(SARH_LOGO_PATH_LENGTHS).toHaveLength(3);
+  });
+
+  it('exits only when the animation is done and boot is ready', () => {
+    expect(shouldExitLaunchSplash({ animationDone: true, bootReady: false })).toBe(false);
+    expect(shouldExitLaunchSplash({ animationDone: false, bootReady: true })).toBe(false);
+    expect(shouldExitLaunchSplash({ animationDone: true, bootReady: true })).toBe(true);
+  });
+});
+
+describe('launch splash layout', () => {
+  it.each([
+    [320, 568],
+    [360, 800],
+    [393, 873],
+    [412, 915],
+    [1024, 1366],
+  ])('scales from the window (%i×%i) and fits', (w, h) => {
+    const l = launchSplashLayout(w, h, ASPECT);
+    expect(l.logoWidth).toBeLessThanOrEqual(Math.min(w, h) * 0.38 + 1);
+    expect(l.logoWidth * LAUNCH_LOGO_START_SCALE).toBeLessThan(w);
+    const group = l.logoHeight + l.logoGap + l.titleLineHeight + l.textGap + l.subtitleLineHeight;
+    expect(group).toBeLessThan(h * 0.6);
+    expect(l.subtitleSize).toBeLessThan(l.titleSize);
+  });
+});
+
+describe('launch path', () => {
+  it('logged-out launches go straight to login, never the old welcome', () => {
+    expect(AUTH_ENTRY_HREF).toBe('/auth/phone');
+    expect(
+      resolveBootNavigation({
+        authLoading: false,
+        onboardingLoading: false,
+        onboardingComplete: true,
+        isAuthenticated: false,
+        firstSegment: undefined,
+      }),
+    ).toEqual({ type: 'replace', href: '/auth/phone' });
+  });
+
+  it('no screen navigates to /auth/welcome anymore', () => {
+    for (const file of [
+      'lib/bootRouting.ts',
+      'app/auth/phone.tsx',
+      'app/auth/register.tsx',
+      'app/verification.tsx',
+      'components/ui/BootSplashGate.tsx',
+    ]) {
+      expect(src(file)).not.toContain('/auth/welcome');
+    }
+  });
+
+  it('native splash is plain white and hands off to the RN splash', () => {
+    const app = JSON.parse(src('app.json'));
+    const plugin = app.expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-splash-screen');
+    expect(plugin[1].backgroundColor).toBe('#FFFFFF');
+    expect(plugin[1].dark.backgroundColor).toBe('#FFFFFF');
+    expect(plugin[1].image).toBe('./assets/images/splash-blank.png');
+
+    const gate = src('components/ui/BootSplashGate.tsx');
+    expect(gate).toContain('<LaunchSplash');
+    const splash = src('components/ui/LaunchSplash.tsx');
+    expect(splash).toContain('onLayout={onLayout}');
+    expect(splash).toContain('SplashScreen.hideAsync()');
+    expect(splash).toContain('SARH_LOGO_MARK_PATHS');
+    expect(splash).toContain('strokeDashoffset');
+    expect(splash).toContain('isReduceMotionEnabled');
+    expect(splash).toContain('سرح');
+    expect(splash).toContain('Sarh');
+    expect(splash).not.toMatch(/react-native-reanimated|LinearGradient|shadow/i);
+  });
+});

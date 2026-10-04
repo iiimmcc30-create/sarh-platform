@@ -203,11 +203,11 @@ describe('completion flag + redirect', () => {
     expect(ctx).toMatch(/persistOnboardingComplete\([\s\S]*?\);\s*setIsComplete\(true\);/);
   });
 
-  it('completing onboarding leaves it (welcome or tabs) and never loops back', () => {
+  it('completing onboarding leaves it (login or tabs) and never loops back', () => {
     const base = { authLoading: false, onboardingLoading: false, firstSegment: 'onboarding' };
     expect(
       resolveBootNavigation({ ...base, onboardingComplete: true, isAuthenticated: false }),
-    ).toEqual({ type: 'replace', href: '/auth/welcome' });
+    ).toEqual({ type: 'replace', href: '/auth/phone' });
     expect(
       resolveBootNavigation({ ...base, onboardingComplete: true, isAuthenticated: true }),
     ).toEqual({ type: 'replace', href: '/(tabs)' });

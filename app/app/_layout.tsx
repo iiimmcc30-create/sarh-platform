@@ -174,7 +174,7 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen name="onboarding/index" options={{ animation: 'fade', presentation: 'card', gestureEnabled: false }} />
-        <Stack.Screen name="auth/welcome" options={{ animation: 'fade', presentation: 'card' }} />
+        <Stack.Screen name="auth/welcome" options={{ animation: 'none', presentation: 'card' }} />
         <Stack.Screen name="auth/phone" options={{ animation: 'fade', presentation: 'card' }} />
         <Stack.Screen name="auth/otp" options={{ animation: 'fade', presentation: 'card' }} />
         <Stack.Screen name="auth/register" options={{ animation: 'fade', presentation: 'card' }} />

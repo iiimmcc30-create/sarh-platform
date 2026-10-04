@@ -618,9 +618,8 @@ const WAVE_3B_SHELLS = [
   'app/auth/forgot-password.tsx',
 ];
 
-const WAVE_3B_LANDING = ['app/auth/welcome.tsx'];
-
-const WAVE_3B = [...WAVE_3B_SHELLS, ...WAVE_3B_LANDING];
+// The welcome landing was removed from the launch path (route is a redirect only).
+const WAVE_3B = [...WAVE_3B_SHELLS];
 
 describe('Architecture V2 — Wave 3b auth and join screens', () => {
   for (const file of WAVE_3B) {

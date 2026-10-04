@@ -224,7 +224,7 @@ export default function VerificationScreen() {
 
   const subscribe = async () => {
     if (!isAuthenticated || !accessToken) {
-      router.push('/auth/welcome' as never);
+      router.push('/auth/phone');
       return;
     }
     if (!plan?.available || !sub?.id) return;
@@ -271,7 +271,7 @@ export default function VerificationScreen() {
   const cta = ((): { title: string; onPress: () => void; disabled: boolean } => {
     const none = () => undefined;
     if (!isAuthenticated) {
-      return { title: 'سجّل الدخول للاشتراك', onPress: () => router.push('/auth/welcome' as never), disabled: false };
+      return { title: 'سجّل الدخول للاشتراك', onPress: () => router.push('/auth/phone'), disabled: false };
     }
     if (subscribedHere) return { title: 'مشترك', onPress: none, disabled: true };
     if (subscribedHigher && sub?.tier) {

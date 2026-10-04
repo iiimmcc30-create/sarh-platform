@@ -59,7 +59,6 @@ describe('Primary CTA button tokens', () => {
   });
 
   it('routes key primary CTAs through SarhButton', () => {
-    expect(src('app/auth/welcome.tsx')).toContain('<SarhButton');
     expect(src('app/auth/phone.tsx')).toContain('<SarhButton');
     expect(src('app/auth/register.tsx')).toContain('<SarhButton');
     expect(src('app/auth/otp.tsx')).toContain('<SarhButton');

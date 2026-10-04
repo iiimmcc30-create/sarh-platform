@@ -112,7 +112,7 @@ export default function RegisterScreen() {
       return;
     }
     if (router.canGoBack()) router.back();
-    else router.replace('/auth/welcome');
+    else router.replace('/auth/phone');
   };
 
   const advanceFromPhone = async () => {

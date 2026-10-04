@@ -11,6 +11,9 @@ export type BootNavAction =
   | { type: 'stay' }
   | { type: 'replace'; href: string };
 
+/** Logged-out entry point after the launch splash (the old welcome screen is gone). */
+export const AUTH_ENTRY_HREF = '/auth/phone';
+
 export function resolveBootNavigation(state: BootNavState): BootNavAction {
   if (state.authLoading || state.onboardingLoading) {
     return { type: 'wait' };
@@ -33,7 +36,7 @@ export function resolveBootNavigation(state: BootNavState): BootNavAction {
   if (state.onboardingComplete && inOnboarding) {
     return {
       type: 'replace',
-      href: state.isAuthenticated ? '/(tabs)' : '/auth/welcome',
+      href: state.isAuthenticated ? '/(tabs)' : AUTH_ENTRY_HREF,
     };
   }
 
@@ -51,7 +54,7 @@ export function resolveBootNavigation(state: BootNavState): BootNavAction {
     !inInfo &&
     !inOnboarding
   ) {
-    return { type: 'replace', href: '/auth/welcome' };
+    return { type: 'replace', href: AUTH_ENTRY_HREF };
   }
 
   return { type: 'stay' };
