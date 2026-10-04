@@ -44,8 +44,8 @@ function resolveDevApiUrls(lanIp) {
 }
 
 /**
- * Probe local backend health and fall back to Railway when unavailable.
- * Wi‑Fi dev: prefers LAN IP; localhost-only backend → Railway for the phone.
+ * Probe local backend health and fall back to production (Hostinger) when unavailable.
+ * Wi‑Fi dev: prefers LAN IP; localhost-only backend → production (Hostinger) for the phone.
  */
 async function resolveDevApiUrlsAsync(lanIp) {
   const envApi = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
@@ -87,12 +87,12 @@ async function resolveDevApiUrlsAsync(lanIp) {
 
   if (loopbackOk && lanIp) {
     console.warn(
-      '[dev-api] Backend on localhost only — phone cannot reach it. Using production (Render).',
+      '[dev-api] Backend on localhost only — phone cannot reach it. Using production (Hostinger https://sarhsa.online).',
     );
     return {
       apiUrl: PRODUCTION_API,
       socketUrl: PRODUCTION_SOCKET,
-      mode: 'render-fallback',
+      mode: 'production-fallback',
     };
   }
 
@@ -104,11 +104,11 @@ async function resolveDevApiUrlsAsync(lanIp) {
     };
   }
 
-  console.warn('[dev-api] No local backend — using production (Render).');
+  console.warn('[dev-api] No local backend — using production (Hostinger https://sarhsa.online).');
   return {
     apiUrl: PRODUCTION_API,
     socketUrl: PRODUCTION_SOCKET,
-    mode: 'render-fallback',
+    mode: 'production-fallback',
   };
 }
 

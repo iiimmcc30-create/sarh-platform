@@ -133,8 +133,6 @@ function RootNavigator() {
         <Stack.Screen name="payment/cancel" />
         <Stack.Screen name="fees" />
         <Stack.Screen name="profile/edit" />
-        <Stack.Screen name="profile/edit/index" />
-        <Stack.Screen name="profile/edit/[field]" />
         <Stack.Screen name="profile/connections" />
         <Stack.Screen name="create/listing" />
         <Stack.Screen name="create/post" />

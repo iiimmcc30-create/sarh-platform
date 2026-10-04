@@ -206,7 +206,7 @@ async function main() {
   console.log('  Dev app (امسح QR):', devClientUrl);
   console.log('  Expo Go (بديل):', expoGoUrl);
   const remoteLabel =
-    mode === 'remote' || mode === 'railway-fallback' ? '(Railway)' : '';
+    mode === 'remote' || mode === 'production-fallback' ? '(Hostinger)' : '';
   console.log('  API:', apiUrl, remoteLabel);
   console.log('  Socket:', socketUrl, remoteLabel);
   console.log('  DevTools:', `http://localhost:${expoPort}`);

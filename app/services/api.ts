@@ -1,6 +1,13 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { resolveDevServiceUrl, PRODUCTION_API } from './devHost';
+import {
+  apiFallbackMessage,
+  resolveReachableApiBase,
+  setApiRebase,
+  setPendingApiProbe,
+  shouldProbeLocalApi,
+} from './apiFallback';
 
 function usesSameOriginWebApi(): boolean {
   if (Platform.OS !== 'web') return false;
@@ -17,46 +24,47 @@ function resolveApiBase(): string {
 
 export let API_BASE = resolveApiBase();
 
-let reachabilityChecked = false;
-
-async function probeApiHealth(baseUrl: string, timeoutMs = 800): Promise<boolean> {
+async function probeApiHealth(baseUrl: string, timeoutMs: number): Promise<boolean> {
   if (!baseUrl) return true;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
     const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/health`, {
       signal: controller.signal,
     });
-    clearTimeout(timer);
     return res.ok;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/** Skip health probes when already on the live API — they were blocking first paint. */
-export async function ensureApiReachable(): Promise<string> {
-  if (!API_BASE || usesSameOriginWebApi()) {
-    return API_BASE;
-  }
-  if (!__DEV__ || API_BASE.includes('onrender.com') || /^https:\/\//i.test(API_BASE)) {
-    return API_BASE;
-  }
-  if (reachabilityChecked) {
-    return API_BASE;
-  }
-  reachabilityChecked = true;
+let reachability: Promise<string> | null = null;
 
-  if (await probeApiHealth(API_BASE)) {
-    return API_BASE;
+/**
+ * Production / https bases return immediately (no probe). A dev build on a local http
+ * backend probes it once (short timeout) and otherwise switches straight to Hostinger.
+ */
+export function ensureApiReachable(): Promise<string> {
+  if (usesSameOriginWebApi() || !shouldProbeLocalApi(API_BASE, __DEV__)) {
+    return Promise.resolve(API_BASE);
   }
+  if (reachability) return reachability;
 
-  if (!API_BASE.includes('onrender.com') && (await probeApiHealth(PRODUCTION_API))) {
-    console.warn('[سرح] Local API unreachable — switched to production (Render)');
-    API_BASE = PRODUCTION_API;
-  }
-
-  return API_BASE;
+  const localBase = API_BASE;
+  reachability = resolveReachableApiBase(localBase, __DEV__, probeApiHealth, PRODUCTION_API).then(
+    ({ base, switched }) => {
+      if (switched) {
+        console.warn(apiFallbackMessage(PRODUCTION_API));
+        API_BASE = base;
+        setApiRebase(localBase, base);
+      }
+      return API_BASE;
+    },
+  );
+  setPendingApiProbe(localBase, reachability);
+  return reachability;
 }
 
 if (__DEV__) {
@@ -65,14 +73,8 @@ if (__DEV__) {
   if (API_BASE.includes('127.0.0.1')) {
     console.log('[سرح] USB — إذا فشل الاتصال: npm run adb:reverse (أو أعدي تشغيل Metro)');
   }
-  if (API_BASE.includes('onrender.com')) {
-    console.log('[سرح] API → Render (بيانات الإنتاج)');
-    // Wake Render from cold start in the background — free tier sleeps after 15min inactivity.
-    void probeApiHealth(API_BASE, 90_000).then((ok) => {
-      if (ok) console.log('[سرح] Render ready ✓');
-      else console.warn('[سرح] Render health probe failed — requests may be slow');
-    });
-  }
+  // Probe the local backend once at startup so early requests are rebased quickly.
+  void ensureApiReachable();
 }
 
 export { PRODUCTION_API };

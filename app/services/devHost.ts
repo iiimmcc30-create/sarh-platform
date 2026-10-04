@@ -1,8 +1,10 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { PRODUCTION_API_BASE } from './apiFallback';
 
-const PRODUCTION_API = 'https://sarhsa.online';
-const PRODUCTION_SOCKET = 'https://sarhsa.online';
+/** Hostinger production API / socket (single source: `apiFallback.ts`). */
+const PRODUCTION_API = PRODUCTION_API_BASE;
+const PRODUCTION_SOCKET = PRODUCTION_API_BASE;
 /** @deprecated Railway is decommissioned; kept as alias for imports. */
 const RAILWAY_API = PRODUCTION_API;
 
