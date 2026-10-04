@@ -8,7 +8,7 @@ import { TERM_SOURCES } from './sources';
  * Bump when any data module changes: it is part of the search / suggest Redis
  * cache keys, so an update invalidates cached results automatically.
  */
-export const LIVESTOCK_DICTIONARY_VERSION = '2026-09-28.1';
+export const LIVESTOCK_DICTIONARY_VERSION = '2026-10-04.1';
 
 /** Add new regions / animal types / sources as new data modules here. */
 export const LIVESTOCK_TERM_ENTRIES: readonly LivestockTermEntry[] = [

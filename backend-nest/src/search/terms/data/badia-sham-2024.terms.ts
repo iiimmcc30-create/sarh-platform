@@ -100,13 +100,18 @@ export const BADIA_SHAM_2024_TERMS: readonly LivestockTermEntry[] = [
       animalTypes: ['sheep'],
     }),
   ]),
-  term('hayel', 'حايل', [
-    m('لم تلد.', 'reproductive_status', {
-      gender: 'female',
-      adCombo: true,
-      note: 'الجمع: حيل (لم يُضف كمرادف لأنه يتقاطع مع كلمة عامية شائعة).',
-    }),
-  ]),
+  term(
+    'hayel',
+    'حايل',
+    [
+      m('لم تلد.', 'reproductive_status', {
+        gender: 'female',
+        adCombo: true,
+        note: 'الجمع: حيل (لم يُضف كمرادف لأنه يتقاطع مع كلمة عامية شائعة).',
+      }),
+    ],
+    ['حائل'],
+  ),
   term(
     'musaghar',
     'مصغر',

@@ -148,6 +148,85 @@ export const CORE_LIVESTOCK_TERMS: readonly LivestockTermEntry[] = [
     ageStage: 'مهر',
   }),
 
+  // Common market age / state words (structure only, no definitions claimed).
+  gendered('hawar', 'حوار', ['حيران'], 'camel', undefined, {
+    ageStage: 'حوار',
+  }),
+  gendered('mafrood', 'مفرود', ['مفاريد'], 'camel', undefined, {
+    ageStage: 'مفرود',
+  }),
+  gendered('laboon', 'لبون', ['بنت لبون', 'ابن لبون'], 'camel', undefined, {
+    ageStage: 'لبون',
+  }),
+  {
+    id: 'core-hiq',
+    canonical: 'حق',
+    aliases: ['حقة', 'حقايق'],
+    meanings: [
+      {
+        meaning: null,
+        category: 'age_stage',
+        region: 'unspecified',
+        confidence: 'medium',
+        sourceId: CORE,
+        searchable: true,
+        animalTypes: ['camel'],
+        ageStage: 'حق',
+      },
+      generalSense(
+        'بمعناها العام (الحق) خارج سياق الإبل؛ لا تُفسَّر كعمر دون سياق حيوان.',
+      ),
+    ],
+  },
+  {
+    id: 'core-lagi',
+    canonical: 'لقي',
+    aliases: ['لقية', 'لقايا'],
+    meanings: [
+      {
+        meaning: null,
+        category: 'age_stage',
+        region: 'unspecified',
+        confidence: 'medium',
+        sourceId: CORE,
+        searchable: true,
+        animalTypes: ['camel'],
+        ageStage: 'لقي',
+      },
+      generalSense('قد تأتي بمعنى "وجد/لقِي"؛ لا تُفسَّر كعمر دون سياق حيوان.'),
+    ],
+  },
+  core('fateem', 'فطيم', [], 'age_stage', {
+    animalTypes: ['sheep', 'goat', 'camel', 'cattle'],
+    ageStage: 'فطيم',
+  }),
+  core('radee', 'رضيع', ['رضع'], 'age_stage', {
+    animalTypes: ['sheep', 'goat', 'camel', 'cattle'],
+    ageStage: 'رضيع',
+  }),
+  core('sakhl', 'سخل', ['سخلة', 'سخال'], 'age_stage', {
+    animalTypes: ['sheep', 'goat'],
+    ageStage: 'سخل',
+  }),
+  core('hawli', 'حولي', [], 'age_stage', {
+    animalTypes: ['sheep', 'goat', 'camel'],
+    ageStage: 'حولي',
+  }),
+  core('sedees', 'سديس', [], 'age_stage', {
+    animalTypes: ['sheep', 'goat', 'camel'],
+    ageStage: 'سديس',
+  }),
+  core('khalfa', 'خلفة', ['خلفات'], 'reproductive_status', {
+    animalTypes: ['camel'],
+    gender: 'female',
+  }),
+  core('ashra', 'عشراء', ['عشار'], 'reproductive_status', {
+    animalTypes: ['camel'],
+    gender: 'female',
+  }),
+  core('thalool', 'ذلول', ['ذلل'], 'trait', { animalTypes: ['camel'] }),
+  core('hejn', 'هجن', ['هجين'], 'trait', { animalTypes: ['camel'] }),
+
   // Trade / ad vocabulary
   core('for-sale', 'للبيع', ['بيع'], 'trade', { adCombo: true }),
   core('wanted', 'مطلوب', ['شراء'], 'trade'),
@@ -165,6 +244,7 @@ export const CORE_LIVESTOCK_TERMS: readonly LivestockTermEntry[] = [
   {
     id: 'core-hayel-place',
     canonical: 'حايل',
+    aliases: ['حائل'],
     meanings: [
       generalSense(
         'قد تشير إلى منطقة/مدينة حائل؛ لا تُفسَّر كحالة حمل دون سياق حيوان.',

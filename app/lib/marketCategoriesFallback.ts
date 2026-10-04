@@ -2,7 +2,8 @@ import type { MarketCategory } from '@/services/categories';
 
 /**
  * Bundled taxonomy — mirrors DB seed (used when /api/categories is unavailable).
- * IDs match migration `20260812140000_market_categories`.
+ * IDs match migrations `20260812140000_market_categories` and
+ * `20261004230000_livestock_breed_categories` (livestock breeds).
  */
 export const MARKET_CATEGORIES_FALLBACK: MarketCategory[] = [
   {
@@ -24,6 +25,36 @@ export const MARKET_CATEGORIES_FALLBACK: MarketCategory[] = [
       { id: 'a2000000-0000-4000-8000-000000000005', nameAr: 'خيول', slug: 'horses', icon: 'paw', emoji: '🐎', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 4, isActive: true, requiresWeight: false, legacyCategory: 'horses' },
       { id: 'a2000000-0000-4000-8000-000000000006', nameAr: 'دواجن', slug: 'birds', icon: 'paw', emoji: '🐔', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 5, isActive: true, requiresWeight: false, legacyCategory: 'birds' },
       { id: 'a2000000-0000-4000-8000-000000000007', nameAr: 'أخرى', slug: 'livestock-other', icon: 'paw', emoji: '📦', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 6, isActive: true, requiresWeight: false, legacyCategory: 'birds' },
+      // Breeds (migration 20261004230000_livestock_breed_categories; names from the search dictionary).
+      { id: 'a3000000-0000-4000-8000-000000000001', nameAr: 'إبل مجاهيم', slug: 'camel-majaheem', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 10, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000002', nameAr: 'إبل مغاتير', slug: 'camel-maghateer', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 11, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000003', nameAr: 'إبل وضح', slug: 'camel-wadh', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 12, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000004', nameAr: 'إبل صفر', slug: 'camel-sufr', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 13, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000005', nameAr: 'إبل شعل', slug: 'camel-shuel', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 14, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000006', nameAr: 'إبل حمر', slug: 'camel-humr', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 15, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000007', nameAr: 'إبل شقح', slug: 'camel-shuqh', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 16, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000008', nameAr: 'إبل عمانية', slug: 'camel-omani', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 17, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000009', nameAr: 'إبل كنانية', slug: 'camel-kinaniya', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 18, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000010', nameAr: 'إبل آركية', slug: 'camel-arkiya', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 19, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000011', nameAr: 'إبل حرائر', slug: 'camel-haraer', icon: 'paw', emoji: '🐪', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 20, isActive: true, requiresWeight: false, legacyCategory: 'camels' },
+      { id: 'a3000000-0000-4000-8000-000000000012', nameAr: 'أغنام نعيمي', slug: 'sheep-naemi', icon: 'paw', emoji: '🐑', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 30, isActive: true, requiresWeight: false, legacyCategory: 'sheep' },
+      { id: 'a3000000-0000-4000-8000-000000000013', nameAr: 'أغنام نجدي', slug: 'sheep-najdi', icon: 'paw', emoji: '🐑', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 31, isActive: true, requiresWeight: false, legacyCategory: 'sheep' },
+      { id: 'a3000000-0000-4000-8000-000000000014', nameAr: 'أغنام حري', slug: 'sheep-harri', icon: 'paw', emoji: '🐑', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 32, isActive: true, requiresWeight: false, legacyCategory: 'sheep' },
+      { id: 'a3000000-0000-4000-8000-000000000015', nameAr: 'أغنام سواكني', slug: 'sheep-sawakni', icon: 'paw', emoji: '🐑', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 33, isActive: true, requiresWeight: false, legacyCategory: 'sheep' },
+      { id: 'a3000000-0000-4000-8000-000000000016', nameAr: 'أغنام عواسي', slug: 'sheep-awassi', icon: 'paw', emoji: '🐑', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 34, isActive: true, requiresWeight: false, legacyCategory: 'sheep' },
+      { id: 'a3000000-0000-4000-8000-000000000017', nameAr: 'أغنام عساف', slug: 'sheep-assaf', icon: 'paw', emoji: '🐑', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 35, isActive: true, requiresWeight: false, legacyCategory: 'sheep' },
+      { id: 'a3000000-0000-4000-8000-000000000018', nameAr: 'ماعز عارضي', slug: 'goat-ardi', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 50, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000019', nameAr: 'ماعز نجدي', slug: 'goat-najdi', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 51, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000020', nameAr: 'ماعز حري', slug: 'goat-harri', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 52, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000021', nameAr: 'ماعز حجازي', slug: 'goat-hejazi', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 53, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000022', nameAr: 'ماعز جبلي', slug: 'goat-jabali', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 54, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000023', nameAr: 'ماعز بيشي', slug: 'goat-bishi', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 55, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000024', nameAr: 'ماعز حبسي', slug: 'goat-habsi', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 56, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000025', nameAr: 'ماعز تهامي', slug: 'goat-tohami', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 57, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000026', nameAr: 'ماعز نجراني', slug: 'goat-najrani', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 58, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000027', nameAr: 'ماعز شامي', slug: 'goat-shami', icon: 'paw', emoji: '🐐', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 59, isActive: true, requiresWeight: false, legacyCategory: 'goats' },
+      { id: 'a3000000-0000-4000-8000-000000000028', nameAr: 'أبقار حساوي', slug: 'cow-hassawi', icon: 'paw', emoji: '🐄', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 70, isActive: true, requiresWeight: false, legacyCategory: 'cows' },
+      { id: 'a3000000-0000-4000-8000-000000000029', nameAr: 'أبقار جنوبي', slug: 'cow-janobi', icon: 'paw', emoji: '🐄', parentId: 'a1000000-0000-4000-8000-000000000001', sortOrder: 71, isActive: true, requiresWeight: false, legacyCategory: 'cows' },
     ],
   },
   {
