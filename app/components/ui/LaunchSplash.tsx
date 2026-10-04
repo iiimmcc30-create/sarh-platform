@@ -1,6 +1,7 @@
 import { sarh } from '@/constants/sarhTokens';
 import { fontFamily } from '@/design-system/tokens/typography';
 import {
+  launchSplashFallbackMs,
   LAUNCH_LOGO_START_SCALE,
   LAUNCH_SPLASH_TIMING,
   SARH_LOGO_PATH_LENGTHS,
@@ -62,6 +63,8 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
   const [laidOut, setLaidOut] = useState(false);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [animationDone, setAnimationDone] = useState(false);
+  /** Text mounts only once fonts are ready, so Tajawal (not a fallback face) is measured. */
+  const [started, setStarted] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [gone, setGone] = useState(false);
   const startedRef = useRef(false);
@@ -91,6 +94,7 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
   useEffect(() => {
     if (startedRef.current || !laidOut || !nativeReady || reduceMotion === null) return;
     startedRef.current = true;
+    setStarted(true);
 
     const t = LAUNCH_SPLASH_TIMING;
     const intro = reduceMotion
@@ -150,9 +154,23 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
       values.settle.setValue(1);
     }
 
+    // Exit waits for the intro's own completion callback (finished=true) — never a
+    // parallel timer. The fallback below only covers an interrupted animation.
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      setAnimationDone(true);
+    };
+    const fallback = setTimeout(finish, launchSplashFallbackMs(reduceMotion));
     const start = () => {
       markPerf('launch-splash-start');
-      intro.start(() => setAnimationDone(true));
+      intro.start(({ finished }) => {
+        if (finished) {
+          clearTimeout(fallback);
+          finish();
+        }
+      });
     };
     markPerf('native-splash-hide');
     SplashScreen.hideAsync()
@@ -231,35 +249,47 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
           </Svg>
         </Animated.View>
 
-        <Animated.Text
-          allowFontScaling={false}
-          style={[
-            styles.title,
-            {
-              marginTop: layout.logoGap,
-              fontSize: layout.titleSize,
-              lineHeight: layout.titleLineHeight,
-            },
-            textRise(values.title),
-          ]}
+        {/* Fixed-height, full-width box: space is reserved from the first frame (no
+            layout jump) and wide enough that Arabic shaping is never clipped. */}
+        <View
+          style={{
+            width,
+            marginTop: layout.logoGap,
+            height: layout.titleLineHeight + layout.textGap + layout.subtitleLineHeight,
+          }}
         >
-          سرح
-        </Animated.Text>
-        <Animated.Text
-          allowFontScaling={false}
-          style={[
-            styles.subtitle,
-            {
-              marginTop: layout.textGap,
-              fontSize: layout.subtitleSize,
-              lineHeight: layout.subtitleLineHeight,
-              letterSpacing: layout.subtitleSize * 0.08,
-            },
-            textRise(values.subtitle),
-          ]}
-        >
-          Sarh
-        </Animated.Text>
+          {started ? (
+            <>
+              <Animated.Text
+                allowFontScaling={false}
+                numberOfLines={1}
+                style={[
+                  styles.title,
+                  { fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
+                  textRise(values.title),
+                ]}
+              >
+                سرح
+              </Animated.Text>
+              <Animated.Text
+                allowFontScaling={false}
+                numberOfLines={1}
+                style={[
+                  styles.subtitle,
+                  {
+                    marginTop: layout.textGap,
+                    fontSize: layout.subtitleSize,
+                    lineHeight: layout.subtitleLineHeight,
+                    letterSpacing: layout.subtitleSize * 0.08,
+                  },
+                  textRise(values.subtitle),
+                ]}
+              >
+                Sarh
+              </Animated.Text>
+            </>
+          ) : null}
+        </View>
       </View>
     </Animated.View>
   );
@@ -279,6 +309,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
+    alignSelf: 'stretch',
     fontFamily: fontFamily.bold,
     color: LOGO_INK,
     textAlign: 'center',
@@ -286,6 +317,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   subtitle: {
+    alignSelf: 'stretch',
     fontFamily: fontFamily.regular,
     color: SUBTITLE_INK,
     textAlign: 'center',

@@ -6,31 +6,33 @@
 /** Path lengths (viewBox units) of `SARH_LOGO_MARK_PATHS`: bottom wave, top wave, diamond. */
 export const SARH_LOGO_PATH_LENGTHS = [1496, 1149, 223] as const;
 
-/** Calm launch timeline (ms). Total before the exit fade ≈ 2.3 s. */
+/** Calm launch timeline (ms). Total before the exit fade ≈ 2.5 s. */
 export const LAUNCH_SPLASH_TIMING = {
   /** Per-path stroke draw: [delay, duration] for bottom wave, top wave, diamond. */
   draw: [
-    [0, 900],
-    [120, 880],
-    [320, 600],
+    [0, 820],
+    [100, 800],
+    [280, 540],
   ] as const,
   /** Fill fades in as the outline completes. */
-  fillDelay: 780,
-  fillDuration: 380,
+  fillDelay: 700,
+  fillDuration: 340,
   /** Large → final size. */
-  settleDelay: 1120,
-  settleDuration: 520,
-  /** «سرح» then «Sarh». */
-  titleDelay: 1420,
-  subtitleDelay: 1580,
-  textDuration: 460,
-  /** Short hold so the full mark reads before leaving. */
-  holdAfter: 260,
+  settleDelay: 960,
+  settleDuration: 480,
+  /** «سرح» then «Sarh» (opacity + small rise only — no width mask). */
+  titleDelay: 1220,
+  subtitleDelay: 1360,
+  textDuration: 420,
+  /** Full mark + both words stay fully visible before leaving. */
+  holdAfter: 700,
   /** Exit cross-fade to the routed screen. */
   exitDuration: 320,
   /** Reduce motion: no drawing / scaling, quick text fade only. */
   reducedTextDuration: 280,
-  reducedHold: 380,
+  reducedHold: 700,
+  /** Extra margin on top of the intro before the safety fallback may end it. */
+  fallbackMargin: 1500,
 } as const;
 
 /** Logo starts this much larger, then settles to 1 (no bounce). */
@@ -40,6 +42,17 @@ export function launchSplashTotalMs(reduceMotion: boolean): number {
   const t = LAUNCH_SPLASH_TIMING;
   if (reduceMotion) return t.reducedTextDuration + t.reducedHold;
   return t.subtitleDelay + t.textDuration + t.holdAfter;
+}
+
+/** Safety net only (interrupted animation): always longer than intro + hold. */
+export function launchSplashFallbackMs(reduceMotion: boolean): number {
+  return launchSplashTotalMs(reduceMotion) + LAUNCH_SPLASH_TIMING.fallbackMargin;
+}
+
+/** Moment both words are fully visible (before the hold). */
+export function launchSplashTextCompleteMs(): number {
+  const t = LAUNCH_SPLASH_TIMING;
+  return Math.max(t.titleDelay, t.subtitleDelay) + t.textDuration;
 }
 
 export type LaunchSplashLayout = {

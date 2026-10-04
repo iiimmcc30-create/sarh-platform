@@ -4,7 +4,9 @@ import {
   LAUNCH_LOGO_START_SCALE,
   LAUNCH_SPLASH_TIMING,
   SARH_LOGO_PATH_LENGTHS,
+  launchSplashFallbackMs,
   launchSplashLayout,
+  launchSplashTextCompleteMs,
   launchSplashTotalMs,
   shouldExitLaunchSplash,
 } from '@/lib/launchSplash';
@@ -19,7 +21,7 @@ describe('launch splash timing', () => {
     const total = launchSplashTotalMs(false);
     expect(total).toBeGreaterThanOrEqual(1800);
     expect(total).toBeLessThanOrEqual(2600);
-    expect(launchSplashTotalMs(true)).toBeLessThan(900);
+    expect(launchSplashTotalMs(true)).toBeLessThan(1200);
     expect(LAUNCH_SPLASH_TIMING.exitDuration).toBeLessThanOrEqual(400);
   });
 
@@ -30,6 +32,18 @@ describe('launch splash timing', () => {
     expect(t.titleDelay).toBeLessThan(t.subtitleDelay);
     expect(LAUNCH_LOGO_START_SCALE).toBeGreaterThan(1);
     expect(SARH_LOGO_PATH_LENGTHS).toHaveLength(3);
+  });
+
+  it('keeps both words fully visible for 600–800 ms before the exit fade', () => {
+    const hold = launchSplashTotalMs(false) - launchSplashTextCompleteMs();
+    expect(hold).toBeGreaterThanOrEqual(600);
+    expect(hold).toBeLessThanOrEqual(800);
+    expect(LAUNCH_SPLASH_TIMING.reducedHold).toBeGreaterThanOrEqual(600);
+  });
+
+  it('safety fallback is always longer than intro + hold', () => {
+    expect(launchSplashFallbackMs(false)).toBeGreaterThan(launchSplashTotalMs(false) + 1000);
+    expect(launchSplashFallbackMs(true)).toBeGreaterThan(launchSplashTotalMs(true) + 1000);
   });
 
   it('exits only when the animation is done and boot is ready', () => {
@@ -100,5 +114,17 @@ describe('launch path', () => {
     expect(splash).toContain('سرح');
     expect(splash).toContain('Sarh');
     expect(splash).not.toMatch(/react-native-reanimated|LinearGradient|shadow/i);
+  });
+
+  it('exit waits for the intro completion callback, text is never clipped', () => {
+    const splash = src('components/ui/LaunchSplash.tsx');
+    expect(splash).toContain('intro.start(({ finished }) => {');
+    expect(splash).toMatch(/if \(finished\) \{\s*clearTimeout\(fallback\);\s*finish\(\);/);
+    expect(splash).toContain('launchSplashFallbackMs(reduceMotion)');
+    // Text mounts after fonts are ready (measured with Tajawal) inside a full-width box.
+    expect(splash).toContain('{started ? (');
+    expect(splash).toMatch(/style=\{\{\s*width,/);
+    expect(splash).not.toMatch(/overflow:\s*'hidden'/);
+    expect(splash).not.toMatch(/width:\s*values\./);
   });
 });
