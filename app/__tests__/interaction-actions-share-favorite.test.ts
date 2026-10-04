@@ -135,7 +135,7 @@ describe('shared InteractionActions component', () => {
   const comp = src('components/ui/InteractionActions.tsx');
 
   it('takes every size and spacing from the shared tokens', () => {
-    expect(comp).toContain('hitSlop={INTERACTION_HIT_SLOP}');
+    expect(comp).toContain('hitSlop={compact ? INTERACTION_COMPACT_HIT_SLOP : INTERACTION_HIT_SLOP}');
     expect(comp).toContain('size={INTERACTION_ICON_SIZE}');
     expect(comp).toContain('...INTERACTION_BUTTON_STYLE');
     expect(comp).toContain('...INTERACTION_BAR_STYLE');
@@ -146,7 +146,7 @@ describe('shared InteractionActions component', () => {
 
   it('is RTL-aware through getRtlRow on the bar and every button', () => {
     expect(comp).toContain('<View style={[styles.bar, getRtlRow()]}>');
-    expect(comp).toContain('[styles.button, getRtlRow()]');
+    expect(comp).toContain('[boxStyle, getRtlRow()]');
     expect(comp).not.toContain('row-reverse');
     expect(comp).not.toContain("direction: 'ltr'");
   });

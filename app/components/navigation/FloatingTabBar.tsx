@@ -1,5 +1,5 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { ambientShadow, ds } from '@/constants/designSystem';
+import { ds } from '@/constants/designSystem';
 import { spacing } from '@/constants/theme';
 import { motion as dsMotion } from '@/design-system/tokens/motion';
 import { useAppChromeScroll } from '@/hooks/useAppChrome';
@@ -25,8 +25,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const ICON_SIZE = 24;
 const ADD_BOX = 24;
 const ADD_GLYPH = 15;
-/** Nudge icons down without growing the bar height. */
-const ICON_NUDGE_Y = 2;
 
 type TabDef =
   | { kind: 'route'; route: string; icon: string; label: string }
@@ -104,7 +102,6 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           opacity: chromeProgress,
           transform: [{ translateY }],
         },
-        ambientShadow(scheme, 'soft'),
       ]}
       pointerEvents={chromeVisible ? 'box-none' : 'none'}
     >
@@ -113,7 +110,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           styles.bar,
           { paddingBottom: bottomPad },
           {
-            backgroundColor: tokens.glass,
+            backgroundColor: tokens.tabBar,
             borderTopColor: tokens.glassBorder,
           },
         ]}
@@ -254,21 +251,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: ds.tabBar.marginH,
   },
+  /** Thin X-style bar: hairline top border, no shadow, single 48px icon row. */
   bar: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: spacing.sm,
     paddingHorizontal: spacing.xs,
   },
   row: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    height: ds.tabBar.height,
   },
   tabSlot: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    minHeight: 52,
-    paddingVertical: 2,
+    justifyContent: 'center',
+    height: ds.tabBar.height,
     paddingHorizontal: 2,
   },
   /** Fixed icon box so every tab (including +) shares the same visual height. */
@@ -277,7 +274,6 @@ const styles = StyleSheet.create({
     height: ICON_SIZE + 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: ICON_NUDGE_Y,
   },
   addBox: {
     width: ADD_BOX,

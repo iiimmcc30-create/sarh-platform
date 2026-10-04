@@ -3,7 +3,12 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
-import { InteractionAction, InteractionBar, ShareAction } from '@/components/ui/InteractionActions';
+import {
+  InteractionAction,
+  InteractionBar,
+  InteractionTrailingGroup,
+  ShareAction,
+} from '@/components/ui/InteractionActions';
 import {
   INTERACTION_BOOKMARK_BLUE as BOOKMARK_BLUE,
   INTERACTION_LIKE_RED as LIKE_RED,
@@ -284,14 +289,16 @@ function PostItemComponent({
           label={`مشاهدات ${formatCount(post.views ?? 0)}`}
         />
       )}
-      <InteractionAction
-        icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}
-        color={post.bookmarked ? BOOKMARK_BLUE : colors.textMuted}
-        filled={!!post.bookmarked}
-        onPress={onBookmark ?? (() => {})}
-        label="حفظ"
-      />
-      <ShareAction color={colors.textMuted} onPress={onShare} />
+      <InteractionTrailingGroup>
+        <InteractionAction
+          icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}
+          color={post.bookmarked ? BOOKMARK_BLUE : colors.textMuted}
+          filled={!!post.bookmarked}
+          onPress={onBookmark ?? (() => {})}
+          label="حفظ"
+        />
+        <ShareAction color={colors.textMuted} onPress={onShare} />
+      </InteractionTrailingGroup>
     </InteractionBar>
   );
 

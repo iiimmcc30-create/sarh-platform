@@ -8,6 +8,8 @@ import { getRtlRow } from '@/lib/rtl';
 import {
   INTERACTION_BAR_STYLE,
   INTERACTION_BUTTON_STYLE,
+  INTERACTION_COMPACT_BUTTON_STYLE,
+  INTERACTION_COMPACT_HIT_SLOP,
   INTERACTION_COUNT_FONT_SIZE,
   INTERACTION_COUNT_LINE_HEIGHT,
   INTERACTION_COUNT_MIN_FONT_SCALE,
@@ -19,9 +21,10 @@ import {
   INTERACTION_PULSE_UP_MS,
   SHARE_ICON,
   SHARE_LABEL,
+  INTERACTION_TRAILING_GROUP_STYLE,
   shouldShowInteractionCount,
 } from '@/lib/interactionActions';
-import { memo, useCallback, useState, type ReactNode } from 'react';
+import { createContext, memo, useCallback, useContext, useState, type ReactNode } from 'react';
 import {
   Animated,
   Pressable,
@@ -64,6 +67,9 @@ function InteractionActionComponent({
   readOnly = false,
 }: InteractionActionProps) {
   const [scale] = useState(() => new Animated.Value(1));
+  /** Inside InteractionTrailingGroup: fixed icon-only box, no count. */
+  const compact = useContext(CompactContext);
+  const boxStyle = compact ? styles.compact : styles.button;
 
   // Icon-only pulse (transform, native driver): never changes layout.
   const pulse = useCallback(() => {
@@ -88,7 +94,7 @@ function InteractionActionComponent({
   const iconNode = (
     <AppIcon name={icon} size={INTERACTION_ICON_SIZE} color={color} variant={filled ? 'sr' : 'rr'} />
   );
-  const countNode = shouldShowInteractionCount(count) ? (
+  const countNode = !compact && shouldShowInteractionCount(count) ? (
     <AppText
       style={[styles.count, countStyle, { color: countColor ?? color }]}
       numberOfLines={1}
@@ -101,7 +107,7 @@ function InteractionActionComponent({
 
   if (readOnly) {
     return (
-      <View style={[styles.button, getRtlRow()]} accessibilityRole="text" accessibilityLabel={label}>
+      <View style={[boxStyle, getRtlRow()]} accessibilityRole="text" accessibilityLabel={label}>
         <View style={styles.icon}>{iconNode}</View>
         {countNode}
       </View>
@@ -111,8 +117,8 @@ function InteractionActionComponent({
   return (
     <Pressable
       onPress={handlePress}
-      hitSlop={INTERACTION_HIT_SLOP}
-      style={pending ? [styles.button, getRtlRow(), styles.pending] : [styles.button, getRtlRow()]}
+      hitSlop={compact ? INTERACTION_COMPACT_HIT_SLOP : INTERACTION_HIT_SLOP}
+      style={pending ? [boxStyle, getRtlRow(), styles.pending] : [boxStyle, getRtlRow()]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={pending ? { busy: true } : undefined}
@@ -122,6 +128,8 @@ function InteractionActionComponent({
     </Pressable>
   );
 }
+
+const CompactContext = createContext(false);
 
 /** One interaction button (icon + optional count) with the shared press feedback. */
 export const InteractionAction = memo(InteractionActionComponent);
@@ -134,9 +142,22 @@ export const ShareAction = memo(function ShareAction({
   return <InteractionAction icon={SHARE_ICON} label={label} {...rest} />;
 });
 
-/** Row container for interaction buttons (RTL-aware, spread edge to edge). */
+/**
+ * Row container for interaction buttons (RTL-aware). Main buttons (reply, repost,
+ * like, views) share the width equally, icon then count; wrap bookmark + share in
+ * `InteractionTrailingGroup` to place them together at the row's end edge.
+ */
 export function InteractionBar({ children }: { children: ReactNode }) {
   return <View style={[styles.bar, getRtlRow()]}>{children}</View>;
+}
+
+/** Compact trailing group (bookmark + share): icon only, share flush with the row edge. */
+export function InteractionTrailingGroup({ children }: { children: ReactNode }) {
+  return (
+    <CompactContext.Provider value>
+      <View style={[styles.trailing, getRtlRow()]}>{children}</View>
+    </CompactContext.Provider>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -145,6 +166,12 @@ const styles = StyleSheet.create({
   },
   button: {
     ...INTERACTION_BUTTON_STYLE,
+  },
+  compact: {
+    ...INTERACTION_COMPACT_BUTTON_STYLE,
+  },
+  trailing: {
+    ...INTERACTION_TRAILING_GROUP_STYLE,
   },
   icon: {
     width: INTERACTION_ICON_SIZE,

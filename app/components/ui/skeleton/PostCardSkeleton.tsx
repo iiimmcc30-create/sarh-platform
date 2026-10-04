@@ -1,18 +1,19 @@
 /**
  * Skeleton of the full-width `PostItem` row (feed / profile variants):
  * 40px avatar at the inline start (right in Arabic), name + handle line,
- * two body lines, optional 16:11 media, and the six-slot interaction bar
- * drawn as a row of dots (as in the reference).
+ * two body lines, optional 16:11 media, and the interaction bar drawn as dots in
+ * the same layout as the real bar: equal main slots + a compact bookmark/share group.
  */
 import { StyleSheet, View } from 'react-native';
 import { POST_ITEM_LAYOUT as P } from '@/components/feature/postItemLayout';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
-  INTERACTION_BAR_MARGIN_TOP,
-  INTERACTION_BAR_PADDING_TOP,
+  INTERACTION_BAR_STYLE,
+  INTERACTION_BUTTON_STYLE,
+  INTERACTION_COMPACT_BUTTON_STYLE,
   INTERACTION_ICON_SIZE,
-  INTERACTION_TOUCH_MIN,
+  INTERACTION_TRAILING_GROUP_STYLE,
 } from '@/lib/interactionActions';
 import { getRtlRow } from '@/lib/rtl';
 import { SkeletonBox, SkeletonCircle, SkeletonImage, SkeletonPulse, SkeletonText } from './SkeletonPrimitives';
@@ -22,8 +23,28 @@ import { skeletonTextBarHeight } from './skeletonTokens';
 const MEDIA_RATIO = 16 / 11;
 const MEDIA_RADIUS = 12;
 const MEDIA_MAX_HEIGHT = 340;
-/** comment, repost, like, views, bookmark, share (detail hides views). */
-const FEED_ACTIONS = 6;
+/** Main slots: comment, repost, like, views (detail hides views). Then bookmark + share. */
+const FEED_MAIN_ACTIONS = 4;
+const TRAILING_ACTIONS = 2;
+
+function ActionsSkeleton({ main, styles }: { main: number; styles: ReturnType<typeof createStyles> }) {
+  return (
+    <View style={[styles.actions, getRtlRow()]}>
+      {Array.from({ length: main }, (_, i) => (
+        <View key={i} style={[styles.actionSlot, getRtlRow()]}>
+          <SkeletonCircle size={INTERACTION_ICON_SIZE} />
+        </View>
+      ))}
+      <View style={[styles.trailing, getRtlRow()]}>
+        {Array.from({ length: TRAILING_ACTIONS }, (_, i) => (
+          <View key={i} style={[styles.compactSlot, getRtlRow()]}>
+            <SkeletonCircle size={INTERACTION_ICON_SIZE} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 type Props = {
   withMedia?: boolean;
@@ -66,13 +87,7 @@ export function PostDetailSkeleton() {
           widths={['46%']}
           style={styles.detailBody}
         />
-        <View style={[styles.actions, getRtlRow()]}>
-          {Array.from({ length: FEED_ACTIONS - 1 }, (_, i) => (
-            <View key={i} style={styles.actionSlot}>
-              <SkeletonCircle size={INTERACTION_ICON_SIZE} />
-            </View>
-          ))}
-        </View>
+        <ActionsSkeleton main={FEED_MAIN_ACTIONS - 1} styles={styles} />
       </SkeletonPulse>
     </View>
   );
@@ -102,13 +117,7 @@ export function PostCardSkeleton({ withMedia = false, bodyLines = 2, showActions
             <SkeletonImage aspectRatio={MEDIA_RATIO} radius={MEDIA_RADIUS} style={styles.media} />
           ) : null}
           {showActions ? (
-            <View style={[styles.actions, getRtlRow()]}>
-              {Array.from({ length: FEED_ACTIONS }, (_, i) => (
-                <View key={i} style={styles.actionSlot}>
-                  <SkeletonCircle size={INTERACTION_ICON_SIZE} />
-                </View>
-              ))}
-            </View>
+            <ActionsSkeleton main={FEED_MAIN_ACTIONS} styles={styles} />
           ) : null}
         </View>
       </SkeletonPulse>
@@ -159,16 +168,16 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       maxHeight: MEDIA_MAX_HEIGHT,
     },
     actions: {
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: INTERACTION_BAR_MARGIN_TOP,
-      paddingTop: INTERACTION_BAR_PADDING_TOP,
+      ...INTERACTION_BAR_STYLE,
     },
     actionSlot: {
-      minWidth: INTERACTION_TOUCH_MIN,
-      minHeight: INTERACTION_TOUCH_MIN,
-      alignItems: 'flex-start',
-      justifyContent: 'center',
+      ...INTERACTION_BUTTON_STYLE,
+    },
+    trailing: {
+      ...INTERACTION_TRAILING_GROUP_STYLE,
+    },
+    compactSlot: {
+      ...INTERACTION_COMPACT_BUTTON_STYLE,
     },
   });
 }

@@ -23,6 +23,8 @@ export const ds = {
     /** Chrome glass — denser than before so content behind is felt, not read. */
     glass: 'rgba(255, 255, 255, 0.96)',
     glassBorder: '#E6E8EB',
+    /** Bottom tab bar (X-style): near-opaque surface, content behind barely perceptible. */
+    tabBar: 'rgba(255, 255, 255, 0.97)',
     stroke: '#E6E8EB',
     glow: sarh.color.lightAction,
     textPrimary: '#101820',
@@ -40,6 +42,8 @@ export const ds = {
     /** Chrome glass — denser local tint; leave `sarh.color.overlay` for modals/scrims. */
     glass: 'rgba(7, 19, 28, 0.94)',
     glassBorder: sarh.color.border,
+    /** Bottom tab bar (X-style): near-opaque surface, content behind barely perceptible. */
+    tabBar: 'rgba(7, 19, 28, 0.97)',
     stroke: sarh.color.border,
     glow: sarh.color.action,
     textPrimary: sarh.color.text,
@@ -83,8 +87,8 @@ export const ds = {
   },
 
   tabBar: {
-    /** Tab chrome: paddingTop 8 + slot 52 + small label gap. */
-    height: 64,
+    /** Thin X-style tab chrome: one 48px icon row (+ safe-area / marginBottom below). */
+    height: 48,
     fabSize: 22,
     fabLift: 0,
     marginH: 0,

@@ -41,8 +41,8 @@ describe('bottom navigation - no active line, light icon motion', () => {
       .map((token) => tabs.indexOf(token));
     order.forEach((at) => expect(at).toBeGreaterThan(-1));
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(tabs).toContain('minHeight: 52');
-    expect(tabs).toContain('backgroundColor: tokens.glass');
+    expect(tabs).toContain('height: ds.tabBar.height');
+    expect(tabs).toContain('backgroundColor: tokens.tabBar');
     expect(tabs).toContain('borderTopColor: tokens.glassBorder');
   });
 

@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ds } from '@/constants/designSystem';
 import { spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { inlineEnd } from '@/lib/rtl';
@@ -21,7 +22,8 @@ import { inlineEnd } from '@/lib/rtl';
 const FAB_SIZE = 56;
 const STORAGE_KEY = 'safat_create_fab_offset_v2';
 const DRAG_THRESHOLD = 6;
-const TAB_BAR_CLEARANCE = 88;
+/** FAB sits 24px above the tab bar row (bar height comes from the design system). */
+const TAB_BAR_CLEARANCE = ds.tabBar.height + 24;
 
 interface CreatePostFabProps {
   onPress?: () => void;
@@ -41,7 +43,7 @@ function clamp(value: number, min: number, max: number) {
 
 function clampOffset(x: number, y: number, bottomOffset: number, insets: { top: number; bottom: number }) {
   const { width, height } = Dimensions.get('window');
-  const tabBarHeight = 72;
+  const tabBarHeight = ds.tabBar.height + ds.tabBar.marginBottom;
   const maxLeft = -(width - FAB_SIZE - spacing.lg * 2);
   const maxUp = -(height - FAB_SIZE - insets.top - insets.bottom - bottomOffset - tabBarHeight);
 

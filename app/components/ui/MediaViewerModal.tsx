@@ -31,7 +31,12 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
-import { InteractionAction, InteractionBar, ShareAction } from '@/components/ui/InteractionActions';
+import {
+  InteractionAction,
+  InteractionBar,
+  InteractionTrailingGroup,
+  ShareAction,
+} from '@/components/ui/InteractionActions';
 import {
   INTERACTION_BOOKMARK_BLUE,
   INTERACTION_LIKE_RED,
@@ -161,14 +166,16 @@ function ViewerOverlay({
             count={overlay.views}
             label="مشاهدات"
           />
-          <InteractionAction
-            icon={overlay.bookmarked ? 'bookmark' : 'bookmark-outline'}
-            color={overlay.bookmarked ? INTERACTION_BOOKMARK_BLUE : '#fff'}
-            filled={!!overlay.bookmarked}
-            onPress={overlay.onBookmark}
-            label="حفظ"
-          />
-          <ShareAction color="#fff" onPress={overlay.onShare} />
+          <InteractionTrailingGroup>
+            <InteractionAction
+              icon={overlay.bookmarked ? 'bookmark' : 'bookmark-outline'}
+              color={overlay.bookmarked ? INTERACTION_BOOKMARK_BLUE : '#fff'}
+              filled={!!overlay.bookmarked}
+              onPress={overlay.onBookmark}
+              label="حفظ"
+            />
+            <ShareAction color="#fff" onPress={overlay.onShare} />
+          </InteractionTrailingGroup>
         </InteractionBar>
       </View>
     </View>

@@ -23,6 +23,15 @@ export const INTERACTION_COUNT_LINE_HEIGHT = 16;
 /** Long counts shrink (never wrap or widen the button) down to this scale. */
 export const INTERACTION_COUNT_MIN_FONT_SCALE = 0.75;
 
+/**
+ * Trailing compact group (X layout): bookmark + share sit together at the row's end
+ * edge (far left in Arabic), icon only, no counts; share is flush with the edge.
+ */
+export const INTERACTION_COMPACT_WIDTH = 32;
+export const INTERACTION_COMPACT_GAP = 4;
+/** Vertical slop as usual; small horizontal slop so the two compact buttons never overlap. */
+export const INTERACTION_COMPACT_HIT_SLOP = { top: 8, bottom: 8, left: 2, right: 2 } as const;
+
 /** Bar: buttons spread edge to edge of their content column, vertically centered. */
 export const INTERACTION_BAR_JUSTIFY = 'space-between' as const;
 export const INTERACTION_BAR_ALIGN = 'center' as const;
@@ -98,6 +107,36 @@ export const INTERACTION_BUTTON_STYLE: InteractionButtonStyle = {
   flexBasis: 0,
   height: INTERACTION_TOUCH_MIN,
   minWidth: INTERACTION_TOUCH_MIN,
+};
+
+export type InteractionCompactButtonStyle = {
+  flexDirection: 'row';
+  alignItems: 'center';
+  justifyContent: 'flex-end';
+  width: number;
+  height: number;
+};
+
+/** Compact (icon-only) button: fixed box, icon pushed to the inline end (row edge). */
+export const INTERACTION_COMPACT_BUTTON_STYLE: InteractionCompactButtonStyle = {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  width: INTERACTION_COMPACT_WIDTH,
+  height: INTERACTION_TOUCH_MIN,
+};
+
+export type InteractionTrailingGroupStyle = {
+  alignItems: 'center';
+  gap: number;
+  flexShrink: number;
+};
+
+/** The trailing group never shrinks; the four main buttons share the rest equally. */
+export const INTERACTION_TRAILING_GROUP_STYLE: InteractionTrailingGroupStyle = {
+  alignItems: 'center',
+  gap: INTERACTION_COMPACT_GAP,
+  flexShrink: 0,
 };
 
 /** Effective tappable size along one axis (visible box + hit slop on both sides). */
