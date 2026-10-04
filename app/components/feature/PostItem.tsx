@@ -40,7 +40,13 @@ import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { requireAuth } from '@/lib/postInteractions';
 import { fetchUserProfile, setFollowUser } from '@/services/users';
-import { POST_ITEM_LAYOUT } from '@/components/feature/postItemLayout';
+import {
+  POST_HANDLE_FLEX_SHRINK,
+  POST_HANDLE_MIN_WIDTH,
+  POST_ITEM_LAYOUT,
+  POST_META_FONT_SIZE,
+  POST_META_LINE_HEIGHT,
+} from '@/components/feature/postItemLayout';
 
 const HASHTAG_BLUE = '#1D9BF0';
 
@@ -390,8 +396,8 @@ function PostItemComponent({
   const authorMeta = (
     <View style={[styles.metaLine, getRtlRow()]}>
       <UserProfileLink userId={post.author.id} style={styles.metaInfo}>
-        <View style={[styles.nameRow, getRtlRow()]}>
-          <AppText style={styles.name} numberOfLines={1}>
+        <View style={[styles.feedNameRow, getRtlRow()]}>
+          <AppText style={styles.feedName} numberOfLines={1}>
             {post.author.arabicName}
           </AppText>
           {post.author.verified ? <VerificationBadge size={14} tier={post.author.verifiedTier} /> : null}
@@ -403,14 +409,14 @@ function PostItemComponent({
             </View>
           ) : null}
           {handle ? (
-            <AppText style={styles.handle} numberOfLines={1}>
+            <AppText style={styles.feedHandle} numberOfLines={1} ellipsizeMode="tail">
               {handle}
             </AppText>
           ) : null}
           {timestamp ? (
             <>
               <AppText style={styles.metaDot}>·</AppText>
-              <AppText style={styles.metaMuted} numberOfLines={1}>
+              <AppText style={styles.feedTime} numberOfLines={1}>
                 {timestamp}
               </AppText>
             </>
@@ -554,7 +560,8 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     rowWrap: {
       backgroundColor: scheme === 'light' ? colors.bgSurface : colors.bgDeep,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
+      /** Post divider: one step stronger than borderHairline in both themes. */
+      borderBottomColor: colors.borderStrong,
     },
     row: {
       alignItems: 'flex-start',
@@ -594,6 +601,39 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       ...resolveAppFontFace('600'),
       color: colors.textPrimary,
       flexShrink: 1,
+    },
+    /** Feed header row: one line; name whole, handle shrinks to «@…», badges/dot/time fixed. */
+    feedNameRow: {
+      alignItems: 'center',
+      flexWrap: 'nowrap',
+      gap: 4,
+      minWidth: 0,
+      maxWidth: '100%',
+    },
+    /** Shrinks (ellipsis) only once the handle is down to «@…», i.e. when it alone overflows. */
+    feedName: {
+      ...typography.cardHeading,
+      ...resolveAppFontFace('600'),
+      color: colors.textPrimary,
+      flexShrink: 1,
+      minWidth: 0,
+    },
+    feedHandle: {
+      ...typography.caption,
+      ...resolveAppFontFace('400'),
+      fontSize: POST_META_FONT_SIZE,
+      lineHeight: POST_META_LINE_HEIGHT,
+      color: colors.textSecondary,
+      flexShrink: POST_HANDLE_FLEX_SHRINK,
+      minWidth: POST_HANDLE_MIN_WIDTH,
+    },
+    feedTime: {
+      ...typography.caption,
+      ...resolveAppFontFace('400'),
+      fontSize: POST_META_FONT_SIZE,
+      lineHeight: POST_META_LINE_HEIGHT,
+      color: colors.textSecondary,
+      flexShrink: 0,
     },
     handle: {
       ...typography.caption,
