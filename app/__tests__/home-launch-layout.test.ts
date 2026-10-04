@@ -82,8 +82,8 @@ describe('home launch layout', () => {
     expect(section).toContain('موردين الأعلاف');
     expect(section).toContain("pathname: '/feed-suppliers/[id]'");
     expect(section).toContain("safePush('/feed-suppliers'");
-    expect(sidebar).toContain("route: '/feed-suppliers'");
-    expect(sidebar).toContain('موردو الأعلاف');
+    expect(sidebar).not.toContain("route: '/feed-suppliers'"); // sidebar row removed; screen + routes stay
+    expect(sidebar).not.toContain('موردو الأعلاف');
     expect(sidebar).toContain("label: 'الترويج'");
     expect(sidebar).toContain("route: '/promote'");
     expect(sidebar).not.toContain('تعزيز سرح');

@@ -28,7 +28,7 @@ describe('interaction buttons: uniform, fixed size (Feed + Media Viewer)', () =>
     expect(comp).toContain('width: INTERACTION_ICON_SIZE,\n    height: INTERACTION_ICON_SIZE,');
     expect(comp.match(/size=\{INTERACTION_ICON_SIZE\}/g)?.length).toBe(1);
     expect(comp).toContain("variant={filled ? 'sr' : 'rr'}");
-    expect(INTERACTION_ICON_SIZE).toBe(20);
+    expect(INTERACTION_ICON_SIZE).toBe(18);
   });
 
   it('count text never widens the button or changes the row height', () => {

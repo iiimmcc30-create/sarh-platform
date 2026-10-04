@@ -9,7 +9,7 @@
  */
 
 /** Icon glyph size inside every interaction button. */
-export const INTERACTION_ICON_SIZE = 20;
+export const INTERACTION_ICON_SIZE = 18;
 /** Minimum width and the fixed height of each button (visible touch box). */
 export const INTERACTION_TOUCH_MIN = 36;
 /** Extra invisible hit area around each button on every side. */
@@ -17,7 +17,7 @@ export const INTERACTION_HIT_SLOP = 8;
 /** Gap between the icon and its count. */
 export const INTERACTION_ICON_COUNT_GAP = 4;
 /** Count label font size. */
-export const INTERACTION_COUNT_FONT_SIZE = 12;
+export const INTERACTION_COUNT_FONT_SIZE = 11;
 /** Fixed count line height so the row height never depends on the glyphs shown. */
 export const INTERACTION_COUNT_LINE_HEIGHT = 16;
 /** Long counts shrink (never wrap or widen the button) down to this scale. */

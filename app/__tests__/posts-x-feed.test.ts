@@ -53,7 +53,7 @@ describe('Posts feed — X-style structure', () => {
     const comment = actions.indexOf('icon="chatbubble-ellipses-outline"');
     const repost = actions.indexOf('icon="repeat-2"');
     const like = actions.indexOf("icon={post.liked ? 'heart' : 'heart-outline'}");
-    const views = actions.indexOf('icon="bar-chart-2"');
+    const views = actions.indexOf('icon="views-4-bars"');
     const bookmark = actions.indexOf("icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}");
     const share = actions.indexOf('<ShareAction');
     expect(comment).toBeGreaterThan(-1);

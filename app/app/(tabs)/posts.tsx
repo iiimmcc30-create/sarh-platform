@@ -17,6 +17,8 @@ import { AppChromeLayer } from '@/components/navigation/AppChromeLayer';
 import { HomeAppBar, shellIdentityStackH } from '@/components/ui/HomeAppBar';
 import { ds } from '@/constants/designSystem';
 import { type ThemeColors } from '@/constants/theme';
+import { HEADER_TAB_INDICATOR_OVERHANG, HEADER_TAB_INDICATOR_THICKNESS } from '@/lib/tabPager';
+import { resolveAppFontFace } from '@/constants/fonts';
 import { space } from '@/design-system/tokens';
 import { AppText, SarhButton } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
@@ -196,6 +198,7 @@ export default function PostsScreen() {
           displayName={displayName}
           avatarUri={me.avatar}
           onAvatarPress={openSidebar}
+          flushBottom
         >
           <Row gap="sm">
             {FEED_TABS.map((tab) => {
@@ -208,10 +211,16 @@ export default function PostsScreen() {
                   accessibilityRole="tab"
                   accessibilityState={{ selected: active }}
                 >
-                  <AppText variant="label" color={active ? 'textPrimary' : 'textMuted'}>
-                    {tab === 'for_you' ? 'لك' : 'متابعة'}
-                  </AppText>
-                  {active ? <View style={styles.tabIndicator} /> : null}
+                  <View style={styles.tabLabelWrap}>
+                    <AppText
+                      variant="label"
+                      color={active ? 'textPrimary' : 'textSecondary'}
+                      style={active ? styles.tabLabelActive : undefined}
+                    >
+                      {tab === 'for_you' ? 'لك' : 'متابعة'}
+                    </AppText>
+                    {active ? <View style={styles.tabIndicator} /> : null}
+                  </View>
                 </Pressable>
               );
             })}
@@ -262,16 +271,27 @@ function createPostsStyles(themeColors: ThemeColors) {
     tab: {
       flex: 1,
       alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: space[32],
+      justifyContent: 'flex-end',
+      minHeight: space[32] + space[8],
+    },
+    /** Label + underline: the bar spans the label and sits on the header's bottom edge. */
+    tabLabelWrap: {
       position: 'relative',
-      paddingBottom: space[8],
+      alignItems: 'center',
+      paddingTop: space[4],
+      paddingBottom: space[12],
+      paddingHorizontal: HEADER_TAB_INDICATOR_OVERHANG,
+    },
+    /** Active tab label: bolder than the (textSecondary) idle labels. */
+    tabLabelActive: {
+      ...resolveAppFontFace('700'),
     },
     tabIndicator: {
       position: 'absolute',
       bottom: 0,
-      width: space[20],
-      height: 2,
+      left: 0,
+      right: 0,
+      height: HEADER_TAB_INDICATOR_THICKNESS,
       borderRadius: 999,
       backgroundColor: themeColors.electric,
     },

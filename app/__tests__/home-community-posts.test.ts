@@ -37,7 +37,7 @@ describe('home community posts', () => {
     expect(section).toContain('مجتمع سرح');
     expect(section).toContain('pickHomeCommunityPosts');
     expect(postItem).toContain('formatCount(post.views ?? 0)');
-    expect(postItem).toContain('icon="bar-chart-2"');
+    expect(postItem).toContain('icon="views-4-bars"');
     expect(detail).toContain('onViewsChange');
     expect(detail).toContain('setPostViews');
   });

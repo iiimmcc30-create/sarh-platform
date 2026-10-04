@@ -167,7 +167,7 @@ describe('sidebar - العلامات المرجعية is a plain menu row', () =
     expect(panel.indexOf(verificationRow)).toBe(panel.indexOf('{', nextRowAt));
     const afterVerification = panel.indexOf('\n', panel.indexOf(verificationRow)) + 1;
     expect(panel.indexOf(row)).toBe(panel.indexOf('{', afterVerification));
-    expect(panel.indexOf(row)).toBeLessThan(panel.indexOf("key: 'feed-suppliers'"));
+    expect(panel.indexOf(row)).toBeLessThan(panel.indexOf("key: 'promote'"));
     // Rendered by the same PRIMARY_ITEMS row as the others; go() = closeThenPush(route).
     expect(panel).toContain('PRIMARY_ITEMS.map((item) => (');
     expect(panel).toContain("item.key === 'create-listing' ? goCreateListing() : go(item.route)");

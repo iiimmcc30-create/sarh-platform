@@ -73,18 +73,18 @@ const ORDER = [
   'icon="chatbubble-ellipses-outline"',
   'icon="repeat-2"',
   "icon={",
-  'icon="bar-chart-2"',
+  'icon="views-4-bars"',
   "'bookmark' : 'bookmark-outline'",
   '<ShareAction',
 ];
 
 describe('interaction tokens = Media Viewer values (single source)', () => {
   it('keeps the exact Media Viewer overlay numbers', () => {
-    expect(INTERACTION_ICON_SIZE).toBe(20);
+    expect(INTERACTION_ICON_SIZE).toBe(18);
     expect(INTERACTION_TOUCH_MIN).toBe(36);
     expect(INTERACTION_HIT_SLOP).toBe(8);
     expect(INTERACTION_ICON_COUNT_GAP).toBe(4);
-    expect(INTERACTION_COUNT_FONT_SIZE).toBe(12);
+    expect(INTERACTION_COUNT_FONT_SIZE).toBe(11);
     expect(INTERACTION_BAR_JUSTIFY).toBe('space-between');
     expect(INTERACTION_BAR_ALIGN).toBe('center');
     expect(INTERACTION_BAR_MARGIN_TOP).toBe(4);
@@ -226,7 +226,7 @@ describe('Feed bar uses the exact same shared bar', () => {
     expectOrder(bar, ORDER);
     expect(bar).not.toMatch(/size=\{/);
     expect(bar).not.toMatch(/hitSlop=/);
-    expect(bar).toContain('<ShareAction color={colors.textMuted} onPress={onShare} />');
+    expect(bar).toContain('<ShareAction color={colors.textSecondary} onPress={onShare} />');
     expect(bar).toContain('onPress={onComment}');
     expect(bar).toContain('onPress={onLike}');
     expect(bar).toContain('pending={likePending}');

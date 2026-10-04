@@ -58,7 +58,7 @@ describe('X-style action row: 4 equal main actions + compact bookmark/share grou
         'icon="chatbubble-ellipses-outline"',
         'icon="repeat-2"',
         "'heart' : 'heart-outline'",
-        'icon="bar-chart-2"',
+        'icon="views-4-bars"',
         '<InteractionTrailingGroup>',
         "'bookmark' : 'bookmark-outline'",
         '<ShareAction',

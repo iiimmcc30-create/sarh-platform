@@ -40,14 +40,11 @@ describe('feed supplier screens stay a public directory', () => {
   const explore = src('components/feature/ExploreSarhSection.tsx');
   const exploreFallback = src('lib/exploreSarhBanners.ts');
 
-  it('keeps the sidebar item after create listing (and its bookmarks block) and before ministry services', () => {
-    const createAt = sidebar.indexOf("key: 'create-listing'");
-    const feedAt = sidebar.indexOf("label: 'موردو الأعلاف'");
-    const ministryAt = sidebar.indexOf("label: 'خدمات الوزارة'");
-    expect(createAt).toBeGreaterThan(-1);
-    expect(feedAt).toBeGreaterThan(createAt);
-    expect(ministryAt).toBeGreaterThan(feedAt);
-    expect(sidebar).toContain("route: '/feed-suppliers'");
+  it('is no longer a sidebar row (the screens and routes stay)', () => {
+    expect(sidebar).toContain("key: 'create-listing'");
+    expect(sidebar).not.toContain("label: 'موردو الأعلاف'");
+    expect(sidebar).not.toContain("route: '/feed-suppliers'");
+    expect(list).toContain('export default function FeedSuppliersScreen');
   });
 
   it('opens the directory from home quick access and keeps CMS banners', () => {

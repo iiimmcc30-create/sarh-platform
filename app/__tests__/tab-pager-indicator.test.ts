@@ -273,11 +273,12 @@ describe('wiring', () => {
     expect(profileTabs).toContain('inset={spacing.md}');
   });
 
-  it('Search result tabs: measured tabs + pager progress, 22px underline, reveal', () => {
+  it('Search result tabs: measured tabs + pager progress, full-tab underline, reveal', () => {
     expect(search).toContain('progress={resultPager.progress}');
     expect(search).toContain('onLayout={(event) => onResultTabLayout(index, event)}');
-    expect(search).toContain('fixedWidth={RESULT_TAB_INDICATOR_WIDTH}');
-    expect(search).toContain('const RESULT_TAB_INDICATOR_WIDTH = 22;');
+    expect(search).toContain('inset={RESULT_TAB_INDICATOR_INSET}');
+    expect(search).toContain('const RESULT_TAB_INDICATOR_INSET = 0;');
+    expect(search).not.toContain('fixedWidth={');
     expect(search).toContain('scrollRef={resultTabsRef}');
     expect(search).not.toContain('styles.resultTabIndicator');
   });

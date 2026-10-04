@@ -1,4 +1,9 @@
-import { tabIndicatorInterpolation, type TabIndicatorOptions, type TabLayout } from '@/lib/tabPager';
+import {
+  HEADER_TAB_INDICATOR_THICKNESS,
+  tabIndicatorInterpolation,
+  type TabIndicatorOptions,
+  type TabLayout,
+} from '@/lib/tabPager';
 import { useMemo } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 
@@ -26,7 +31,7 @@ export function SwipeTabIndicator({
   layouts,
   count,
   color,
-  thickness = 2,
+  thickness = HEADER_TAB_INDICATOR_THICKNESS,
   radius = 999,
   fixedWidth,
   inset,

@@ -54,8 +54,8 @@ describe('design-system unification — allowed redesigns only', () => {
     expect(panel).toContain('الملف الشخصي');
     expect(panel).toContain("label: 'إضافة عرض'");
     expect(panel).toContain("route: '/create/listing'");
-    expect(panel).toContain("label: 'خدمات الوزارة'");
-    expect(panel).toContain("route: '/ministry?tab=services'");
+    expect(panel).not.toContain("label: 'خدمات الوزارة'");
+    expect(panel).not.toContain("route: '/ministry?tab=services'");
     expect(panel).toContain('مركز المعلومات');
     expect(panel).toContain('مركز المساعدة');
     expect(panel).toContain('الإعدادات والخصوصية');

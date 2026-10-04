@@ -72,6 +72,8 @@ import { useCollapsibleSearchHeader } from '@/hooks/useCollapsibleSearchHeader';
 import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { SwipeTabIndicator } from '@/components/ui/SwipeTabIndicator';
+import { HEADER_TAB_INDICATOR_OVERHANG, HEADER_TAB_INDICATOR_THICKNESS } from '@/lib/tabPager';
+import { resolveAppFontFace } from '@/constants/fonts';
 import { useRevealActiveTab, useTabLayouts } from '@/hooks/useTabLayouts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -104,10 +106,16 @@ const RESULT_SECTIONS: { id: SearchFilter; label: string }[] = [
   { id: 'services', label: 'الخدمات' },
 ];
 
-/** Same 22px underline as before, now one indicator that slides with the swipe. */
-const RESULT_TAB_INDICATOR_WIDTH = 22;
+/**
+ * Result-tab underline: one indicator that slides with the swipe and spans the
+ * whole tab (label + HEADER_TAB_INDICATOR_OVERHANG each side), X-style.
+ */
+const RESULT_TAB_INDICATOR_INSET = 0;
 
 type ExploreSection = 'explore' | 'trending' | 'news' | 'services';
+
+/** Full ministry services list (no longer in the sidebar; reached from Search «الخدمات»). */
+const MINISTRY_SERVICES_HREF = '/ministry?tab=services';
 
 const EXPLORE_SECTIONS: { id: ExploreSection; label: string }[] = [
   { id: 'explore', label: 'استكشف' },
@@ -782,10 +790,17 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
             accessibilityState={{ selected: active }}
             accessibilityLabel={item.label}
           >
-            <AppText variant="body" color={active ? 'textPrimary' : 'textMuted'} numberOfLines={1}>
-              {item.label}
-            </AppText>
-            {active ? <View style={styles.tabIndicator} /> : null}
+            <View style={styles.sectionTabLabelWrap}>
+              <AppText
+                variant="body"
+                color={active ? 'textPrimary' : 'textSecondary'}
+                style={active ? styles.tabLabelActive : undefined}
+                numberOfLines={1}
+              >
+                {item.label}
+              </AppText>
+              {active ? <View style={styles.tabIndicator} /> : null}
+            </View>
           </Pressable>
         );
       })}
@@ -796,6 +811,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     <SarhChipRow
       contentPaddingHorizontal={gutter}
       style={styles.filterRowWrap}
+      contentContainerStyle={styles.filterRowContent}
       scrollRef={resultTabsRef}
       scrollProps={resultTabsRowProps}
     >
@@ -811,7 +827,12 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
             accessibilityState={{ selected: active }}
             accessibilityLabel={item.label}
           >
-            <AppText variant="body" color={active ? 'textPrimary' : 'textMuted'} numberOfLines={1}>
+            <AppText
+              variant="body"
+              color={active ? 'textPrimary' : 'textSecondary'}
+              style={active ? styles.tabLabelActive : undefined}
+              numberOfLines={1}
+            >
               {item.label}
             </AppText>
           </Pressable>
@@ -821,7 +842,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
         progress={resultPager.progress}
         layouts={resultTabLayouts}
         count={RESULT_SECTIONS.length}
-        fixedWidth={RESULT_TAB_INDICATOR_WIDTH}
+        inset={RESULT_TAB_INDICATOR_INSET}
         color={colors.textPrimary}
       />
     </SarhChipRow>
@@ -1140,6 +1161,18 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
           />
         ))
       )}
+      {/* Ministry services left the sidebar: Search is its entry point to the full list. */}
+      {servicesLoaded ? (
+        <Pressable
+          onPress={() => router.push(MINISTRY_SERVICES_HREF as never)}
+          accessibilityRole="link"
+          accessibilityLabel="كل خدمات الوزارة"
+        >
+          <AppText variant="caption" color="primary" align="center">
+            كل خدمات الوزارة
+          </AppText>
+        </Pressable>
+      ) : null}
     </Stack>
   );
 
@@ -1242,6 +1275,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
               showNotifications={phase !== 'mode'}
               collapseStyle={collapseStyle}
               identityStyle={identityStyle}
+              flushBottom={phase === 'home' || phase === 'results'}
             >
               {phase === 'home' ? (
                 <View style={styles.searchSlot}>{chromeTabs}</View>
@@ -1447,16 +1481,27 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     sectionTab: {
       flex: 1,
       alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 40,
-      paddingBottom: 6,
+      justifyContent: 'flex-end',
+      minHeight: 48,
+    },
+    /** Label + underline: the bar spans the label and sits on the header's bottom edge. */
+    sectionTabLabelWrap: {
       position: 'relative',
+      alignItems: 'center',
+      paddingTop: 4,
+      paddingBottom: 12,
+      paddingHorizontal: HEADER_TAB_INDICATOR_OVERHANG,
+    },
+    /** Active tab label: bolder than the (textSecondary) idle labels. */
+    tabLabelActive: {
+      ...resolveAppFontFace('700'),
     },
     tabIndicator: {
       position: 'absolute',
       bottom: 0,
-      width: 18,
-      height: 2,
+      left: 0,
+      right: 0,
+      height: HEADER_TAB_INDICATOR_THICKNESS,
       borderRadius: 999,
       backgroundColor: colors.textPrimary,
     },
@@ -1464,12 +1509,16 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       backgroundColor: 'transparent',
       paddingTop: 4,
     },
+    /** No strip under the tabs: the sliding underline is the header's bottom edge. */
+    filterRowContent: {
+      paddingBottom: 0,
+    },
     resultTab: {
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 40,
-      paddingBottom: 8,
-      paddingHorizontal: 4,
+      minHeight: 48,
+      paddingBottom: 12,
+      paddingHorizontal: HEADER_TAB_INDICATOR_OVERHANG,
       position: 'relative',
     },
     suggestRow: {

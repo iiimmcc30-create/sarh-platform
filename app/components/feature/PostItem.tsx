@@ -251,7 +251,7 @@ function PostItemComponent({
     <InteractionBar>
       <InteractionAction
         icon="chatbubble-ellipses-outline"
-        color={colors.textMuted}
+        color={colors.textSecondary}
         count={post.comments}
         formatCount={formatCount}
         countStyle={styles.actionCount}
@@ -260,7 +260,7 @@ function PostItemComponent({
       />
       <InteractionAction
         icon="repeat-2"
-        color={post.reposted ? REPOST_GREEN : colors.textMuted}
+        color={post.reposted ? REPOST_GREEN : colors.textSecondary}
         count={post.reposts}
         formatCount={formatCount}
         countStyle={styles.actionCount}
@@ -269,7 +269,7 @@ function PostItemComponent({
       />
       <InteractionAction
         icon={post.liked ? 'heart' : 'heart-outline'}
-        color={post.liked ? LIKE_RED : colors.textMuted}
+        color={post.liked ? LIKE_RED : colors.textSecondary}
         count={post.likes}
         formatCount={formatCount}
         countStyle={styles.actionCount}
@@ -281,8 +281,8 @@ function PostItemComponent({
       {variant === 'detail' ? null : (
         <InteractionAction
           readOnly
-          icon="bar-chart-2"
-          color={colors.textMuted}
+          icon="views-4-bars"
+          color={colors.textSecondary}
           count={post.views ?? 0}
           formatCount={formatCount}
           countStyle={styles.actionCount}
@@ -292,12 +292,12 @@ function PostItemComponent({
       <InteractionTrailingGroup>
         <InteractionAction
           icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}
-          color={post.bookmarked ? BOOKMARK_BLUE : colors.textMuted}
+          color={post.bookmarked ? BOOKMARK_BLUE : colors.textSecondary}
           filled={!!post.bookmarked}
           onPress={onBookmark ?? (() => {})}
           label="حفظ"
         />
-        <ShareAction color={colors.textMuted} onPress={onShare} />
+        <ShareAction color={colors.textSecondary} onPress={onShare} />
       </InteractionTrailingGroup>
     </InteractionBar>
   );

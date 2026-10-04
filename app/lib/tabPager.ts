@@ -7,6 +7,14 @@
  * page `i` sits at physical offset (count - 1 - i) * width. Tabs, indicator and
  * visible content all derive from one index through these two functions.
  */
+
+/**
+ * Header tab underline (Feed «لك / متابعة», Search tabs, Profile): an X-style
+ * bar that sits flush on the header's bottom edge and spans the tab label.
+ */
+export const HEADER_TAB_INDICATOR_THICKNESS = 3;
+/** How far the header underline overhangs the tab label on each side. */
+export const HEADER_TAB_INDICATOR_OVERHANG = 8;
 export function tabPagerOffset(index: number, pageWidth: number, count: number, rtl: boolean): number {
   if (count <= 0 || !(pageWidth > 0) || !Number.isFinite(index)) return 0;
   const safe = Math.min(Math.max(0, Math.round(index)), count - 1);

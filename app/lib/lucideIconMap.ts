@@ -133,6 +133,8 @@ import { FLATICON_ALIASES } from '@/lib/flaticonAliases';
 
 export const DEFAULT_ICON_SIZE = 21;
 export const ICON_STROKE = 2;
+/** Custom (non-Lucide) 4-bar views glyph, rendered by AppIcon via components/ui/ViewsBarsIcon. */
+export const VIEWS_BARS_ICON = 'views-4-bars';
 
 const MAP: Record<string, LucideIcon> = {
   plus: Plus,

@@ -3,8 +3,10 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import {
   DEFAULT_ICON_SIZE,
   ICON_STROKE,
+  VIEWS_BARS_ICON,
   resolveLucideIcon,
 } from '@/lib/lucideIconMap';
+import { ViewsBarsIcon } from '@/components/ui/ViewsBarsIcon';
 
 export { DEFAULT_ICON_SIZE };
 
@@ -31,6 +33,10 @@ function LucideAppIcon({
   const Icon = resolveLucideIcon(name);
   const solid = variant === 'sr' || variant === 'br';
   const strokeWidth = strokeWidthProp ?? (variant === 'br' ? 2.5 : ICON_STROKE);
+
+  if (name === VIEWS_BARS_ICON) {
+    return <ViewsBarsIcon size={size} color={color} strokeWidth={strokeWidth} style={style} />;
+  }
 
   return (
     <Icon

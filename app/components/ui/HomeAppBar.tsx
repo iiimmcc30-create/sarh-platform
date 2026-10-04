@@ -64,6 +64,11 @@ type HomeAppBarProps = {
    * button). Rendered in the same 40pt tool box so the row stays aligned.
    */
   trailing?: ReactNode;
+  /**
+   * Tab headers (Feed / Search): drop the bottom padding so the header ends
+   * exactly at the tab underline (X-style), with no strip below it.
+   */
+  flushBottom?: boolean;
 };
 
 /** Home header: user avatar, centered Sarh mark, notifications. */
@@ -78,6 +83,7 @@ export function HomeAppBar({
   leading,
   showNotifications = true,
   trailing,
+  flushBottom = false,
 }: HomeAppBarProps) {
   const { colors: themeColors, isDark } = useTheme();
   const { gutter } = useLayout();
@@ -107,6 +113,7 @@ export function HomeAppBar({
         style={[
           styles.inner,
           { paddingHorizontal: gutter, paddingTop: insets.top + space[8] },
+          flushBottom ? styles.innerFlush : null,
           collapseStyle,
         ]}
       >
@@ -199,6 +206,9 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'visible',
     paddingBottom: space[8],
+  },
+  innerFlush: {
+    paddingBottom: 0,
   },
   bar: {
     width: '100%',

@@ -160,7 +160,7 @@ function ViewerOverlay({
             label="إعجاب"
           />
           <InteractionAction
-            icon="bar-chart-2"
+            icon="views-4-bars"
             color="#fff"
             countColor="#fff"
             count={overlay.views}

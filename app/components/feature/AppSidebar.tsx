@@ -28,8 +28,6 @@ const PRIMARY_ITEMS: NavItem[] = [
   { key: 'create-listing', icon: 'add-circle-outline', label: 'إضافة عرض', route: '/create/listing' },
   { key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },
   { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
-  { key: 'feed-suppliers', icon: 'leaf', label: 'موردو الأعلاف', route: '/feed-suppliers' },
-  { key: 'ministry', icon: 'briefcase-outline', label: 'خدمات الوزارة', route: '/ministry?tab=services' },
   { key: 'promote', icon: 'megaphone-outline', label: 'الترويج', route: '/promote' },
 ];
 
