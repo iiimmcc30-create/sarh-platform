@@ -14,7 +14,8 @@ function walk(dir: string, acc: string[] = []): string[] {
 }
 
 function rel(file: string) {
-  return path.relative(root, file);
+  // Normalize so exclusions work on Windows (path.relative uses \) and POSIX.
+  return path.relative(root, file).split(path.sep).join('/');
 }
 
 const production = walk(root).filter((file) => !rel(file).startsWith('__tests__/'));

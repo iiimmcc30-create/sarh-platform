@@ -896,7 +896,7 @@ describe('Architecture V2 — Wave 4C marketplace', () => {
     expect(detail).toContain('openSellerChat');
     expect(detail).toContain('ListingCommentsSection');
     expect(detail).toContain('ListingFeePaymentSheet');
-    expect(detail).toContain('ImageViewerModal');
+    expect(detail).toContain('MediaViewerModal');
     expect(detail).toContain('authFetch');
     expect(detail).toContain('weightLabel');
     expect(detail).toContain('كجم');

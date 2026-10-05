@@ -215,7 +215,9 @@ describe('Chats list screen', () => {
   it('list background is exactly #FFFFFF (light) with calm hairline rows and no shadows', () => {
     expect(snapshotTheme('light').colors.screenRoot).toBe('#FFFFFF');
     expect(panel).toContain('root: { flex: 1, backgroundColor: colors.screenRoot }');
-    expect(panel).toContain('backgroundColor: colors.screenRoot,\n    },');
+    expect(panel).toContain('list: { flex: 1, backgroundColor: colors.screenRoot }');
+    // chatRow ends with screenRoot (CRLF-safe); still white screenRoot, no bgDeep / shadows.
+    expect(panel).toMatch(/chatRow:\s*\{[\s\S]*?backgroundColor: colors\.screenRoot,/);
     expect(panel).not.toContain('colors.bgDeep');
     expect(panel).not.toMatch(/shadow(Opacity|Radius|Color)|elevation:/);
   });
