@@ -25,6 +25,7 @@ import type { ProfileTabKey } from '@/lib/profileTabs';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { safePush, safeReplace } from '@/lib/safeNavigate';
 import { PROFILE_EDIT_ROUTE, resolveProfileBack } from '@/lib/profileHeader';
+import { presentOwnProfileMenu } from '@/lib/profileCollectionsMenu';
 import { fetchStoriesFeed, type StoryGroup } from '@/services/stories';
 import { shouldReuseFreshResult } from '@/services/requestCoordination';
 import type { Post } from '@/services/types';
@@ -150,6 +151,7 @@ export default function ProfileScreen() {
       displayName: me.displayName,
       arabicName: me.arabicName,
       avatar: me.avatar,
+      coverImage: me.coverImage,
       verified: me.verified,
       verifiedTier: me.verifiedTier ?? null,
       bio: me.bio,
@@ -352,6 +354,7 @@ export default function ProfileScreen() {
       onRefresh={onRefresh}
       onBack={handleBack}
       onShare={handleShare}
+      onMenu={() => void presentOwnProfileMenu(router, me.id)}
       onEditProfile={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}
       onEditAvatar={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}
       onAvatarPress={() => {

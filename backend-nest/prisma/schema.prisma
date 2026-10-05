@@ -90,6 +90,10 @@ model User {
   accountActionsTaken                 AdminAccountAction[]              @relation("AccountActionActor")
   deviceTokens                        UserDeviceToken[]
   messageThreadStates                 MessageThreadState[]
+  collectionsOwned                    Collection[]                      @relation("CollectionOwner")
+  collectionMemberships               CollectionMember[]
+  collectionFollows                   CollectionFollower[]
+  collectionBlocks                    CollectionBlock[]
 
   @@index([username])
   @@index([email])
@@ -149,6 +153,71 @@ model UserBlock {
   @@unique([blockerId, blockedId])
   @@index([blockerId])
   @@index([blockedId])
+}
+
+/// «المجموعات»: a user-curated collection whose feed is built live from its
+/// members' own posts (type POSTS) or listings (type ADS). Nothing is copied.
+model Collection {
+  id          String               @id @default(uuid())
+  ownerId     String
+  name        String
+  description String?
+  coverUrl    String?
+  type        CollectionType
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  owner       User                 @relation("CollectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     CollectionMember[]
+  followers   CollectionFollower[]
+  blocks      CollectionBlock[]
+
+  @@index([ownerId])
+  @@index([name])
+  @@index([createdAt])
+}
+
+/// Accounts whose content feeds the collection (added by the owner, no approval).
+model CollectionMember {
+  id           String     @id @default(uuid())
+  collectionId String
+  userId       String
+  addedAt      DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId])
+  @@index([userId])
+}
+
+/// Users who follow the collection to read its feed (independent from membership).
+model CollectionFollower {
+  id           String     @id @default(uuid())
+  collectionId String
+  userId       String
+  createdAt    DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId])
+  @@index([userId])
+}
+
+/// Per-user hide («حظر المجموعة»), same shape as UserBlock.
+model CollectionBlock {
+  id           String     @id @default(uuid())
+  collectionId String
+  userId       String
+  createdAt    DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId])
+  @@index([userId])
+}
+
+enum CollectionType {
+  POSTS
+  ADS
 }
 
 model Plan {

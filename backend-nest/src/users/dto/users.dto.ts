@@ -82,10 +82,11 @@ export class UpdateUserDto {
   @IsOurUploadUrl()
   avatar?: string;
 
+  /** `null` removes the profile cover (back to the default). */
   @IsOptional()
   @IsUrl(MEDIA_URL_OPTS)
   @IsOurUploadUrl()
-  coverImage?: string;
+  coverImage?: string | null;
 
   @IsOptional()
   @IsEnum(SUPPORTED_COUNTRIES)

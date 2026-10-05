@@ -6,7 +6,7 @@ import {
   presentActionSheet,
 } from '@/lib/actionSheet';
 
-export type ReportTargetType = 'listing' | 'post' | 'user' | 'story';
+export type ReportTargetType = 'listing' | 'post' | 'user' | 'story' | 'collection';
 
 const REASONS = [
   'محتوى غير لائق',

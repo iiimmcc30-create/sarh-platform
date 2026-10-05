@@ -1,5 +1,4 @@
 import type { ImageSourcePropType } from 'react-native';
-import { MEWA_FALLBACK_AVATAR } from '@/constants/branding';
 
 export type HomeQuickAccessHref =
   | string
@@ -23,10 +22,13 @@ export type HomeQuickAccessItem = {
  */
 export const HOME_QUICK_ACCESS_ITEMS: HomeQuickAccessItem[] = [
   {
-    key: 'services',
-    label: 'الخدمات',
-    href: { pathname: '/ministry', params: { tab: 'services' } },
-    logo: MEWA_FALLBACK_AVATAR,
+    // Replaces the former «الخدمات» shortcut; the services page/route stays
+    // (reachable from Search).
+    key: 'collections',
+    label: 'المجموعات',
+    href: '/collections',
+    icon: 'people-outline',
+    iconTone: 'primary',
   },
   {
     // Same save icon as the Feed's bookmark action (PostItem, not saved yet).

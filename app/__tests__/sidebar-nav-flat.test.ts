@@ -37,6 +37,7 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(panel).toContain("label: 'إضافة عرض'");
     expect(panel).toContain("route: '/create/listing'");
     expect(panel).toContain("route: '/bookmarks'");
+    expect(panel).toContain("{ key: 'collections', icon: 'people-outline', label: 'Collections', route: '/collections' },");
     expect(panel).not.toContain("route: '/favorites'");
     // Feed suppliers + ministry services stay reachable (pages/API/Search) but are no longer sidebar rows.
     expect(panel).not.toContain('موردو الأعلاف');
@@ -76,8 +77,11 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(profileAt).toBeGreaterThan(-1);
     expect(createAt).toBeGreaterThan(profileAt);
     const bookmarksAt = panel.indexOf("route: '/bookmarks'");
+    const collectionsAt = panel.indexOf("route: '/collections'");
     expect(verificationAt).toBeGreaterThan(createAt);
-    expect(bookmarksAt).toBeGreaterThan(verificationAt);
+    // Collections sits directly above bookmarks.
+    expect(collectionsAt).toBeGreaterThan(verificationAt);
+    expect(bookmarksAt).toBeGreaterThan(collectionsAt);
     expect(promoteAt).toBeGreaterThan(bookmarksAt);
     expect(infoAt).toBeGreaterThan(promoteAt);
     expect(settingsAt).toBeGreaterThan(infoAt);

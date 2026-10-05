@@ -856,7 +856,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (updates.bio !== undefined) body.bio = updates.bio;
       if (updates.country !== undefined) body.country = updates.country;
       if (avatar !== undefined) body.avatar = avatar;
-      if (coverImage !== undefined) body.coverImage = coverImage;
+      // '' = remove the cover (backend stores null → default cover).
+      if (coverImage !== undefined) body.coverImage = coverImage === '' ? null : coverImage;
 
       if (Object.keys(body).length === 0) {
         return {

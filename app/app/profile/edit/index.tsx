@@ -14,6 +14,7 @@ import { sarhProfileShareUrl } from '@/constants/sarhOfficial';
 import { showToast } from '@/lib/toast';
 import { rtlForwardIcon } from '@/lib/rtl';
 import { safePush } from '@/lib/safeNavigate';
+import { presentActionSheet } from '@/lib/actionSheet';
 import { AppText, SarhCard, SarhDivider } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 
@@ -23,6 +24,8 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const { me, updateMe } = useAppUser();
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const displayName = me.arabicName || me.displayName || '';
   const username = me.username || '';
@@ -56,6 +59,55 @@ export default function EditProfileScreen() {
     }
   };
 
+  /** Saves through the existing updateMe flow (Cloudinary upload, 'avatars' folder). '' removes. */
+  const saveCover = async (next: string) => {
+    setCoverBusy(true);
+    setCoverPreview(next || null);
+    const save = await updateMe({ coverImage: next });
+    setCoverBusy(false);
+    setCoverPreview(null);
+    if (save.ok && !save.error) {
+      void showToast(next ? 'تم تحديث الغلاف' : 'تمت إزالة الغلاف', 'success');
+    } else {
+      void showToast(save.error || 'فشل حفظ التغييرات، يرجى المحاولة مجدداً.', save.ok ? 'warning' : 'error');
+    }
+  };
+
+  const pickCover = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول إلى مكتبة الصور');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [3, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await saveCover(result.assets[0].uri);
+  };
+
+  const handleCover = async () => {
+    if (!me.coverImage) {
+      await pickCover();
+      return;
+    }
+    const key = await presentActionSheet({
+      title: 'غلاف الملف الشخصي',
+      items: [
+        { key: 'replace', label: 'استبدال الغلاف', icon: 'image-outline' },
+        { key: 'remove', label: 'إزالة الغلاف', icon: 'trash-outline', destructive: true },
+        { key: 'cancel', label: 'إلغاء', cancel: true },
+      ],
+    });
+    if (key === 'replace') await pickCover();
+    if (key === 'remove') await saveCover('');
+  };
+
+  const coverUri = coverPreview ?? me.coverImage ?? null;
+
   const handleCopyUrl = () => {
     copyToClipboard(profileUrl);
     void showToast('تم نسخ الرابط', 'success');
@@ -69,6 +121,28 @@ export default function EditProfileScreen() {
     <Screen edges={['top']}>
       <ScreenHeader variant="screen" title="تعديل الملف الشخصي" showBack />
       <ScreenBody padTop="lg" gap="md" width="form">
+        <Pressable
+          onPress={() => void handleCover()}
+          disabled={coverBusy}
+          accessibilityRole="button"
+          accessibilityLabel="تغيير غلاف الملف الشخصي"
+          style={styles.coverBlock}
+        >
+          <View style={styles.coverFrame}>
+            {coverUri ? (
+              <Image source={{ uri: coverUri }} style={styles.coverImage} contentFit="cover" />
+            ) : (
+              <View style={[styles.coverImage, styles.coverDefault]} />
+            )}
+            <View style={styles.coverIcon} pointerEvents="none">
+              <AppIcon name="image-outline" size={20} color={colors.textPrimary} />
+            </View>
+          </View>
+          <AppText variant="label" color="primary" align="center">
+            {coverBusy ? 'جارٍ حفظ الغلاف…' : 'تغيير غلاف الملف الشخصي'}
+          </AppText>
+        </Pressable>
+
         <Pressable
           onPress={() => void handlePickAvatar()}
           disabled={avatarBusy}
@@ -237,6 +311,36 @@ function ProfileInfoRow({
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
+    coverBlock: {
+      gap: spacing.sm,
+    },
+    coverFrame: {
+      height: 104,
+      borderRadius: 12,
+      overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coverImage: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    /** Same quiet default as the profile page cover. */
+    coverDefault: {
+      backgroundColor: colors.electric,
+      opacity: 0.08,
+    },
+    coverIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.bgSurface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
     avatarBlock: {
       alignItems: 'center',
       gap: spacing.sm,

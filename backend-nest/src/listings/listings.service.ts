@@ -377,6 +377,47 @@ export class ListingsService {
     return result;
   }
 
+  /**
+   * One newest-first page of active listings limited by `scope` (e.g. the sellers of a
+   * collection). Same active/not-deleted filter, select, block filter and public mapping
+   * as the main market feed, so the app renders it with the same ListingCard.
+   */
+  async listScoped(
+    scope: Prisma.ListingWhereInput,
+    cursor: string | undefined,
+    viewerId?: string,
+  ) {
+    const where: Prisma.ListingWhereInput = {
+      ...scope,
+      status: 'active',
+      ...notDeleted,
+    };
+    if (viewerId) {
+      const blockedIds =
+        await this.usersRepo.findBlockedRelationshipIds(viewerId);
+      if (blockedIds.length > 0) {
+        where.AND = [{ sellerId: { notIn: blockedIds } }];
+      }
+    }
+    const listings = await this.repo.findMany({
+      where,
+      take: PAGE_SIZE + 1,
+      cursor,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    const hasMore = listings.length > PAGE_SIZE;
+    const items = hasMore ? listings.slice(0, PAGE_SIZE) : listings;
+    const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+    const now = new Date();
+    return {
+      listings: items.map((item) =>
+        sanitizeListingMedia(withEffectiveBoostState(item, now)),
+      ),
+      nextCursor,
+      hasMore,
+    };
+  }
+
   async getById(id: string) {
     if (!id) throwApi(400, 'invalid_id', 'معرّف غير صالح');
 

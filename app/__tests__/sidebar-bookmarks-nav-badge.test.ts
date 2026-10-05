@@ -162,11 +162,16 @@ describe('sidebar - العلامات المرجعية is a plain menu row', () =
     expect(panel).toContain(row);
     const createAt = panel.indexOf("key: 'create-listing'");
     const nextRowAt = panel.indexOf('\n', createAt) + 1;
-    // Verification sits directly under إضافة عرض, bookmarks right after it.
+    // Verification sits directly under إضافة عرض, then Collections, then bookmarks.
     const verificationRow = "{ key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },";
     expect(panel.indexOf(verificationRow)).toBe(panel.indexOf('{', nextRowAt));
     const afterVerification = panel.indexOf('\n', panel.indexOf(verificationRow)) + 1;
-    expect(panel.indexOf(row)).toBe(panel.indexOf('{', afterVerification));
+    // Collections is its own row directly ABOVE bookmarks (not inside the bookmarks section).
+    const collectionsRow = "{ key: 'collections', icon: 'people-outline', label: 'Collections', route: '/collections' },";
+    expect(panel).toContain(collectionsRow);
+    expect(panel.indexOf(collectionsRow)).toBe(panel.indexOf('{', afterVerification));
+    const afterCollections = panel.indexOf('\n', panel.indexOf(collectionsRow)) + 1;
+    expect(panel.indexOf(row)).toBe(panel.indexOf('{', afterCollections));
     expect(panel.indexOf(row)).toBeLessThan(panel.indexOf("key: 'promote'"));
     // Rendered by the same PRIMARY_ITEMS row as the others; go() = closeThenPush(route).
     expect(panel).toContain('PRIMARY_ITEMS.map((item) => (');

@@ -267,7 +267,7 @@ describe('HomeAppBar chrome', () => {
     expect(src).not.toContain('menuCardStyle');
   });
 
-  it('opens ministry services from home quick access, not a new route', () => {
+  it('ministry services stay reachable (explore banner); quick access now opens المجموعات', () => {
     const home = fs.readFileSync(path.join(__dirname, '../app/(tabs)/index.tsx'), 'utf8');
     const explore = fs.readFileSync(
       path.join(__dirname, '../components/feature/ExploreSarhSection.tsx'),
@@ -284,8 +284,8 @@ describe('HomeAppBar chrome', () => {
     expect(home).not.toContain('HomeMinistryOrgCard');
     expect(home).not.toContain('أحدث المنشورات');
     expect(home).toContain('HomeQuickAccess');
-    expect(quick).toContain("pathname: '/ministry'");
-    expect(quick).toContain("tab: 'services'");
+    expect(quick).toContain("href: '/collections'");
+    expect(quick).not.toContain("tab: 'services'");
     expect(fallback).toContain("href: '/ministry'");
     expect(fallback).toContain('خدمات وزارة البيئة والمياه والزراعة');
     expect(fallback).toContain('explore-sarh-ministry.jpg');

@@ -13,6 +13,7 @@ export const REPORT_TARGET_TYPES = [
   'post',
   'user',
   'story',
+  'collection',
 ] as const;
 
 export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number];

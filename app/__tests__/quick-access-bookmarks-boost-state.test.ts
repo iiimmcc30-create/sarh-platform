@@ -17,7 +17,7 @@ describe('Home quick access: المحفوظات replaces المفضلة in the s
   const keys = [...catalog.matchAll(/key: '([^']+)'/g)].map((m) => m[1]);
 
   it('keeps the order and swaps only this item', () => {
-    expect(keys).toEqual(['services', 'bookmarks', 'settings']);
+    expect(keys).toEqual(['collections', 'bookmarks', 'settings']);
     expect(catalog).toContain("label: 'المحفوظات'");
     expect(catalog).not.toContain("label: 'المفضلة'");
     expect(catalog).toContain("href: '/bookmarks'");

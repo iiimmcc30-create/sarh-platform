@@ -46,6 +46,8 @@ export type ProfileDisplayUser = {
   displayName: string;
   arabicName: string;
   avatar?: string;
+  /** Optional profile cover (User.coverImage); a clean default band when absent. */
+  coverImage?: string;
   verified: boolean;
   verifiedTier?: string | null;
   isAI?: boolean;
@@ -250,6 +252,18 @@ export function ProfileScreenLayout({
             transform: [{ translateY: headerTranslate }],
           }}
         >
+          {/* Profile cover across the top; the toolbar sits on it and the avatar overlaps its bottom edge. */}
+          <View style={styles.coverBand} testID="profile-cover">
+            {user.coverImage ? (
+              <Image
+                source={uriSource(user.coverImage)}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                accessibilityLabel="غلاف الملف الشخصي"
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.coverDefault]} />
+            )}
           <Row align="center" justify="between" style={[styles.toolbar, inset]}>
             <Row gap="xs" align="center" style={styles.toolbarSide}>
               {/* Back sits at the inline start (right in Arabic); the shared back button flips the chevron. */}
@@ -274,10 +288,10 @@ export function ProfileScreenLayout({
                   accessibilityLabel="إعدادات الحساب"
                 />
               ) : null}
-              {mode === 'visitor' && onMenu ? (
+              {onMenu ? (
                 <SarhIconButton
                   icon="menu-dots"
-                  chrome="ghost"
+                  chrome={user.coverImage ? 'solid' : 'ghost'}
                   size="sm"
                   onPress={onMenu}
                   accessibilityLabel="المزيد"
@@ -285,6 +299,7 @@ export function ProfileScreenLayout({
               ) : null}
             </Row>
           </Row>
+          </View>
 
           {loading ? (
             <ProfileHeaderSkeleton style={inset} />
@@ -500,6 +515,10 @@ export function ProfileScreenLayout({
   );
 }
 
+/** Profile cover band height and how much of the avatar rides over it. */
+export const PROFILE_COVER_HEIGHT = 112;
+export const PROFILE_AVATAR_COVER_OVERLAP = 44;
+
 function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   /** Same border/background as the DS secondary (outline) button used by the pills. */
   const outline = resolveSarhButtonColorsForScheme(scheme, PROFILE_ACTION_PILL_VARIANT, 'default');
@@ -508,6 +527,16 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       paddingTop: spacing.xs,
       paddingBottom: spacing.sm,
       minHeight: 44,
+    },
+    coverBand: {
+      height: PROFILE_COVER_HEIGHT,
+      marginBottom: spacing.sm,
+      overflow: 'hidden',
+    },
+    /** Default cover: a quiet tint of the Sarh primary (no gradient, no shadow). */
+    coverDefault: {
+      backgroundColor: colors.electric,
+      opacity: scheme === 'dark' ? 0.16 : 0.08,
     },
     toolbarSide: {
       minWidth: ds.iconBtn.md,
@@ -562,6 +591,8 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     avatarCol: {
       position: 'relative',
       paddingTop: 2,
+      // Top of the avatar sits over the cover, the rest on the page background.
+      marginTop: -PROFILE_AVATAR_COVER_OVERLAP,
     },
     avatarRing: {
       width: 92,
@@ -575,6 +606,8 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       borderRadius: 44,
       overflow: 'hidden',
       backgroundColor: colors.bgElevated,
+      borderWidth: 3,
+      borderColor: colors.screenRoot,
     },
     avatarClip: {
       width: '100%',

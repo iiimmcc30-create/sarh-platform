@@ -66,7 +66,7 @@ type BackendListing = {
   };
 };
 
-function mapListing(l: BackendListing): Listing {
+export function mapListing(l: BackendListing): Listing {
   const managed = isManagedListing(l);
   const sellerCountry: Country =
     !managed && l.seller?.country && l.seller.country in countries

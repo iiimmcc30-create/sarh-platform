@@ -33,6 +33,7 @@ import { FeedSuppliersModule } from './feed-suppliers/feed-suppliers.module';
 import { MarketCategoriesModule } from './market-categories/market-categories.module';
 import { SettingsModule } from './settings/settings.module';
 import { HomeExploreModule } from './home-explore/home-explore.module';
+import { CollectionsModule } from './collections/collections.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { HomeExploreModule } from './home-explore/home-explore.module';
     EditorialStoriesModule,
     ExploreSarhBannersModule,
     FeedSuppliersModule,
+    CollectionsModule,
   ],
 })
 export class AppModule {}

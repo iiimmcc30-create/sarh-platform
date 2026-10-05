@@ -125,6 +125,28 @@ export class PostsService {
     );
   }
 
+  /**
+   * One chronological page of visible posts limited by `scope` (e.g. the authors of a
+   * collection). Same visibility filter, include, cursor and personalization as the main
+   * feed, so the app maps it with the same mapper / PostItem. Not cached: the scope is
+   * per-entity and members change.
+   */
+  async listFeedScoped(
+    scope: Prisma.PostWhereInput,
+    cursor: string | undefined,
+    user?: JwtPayload,
+  ) {
+    const posts = await this.repo.findFeed({
+      where: { ...scope, ...notDeleted, isHidden: false },
+      take: PAGE_SIZE + 1,
+      cursor,
+    });
+    const hasMore = posts.length > PAGE_SIZE;
+    const items = hasMore ? posts.slice(0, -1) : posts;
+    const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+    return this.personalizeFeed(items, nextCursor, hasMore, user);
+  }
+
   private async personalizeFeed(
     items: PostWithCount[],
     nextCursor: string | null,
@@ -259,7 +281,8 @@ export class PostsService {
   async createPost(user: JwtPayload, dto: CreatePostDto) {
     const { media, images, image } = normalizeCreateMedia(dto);
     const hasText = Boolean(dto.content?.trim() || dto.arabicContent?.trim());
-    const hasMedia = media.length > 0 || (images?.length ?? 0) > 0 || Boolean(image);
+    const hasMedia =
+      media.length > 0 || (images?.length ?? 0) > 0 || Boolean(image);
     if (!hasText && !hasMedia) {
       throwApi(400, 'empty_post', 'اكتب نصاً أو أضف صورة أو فيديو');
     }

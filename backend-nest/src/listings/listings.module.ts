@@ -35,6 +35,6 @@ import { IntegrationsModule } from '../integrations/integrations.module';
     ListingPromotionService,
     PromoteQuoteService,
   ],
-  exports: [ListingBoostService, ListingPromotionService],
+  exports: [ListingsService, ListingBoostService, ListingPromotionService],
 })
 export class ListingsModule {}

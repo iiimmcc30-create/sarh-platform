@@ -102,7 +102,7 @@ type UpdateUserData = {
   arabicName?: string;
   bio?: string;
   avatar?: string;
-  coverImage?: string;
+  coverImage?: string | null;
   country?: Country;
   fcmToken?: string | null;
   showInSearch?: boolean;

@@ -34,6 +34,7 @@ import { RatingModal } from '@/components/feature/RatingModal';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
 import { presentActionSheet, confirmDestructive, alertMessage } from '@/lib/actionSheet';
+import { MEMBER_OF_MENU_ITEM, openMemberOfCollections } from '@/lib/profileCollectionsMenu';
 import { showToast } from '@/lib/toast';
 import { resolveProfileBack } from '@/lib/profileHeader';
 import { safeReplace } from '@/lib/safeNavigate';
@@ -408,6 +409,7 @@ export default function UserProfileScreen() {
     displayName: profile.displayName,
     arabicName: profile.arabicName,
     avatar: profile.avatar,
+    coverImage: profile.coverImage,
     verified: profile.verified,
     verifiedTier: profile.verifiedTier ?? null,
     isAI: profile.isAI,
@@ -469,6 +471,7 @@ export default function UserProfileScreen() {
       title: 'خيارات',
       message: profile.arabicName || profile.displayName,
       items: [
+        MEMBER_OF_MENU_ITEM,
         {
           key: 'share',
           label: 'مشاركة الملف',
@@ -489,6 +492,7 @@ export default function UserProfileScreen() {
         { key: 'cancel', label: 'إلغاء', cancel: true },
       ],
     });
+    if (key === MEMBER_OF_MENU_ITEM.key) openMemberOfCollections(router, profile.id);
     if (key === 'share') handleShareProfile();
     if (key === 'block') void handleBlock();
     if (key === 'report') promptReport('user', profile.id, !!accessToken);

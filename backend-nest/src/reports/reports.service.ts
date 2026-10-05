@@ -9,6 +9,7 @@ const TARGET_LABEL_AR: Record<CreateReportDto['targetType'], string> = {
   post: 'منشور',
   user: 'مستخدم',
   story: 'قصة',
+  collection: 'مجموعة',
 };
 
 @Injectable()

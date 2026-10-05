@@ -18,8 +18,8 @@ const quick = src('components/feature/HomeQuickAccess.tsx');
 
 describe('Home quick access: suppliers shortcut removed from the rail only', () => {
   it('keeps the remaining shortcuts in their original order', () => {
-    expect(HOME_QUICK_ACCESS_ITEMS.map((item) => item.key)).toEqual(['services', 'bookmarks', 'settings']);
-    expect(HOME_QUICK_ACCESS_ITEMS.map((item) => item.label)).toEqual(['الخدمات', 'المحفوظات', 'الإعدادات']);
+    expect(HOME_QUICK_ACCESS_ITEMS.map((item) => item.key)).toEqual(['collections', 'bookmarks', 'settings']);
+    expect(HOME_QUICK_ACCESS_ITEMS.map((item) => item.label)).toEqual(['المجموعات', 'المحفوظات', 'الإعدادات']);
   });
 
   it('has no suppliers item in quick access', () => {
@@ -40,9 +40,8 @@ describe('Home quick access: suppliers shortcut removed from the rail only', () 
   });
 
   it('keeps the other shortcuts unchanged (routes and icons)', () => {
-    const [services, bookmarks, settings] = HOME_QUICK_ACCESS_ITEMS;
-    expect(services.href).toEqual({ pathname: '/ministry', params: { tab: 'services' } });
-    expect(services.logo).toBeDefined();
+    const [collections, bookmarks, settings] = HOME_QUICK_ACCESS_ITEMS;
+    expect(collections).toMatchObject({ href: '/collections', icon: 'people-outline', iconTone: 'primary' });
     expect(bookmarks).toMatchObject({ href: '/bookmarks', icon: 'bookmark-outline', iconTone: 'primary' });
     expect(settings).toMatchObject({ href: '/settings', icon: 'settings-outline', iconTone: 'silver' });
   });

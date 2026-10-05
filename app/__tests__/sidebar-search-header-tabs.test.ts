@@ -21,7 +21,7 @@ describe('sidebar: feed suppliers + ministry services rows removed (UI only)', (
     expect(panel).not.toContain("key: 'ministry'");
     expect(panel).not.toContain('موردو الأعلاف');
     expect(panel).not.toContain('خدمات الوزارة');
-    for (const key of ['profile', 'create-listing', 'verification', 'bookmarks', 'promote']) {
+    for (const key of ['profile', 'create-listing', 'verification', 'collections', 'bookmarks', 'promote']) {
       expect(panel).toContain(`key: '${key}'`);
     }
   });
