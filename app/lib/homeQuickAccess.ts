@@ -25,7 +25,7 @@ export const HOME_QUICK_ACCESS_ITEMS: HomeQuickAccessItem[] = [
     // Replaces the former «الخدمات» shortcut; the services page/route stays
     // (reachable from Search).
     key: 'collections',
-    label: 'المجموعات',
+    label: 'القوائم',
     href: '/collections',
     icon: 'people-outline',
     iconTone: 'primary',

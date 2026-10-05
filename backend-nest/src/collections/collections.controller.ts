@@ -26,7 +26,7 @@ import {
 import { CollectionsService } from './collections.service';
 
 /**
- * «المجموعات». Static routes are declared before `:id`. Reads are public (optional
+ * «القوائم». Static routes are declared before `:id`. Reads are public (optional
  * auth personalizes follow state and applies the viewer's blocks); every write needs
  * auth and management is owner-only (enforced in the service).
  */

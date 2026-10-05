@@ -267,7 +267,7 @@ describe('HomeAppBar chrome', () => {
     expect(src).not.toContain('menuCardStyle');
   });
 
-  it('ministry services stay reachable (explore banner); quick access now opens المجموعات', () => {
+  it('ministry services stay reachable (explore banner); quick access now opens القوائم', () => {
     const home = fs.readFileSync(path.join(__dirname, '../app/(tabs)/index.tsx'), 'utf8');
     const explore = fs.readFileSync(
       path.join(__dirname, '../components/feature/ExploreSarhSection.tsx'),

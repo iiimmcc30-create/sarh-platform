@@ -16,24 +16,25 @@ const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n');
 
 describe('Collections: naming & navigation', () => {
-  it('sidebar label is exactly Collections (English only there)', () => {
+  it('sidebar label is القوائم under bookmarks', () => {
     const panel = src('components/feature/AppSidebar.tsx');
     expect(panel).toContain(
-      "{ key: 'collections', icon: 'people-outline', label: 'Collections', route: '/collections' },",
+      "{ key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },",
     );
-    // Directly ABOVE bookmarks, as its own row.
-    expect(panel.indexOf("key: 'collections'")).toBeGreaterThan(panel.indexOf("key: 'verification'"));
-    expect(panel.indexOf("key: 'collections'")).toBeLessThan(panel.indexOf("key: 'bookmarks'"));
+    // Directly UNDER bookmarks, as its own row.
+    expect(panel.indexOf("key: 'collections'")).toBeGreaterThan(panel.indexOf("key: 'bookmarks'"));
+    expect(panel.indexOf("key: 'bookmarks'")).toBeGreaterThan(panel.indexOf("key: 'verification'"));
+    expect(panel.indexOf("key: 'promote'")).toBeGreaterThan(panel.indexOf("key: 'collections'"));
   });
 
-  it('quick access replaces الخدمات with المجموعات and keeps the services route elsewhere', () => {
+  it('quick access replaces الخدمات with القوائم and keeps the services route elsewhere', () => {
     expect(HOME_QUICK_ACCESS_ITEMS.map((i) => i.key)).toEqual([
       'collections',
       'bookmarks',
       'settings',
     ]);
     expect(HOME_QUICK_ACCESS_ITEMS[0]).toMatchObject({
-      label: 'المجموعات',
+      label: 'القوائم',
       href: '/collections',
     });
     expect(HOME_QUICK_ACCESS_ITEMS.some((i) => i.label === 'الخدمات')).toBe(false);
@@ -42,7 +43,7 @@ describe('Collections: naming & navigation', () => {
     expect(existsSync(path.join(root, 'app/ministry/index.tsx'))).toBe(true);
   });
 
-  it('never uses the word قوائم anywhere in the feature', () => {
+  it('never uses the old word مجموعات; user-facing copy says قوائم', () => {
     const files = [
       'services/collections.ts',
       'app/collections/index.tsx',
@@ -57,8 +58,10 @@ describe('Collections: naming & navigation', () => {
       'lib/homeQuickAccess.ts',
     ];
     for (const file of files) {
-      expect(src(file)).not.toContain('قوائم');
+      expect(src(file)).not.toContain('مجموع');
     }
+    expect(src('components/feature/AppSidebar.tsx')).toContain("label: 'القوائم'");
+    expect(src('lib/homeQuickAccess.ts')).toContain("label: 'القوائم'");
   });
 });
 
@@ -85,10 +88,10 @@ describe('Collections: screens & empty states', () => {
   });
 
   it('ships the required empty texts', () => {
-    expect(COLLECTIONS_EMPTY_TEXT).toBe('لا توجد مجموعات حتى الآن');
-    expect(COLLECTIONS_NO_MATCH_TEXT).toBe('لم نعثر على مجموعات مطابقة');
+    expect(COLLECTIONS_EMPTY_TEXT).toBe('لا توجد قوائم حتى الآن');
+    expect(COLLECTIONS_NO_MATCH_TEXT).toBe('لم نعثر على قوائم مطابقة');
     expect(COLLECTION_NO_MEMBERS_TEXT).toBe('لم تتم إضافة أي حسابات بعد');
-    expect(COLLECTION_EMPTY_FEED_TEXT).toBe('لا يوجد محتوى جديد من أعضاء هذه المجموعة');
+    expect(COLLECTION_EMPTY_FEED_TEXT).toBe('لا يوجد محتوى جديد من أعضاء هذه القائمة');
     const index = src('app/collections/index.tsx');
     const detail = src('app/collections/[id]/index.tsx');
     const members = src('app/collections/[id]/members.tsx');
@@ -104,8 +107,8 @@ describe('Collections: screens & empty states', () => {
     expect(detail).toContain('<ListingCard');
     expect(detail).toContain("variant=\"list\"");
     expect(detail).toContain('listMode="market"');
-    expect(detail).toContain("label: 'حظر المجموعة'");
-    expect(detail).toContain("label: 'إبلاغ عن المجموعة'");
+    expect(detail).toContain("label: 'حظر القائمة'");
+    expect(detail).toContain("label: 'إبلاغ عن القائمة'");
     expect(detail).toContain("promptReport('collection'");
     // No Reanimated.
     expect(detail).not.toContain('react-native-reanimated');
@@ -114,16 +117,16 @@ describe('Collections: screens & empty states', () => {
 
   it('create form is RTL Arabic with cover upload via existing helper', () => {
     const form = src('components/feature/collections/CollectionFormScreen.tsx');
-    expect(form).toContain('أنشئ مجموعتك');
-    expect(form).toContain('اسم المجموعة');
-    expect(form).toContain('أدخل اسم المجموعة');
-    expect(form).toContain('وصف المجموعة');
-    expect(form).toContain('اكتب وصفًا مختصرًا للمجموعة');
-    expect(form).toContain('نوع المجموعة');
+    expect(form).toContain('أنشئ قائمتك');
+    expect(form).toContain('اسم القائمة');
+    expect(form).toContain('أدخل اسم القائمة');
+    expect(form).toContain('وصف القائمة');
+    expect(form).toContain('اكتب وصفًا مختصرًا للقائمة');
+    expect(form).toContain('نوع القائمة');
     expect(form).toContain('COLLECTION_TYPE_LABELS[value]');
     expect(COLLECTION_TYPE_LABELS.POSTS).toBe('منشورات');
     expect(COLLECTION_TYPE_LABELS.ADS).toBe('إعلانات');
-    expect(form).toContain('إنشاء المجموعة');
+    expect(form).toContain('إنشاء قائمة');
     expect(form).toContain('اختيار صورة');
     expect(form).toContain('uploadCollectionCover');
     expect(form).toContain('launchImageLibraryAsync');
@@ -133,8 +136,8 @@ describe('Collections: screens & empty states', () => {
 
   it('members setup screen has تخطي and suggested accounts', () => {
     const members = src('app/collections/[id]/members.tsx');
-    expect(members).toContain('أضف أعضاء مجموعتك');
-    expect(members).toContain('اختر الحسابات التي تريد ظهور محتواها في مجموعتك.');
+    expect(members).toContain('أضف أعضاء قائمتك');
+    expect(members).toContain('اختر الحسابات التي تريد ظهور محتواها في قائمتك.');
     expect(members).toContain('حسابات مقترحة');
     expect(members).toContain('تخطي');
     expect(members).toContain('تمت الإضافة');
@@ -143,8 +146,8 @@ describe('Collections: screens & empty states', () => {
   it('list + FAB stay on the Sarh DS (no Reanimated, fixed FAB pattern)', () => {
     const index = src('app/collections/index.tsx');
     const fab = src('components/feature/collections/CollectionCreateFab.tsx');
-    expect(index).toContain('اكتشف المجموعات الجديدة');
-    expect(index).toContain('مجموعاتي');
+    expect(index).toContain('اكتشف القوائم الجديدة');
+    expect(index).toContain('قوائمي');
     expect(index).toContain('CollectionCreateFab');
     expect(fab).toContain('CreatePostFab');
     expect(fab).toContain("from 'react-native'");
@@ -198,7 +201,7 @@ describe('Profile cover', () => {
   });
 });
 
-describe('Profile ••• menu: المجموعات المضاف إليها', () => {
+describe('Profile ••• menu: القوائم المضاف إليها', () => {
   it('is a menu entry, not a new profile tab', () => {
     const menu = src('lib/profileCollectionsMenu.ts');
     expect(menu).toContain('MEMBER_OF_TITLE');
@@ -208,7 +211,7 @@ describe('Profile ••• menu: المجموعات المضاف إليها', (
     expect(visitor).toContain('MEMBER_OF_MENU_ITEM,');
     expect(visitor).toContain('openMemberOfCollections(router, profile.id)');
     expect(src('lib/profileTabs.ts')).not.toContain('member');
-    expect(src('lib/profileTabs.ts')).not.toContain('المجموعات');
+    expect(src('lib/profileTabs.ts')).not.toContain('القوائم');
   });
 
   it('opens the SAME Collections page (no separate page), scrolled to «المضاف إليها»', () => {

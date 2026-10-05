@@ -98,7 +98,7 @@ export class CollectionsService {
 
   /**
    * What a viewer may see: the owner account is active, the viewer did not hide the
-   * collection («حظر المجموعة») and there is no user block either way with the owner.
+   * collection («حظر القائمة») and there is no user block either way with the owner.
    */
   private visibleWhere(
     viewerId: string | undefined,
@@ -141,7 +141,7 @@ export class CollectionsService {
       where: { AND: [{ id }, ...this.visibleWhere(viewerId, blockedIds)] },
       include: collectionInclude(viewerId),
     });
-    if (!row) throwApi(404, 'not_found', 'المجموعة غير موجودة');
+    if (!row) throwApi(404, 'not_found', 'القائمة غير موجودة');
     return row;
   }
 
@@ -150,9 +150,9 @@ export class CollectionsService {
       where: { id },
       select: { id: true, ownerId: true, type: true },
     });
-    if (!row) throwApi(404, 'not_found', 'المجموعة غير موجودة');
+    if (!row) throwApi(404, 'not_found', 'القائمة غير موجودة');
     if (row.ownerId !== userId) {
-      throwApi(403, 'forbidden', 'لا تملك صلاحية إدارة هذه المجموعة');
+      throwApi(403, 'forbidden', 'لا تملك صلاحية إدارة هذه القائمة');
     }
     return row;
   }
@@ -169,12 +169,12 @@ export class CollectionsService {
 
   async create(user: JwtPayload, dto: CreateCollectionDto) {
     const name = dto.name?.trim() ?? '';
-    if (!name) throwApi(400, 'invalid_name', 'اسم المجموعة مطلوب');
+    if (!name) throwApi(400, 'invalid_name', 'اسم القائمة مطلوب');
     const owned = await this.prisma.collection.count({
       where: { ownerId: user.userId },
     });
     if (owned >= MAX_COLLECTIONS_PER_OWNER) {
-      throwApi(400, 'limit_reached', 'وصلت إلى الحد الأقصى لعدد المجموعات');
+      throwApi(400, 'limit_reached', 'وصلت إلى الحد الأقصى لعدد القوائم');
     }
     const row = await this.prisma.collection.create({
       data: {
@@ -203,7 +203,7 @@ export class CollectionsService {
     const data: Prisma.CollectionUpdateInput = {};
     if (dto.name !== undefined) {
       const name = dto.name.trim();
-      if (!name) throwApi(400, 'invalid_name', 'اسم المجموعة مطلوب');
+      if (!name) throwApi(400, 'invalid_name', 'اسم القائمة مطلوب');
       data.name = name;
     }
     if (dto.description !== undefined) {
@@ -224,7 +224,7 @@ export class CollectionsService {
     return { deleted: true };
   }
 
-  /** «اكتشف المجموعات الجديدة»: newest collections the viewer neither owns nor follows. */
+  /** «اكتشف القوائم الجديدة»: newest collections the viewer neither owns nor follows. */
   async suggested(cursor: string | undefined, viewer?: JwtPayload) {
     const viewerId = viewer?.userId;
     const and = this.visibleWhere(
@@ -238,7 +238,7 @@ export class CollectionsService {
     return this.pageOf(and, cursor, viewerId);
   }
 
-  /** «مجموعاتي»: collections the user owns or follows. */
+  /** «قوائمي»: collections the user owns or follows. */
   async mine(user: JwtPayload, cursor: string | undefined) {
     const viewerId = user.userId;
     const and = this.visibleWhere(
@@ -275,7 +275,7 @@ export class CollectionsService {
   }
 
   /**
-   * «المجموعات المضاف إليها»: collections where `userId` is a MEMBER (not owned-only,
+   * «القوائم المضاف إليها»: collections where `userId` is a MEMBER (not owned-only,
    * not followed-only). Same visibility rules as every list; a user block either way
    * between the viewer and that user yields an empty list.
    */
@@ -317,7 +317,7 @@ export class CollectionsService {
       throwApi(
         400,
         'limit_reached',
-        'وصلت المجموعة إلى الحد الأقصى من الأعضاء',
+        'وصلت القائمة إلى الحد الأقصى من الأعضاء',
       );
     }
     try {
@@ -329,7 +329,7 @@ export class CollectionsService {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
       ) {
-        throwApi(409, 'already_member', 'الحساب مضاف بالفعل إلى المجموعة');
+        throwApi(409, 'already_member', 'الحساب مضاف بالفعل إلى القائمة');
       }
       throw err;
     }
@@ -451,7 +451,7 @@ export class CollectionsService {
   async follow(user: JwtPayload, id: string) {
     const row = await this.findVisible(id, user.userId);
     if (row.ownerId === user.userId) {
-      throwApi(400, 'invalid_action', 'لا يمكنك متابعة مجموعتك');
+      throwApi(400, 'invalid_action', 'لا يمكنك متابعة قائمتك');
     }
     // Idempotent: the unique pair keeps a single row.
     await this.prisma.collectionFollower.createMany({
@@ -509,9 +509,9 @@ export class CollectionsService {
       where: { id },
       select: { ownerId: true },
     });
-    if (!row) throwApi(404, 'not_found', 'المجموعة غير موجودة');
+    if (!row) throwApi(404, 'not_found', 'القائمة غير موجودة');
     if (row.ownerId === user.userId) {
-      throwApi(400, 'invalid_action', 'لا يمكنك حظر مجموعتك');
+      throwApi(400, 'invalid_action', 'لا يمكنك حظر قائمتك');
     }
     await this.prisma.$transaction([
       this.prisma.collectionBlock.createMany({

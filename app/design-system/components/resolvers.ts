@@ -95,7 +95,7 @@ export function resolveSarhButtonColorsForScheme(
 
 export type SarhIconButtonSize = 'sm' | 'md' | 'lg';
 export type SarhIconButtonState = 'default' | 'pressed' | 'disabled' | 'selected';
-export type SarhIconButtonChrome = 'solid' | 'ghost';
+export type SarhIconButtonChrome = 'solid' | 'ghost' | 'glass';
 
 export const ICON_BUTTON_SIZE = {
   sm: { box: space[48], icon: space[16] + space[4] },
@@ -112,6 +112,15 @@ export function resolveSarhIconButtonColors(
       backgroundColor: 'transparent',
       contentColor: colors.textPrimary,
       borderColor: 'transparent',
+    };
+  }
+  if (chrome === 'glass') {
+    // Frosted circle over cover images — translucent, not solid white/black.
+    const pressed = state === 'pressed';
+    return {
+      backgroundColor: pressed ? 'rgba(0, 0, 0, 0.42)' : 'rgba(0, 0, 0, 0.28)',
+      contentColor: 'rgb(255, 255, 255)',
+      borderColor: 'rgba(255, 255, 255, 0.32)',
     };
   }
   if (state === 'selected') {

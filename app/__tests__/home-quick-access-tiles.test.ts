@@ -19,7 +19,7 @@ const quick = src('components/feature/HomeQuickAccess.tsx');
 describe('Home quick access: suppliers shortcut removed from the rail only', () => {
   it('keeps the remaining shortcuts in their original order', () => {
     expect(HOME_QUICK_ACCESS_ITEMS.map((item) => item.key)).toEqual(['collections', 'bookmarks', 'settings']);
-    expect(HOME_QUICK_ACCESS_ITEMS.map((item) => item.label)).toEqual(['المجموعات', 'المحفوظات', 'الإعدادات']);
+    expect(HOME_QUICK_ACCESS_ITEMS.map((item) => item.label)).toEqual(['القوائم', 'المحفوظات', 'الإعدادات']);
   });
 
   it('has no suppliers item in quick access', () => {

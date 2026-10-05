@@ -64,7 +64,7 @@ export function CollectionRow({ collection, onAdd, addBusy, onPress }: Props) {
             loading={addBusy}
             onPress={onAdd}
             accessibilityLabel={
-              collection.isFollowing ? 'إزالة من مجموعاتي' : 'إضافة إلى مجموعاتي'
+              collection.isFollowing ? 'إزالة من قوائمي' : 'إضافة إلى قوائمي'
             }
           />
         ) : null}

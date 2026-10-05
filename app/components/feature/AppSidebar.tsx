@@ -27,8 +27,8 @@ const PRIMARY_ITEMS: NavItem[] = [
   { key: 'profile', icon: 'person-outline', label: 'الملف الشخصي', route: '/(tabs)/profile' },
   { key: 'create-listing', icon: 'add-circle-outline', label: 'إضافة عرض', route: '/create/listing' },
   { key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },
-  { key: 'collections', icon: 'people-outline', label: 'Collections', route: '/collections' },
   { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
+  { key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },
   { key: 'promote', icon: 'megaphone-outline', label: 'الترويج', route: '/promote' },
 ];
 

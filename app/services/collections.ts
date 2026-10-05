@@ -1,4 +1,4 @@
-// «المجموعات» — API client. Feed rows go through the same mappers as the main feeds
+// «القوائم» — API client. Feed rows go through the same mappers as the main feeds
 // (mapPostFromApi / mapListing) so PostItem and ListingCard render them unchanged.
 import { API_BASE } from '@/services/api';
 import { parseApiError } from '@/services/apiError';
@@ -73,10 +73,10 @@ export const COLLECTION_TYPE_LABELS: Record<CollectionType, string> = {
   ADS: 'إعلانات',
 };
 
-export const COLLECTIONS_EMPTY_TEXT = 'لا توجد مجموعات حتى الآن';
-export const COLLECTIONS_NO_MATCH_TEXT = 'لم نعثر على مجموعات مطابقة';
+export const COLLECTIONS_EMPTY_TEXT = 'لا توجد قوائم حتى الآن';
+export const COLLECTIONS_NO_MATCH_TEXT = 'لم نعثر على قوائم مطابقة';
 export const COLLECTION_NO_MEMBERS_TEXT = 'لم تتم إضافة أي حسابات بعد';
-export const COLLECTION_EMPTY_FEED_TEXT = 'لا يوجد محتوى جديد من أعضاء هذه المجموعة';
+export const COLLECTION_EMPTY_FEED_TEXT = 'لا يوجد محتوى جديد من أعضاء هذه القائمة';
 
 const BASE = `${API_BASE}/api/collections`;
 const NO_STORE: RequestInit = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } };
@@ -138,13 +138,13 @@ export function fetchMyCollections(cursor?: string | null) {
   return request<CollectionsPage>(withCursor(`${BASE}/mine`, cursor));
 }
 
-/** «المجموعات المضاف إليها»: collections where `userId` is a member (loaded on demand). */
+/** «القوائم المضاف إليها»: collections where `userId` is a member (loaded on demand). */
 export function fetchMemberOfCollections(userId: string, cursor?: string | null) {
   return request<CollectionsPage>(withCursor(`${BASE}/member-of/${encodeURIComponent(userId)}`, cursor));
 }
 
 /** Profile ••• menu label. */
-export const MEMBER_OF_TITLE = 'المجموعات المضاف إليها';
+export const MEMBER_OF_TITLE = 'القوائم المضاف إليها';
 /** Section title on the Collections page (hidden when empty). */
 export const MEMBER_OF_SECTION_TITLE = 'المضاف إليها';
 

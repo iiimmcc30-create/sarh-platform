@@ -291,7 +291,7 @@ export function ProfileScreenLayout({
               {onMenu ? (
                 <SarhIconButton
                   icon="menu-dots"
-                  chrome={user.coverImage ? 'solid' : 'ghost'}
+                  chrome={user.coverImage ? 'glass' : 'ghost'}
                   size="sm"
                   onPress={onMenu}
                   accessibilityLabel="المزيد"

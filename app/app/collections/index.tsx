@@ -144,7 +144,7 @@ export default function CollectionsScreen() {
         }
       } catch (err) {
         if (!mounted.current) return;
-        setError(err instanceof Error ? err.message : 'تعذّر تحميل المجموعات');
+        setError(err instanceof Error ? err.message : 'تعذّر تحميل القوائم');
       } finally {
         if (mounted.current) {
           setLoading(false);
@@ -234,7 +234,7 @@ export default function CollectionsScreen() {
 
   const toggleFollow = useCallback(
     async (collection: Collection) => {
-      if (!requireAuth(isAuthenticated, 'إضافة المجموعات')) return;
+      if (!requireAuth(isAuthenticated, 'إضافة القوائم')) return;
       setFollowBusy(collection.id);
       try {
         const next = !collection.isFollowing;
@@ -286,7 +286,7 @@ export default function CollectionsScreen() {
       }
     }
   } else {
-    rows.push({ kind: 'header', id: 'h-discover', title: 'اكتشف المجموعات الجديدة' });
+    rows.push({ kind: 'header', id: 'h-discover', title: 'اكتشف القوائم الجديدة' });
     if (!loading && discover.length === 0) {
       rows.push({ kind: 'empty', id: 'e-discover', text: COLLECTIONS_EMPTY_TEXT });
     } else {
@@ -295,7 +295,7 @@ export default function CollectionsScreen() {
       }
     }
     if (isAuthenticated) {
-      rows.push({ kind: 'header', id: 'h-mine', title: 'مجموعاتي' });
+      rows.push({ kind: 'header', id: 'h-mine', title: 'قوائمي' });
       if (!loading && mine.length === 0) {
         rows.push({ kind: 'empty', id: 'e-mine', text: COLLECTIONS_EMPTY_TEXT });
       } else {
@@ -371,19 +371,19 @@ export default function CollectionsScreen() {
   );
 
   const openCreate = useCallback(() => {
-    if (!requireAuth(isAuthenticated, 'إنشاء مجموعة')) return;
+    if (!requireAuth(isAuthenticated, 'إنشاء قائمة')) return;
     safePush('/collections/create', undefined, router);
   }, [isAuthenticated, router]);
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="المجموعات" showBack />
+      <ScreenHeader variant="screen" title="القوائم" showBack />
       <ScreenBody scroll={false} gutter={false}>
         <View style={styles.searchWrap}>
           <SarhInput
             value={query}
             onChangeText={setQuery}
-            placeholder="ابحث عن مجموعة"
+            placeholder="ابحث عن قائمة"
             leadingIcon="search"
             size="compact"
             shape="pill"
@@ -393,7 +393,7 @@ export default function CollectionsScreen() {
             trailingIcon={query ? 'close-circle' : undefined}
             onTrailingPress={query ? () => setQuery('') : undefined}
             accessibilityRole="search"
-            accessibilityLabel="بحث في المجموعات"
+            accessibilityLabel="بحث في القوائم"
           />
         </View>
 

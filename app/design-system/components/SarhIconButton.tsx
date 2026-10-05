@@ -69,7 +69,7 @@ export function SarhIconButton({
             minHeight: space[48],
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: radius[12],
+            borderRadius: chrome === 'glass' ? radius[999] : radius[12],
             borderWidth: chrome === 'ghost' ? 0 : 1,
             backgroundColor: palette.backgroundColor,
             borderColor: palette.borderColor,

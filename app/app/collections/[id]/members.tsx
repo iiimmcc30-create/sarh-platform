@@ -149,7 +149,7 @@ export default function CollectionMembersScreen() {
 
   const rows: Row[] = [];
   if (!isSetup) {
-    rows.push({ kind: 'header', id: 'h-members', title: 'أعضاء المجموعة' });
+    rows.push({ kind: 'header', id: 'h-members', title: 'أعضاء القائمة' });
     if (!loading && members.length === 0) {
       rows.push({ kind: 'empty', id: 'e-members', text: COLLECTION_NO_MEMBERS_TEXT });
     } else {
@@ -238,14 +238,14 @@ export default function CollectionMembersScreen() {
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader
         variant="screen"
-        title={isSetup ? 'أضف أعضاء مجموعتك' : 'إدارة الأعضاء'}
+        title={isSetup ? 'أضف أعضاء قائمتك' : 'إدارة الأعضاء'}
         showBack={!isSetup}
         onBackPress={isSetup ? finish : undefined}
       />
       <ScreenBody scroll={false} gutter={false} bottomInset={isSetup ? 'action' : undefined}>
         {isSetup ? (
           <AppText variant="body" color="textSecondary" style={styles.subtitle}>
-            اختر الحسابات التي تريد ظهور محتواها في مجموعتك.
+            اختر الحسابات التي تريد ظهور محتواها في قائمتك.
           </AppText>
         ) : null}
         <View style={styles.searchWrap}>

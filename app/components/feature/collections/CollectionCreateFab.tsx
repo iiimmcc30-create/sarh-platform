@@ -23,7 +23,7 @@ type Props = {
  */
 export function CollectionCreateFab({
   onPress,
-  accessibilityLabel = 'أنشئ مجموعتك',
+  accessibilityLabel = 'أنشئ قائمتك',
   bottomOffset = TAB_BAR_CLEARANCE,
 }: Props) {
   const insets = useSafeAreaInsets();

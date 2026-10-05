@@ -67,6 +67,10 @@ describe('core UI primitives', () => {
     expect(resolveSarhButtonColors('ghost', 'default').backgroundColor).toBe('transparent');
     expect(resolveSarhButtonColors('inverse', 'default').contentColor).toBeTruthy();
     expect(resolveSarhIconButtonColors('default', 'ghost').backgroundColor).toBe('transparent');
+    expect(resolveSarhIconButtonColors('default', 'glass').backgroundColor).toBe('rgba(0, 0, 0, 0.28)');
+    expect(resolveSarhIconButtonColors('default', 'glass').contentColor).toBe('rgb(255, 255, 255)');
+    expect(resolveSarhIconButtonColors('default', 'glass').borderColor).toBe('rgba(255, 255, 255, 0.32)');
+    expect(resolveSarhIconButtonColors('pressed', 'glass').backgroundColor).toBe('rgba(0, 0, 0, 0.42)');
     expect(resolveSarhCardStyle('plain', 'none').borderWidth).toBe(0);
     expect(resolveSarhChipColors(true).backgroundColor).toBe(colors.primary);
     expect(resolveSarhChipColors(false).borderColor).toBe(colors.border);

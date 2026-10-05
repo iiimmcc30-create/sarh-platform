@@ -95,8 +95,8 @@ export default function CollectionFormScreen() {
     setCoverRemoved(true);
   }, []);
 
-  const title = mode === 'edit' ? 'تعديل المجموعة' : 'أنشئ مجموعتك';
-  const submitLabel = mode === 'edit' ? 'حفظ التعديلات' : 'إنشاء المجموعة';
+  const title = mode === 'edit' ? 'تعديل القائمة' : 'أنشئ قائمتك';
+  const submitLabel = mode === 'edit' ? 'حفظ التعديلات' : 'إنشاء قائمة';
 
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return;
@@ -129,7 +129,7 @@ export default function CollectionFormScreen() {
         coverUrl: coverUrl || undefined,
         type,
       });
-      void showToast('تم إنشاء المجموعة', 'success');
+      void showToast('تم إنشاء القائمة', 'success');
       safeReplace(
         {
           pathname: '/collections/[id]/members',
@@ -140,7 +140,7 @@ export default function CollectionFormScreen() {
       );
     } catch (err) {
       void showToast(
-        err instanceof Error ? err.message : 'تعذّر حفظ المجموعة',
+        err instanceof Error ? err.message : 'تعذّر حفظ القائمة',
         'error',
       );
     } finally {
@@ -232,18 +232,18 @@ export default function CollectionFormScreen() {
         </Stack>
 
         <SarhInput
-          label="اسم المجموعة"
+          label="اسم القائمة"
           value={name}
           onChangeText={setName}
-          placeholder="أدخل اسم المجموعة"
+          placeholder="أدخل اسم القائمة"
           maxLength={60}
           appearance="theme"
         />
         <SarhInput
-          label="وصف المجموعة"
+          label="وصف القائمة"
           value={description}
           onChangeText={setDescription}
-          placeholder="اكتب وصفًا مختصرًا للمجموعة"
+          placeholder="اكتب وصفًا مختصرًا للقائمة"
           multiline
           maxLength={COLLECTION_DESCRIPTION_MAX}
           appearance="theme"
@@ -252,7 +252,7 @@ export default function CollectionFormScreen() {
 
         <Stack gap="sm">
           <AppText variant="label" color="textPrimary">
-            نوع المجموعة
+            نوع القائمة
           </AppText>
           {typeControl}
         </Stack>

@@ -110,7 +110,7 @@ export default function CollectionDetailScreen() {
         setHasMore(feed.hasMore);
       } catch (err) {
         if (!mounted.current) return;
-        setError(err instanceof Error ? err.message : 'تعذّر فتح المجموعة');
+        setError(err instanceof Error ? err.message : 'تعذّر فتح القائمة');
       } finally {
         if (mounted.current) {
           setLoading(false);
@@ -147,7 +147,7 @@ export default function CollectionDetailScreen() {
 
   const toggleFollow = useCallback(async () => {
     if (!collection) return;
-    if (!requireAuth(isAuthenticated, 'متابعة المجموعة')) return;
+    if (!requireAuth(isAuthenticated, 'متابعة القائمة')) return;
     setFollowBusy(true);
     try {
       const res = await setFollowCollection(collection.id, !collection.isFollowing);
@@ -173,9 +173,9 @@ export default function CollectionDetailScreen() {
       const key = await presentActionSheet({
         title: collection.name,
         items: [
-          { key: 'edit', label: 'تعديل المجموعة', icon: 'create-outline' },
+          { key: 'edit', label: 'تعديل القائمة', icon: 'create-outline' },
           { key: 'members', label: 'إدارة الأعضاء', icon: 'people-outline' },
-          { key: 'delete', label: 'حذف المجموعة', icon: 'trash-outline', destructive: true },
+          { key: 'delete', label: 'حذف القائمة', icon: 'trash-outline', destructive: true },
           { key: 'cancel', label: 'إلغاء', cancel: true },
         ],
       });
@@ -202,14 +202,14 @@ export default function CollectionDetailScreen() {
         );
       } else if (key === 'delete') {
         const ok = await confirmDestructive(
-          'حذف المجموعة',
-          'هل أنت متأكد من حذف هذه المجموعة؟ لا يمكن التراجع.',
+          'حذف القائمة',
+          'هل أنت متأكد من حذف هذه القائمة؟ لا يمكن التراجع.',
           'حذف',
         );
         if (!ok) return;
         try {
           await deleteCollection(collection.id);
-          void showToast('تم حذف المجموعة', 'success');
+          void showToast('تم حذف القائمة', 'success');
           router.back();
         } catch (err) {
           void showToast(err instanceof Error ? err.message : 'تعذّر الحذف', 'error');
@@ -222,16 +222,16 @@ export default function CollectionDetailScreen() {
     const key = await presentActionSheet({
       title: collection.name,
       items: [
-        { key: 'block', label: 'حظر المجموعة', icon: 'block', destructive: true },
-        { key: 'report', label: 'إبلاغ عن المجموعة', icon: 'flag-outline', destructive: true },
+        { key: 'block', label: 'حظر القائمة', icon: 'block', destructive: true },
+        { key: 'report', label: 'إبلاغ عن القائمة', icon: 'flag-outline', destructive: true },
         { key: 'cancel', label: 'إلغاء', cancel: true },
       ],
     });
     if (key === 'block') {
-      if (!requireAuth(isAuthenticated, 'حظر المجموعة')) return;
+      if (!requireAuth(isAuthenticated, 'حظر القائمة')) return;
       try {
         await setBlockCollection(collection.id, true);
-        void showToast('تم حظر المجموعة', 'success');
+        void showToast('تم حظر القائمة', 'success');
         router.back();
       } catch (err) {
         void showToast(err instanceof Error ? err.message : 'تعذّر الحظر', 'error');
@@ -518,7 +518,9 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      backgroundColor: 'rgba(0, 0, 0, 0.28)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.32)',
     },
     info: {
       paddingHorizontal: spacing.lg,
