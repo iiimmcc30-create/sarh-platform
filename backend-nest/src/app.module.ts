@@ -34,6 +34,7 @@ import { MarketCategoriesModule } from './market-categories/market-categories.mo
 import { SettingsModule } from './settings/settings.module';
 import { HomeExploreModule } from './home-explore/home-explore.module';
 import { CollectionsModule } from './collections/collections.module';
+import { CouncilsModule } from './councils/councils.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { CollectionsModule } from './collections/collections.module';
     ExploreSarhBannersModule,
     FeedSuppliersModule,
     CollectionsModule,
+    CouncilsModule,
   ],
 })
 export class AppModule {}

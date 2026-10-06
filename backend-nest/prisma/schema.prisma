@@ -94,6 +94,10 @@ model User {
   collectionMemberships               CollectionMember[]
   collectionFollows                   CollectionFollower[]
   collectionBlocks                    CollectionBlock[]
+  councilsOwned                       Council[]                         @relation("CouncilOwner")
+  councilMemberships                  CouncilMember[]                   @relation("CouncilMemberUser")
+  councilSpeakRequests                CouncilSpeakRequest[]             @relation("CouncilSpeakRequestUser")
+  councilInvites                      CouncilInvite[]                   @relation("CouncilInviteUser")
 
   @@index([username])
   @@index([email])
@@ -218,6 +222,120 @@ model CollectionBlock {
 enum CollectionType {
   POSTS
   ADS
+}
+
+/// «المجالس»: audio-only rooms (no video, no feed) on the shared Agora stack.
+/// At most 12 members are on stage at once: enforced in a transaction that locks
+/// the council row (SELECT ... FOR UPDATE), backed by @@unique([councilId, seatIndex])
+/// and a CHECK (seatIndex BETWEEN 0 AND 11) added in the migration SQL.
+model Council {
+  id                   String                @id @default(uuid())
+  ownerId              String
+  name                 String
+  description          String?
+  /// Ordered «قواعد المجلس», shown before joining.
+  rules                String[]              @default([])
+  visibility           CouncilVisibility     @default(PUBLIC)
+  status               CouncilStatus         @default(LIVE)
+  agoraChannelName     String                @unique
+  /// Private councils: invite link code (rotatable by the owner).
+  inviteCode           String                @unique
+  /// Moderator powers granted by the owner (per council).
+  modCanManageRequests Boolean               @default(true)
+  modCanMute           Boolean               @default(true)
+  modCanRemove         Boolean               @default(true)
+  modCanBan            Boolean               @default(false)
+  hostLastSeenAt       DateTime              @default(now())
+  createdAt            DateTime              @default(now())
+  startedAt            DateTime              @default(now())
+  endedAt              DateTime?
+  updatedAt            DateTime              @updatedAt
+  owner                User                  @relation("CouncilOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members              CouncilMember[]
+  speakRequests        CouncilSpeakRequest[]
+  invites              CouncilInvite[]
+
+  @@index([ownerId, status])
+  @@index([status, visibility, startedAt])
+}
+
+/// One row per user who joined (or was banned from) a council. "On stage" = seatIndex set.
+model CouncilMember {
+  id               String            @id @default(uuid())
+  councilId        String
+  userId           String
+  role             CouncilMemberRole @default(LISTENER)
+  seatIndex        Int?
+  micMuted         Boolean           @default(true)
+  /// Hard mute by the host/moderator: the speaker cannot unmute and gets no publish token.
+  mutedByModerator Boolean           @default(false)
+  rulesAcceptedAt  DateTime?
+  kickedUntil      DateTime?
+  bannedAt         DateTime?
+  bannedById       String?
+  joinedAt         DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  council          Council           @relation(fields: [councilId], references: [id], onDelete: Cascade)
+  user             User              @relation("CouncilMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([councilId, userId])
+  @@unique([councilId, seatIndex])
+  @@index([userId])
+  @@index([councilId, role])
+}
+
+model CouncilSpeakRequest {
+  id          String                    @id @default(uuid())
+  councilId   String
+  userId      String
+  status      CouncilSpeakRequestStatus @default(PENDING)
+  decidedById String?
+  createdAt   DateTime                  @default(now())
+  decidedAt   DateTime?
+  council     Council                   @relation(fields: [councilId], references: [id], onDelete: Cascade)
+  user        User                      @relation("CouncilSpeakRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([councilId, status, createdAt])
+  @@index([userId])
+}
+
+/// Private councils: users invited by the owner/moderators.
+model CouncilInvite {
+  id          String   @id @default(uuid())
+  councilId   String
+  userId      String
+  invitedById String
+  createdAt   DateTime @default(now())
+  council     Council  @relation(fields: [councilId], references: [id], onDelete: Cascade)
+  user        User     @relation("CouncilInviteUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([councilId, userId])
+  @@index([userId])
+}
+
+enum CouncilVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum CouncilStatus {
+  LIVE
+  ENDED
+}
+
+enum CouncilMemberRole {
+  OWNER
+  MODERATOR
+  SPEAKER
+  LISTENER
+  BANNED
+}
+
+enum CouncilSpeakRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
 }
 
 model Plan {

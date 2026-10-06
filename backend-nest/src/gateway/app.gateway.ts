@@ -24,9 +24,43 @@ import { SocketEmitService } from './services/socket-emit.service';
 import { SocketGatewayService } from './services/socket-gateway.service';
 import { SocketRedisAdapterService } from './services/socket-redis-adapter.service';
 import { isAllowedCorsOrigin } from '../lib/cors-origins';
+import { CouncilRealtimeService } from '../councils/services/council-realtime.service';
 
 interface AuthenticatedSocket extends Socket {
-  data: { user?: JwtPayload; streamId?: string };
+  data: {
+    user?: JwtPayload;
+    streamId?: string;
+    councils?: Set<string>;
+    councilRate?: { windowStart: number; count: number };
+  };
+}
+
+/** «المجالس»: per-socket budget for council messages (join/leave/heartbeat). */
+const COUNCIL_MSG_WINDOW_MS = 10_000;
+const COUNCIL_MSG_MAX = 20;
+
+/** «المجالس» socket payloads accept either `councilId` or `{ councilId }`. */
+function councilIdOf(raw: unknown): unknown {
+  if (raw && typeof raw === 'object' && 'councilId' in raw) {
+    return (raw as { councilId: unknown }).councilId;
+  }
+  return raw;
+}
+
+/**
+ * «المجالس»: the client may emit right after `connect`, before the async
+ * `handleConnection` auth has set `client.data.user` — wait briefly for it.
+ */
+async function councilUserOf(
+  client: AuthenticatedSocket,
+  timeoutMs = 5000,
+): Promise<string | null> {
+  const started = Date.now();
+  while (!client.data.user && client.connected) {
+    if (Date.now() - started > timeoutMs) return null;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return client.data.user?.userId ?? null;
 }
 
 @Injectable()
@@ -56,6 +90,7 @@ export class AppGateway
     private readonly emitService: SocketEmitService,
     private readonly redisAdapter: SocketRedisAdapterService,
     private readonly logger: LoggerService,
+    private readonly councils: CouncilRealtimeService,
   ) {}
 
   async afterInit(server: Server) {
@@ -64,6 +99,7 @@ export class AppGateway
   }
 
   async handleConnection(client: AuthenticatedSocket) {
+    this.bindCouncilHandlers(client);
     try {
       const user = await this.socketService.authenticate(client);
       client.data.user = user;
@@ -87,6 +123,12 @@ export class AppGateway
       'Socket disconnected',
     );
     this.socketService.onUserDisconnected(user.userId, client.id);
+
+    // «المجالس»: drop presence; another device of the same user re-adds itself on
+    // its next heartbeat. Stage seats are freed later by the stale-speaker sweep.
+    for (const councilId of client.data.councils ?? []) {
+      void this.councils.left(councilId, user.userId).catch(() => {});
+    }
   }
 
   @SubscribeMessage('chat:join')
@@ -224,6 +266,76 @@ export class AppGateway
     if (!parsed) return;
 
     await this.socketService.handleLiveLike(parsed, client.data.user!);
+  }
+
+  // ─── «المجالس» ──────────────────────────────────────────────────────────
+  // Bound as raw socket listeners (not @SubscribeMessage): the global HTTP
+  // guards/interceptors do not support the ws context. Auth comes from the
+  // handshake — `handleConnection` disconnects unauthenticated sockets.
+
+  private bindCouncilHandlers(client: AuthenticatedSocket) {
+    const bind = (
+      event: string,
+      fn: (c: AuthenticatedSocket, raw: unknown) => Promise<void>,
+    ) =>
+      client.on(event, (raw: unknown) => {
+        if (!this.councilBudget(client)) return;
+        fn(client, raw).catch((err: unknown) => {
+          this.logger.warn(
+            { err: err instanceof Error ? err.message : String(err), event },
+            'Council socket handler failed',
+          );
+        });
+      });
+    bind('council:join', (c, raw) => this.onCouncilJoin(c, raw));
+    bind('council:leave', (c, raw) => this.onCouncilLeave(c, raw));
+    bind('council:heartbeat', (c, raw) => this.onCouncilHeartbeat(c, raw));
+  }
+
+  private councilBudget(client: AuthenticatedSocket): boolean {
+    const now = Date.now();
+    const rate = client.data.councilRate;
+    if (!rate || now - rate.windowStart > COUNCIL_MSG_WINDOW_MS) {
+      client.data.councilRate = { windowStart: now, count: 1 };
+      return true;
+    }
+    rate.count += 1;
+    return rate.count <= COUNCIL_MSG_MAX;
+  }
+
+  async onCouncilJoin(client: AuthenticatedSocket, raw: unknown) {
+    const councilId = this.socketService.parseUuid(councilIdOf(raw));
+    if (!councilId)
+      return this.emitErr(client, 'invalid_input', 'Invalid councilId');
+
+    const userId = await councilUserOf(client);
+    if (!userId) return;
+    const err = await this.councils.socketJoinError(councilId, userId);
+    if (err) {
+      client.emit('council:error', { councilId, ...err });
+      return;
+    }
+    void client.join(`council:${councilId}`);
+    (client.data.councils ??= new Set()).add(councilId);
+    await this.councils.touch(councilId, userId);
+    await this.councils.emitListenerCount(councilId);
+    client.emit('council:joined', { councilId });
+  }
+
+  async onCouncilLeave(client: AuthenticatedSocket, raw: unknown) {
+    const councilId = this.socketService.parseUuid(councilIdOf(raw));
+    const userId = client.data.user?.userId;
+    if (!councilId || !userId || !client.data.councils?.has(councilId)) return;
+    void client.leave(`council:${councilId}`);
+    client.data.councils.delete(councilId);
+    await this.councils.left(councilId, userId);
+  }
+
+  async onCouncilHeartbeat(client: AuthenticatedSocket, raw: unknown) {
+    const councilId = this.socketService.parseUuid(councilIdOf(raw));
+    const userId = client.data.user?.userId;
+    if (!councilId || !userId || !client.data.councils?.has(councilId)) return;
+    await this.councils.touch(councilId, userId);
   }
 
   @SubscribeMessage('presence:ping')

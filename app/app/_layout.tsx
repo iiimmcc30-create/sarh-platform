@@ -129,6 +129,10 @@ function RootNavigator() {
         <Stack.Screen name="collections/[id]/index" />
         <Stack.Screen name="collections/[id]/members" />
         <Stack.Screen name="collections/[id]/edit" />
+        <Stack.Screen name="councils/index" />
+        <Stack.Screen name="councils/create" />
+        <Stack.Screen name="councils/[id]" />
+        <Stack.Screen name="councils/join/[code]" />
         <Stack.Screen name="promote" />
         <Stack.Screen name="verification" />
         <Stack.Screen name="subscription" />

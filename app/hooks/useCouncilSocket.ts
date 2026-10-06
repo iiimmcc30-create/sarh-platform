@@ -1,0 +1,90 @@
+// «المجالس» realtime channel: joins `council:{id}` on the socket service, keeps a
+// presence heartbeat (listener count) and forwards council events to the room screen.
+// On every (re)connect the screen resyncs from REST so missed events never stick.
+import { useEffect, useRef } from 'react';
+import type { Socket } from 'socket.io-client';
+import { connectSocket } from '@/lib/socket';
+import {
+  COUNCIL_HEARTBEAT_MS,
+  type CouncilMemberRole,
+  type CouncilRequest,
+  type CouncilSpeaker,
+} from '@/services/councils';
+
+export type CouncilSocketHandlers = {
+  /** Fired after (re)joining the room — the screen should refetch state. */
+  onResync?: () => void;
+  onSpeakers?: (p: { speakers: CouncilSpeaker[]; speakersCount: number; listenerCount: number }) => void;
+  onListeners?: (p: { listenerCount: number }) => void;
+  onMic?: (p: { userId: string; micMuted: boolean; mutedByModerator?: boolean }) => void;
+  /** Sent to me only: my role/seat/mute changed. */
+  onRole?: (p: {
+    role: CouncilMemberRole;
+    seatIndex: number | null;
+    micMuted: boolean;
+    mutedByModerator?: boolean;
+  }) => void;
+  onKicked?: (p: { reason: 'removed' | 'banned' }) => void;
+  onRequestResult?: (p: { requestId: string; status: 'ACCEPTED' | 'REJECTED' | string }) => void;
+  onRequests?: (p: { pending: CouncilRequest[] }) => void;
+  onEnded?: () => void;
+  onUpdated?: () => void;
+  onError?: (p: { code: string }) => void;
+};
+
+type Options = {
+  councilId: string | undefined;
+  accessToken: string | null;
+  enabled: boolean;
+  handlers: CouncilSocketHandlers;
+};
+
+export function useCouncilSocket({ councilId, accessToken, enabled, handlers }: Options) {
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
+
+  useEffect(() => {
+    if (!enabled || !councilId || !accessToken) return;
+    const socket: Socket = connectSocket(accessToken);
+    const h = () => handlersRef.current;
+
+    // Personal events go to `user:{id}` (all my sockets) — keep only this council's.
+    const on = <T,>(event: string, fn: (p: T) => void) =>
+      socket.on(event, (p: T & { councilId?: string }) => {
+        if (p && typeof p === 'object' && p.councilId && p.councilId !== councilId) return;
+        fn(p);
+      });
+
+    socket.on('connect', () => socket.emit('council:join', councilId));
+    on('council:joined', () => h().onResync?.());
+    on<Parameters<NonNullable<CouncilSocketHandlers['onSpeakers']>>[0]>('council:speakers', (p) =>
+      h().onSpeakers?.(p),
+    );
+    on<{ listenerCount: number }>('council:listeners', (p) => h().onListeners?.(p));
+    on<Parameters<NonNullable<CouncilSocketHandlers['onMic']>>[0]>('council:mic', (p) => h().onMic?.(p));
+    on<Parameters<NonNullable<CouncilSocketHandlers['onRole']>>[0]>('council:role', (p) =>
+      h().onRole?.(p),
+    );
+    on<{ reason: 'removed' | 'banned' }>('council:kicked', (p) => h().onKicked?.(p));
+    on<{ requestId: string; status: string }>('council:request-result', (p) =>
+      h().onRequestResult?.(p),
+    );
+    on<{ pending: CouncilRequest[] }>('council:requests', (p) => h().onRequests?.(p));
+    on('council:ended', () => h().onEnded?.());
+    on('council:updated', () => h().onUpdated?.());
+    on<{ code: string }>('council:error', (p) => h().onError?.(p));
+
+    const heartbeat = setInterval(() => {
+      if (socket.connected) socket.emit('council:heartbeat', councilId);
+    }, COUNCIL_HEARTBEAT_MS);
+
+    return () => {
+      clearInterval(heartbeat);
+      if (socket.connected) socket.emit('council:leave', councilId);
+      socket.removeAllListeners();
+      socket.disconnect();
+    };
+  }, [councilId, accessToken, enabled]);
+}

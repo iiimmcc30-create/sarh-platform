@@ -373,6 +373,14 @@ export function handleNotificationNavigation(
       break;
 
     case 'system': {
+      const councilId = stringField(data, 'councilId');
+      if (councilId && stringField(data, 'kind') === 'council_invite') {
+        safePush({
+          pathname: '/councils/[id]',
+          params: { id: councilId },
+        } as never, undefined, ctx.router);
+        return true;
+      }
       const ticketId = stringField(data, 'ticketId');
       if (ticketId && openSupportTicket(ctx, ticketId)) return true;
       if (postId) return navigateToPost(ctx, postId);

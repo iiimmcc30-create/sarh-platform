@@ -29,6 +29,10 @@ export class SocketEmitService {
     this.server?.to(`support:${ticketId}`).emit(event, data);
   }
 
+  emitToCouncil(councilId: string, event: string, data: unknown): void {
+    this.server?.to(`council:${councilId}`).emit(event, data);
+  }
+
   async disconnectUserSockets(userId: string): Promise<void> {
     if (!this.server) return;
     try {

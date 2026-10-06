@@ -29,6 +29,7 @@ const PRIMARY_ITEMS: NavItem[] = [
   { key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },
   { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
   { key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },
+  { key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },
   { key: 'promote', icon: 'megaphone-outline', label: 'الترويج', route: '/promote' },
 ];
 

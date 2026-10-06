@@ -74,6 +74,7 @@
 | Chat / Messages | [chat.md](./chat.md), [messages.md](./messages.md) | Direct messages REST + socket | `GET/POST /api/messages`, `chat:*` events | 85% |
 | Livestreams | [livestreams.md](./livestreams.md) | Agora live broadcast | `GET/POST /api/livestreams` | 86% |
 | Agora | [agora.md](./agora.md) | RTC token generation | `shared/lib/agora.ts` | 85% |
+| المجالس (Voice Councils) | [councils.md](./councils.md) | Audio-only rooms, 12 speakers, speak requests, moderation | `/api/councils/*`, `council:*` events | New |
 | Live Comments | [live-comments.md](./live-comments.md) | Stream chat | `live:comment` socket | 86% |
 | Live Likes | [live-likes.md](./live-likes.md) | Stream likes | `live:like` socket | 86% |
 | Socket.IO | [socket.md](./socket.md) | Realtime gateway | Port 3002 | 90% |

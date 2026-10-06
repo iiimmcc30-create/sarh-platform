@@ -14,6 +14,8 @@ import { SocketRepository } from './repositories/socket.repository';
 import { SocketDisconnectListenerService } from './services/socket-disconnect-listener.service';
 import { SocketGatewayService } from './services/socket-gateway.service';
 import { SocketRedisAdapterService } from './services/socket-redis-adapter.service';
+import { CouncilSocketBridgeListenerService } from './services/council-socket-bridge-listener.service';
+import { CouncilsCoreModule } from '../councils/councils-core.module';
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import { SocketRedisAdapterService } from './services/socket-redis-adapter.servi
     SupportModule,
     GatewaySharedModule,
     AuthModule,
+    CouncilsCoreModule,
   ],
   controllers: [SocketHealthController],
   providers: [
@@ -34,6 +37,7 @@ import { SocketRedisAdapterService } from './services/socket-redis-adapter.servi
     AppGateway,
     SocketDisconnectListenerService,
     SocketRedisAdapterService,
+    CouncilSocketBridgeListenerService,
   ],
 })
 export class GatewayModule {}
