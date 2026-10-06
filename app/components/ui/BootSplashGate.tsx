@@ -21,7 +21,7 @@ type BootSplashGateProps = {
 
 /**
  * Boot sequencing:
- * - Native splash (plain white) stays until fonts are ready and the in-app
+ * - Native splash (plain #020202, both schemes) stays until fonts are ready and the in-app
  *   `LaunchSplash` has laid out its first frame; it then hides itself.
  * - `LaunchSplash` covers the navigator until its intro finished AND auth /
  *   onboarding bootstrap is ready, then fades to whatever AuthGuard routed to.

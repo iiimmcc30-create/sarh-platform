@@ -91,9 +91,12 @@ describe('app icon (white waves on reference black, derived from the master artw
     );
   });
 
-  it('native Android splash: white in light, reference black in dark', () => {
+  it('native Android splash is reference black in light and dark, with light status-bar icons', () => {
     expect(read(`${RES}/values/colors.xml`)).toContain(
-      '<color name="splashscreen_background">#FFFFFF</color>',
+      `<color name="splashscreen_background">${REFERENCE_BLACK}</color>`,
+    );
+    expect(read(`${RES}/values/styles.xml`)).toContain(
+      '<item name="android:windowLightStatusBar">false</item>',
     );
     expect(read(`${RES}/values-night/colors.xml`)).toContain(
       `<color name="splashscreen_background">${REFERENCE_BLACK}</color>`,
@@ -152,11 +155,14 @@ describe('in-app Sarh mark colours match the icon', () => {
     expect(src).not.toMatch(/<SarhLogoMark[^>]*electric/);
   });
 
-  it('launch splash draws the waves in the icon colours for each scheme', () => {
+  it('launch splash is always reference black with white waves and names (any scheme)', () => {
     const splash = read('components/ui/LaunchSplash.tsx');
-    expect(splash).toContain('ink: SARH_LOGO_INK,');
-    expect(splash).toContain('ink: SARH_LOGO_INK_DARK,');
-    expect(splash).toContain('bg: sarh.color.darkBackground');
-    expect(splash).not.toMatch(/DIAMOND|LOGO_ACCENT/);
+    expect(splash).toContain('const SPLASH_BG = sarh.color.darkBackground;');
+    expect(splash).toContain('const SPLASH_INK = SARH_LOGO_INK_DARK;');
+    expect(splash).toContain('backgroundColor: SPLASH_BG,');
+    expect(splash.match(/color: SPLASH_INK,/g)).toHaveLength(2);
+    expect(splash).toContain('fill={SPLASH_INK}');
+    expect(splash).toContain('<StatusBar style="light" />');
+    expect(splash).not.toMatch(/useColorScheme|lightSurface|lightTextSecondary|DIAMOND|LOGO_ACCENT/);
   });
 });

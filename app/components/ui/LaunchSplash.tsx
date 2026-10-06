@@ -10,7 +10,6 @@ import {
 } from '@/lib/launchSplash';
 import { markPerf } from '@/lib/perfDev';
 import {
-  SARH_LOGO_INK,
   SARH_LOGO_INK_DARK,
   SARH_LOGO_MARK_ASPECT,
   SARH_LOGO_MARK_PATHS,
@@ -18,6 +17,7 @@ import {
   SARH_LOGO_MARK_VIEWBOX_WIDTH,
 } from '@/components/ui/SarhLogoMark';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -25,7 +25,6 @@ import {
   Easing,
   StyleSheet,
   View,
-  useColorScheme,
   useWindowDimensions,
   type LayoutChangeEvent,
 } from 'react-native';
@@ -34,13 +33,11 @@ import Svg, { Path } from 'react-native-svg';
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /**
- * Launch surface per system scheme, matching the native splash in app.json
- * (expo-splash-screen: white / dark #020202). App-icon colours, no gradient.
+ * Always the app-icon look, in Light and Dark alike: reference black surface with the
+ * white waves and white names. Matches the native splash (app.json, #020202). No gradient.
  */
-const SPLASH_PALETTE = {
-  light: { bg: sarh.color.lightSurface, ink: SARH_LOGO_INK, subtitle: sarh.color.lightTextSecondary },
-  dark: { bg: sarh.color.darkBackground, ink: SARH_LOGO_INK_DARK, subtitle: sarh.color.secondaryText },
-} as const;
+const SPLASH_BG = sarh.color.darkBackground;
+const SPLASH_INK = SARH_LOGO_INK_DARK;
 /** Outline width while drawing (viewBox units of the 611×417 mark). */
 const DRAW_STROKE = 5;
 
@@ -59,12 +56,11 @@ const easeInOut = Easing.inOut(Easing.cubic);
  * deep links, notification opens) is decided underneath, unchanged; the overlay
  * only fades away once the animation finished and boot is ready.
  *
- * Hand-off: the native splash (plain white, or #020202 in dark) stays until this overlay's
- * first layout (same colour per scheme), then `SplashScreen.hideAsync()` — no flash.
+ * Hand-off: the native splash (plain #020202 in both schemes) stays until this overlay's
+ * first layout (same black), then `SplashScreen.hideAsync()` — no flash.
  */
 export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady }: LaunchSplashProps) {
   const { width, height } = useWindowDimensions();
-  const palette = SPLASH_PALETTE[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const layout = useMemo(() => launchSplashLayout(width, height, SARH_LOGO_MARK_ASPECT), [width, height]);
 
   const [laidOut, setLaidOut] = useState(false);
@@ -225,8 +221,10 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
       pointerEvents={exiting ? 'none' : 'auto'}
       accessible
       accessibilityLabel="سرح"
-      style={[styles.root, { backgroundColor: palette.bg, opacity: values.exit }]}
+      style={[styles.root, { opacity: values.exit }]}
     >
+      {/* Black surface in every scheme -> light status-bar content; unmounts with the splash. */}
+      <StatusBar style="light" />
       <View style={styles.group}>
         <Animated.View style={{ width: layout.logoWidth, height: layout.logoHeight, transform: logoTransform }}>
           <Svg
@@ -240,9 +238,9 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
                 <AnimatedPath
                   key={i}
                   d={d}
-                  fill={palette.ink}
+                  fill={SPLASH_INK}
                   fillOpacity={values.fill}
-                  stroke={palette.ink}
+                  stroke={SPLASH_INK}
                   strokeOpacity={strokeOpacity}
                   strokeWidth={DRAW_STROKE}
                   strokeLinejoin="round"
@@ -271,7 +269,7 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
                 numberOfLines={1}
                 style={[
                   styles.title,
-                  { color: palette.ink, fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
+                  { fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
                   textRise(values.title),
                 ]}
               >
@@ -283,7 +281,6 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
                 style={[
                   styles.subtitle,
                   {
-                    color: palette.subtitle,
                     marginTop: layout.textGap,
                     fontSize: layout.subtitleSize,
                     lineHeight: layout.subtitleLineHeight,
@@ -307,6 +304,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 1000,
     elevation: 1000,
+    backgroundColor: SPLASH_BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -317,6 +315,7 @@ const styles = StyleSheet.create({
   title: {
     alignSelf: 'stretch',
     fontFamily: fontFamily.bold,
+    color: SPLASH_INK,
     textAlign: 'center',
     writingDirection: 'rtl',
     includeFontPadding: false,
@@ -324,6 +323,7 @@ const styles = StyleSheet.create({
   subtitle: {
     alignSelf: 'stretch',
     fontFamily: fontFamily.regular,
+    color: SPLASH_INK,
     textAlign: 'center',
     writingDirection: 'ltr',
     includeFontPadding: false,

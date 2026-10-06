@@ -55,7 +55,7 @@
           "image": "./assets/images/splash-blank.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF",
+          "backgroundColor": "#020202",
           "dark": {
             "image": "./assets/images/splash-blank.png",
             "imageWidth": 200,

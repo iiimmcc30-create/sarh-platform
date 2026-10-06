@@ -97,10 +97,10 @@ describe('launch path', () => {
     }
   });
 
-  it('native splash is plain (white / reference black in dark) and hands off to the RN splash', () => {
+  it('native splash is plain reference black in both schemes and hands off to the RN splash', () => {
     const app = JSON.parse(src('app.json'));
     const plugin = app.expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-splash-screen');
-    expect(plugin[1].backgroundColor).toBe('#FFFFFF');
+    expect(plugin[1].backgroundColor).toBe('#020202');
     expect(plugin[1].dark.backgroundColor).toBe('#020202');
     expect(plugin[1].image).toBe('./assets/images/splash-blank.png');
 
@@ -110,7 +110,7 @@ describe('launch path', () => {
     expect(splash).toContain('onLayout={onLayout}');
     expect(splash).toContain('SplashScreen.hideAsync()');
     expect(splash).toContain('SARH_LOGO_MARK_PATHS');
-    expect(splash).toContain('useColorScheme()');
+    expect(splash).not.toContain('useColorScheme');
     expect(splash).toContain('strokeDashoffset');
     expect(splash).toContain('isReduceMotionEnabled');
     expect(splash).toContain('سرح');
