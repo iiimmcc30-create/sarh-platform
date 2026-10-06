@@ -936,7 +936,7 @@ function createStyles(colors: ThemeColors) {
     },
     videoPreviewPoster: {
       width: '100%',
-      backgroundColor: '#102633',
+      backgroundColor: '#16181C',
       overflow: 'hidden',
     },
     videoPlayOverlay: {

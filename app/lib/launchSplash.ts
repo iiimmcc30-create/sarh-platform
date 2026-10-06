@@ -3,16 +3,15 @@
  * Kept free of React Native imports so it can be unit-tested.
  */
 
-/** Path lengths (viewBox units) of `SARH_LOGO_MARK_PATHS`: bottom wave, top wave, diamond. */
-export const SARH_LOGO_PATH_LENGTHS = [1496, 1149, 223] as const;
+/** Path lengths (viewBox units) of `SARH_LOGO_MARK_PATHS`: bottom wave, top wave. */
+export const SARH_LOGO_PATH_LENGTHS = [1496, 1149] as const;
 
 /** Calm launch timeline (ms). Total before the exit fade ≈ 2.5 s. */
 export const LAUNCH_SPLASH_TIMING = {
-  /** Per-path stroke draw: [delay, duration] for bottom wave, top wave, diamond. */
+  /** Per-path stroke draw: [delay, duration] for bottom wave, top wave. */
   draw: [
     [0, 820],
     [100, 800],
-    [280, 540],
   ] as const,
   /** Fill fades in as the outline completes. */
   fillDelay: 700,

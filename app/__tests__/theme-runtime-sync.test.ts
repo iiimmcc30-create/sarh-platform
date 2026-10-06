@@ -29,14 +29,14 @@ describe('theme runtime Light ↔ Dark sync', () => {
     expect(colors.success).toBe('#1C8354');
 
     applyThemeScheme('dark');
-    expect(colors.background).toBe('#07131C');
-    expect(colors.surface).toBe('#0C1C27');
-    expect(colors.textPrimary).toBe('#F4F7F9');
-    expect(SURFACE_TONE.background).toBe('#07131C');
-    expect(resolveSarhCardStyle('default', 'none').backgroundColor).toBe('#0C1C27');
-    expect(resolveAppTextStyle({ color: 'textPrimary' }).color).toBe('#F4F7F9');
+    expect(colors.background).toBe('#020202');
+    expect(colors.surface).toBe('#0A0B0C');
+    expect(colors.textPrimary).toBe('#E7E9EA');
+    expect(SURFACE_TONE.background).toBe('#020202');
+    expect(resolveSarhCardStyle('default', 'none').backgroundColor).toBe('#0A0B0C');
+    expect(resolveAppTextStyle({ color: 'textPrimary' }).color).toBe('#E7E9EA');
     expect(resolveSarhButtonColors('primary', 'default').backgroundColor).toBe('#FFFFFF');
-    expect(resolveSarhButtonColors('primary', 'default').contentColor).toBe('#07131C');
+    expect(resolveSarhButtonColors('primary', 'default').contentColor).toBe('#020202');
     expect(colors.primary).toBe('#24A86C');
     expect(colors.success).toBe('#24A86C');
 
@@ -45,8 +45,8 @@ describe('theme runtime Light ↔ Dark sync', () => {
     expect(resolveSarhCardStyle('elevated', 'none').backgroundColor).toBe('#FFFFFF');
 
     applyThemeScheme('dark');
-    expect(colors.background).toBe('#07131C');
-    expect(resolveSarhCardStyle('elevated', 'none').backgroundColor).toBe('#102633');
+    expect(colors.background).toBe('#020202');
+    expect(resolveSarhCardStyle('elevated', 'none').backgroundColor).toBe('#16181C');
   });
 
   it('keeps semantic aliases and surface levels on the live Dark → Light → Dark path', () => {

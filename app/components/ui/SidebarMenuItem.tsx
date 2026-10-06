@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...typography.badge,
-    color: '#F4F7F9',
+    color: '#E7E9EA',
   },
 });
 

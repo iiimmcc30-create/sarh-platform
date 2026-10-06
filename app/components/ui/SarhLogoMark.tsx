@@ -2,9 +2,10 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 /**
- * Official Sarh mark, traced from `assets/images/logo.png` (the same raster
- * used by `APP_LOGO` / `icon.png`). Paths are the original filled silhouettes
- * of the two waves + diamond — not a redraw, Lucide stand-in, or new mark.
+ * Official Sarh mark: the two waves of the app icon
+ * (`assets/brand/sarh-icon-master.png`). Paths are the original filled wave
+ * silhouettes (traced; IoU 0.93 against the current icon artwork), not a redraw.
+ * The current brand mark has no diamond.
  *
  * Tint via `color`. Scales via `size` (height); width follows the original aspect.
  */
@@ -21,29 +22,17 @@ const WAVE_BOTTOM =
 const WAVE_TOP =
   'M33.55 307.50C35.70 297.55 43.05 280.11 50.23 267.91C77.23 222.04 117.96 193.95 170.50 184.97L182.50 182.92L212.00 182.00L241.50 181.09L248.48 179.55C264.36 176.04 275.70 170.72 285.04 162.39C292.36 155.85 295.53 152.24 300.73 144.50C306.08 136.54 307.48 133.66 316.96 111.03C325.59 90.45 329.44 82.90 337.37 71.00C346.89 56.73 365.15 40.89 381.50 32.72C389.99 28.48 403.62 24.11 413.71 22.39L423.34 20.75L435.92 21.31C442.84 21.61 451.88 22.61 456.00 23.52C465.53 25.61 474.50 29.14 474.50 30.78C474.50 31.48 471.04 33.56 466.82 35.39C449.62 42.87 438.31 50.63 424.44 64.46L414.38 74.50L407.11 85.42C398.34 98.59 391.91 111.81 381.04 139.00C371.28 163.41 362.11 182.54 354.90 193.50C351.91 198.05 344.87 206.24 338.57 212.50L327.49 223.50L318.57 228.74C307.36 235.34 296.14 239.70 284.15 242.11L274.81 244.00L260.40 244.00L245.99 244.00L221.24 240.81L196.50 237.61L178.00 237.62L159.50 237.63L147.68 239.87C132.74 242.71 119.02 247.42 102.50 255.39C80.26 266.13 61.56 280.10 42.85 299.94L32.90 310.50L33.55 307.50Z';
 
-/** Potrace silhouette of the diamond from the official PNG. */
-const DIAMOND =
-  'M148.19 68.64C134.76 55.08 130.00 49.65 130.00 47.88C130.00 46.10 134.84 40.65 148.76 26.74C159.88 15.63 168.29 8.00 169.41 8.00C172.00 8.00 207.96 44.84 207.98 47.51C208.01 50.28 171.23 87.00 168.43 87.00C167.10 87.00 160.00 80.56 148.19 68.64Z';
+export const SARH_LOGO_MARK_PATHS = [WAVE_BOTTOM, WAVE_TOP] as const;
 
-export const SARH_LOGO_MARK_PATHS = [WAVE_BOTTOM, WAVE_TOP, DIAMOND] as const;
+/** Mark ink on light surfaces: the app-icon black (reference black). */
+export const SARH_LOGO_INK = '#020202';
+/** Mark ink on dark surfaces: the app-icon wave white. */
+export const SARH_LOGO_INK_DARK = '#FBFBFB';
 
-/** Wave ink sampled from the official app icon (`assets/images/icon.png`). */
-export const SARH_LOGO_INK = '#1D1C1C';
-/** Wave ink on dark surfaces, so the mark stays visible in dark mode. */
-export const SARH_LOGO_INK_DARK = '#FFFFFF';
-/** Diamond fill sampled from the official app icon. */
-export const SARH_LOGO_DIAMOND = '#0C4132';
-/**
- * Diamond on dark surfaces: same hue as SARH_LOGO_DIAMOND (163deg), lighter so it
- * reads >= 3:1 on the dark bg / surface / raised tiers. Not used by the app icons.
- */
-export const SARH_LOGO_DIAMOND_DARK = '#237B62';
-
-/** Official icon colours for the in-app mark: black waves + green diamond (white waves, lighter green diamond in dark mode). */
-export function sarhLogoColors(isDark: boolean): { color: string; accentColor: string } {
+/** App-icon colours for the in-app mark: black waves on light, white waves on dark. */
+export function sarhLogoColors(isDark: boolean): { color: string } {
   return {
     color: isDark ? SARH_LOGO_INK_DARK : SARH_LOGO_INK,
-    accentColor: isDark ? SARH_LOGO_DIAMOND_DARK : SARH_LOGO_DIAMOND,
   };
 }
 
@@ -51,20 +40,16 @@ type SarhLogoMarkProps = {
   /** Height in points. Width follows the original mark aspect. */
   size?: number;
   color?: string;
-  /** Diamond / star fill. Defaults to `color` so existing marks stay one tint. */
-  accentColor?: string;
   style?: StyleProp<ViewStyle>;
 };
 
 export function SarhLogoMark({
   size = 14,
   color = '#FFFFFF',
-  accentColor,
   style,
 }: SarhLogoMarkProps) {
   const height = size;
   const width = size * SARH_LOGO_MARK_ASPECT;
-  const starColor = accentColor ?? color;
 
   return (
     <Svg
@@ -77,7 +62,6 @@ export function SarhLogoMark({
     >
       <Path d={WAVE_BOTTOM} fill={color} />
       <Path d={WAVE_TOP} fill={color} />
-      <Path d={DIAMOND} fill={starColor} />
     </Svg>
   );
 }

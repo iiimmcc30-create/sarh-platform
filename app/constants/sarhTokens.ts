@@ -10,27 +10,49 @@
  */
 export const sarh = {
   color: {
-    /** Dark Mode — deep cinematic neutrals (not pure black) */
-    bg: '#07131C',
-    surface: '#0C1C27',
-    surfaceRaised: '#102633',
-    surfaceAlt: '#142C3A',
+    /**
+     * Dark Mode — X-style neutrals anchored on the app-icon black (#020202).
+     * Background -> secondary surface (barely lifted) -> elevated, hairline borders.
+     */
+    bg: '#020202',
+    surface: '#0A0B0C',
+    surfaceRaised: '#16181C',
+    surfaceAlt: '#1D1F23',
     /**
      * Brand accent (Dark Mode). Same hue as the Light primary (#1C8354) but
      * lighter so text/links reach >= 4.5:1 on every dark surface
-     * (#07131C 6.16 · #0C1C27 5.69 · #102633 5.12 · #142C3A 4.75).
+     * (#020202 6.82 · #0A0B0C 6.47 · #16181C 5.81 · #1D1F23 5.39).
      */
     action: '#24A86C',
     actionPressed: '#1D8958',
     actionMuted: 'rgba(36, 168, 108, 0.14)',
-    text: '#F4F7F9',
-    textSecondary: '#94A6B2',
-    textMuted: '#657985',
-    border: '#1B3442',
-    pattern: '#1E3A4A',
+    text: '#E7E9EA',
+    textSecondary: '#71767B',
+    textMuted: '#5E6368',
+    border: '#2F3336',
+    borderStrong: '#3E4144',
+    pattern: '#16181C',
     fab: '#FFFFFF',
-    fabIcon: '#07131C',
-    overlay: 'rgba(7, 19, 28, 0.88)',
+    fabIcon: '#020202',
+    overlay: 'rgba(2, 2, 2, 0.88)',
+    /** X-style dark aliases — the names the dark UI / button system reads. */
+    darkBackground: '#020202',
+    darkSurface: '#0A0B0C',
+    darkSurfaceElevated: '#16181C',
+    darkBorder: '#2F3336',
+    primaryText: '#E7E9EA',
+    secondaryText: '#71767B',
+    /** Secondary / identity pill (Edit profile, Following, Message). */
+    darkPillButton: '#020202',
+    darkPillBorder: '#536471',
+    darkPillPressed: '#16181C',
+    /** Primary CTA in dark: white pill, black label. */
+    primaryActionButton: '#FFFFFF',
+    primaryActionText: '#020202',
+    primaryActionPressed: '#D7DBDC',
+    /** Disabled in dark: low-contrast dark fill, never a loud light grey. */
+    darkDisabledFill: '#202327',
+    darkDisabledText: '#5E6368',
     danger: '#E85D5D',
     warning: '#D4A017',
     success: '#24A86C',

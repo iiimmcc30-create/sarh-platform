@@ -25,16 +25,16 @@ describe('Sarh design-system foundation', () => {
   });
 
   it('reuses the live Sarh Dark palette hex values', () => {
-    expect(palette.bg).toBe('#07131C');
-    expect(palette.surface).toBe('#0C1C27');
-    expect(palette.surfaceRaised).toBe('#102633');
-    expect(palette.surfaceAlt).toBe('#142C3A');
+    expect(palette.bg).toBe('#020202');
+    expect(palette.surface).toBe('#0A0B0C');
+    expect(palette.surfaceRaised).toBe('#16181C');
+    expect(palette.surfaceAlt).toBe('#1D1F23');
     expect(palette.action).toBe('#24A86C');
     expect(palette.actionPressed).toBe('#1D8958');
-    expect(palette.text).toBe('#F4F7F9');
-    expect(palette.textSecondary).toBe('#94A6B2');
-    expect(palette.textMuted).toBe('#657985');
-    expect(palette.border).toBe('#1B3442');
+    expect(palette.text).toBe('#E7E9EA');
+    expect(palette.textSecondary).toBe('#71767B');
+    expect(palette.textMuted).toBe('#5E6368');
+    expect(palette.border).toBe('#2F3336');
     expect(palette.danger).toBe('#E85D5D');
     expect(palette.warning).toBe('#D4A017');
     expect(palette.success).toBe('#24A86C');
@@ -44,7 +44,7 @@ describe('Sarh design-system foundation', () => {
     expect(colors.surfaceElevated).toBe(sarh.color.surfaceRaised);
     expect(colors.primary).toBe(sarh.color.action);
     expect(colors.primaryPressed).toBe(sarh.color.actionPressed);
-    expect(colors.borderStrong).toBe('#264556');
+    expect(colors.borderStrong).toBe('#3E4144');
     expect(functional.overlay).toBe(sarh.color.overlay);
     expect(functional.primaryMuted).toBe(sarh.color.actionMuted);
   });

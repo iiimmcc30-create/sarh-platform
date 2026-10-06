@@ -94,7 +94,8 @@ export function SarhButton({
             borderWidth: variant === 'ghost' ? 0 : buttonMetrics.borderWidth,
             backgroundColor: palette.backgroundColor,
             borderColor: palette.borderColor,
-            opacity: disabled ? motion.opacity.disabled : 1,
+            // Dark uses dedicated low-contrast disabled tones (button tokens); light keeps the opacity wash.
+            opacity: disabled && scheme !== 'dark' ? motion.opacity.disabled : 1,
             transform: [{ scale: pressed && !blocked ? motion.pressScale : 1 }],
             shadowColor: colors.background,
             width: fullWidth ? '100%' : undefined,

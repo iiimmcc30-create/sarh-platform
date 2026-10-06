@@ -36,7 +36,8 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "monochromeImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#020202"
       },
       "edgeToEdgeEnabled": true
     },
@@ -59,7 +60,7 @@
             "image": "./assets/images/splash-blank.png",
             "imageWidth": 200,
             "resizeMode": "contain",
-            "backgroundColor": "#FFFFFF"
+            "backgroundColor": "#020202"
           }
         }
       ],

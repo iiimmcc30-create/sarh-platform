@@ -3,6 +3,7 @@ import * as path from 'path';
 
 const root = path.join(__dirname, '..');
 const read = (rel: string) => fs.readFileSync(path.join(root, rel), 'utf8');
+const exists = (rel: string) => fs.existsSync(path.join(root, rel));
 
 /** Width, height and PNG colour type (2 = RGB, 6 = RGBA) from the IHDR chunk. */
 function pngInfo(rel: string) {
@@ -11,26 +12,73 @@ function pngInfo(rel: string) {
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20), colorType: buf[25] };
 }
 
-describe('app icon (white flat icon, black waves + green diamond)', () => {
-  it('iOS / store icon is a 1024 opaque PNG (no alpha channel)', () => {
-    for (const rel of [
-      'assets/images/icon.png',
-      'assets/images/images/iOS/AppIcon.appiconset/Icon-1024@1x.png',
-    ]) {
-      expect(pngInfo(rel)).toEqual({ width: 1024, height: 1024, colorType: 2 });
+/** Reference black = the app-icon tile black. */
+const REFERENCE_BLACK = '#020202';
+const RES = 'android/app/src/main/res';
+const DENSITIES = [
+  ['mdpi', 1],
+  ['hdpi', 1.5],
+  ['xhdpi', 2],
+  ['xxhdpi', 3],
+  ['xxxhdpi', 4],
+] as const;
+
+describe('app icon (white waves on reference black, derived from the master artwork)', () => {
+  it('keeps the master artwork in assets/brand and a node generator for every size', () => {
+    expect(pngInfo('assets/brand/sarh-icon-master.png')).toMatchObject({ width: 1254, height: 1254 });
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.scripts['sync:icons']).toBe('node scripts/generate-brand-icons.js');
+    expect(read('scripts/generate-brand-icons.js')).toContain('assets/brand');
+  });
+
+  it('iOS / store / web icons are full-bleed opaque PNGs (no alpha, no rim)', () => {
+    expect(pngInfo('assets/images/icon.png')).toEqual({ width: 1024, height: 1024, colorType: 2 });
+    expect(pngInfo('assets/images/favicon.png')).toEqual({ width: 120, height: 120, colorType: 2 });
+    expect(pngInfo('public/icon-192.png')).toEqual({ width: 192, height: 192, colorType: 2 });
+    expect(pngInfo('public/icon-512.png')).toEqual({ width: 512, height: 512, colorType: 2 });
+    expect(pngInfo('public/apple-touch-icon.png')).toEqual({ width: 180, height: 180, colorType: 2 });
+    const config = JSON.parse(read('app.json')).expo;
+    expect(config.icon).toBe('./assets/images/icon.png');
+    expect(config.ios.icon).toBe('./assets/images/icon.png');
+    expect(config.web.favicon).toBe('./assets/images/favicon.png');
+  });
+
+  it('adaptive icon: transparent waves foreground + monochrome on a reference-black background', () => {
+    expect(pngInfo('assets/images/adaptive-icon.png')).toEqual({ width: 1024, height: 1024, colorType: 6 });
+    const config = JSON.parse(read('app.json')).expo;
+    expect(config.android.adaptiveIcon).toEqual({
+      foregroundImage: './assets/images/adaptive-icon.png',
+      monochromeImage: './assets/images/adaptive-icon.png',
+      backgroundColor: REFERENCE_BLACK,
+    });
+    const colors = read(`${RES}/values/colors.xml`);
+    expect(colors).toContain(`<color name="iconBackground">${REFERENCE_BLACK}</color>`);
+    expect(read(`${RES}/drawable/ic_launcher_background.xml`)).toContain(REFERENCE_BLACK);
+    for (const xml of ['ic_launcher.xml', 'ic_launcher_round.xml']) {
+      const src = read(`${RES}/mipmap-anydpi-v26/${xml}`);
+      expect(src).toContain('<background android:drawable="@color/iconBackground"/>');
+      expect(src).toContain('<foreground android:drawable="@mipmap/ic_launcher_foreground"/>');
+      expect(src).toContain('<monochrome android:drawable="@mipmap/ic_launcher_foreground"/>');
     }
   });
 
-  it('adaptive foreground is transparent on a white background', () => {
-    expect(pngInfo('assets/images/adaptive-icon.png').colorType).toBe(6);
-    const config = JSON.parse(read('app.json')).expo;
-    expect(config.android.adaptiveIcon.backgroundColor).toBe('#FFFFFF');
-    const colors = read('android/app/src/main/res/values/colors.xml');
-    expect(colors).toContain('<color name="iconBackground">#FFFFFF</color>');
-    expect(read('android/app/src/main/res/drawable/ic_launcher_background.xml')).toContain('#FFFFFF');
+  it.each(DENSITIES)('native launcher mipmaps (%s) have the right sizes', (density, scale) => {
+    const dir = `${RES}/mipmap-${density}`;
+    expect(pngInfo(`${dir}/ic_launcher.png`)).toEqual({ width: 48 * scale, height: 48 * scale, colorType: 2 });
+    expect(pngInfo(`${dir}/ic_launcher_round.png`)).toEqual({ width: 48 * scale, height: 48 * scale, colorType: 6 });
+    expect(pngInfo(`${dir}/ic_launcher_foreground.png`)).toEqual({
+      width: 108 * scale,
+      height: 108 * scale,
+      colorType: 6,
+    });
+    expect(pngInfo(`${RES}/drawable-${density}/notification_icon.png`)).toEqual({
+      width: 24 * scale,
+      height: 24 * scale,
+      colorType: 6,
+    });
   });
 
-  it('notification icon is a dedicated silhouette tinted with the icon green', () => {
+  it('notification icon is a dedicated silhouette tinted with the brand green', () => {
     const config = JSON.parse(read('app.json')).expo;
     const notif = config.plugins.find(
       (p: unknown) => Array.isArray(p) && p[0] === 'expo-notifications',
@@ -38,36 +86,60 @@ describe('app icon (white flat icon, black waves + green diamond)', () => {
     expect(notif[1].icon).toBe('./assets/images/notification-icon.png');
     expect(notif[1].color).toBe('#0C4132');
     expect(pngInfo('assets/images/notification-icon.png').colorType).toBe(6);
-    expect(read('android/app/src/main/res/values/colors.xml')).toContain(
+    expect(read(`${RES}/values/colors.xml`)).toContain(
       '<color name="notification_icon_color">#0C4132</color>',
     );
   });
 
-  it('native Android splash matches the white splash (no old dark icon)', () => {
-    expect(read('android/app/src/main/res/values/colors.xml')).toContain(
+  it('native Android splash: white in light, reference black in dark', () => {
+    expect(read(`${RES}/values/colors.xml`)).toContain(
       '<color name="splashscreen_background">#FFFFFF</color>',
+    );
+    expect(read(`${RES}/values-night/colors.xml`)).toContain(
+      `<color name="splashscreen_background">${REFERENCE_BLACK}</color>`,
     );
   });
 
-  it('PWA manifest ships the new icons', () => {
+  it('PWA manifest + web theme colour use the reference black', () => {
     const manifest = JSON.parse(read('public/manifest.json'));
     expect(manifest.icons.map((i: { src: string }) => i.src)).toEqual(
       expect.arrayContaining(['/icon-192.png', '/icon-512.png']),
     );
-    expect(pngInfo('public/icon-512.png').width).toBe(512);
+    expect(manifest.background_color).toBe(REFERENCE_BLACK);
+    expect(manifest.theme_color).toBe(REFERENCE_BLACK);
+    expect(read('lib/siteSeo.ts')).toContain(`SITE_THEME_COLOR = '${REFERENCE_BLACK}'`);
+  });
+
+  it('admin panel favicon is a multi-size ICO', () => {
+    const ico = fs.readFileSync(path.join(root, '..', 'admin-panel', 'src', 'app', 'favicon.ico'));
+    expect(ico.readUInt16LE(2)).toBe(1);
+    expect(ico.readUInt16LE(4)).toBe(3);
+  });
+
+  it('old branding assets and generators are gone', () => {
+    for (const rel of [
+      'assets/images/logo.png',
+      'assets/images/logo-circle.png',
+      'assets/images/splash-circle.png',
+      'assets/images/images',
+      'scripts/sync-app-icons.py',
+      'scripts/generate-circular-branding.py',
+      'scripts/regen-launcher-icons.js',
+    ]) {
+      expect(exists(rel)).toBe(false);
+    }
   });
 });
 
 describe('in-app Sarh mark colours match the icon', () => {
   const mark = read('components/ui/SarhLogoMark.tsx');
 
-  it('exports the sampled icon colours', () => {
-    expect(mark).toContain("export const SARH_LOGO_INK = '#1D1C1C'");
-    expect(mark).toContain("export const SARH_LOGO_INK_DARK = '#FFFFFF'");
-    expect(mark).toContain("export const SARH_LOGO_DIAMOND = '#0C4132'");
+  it('exports the icon colours and draws the two waves only (no diamond)', () => {
+    expect(mark).toContain(`export const SARH_LOGO_INK = '${REFERENCE_BLACK}'`);
+    expect(mark).toContain("export const SARH_LOGO_INK_DARK = '#FBFBFB'");
     expect(mark).toContain('isDark ? SARH_LOGO_INK_DARK : SARH_LOGO_INK');
-    expect(mark).toContain("export const SARH_LOGO_DIAMOND_DARK = '#237B62'");
-    expect(mark).toContain('isDark ? SARH_LOGO_DIAMOND_DARK : SARH_LOGO_DIAMOND');
+    expect(mark).toContain('export const SARH_LOGO_MARK_PATHS = [WAVE_BOTTOM, WAVE_TOP] as const;');
+    expect(mark).not.toMatch(/DIAMOND|accentColor/);
   });
 
   it.each([
@@ -80,34 +152,11 @@ describe('in-app Sarh mark colours match the icon', () => {
     expect(src).not.toMatch(/<SarhLogoMark[^>]*electric/);
   });
 
-  it('dark-mode diamond keeps the brand hue and reaches 3:1 on dark surfaces', () => {
-    const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-    const lum = (h: string) => {
-      const [r, g, b] = hex(h).map(lin);
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    };
-    const contrast = (a: string, b: string) => {
-      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
-      return (hi + 0.05) / (lo + 0.05);
-    };
-    const hue = (h: string) => {
-      const [r, g, b] = hex(h);
-      const max = Math.max(r, g, b);
-      const d = max - Math.min(r, g, b);
-      const raw = max === g ? (b - r) / d + 2 : max === b ? (r - g) / d + 4 : ((g - b) / d) % 6;
-      return (raw * 60 + 360) % 360;
-    };
-    for (const bg of ['#07131C', '#0C1C27', '#102633']) {
-      expect(contrast('#237B62', bg)).toBeGreaterThanOrEqual(3);
-    }
-    expect(Math.abs(hue('#237B62') - hue('#0C4132'))).toBeLessThan(2);
-    expect(lum('#237B62')).toBeGreaterThan(lum('#0C4132'));
-  });
-
-  it('launch splash draws waves in icon black and the diamond in icon green', () => {
+  it('launch splash draws the waves in the icon colours for each scheme', () => {
     const splash = read('components/ui/LaunchSplash.tsx');
-    expect(splash).toContain('const LOGO_INK = SARH_LOGO_INK;');
-    expect(splash).toContain('const LOGO_ACCENT = SARH_LOGO_DIAMOND;');
+    expect(splash).toContain('ink: SARH_LOGO_INK,');
+    expect(splash).toContain('ink: SARH_LOGO_INK_DARK,');
+    expect(splash).toContain('bg: sarh.color.darkBackground');
+    expect(splash).not.toMatch(/DIAMOND|LOGO_ACCENT/);
   });
 });

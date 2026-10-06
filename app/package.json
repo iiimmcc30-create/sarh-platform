@@ -23,7 +23,7 @@
     "test": "jest --config jest.config.js --forceExit",
     "test:cov": "jest --config jest.config.js --coverage --forceExit",
     "test:e2e": "playwright test",
-    "sync:icons": "python scripts/generate-circular-branding.py",
+    "sync:icons": "node scripts/generate-brand-icons.js",
     "prebuild": "expo prebuild",
     "eas:dev:android": "eas build --profile development --platform android --non-interactive",
     "eas:dev:ios": "eas build --profile development --platform ios --non-interactive",

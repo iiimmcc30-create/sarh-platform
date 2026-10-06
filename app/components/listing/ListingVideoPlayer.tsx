@@ -45,7 +45,7 @@ type Props = {
   pauseRef?: MutableRefObject<(() => void) | null>;
 };
 
-const MEDIA_SURFACE = '#102633';
+const MEDIA_SURFACE = '#16181C';
 
 export function ListingVideoPlayer(props: Props) {
   return (

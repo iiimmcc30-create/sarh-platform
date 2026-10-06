@@ -31,7 +31,8 @@ describe('launch splash timing', () => {
     expect(t.settleDelay).toBeLessThan(t.titleDelay);
     expect(t.titleDelay).toBeLessThan(t.subtitleDelay);
     expect(LAUNCH_LOGO_START_SCALE).toBeGreaterThan(1);
-    expect(SARH_LOGO_PATH_LENGTHS).toHaveLength(3);
+    expect(SARH_LOGO_PATH_LENGTHS).toHaveLength(2);
+    expect(LAUNCH_SPLASH_TIMING.draw).toHaveLength(SARH_LOGO_PATH_LENGTHS.length);
   });
 
   it('keeps both words fully visible for 600–800 ms before the exit fade', () => {
@@ -96,11 +97,11 @@ describe('launch path', () => {
     }
   });
 
-  it('native splash is plain white and hands off to the RN splash', () => {
+  it('native splash is plain (white / reference black in dark) and hands off to the RN splash', () => {
     const app = JSON.parse(src('app.json'));
     const plugin = app.expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-splash-screen');
     expect(plugin[1].backgroundColor).toBe('#FFFFFF');
-    expect(plugin[1].dark.backgroundColor).toBe('#FFFFFF');
+    expect(plugin[1].dark.backgroundColor).toBe('#020202');
     expect(plugin[1].image).toBe('./assets/images/splash-blank.png');
 
     const gate = src('components/ui/BootSplashGate.tsx');
@@ -109,6 +110,7 @@ describe('launch path', () => {
     expect(splash).toContain('onLayout={onLayout}');
     expect(splash).toContain('SplashScreen.hideAsync()');
     expect(splash).toContain('SARH_LOGO_MARK_PATHS');
+    expect(splash).toContain('useColorScheme()');
     expect(splash).toContain('strokeDashoffset');
     expect(splash).toContain('isReduceMotionEnabled');
     expect(splash).toContain('سرح');

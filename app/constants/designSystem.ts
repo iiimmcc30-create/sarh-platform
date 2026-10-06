@@ -40,10 +40,10 @@ export const ds = {
     accent: sarh.color.action,
     primaryMuted: sarh.color.actionMuted,
     /** Chrome glass — denser local tint; leave `sarh.color.overlay` for modals/scrims. */
-    glass: 'rgba(7, 19, 28, 0.94)',
+    glass: 'rgba(2, 2, 2, 0.94)',
     glassBorder: sarh.color.border,
     /** Bottom tab bar (X-style): near-opaque surface, content behind barely perceptible. */
-    tabBar: 'rgba(7, 19, 28, 0.97)',
+    tabBar: 'rgba(2, 2, 2, 0.97)',
     stroke: sarh.color.border,
     glow: sarh.color.action,
     textPrimary: sarh.color.text,

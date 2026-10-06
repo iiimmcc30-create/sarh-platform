@@ -25,10 +25,10 @@ describe('light mode surface hierarchy', () => {
     expect(liveTheme.borderSoft).toBe('#E6E8EB');
   });
 
-  it('keeps dark mode surfaces unchanged', () => {
+  it('dark mode surfaces follow the X-style reference-black tiers', () => {
     applyThemeScheme('dark');
-    expect(liveTheme.screenRoot).toBe('#07131C');
-    expect(liveTheme.bgSurface).toBe('#0C1C27');
+    expect(liveTheme.screenRoot).toBe('#020202');
+    expect(liveTheme.bgSurface).toBe('#0A0B0C');
     expect(liveTheme.bgField).toBe(liveTheme.bgElevated);
   });
 

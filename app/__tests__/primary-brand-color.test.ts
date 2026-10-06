@@ -11,7 +11,7 @@ import { colors, functional } from '@/design-system';
 import { resolveSarhButtonColors } from '@/design-system/components/resolvers';
 import { chatBubbleColors, contrastRatio } from '@/lib/chatBubbleTheme';
 
-const DARK_SURFACES = ['#07131C', '#0C1C27', '#102633', '#142C3A'];
+const DARK_SURFACES = ['#020202', '#0A0B0C', '#16181C', '#1D1F23'];
 
 function hue(hex: string): number {
   const n = hex.replace('#', '');

@@ -10,8 +10,8 @@ import {
 } from '@/lib/launchSplash';
 import { markPerf } from '@/lib/perfDev';
 import {
-  SARH_LOGO_DIAMOND,
   SARH_LOGO_INK,
+  SARH_LOGO_INK_DARK,
   SARH_LOGO_MARK_ASPECT,
   SARH_LOGO_MARK_PATHS,
   SARH_LOGO_MARK_VIEWBOX_HEIGHT,
@@ -25,6 +25,7 @@ import {
   Easing,
   StyleSheet,
   View,
+  useColorScheme,
   useWindowDimensions,
   type LayoutChangeEvent,
 } from 'react-native';
@@ -32,12 +33,14 @@ import Svg, { Path } from 'react-native-svg';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-/** Pure white launch surface (matches the native splash background in app.json). */
-const SPLASH_BG = sarh.color.lightSurface;
-/** Official icon colours (white surface): black waves + dark-green diamond. */
-const LOGO_INK = SARH_LOGO_INK;
-const LOGO_ACCENT = SARH_LOGO_DIAMOND;
-const SUBTITLE_INK = sarh.color.lightTextSecondary;
+/**
+ * Launch surface per system scheme, matching the native splash in app.json
+ * (expo-splash-screen: white / dark #020202). App-icon colours, no gradient.
+ */
+const SPLASH_PALETTE = {
+  light: { bg: sarh.color.lightSurface, ink: SARH_LOGO_INK, subtitle: sarh.color.lightTextSecondary },
+  dark: { bg: sarh.color.darkBackground, ink: SARH_LOGO_INK_DARK, subtitle: sarh.color.secondaryText },
+} as const;
 /** Outline width while drawing (viewBox units of the 611×417 mark). */
 const DRAW_STROKE = 5;
 
@@ -56,11 +59,12 @@ const easeInOut = Easing.inOut(Easing.cubic);
  * deep links, notification opens) is decided underneath, unchanged; the overlay
  * only fades away once the animation finished and boot is ready.
  *
- * Hand-off: the native splash (plain white) stays until this overlay's first
- * layout, then `SplashScreen.hideAsync()` — same white, so no flash.
+ * Hand-off: the native splash (plain white, or #020202 in dark) stays until this overlay's
+ * first layout (same colour per scheme), then `SplashScreen.hideAsync()` — no flash.
  */
 export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady }: LaunchSplashProps) {
   const { width, height } = useWindowDimensions();
+  const palette = SPLASH_PALETTE[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const layout = useMemo(() => launchSplashLayout(width, height, SARH_LOGO_MARK_ASPECT), [width, height]);
 
   const [laidOut, setLaidOut] = useState(false);
@@ -221,7 +225,7 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
       pointerEvents={exiting ? 'none' : 'auto'}
       accessible
       accessibilityLabel="سرح"
-      style={[styles.root, { opacity: values.exit }]}
+      style={[styles.root, { backgroundColor: palette.bg, opacity: values.exit }]}
     >
       <View style={styles.group}>
         <Animated.View style={{ width: layout.logoWidth, height: layout.logoHeight, transform: logoTransform }}>
@@ -232,14 +236,13 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
             preserveAspectRatio="xMidYMid meet"
           >
             {SARH_LOGO_MARK_PATHS.map((d, i) => {
-              const ink = i === 2 ? LOGO_ACCENT : LOGO_INK;
               return (
                 <AnimatedPath
                   key={i}
                   d={d}
-                  fill={ink}
+                  fill={palette.ink}
                   fillOpacity={values.fill}
-                  stroke={ink}
+                  stroke={palette.ink}
                   strokeOpacity={strokeOpacity}
                   strokeWidth={DRAW_STROKE}
                   strokeLinejoin="round"
@@ -268,7 +271,7 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
                 numberOfLines={1}
                 style={[
                   styles.title,
-                  { fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
+                  { color: palette.ink, fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
                   textRise(values.title),
                 ]}
               >
@@ -280,6 +283,7 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
                 style={[
                   styles.subtitle,
                   {
+                    color: palette.subtitle,
                     marginTop: layout.textGap,
                     fontSize: layout.subtitleSize,
                     lineHeight: layout.subtitleLineHeight,
@@ -303,7 +307,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 1000,
     elevation: 1000,
-    backgroundColor: SPLASH_BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -314,7 +317,6 @@ const styles = StyleSheet.create({
   title: {
     alignSelf: 'stretch',
     fontFamily: fontFamily.bold,
-    color: LOGO_INK,
     textAlign: 'center',
     writingDirection: 'rtl',
     includeFontPadding: false,
@@ -322,7 +324,6 @@ const styles = StyleSheet.create({
   subtitle: {
     alignSelf: 'stretch',
     fontFamily: fontFamily.regular,
-    color: SUBTITLE_INK,
     textAlign: 'center',
     writingDirection: 'ltr',
     includeFontPadding: false,

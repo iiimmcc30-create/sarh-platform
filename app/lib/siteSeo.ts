@@ -11,7 +11,7 @@ export const SITE_NAME = BRAND_NAME_AR;
 export const SITE_ALTERNATE_NAME = 'Sarh';
 export const SITE_URL = `${SARH_OFFICIAL_SITE}/`;
 export const SITE_DESCRIPTION = BRAND_TAGLINE_AR;
-export const SITE_THEME_COLOR = '#040C0E';
+export const SITE_THEME_COLOR = '#020202';
 
 export function websiteJsonLd() {
   return {

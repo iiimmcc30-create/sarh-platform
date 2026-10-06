@@ -3,6 +3,8 @@ import path from 'path';
 import { applyThemeScheme } from '@/constants/theme';
 import { buttonMetrics, colors, functional } from '@/design-system';
 import { BUTTON_SIZE, resolveSarhButtonColors } from '@/design-system/components/resolvers';
+import { resolveButtonToneForScheme } from '@/design-system/tokens/button';
+import { sarh } from '@/constants/sarhTokens';
 
 const root = path.join(__dirname, '..');
 
@@ -30,13 +32,49 @@ describe('Primary CTA button tokens', () => {
     const dark = resolveSarhButtonColors('primary', 'default');
     expect(dark.backgroundColor).toBe(functional.onPrimary);
     expect(dark.contentColor).toBe(functional.onPrimaryInverse);
-    expect(resolveSarhButtonColors('primary', 'pressed').backgroundColor).toBe('#E6E8EB');
+    expect(resolveSarhButtonColors('primary', 'pressed').backgroundColor).toBe('#D7DBDC');
 
     applyThemeScheme('light');
     const light = resolveSarhButtonColors('primary', 'default');
     expect(light.backgroundColor).toBe(colors.primary);
     expect(light.contentColor).toBe(functional.onPrimary);
     expect(resolveSarhButtonColors('primary', 'pressed').backgroundColor).toBe(colors.primaryPressed);
+  });
+
+  it('X-style dark button system: dark identity pill, white CTA, quiet disabled tones', () => {
+    const t = (variant: Parameters<typeof resolveButtonToneForScheme>[1], state: 'default' | 'pressed' | 'disabled') =>
+      resolveButtonToneForScheme('dark', variant, state);
+    expect(t('secondary', 'default')).toEqual({
+      backgroundColor: sarh.color.darkPillButton,
+      borderColor: sarh.color.darkPillBorder,
+      contentColor: sarh.color.primaryText,
+    });
+    expect(t('secondary', 'pressed').backgroundColor).toBe(sarh.color.darkPillPressed);
+    expect(t('primary', 'default')).toEqual({
+      backgroundColor: '#FFFFFF',
+      borderColor: '#FFFFFF',
+      contentColor: '#020202',
+    });
+    for (const variant of ['primary', 'danger', 'inverse'] as const) {
+      expect(t(variant, 'disabled').backgroundColor).toBe(sarh.color.darkDisabledFill);
+      expect(t(variant, 'disabled').contentColor).toBe(sarh.color.darkDisabledText);
+    }
+    expect(t('secondary', 'disabled').contentColor).toBe(sarh.color.darkDisabledText);
+    // Dark disabled relies on these tones; the opacity wash stays Light-only.
+    expect(src('design-system/components/SarhButton.tsx')).toContain(
+      "opacity: disabled && scheme !== 'dark' ? motion.opacity.disabled : 1",
+    );
+  });
+
+  it('Light button tones are unchanged', () => {
+    applyThemeScheme('light');
+    const light = (state: 'default' | 'pressed' | 'disabled') => resolveButtonToneForScheme('light', 'secondary', state);
+    expect(light('default')).toEqual({
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong,
+      contentColor: colors.textPrimary,
+    });
+    expect(resolveButtonToneForScheme('light', 'primary', 'disabled').backgroundColor).toBe('#1C8354');
   });
 
   it('shares one metric scale for every SarhButton size', () => {

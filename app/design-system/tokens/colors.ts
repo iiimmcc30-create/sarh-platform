@@ -61,7 +61,7 @@ export const colors: DesignSystemColorValues = {
   textSecondary: palette.textSecondary,
   textMuted: palette.textMuted,
   border: palette.border,
-  borderStrong: '#264556',
+  borderStrong: sarh.color.borderStrong,
   success: palette.success,
   warning: palette.warning,
   danger: palette.danger,

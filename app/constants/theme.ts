@@ -100,8 +100,8 @@ const darkColors: BaseThemeColors = {
   bgSurface: luxuryDark.card,
   bgElevated: luxuryDark.surface,
   bgGlass: luxuryDark.tabGlass,
-  bgGlassStrong: 'rgba(12, 28, 39, 0.96)',
-  bgOverlay: 'rgba(7, 19, 28, 0.78)',
+  bgGlassStrong: 'rgba(10, 11, 12, 0.96)',
+  bgOverlay: 'rgba(2, 2, 2, 0.78)',
   royal: luxuryDark.surfaceAlt,
   royalDeep: luxuryDark.bg,
   electric: luxuryDark.accent,
@@ -116,7 +116,7 @@ const darkColors: BaseThemeColors = {
   textSubtle: luxuryDark.textMuted,
   borderSoft: luxuryDark.border,
   borderMid: luxuryDark.border,
-  borderStrong: '#264556',
+  borderStrong: sarh.color.borderStrong,
   borderHairline: luxuryDark.border,
   ...sharedAccents,
 };
@@ -160,13 +160,13 @@ const darkGradients: ThemeGradients = {
   hero: [luxuryDark.bg, luxuryDark.bg, luxuryDark.card],
   royal: [luxuryDark.bg, luxuryDark.surface, luxuryDark.surfaceAlt],
   glass: [luxuryDark.tabGlass, luxuryDark.bg],
-  liveOverlay: ['transparent', 'rgba(7,19,28,0.45)', 'rgba(7,19,28,0.96)'],
+  liveOverlay: ['transparent', 'rgba(2,2,2,0.45)', 'rgba(2,2,2,0.96)'],
   card: [luxuryDark.card, luxuryDark.card],
   cardHover: [luxuryDark.surface, luxuryDark.card],
   goldRing: ['#F5C56A', '#FBBF24', '#F5C56A'],
   electric: [luxuryDark.accent, luxuryDark.accent, luxuryDark.accent],
   primary: [luxuryDark.accent, luxuryDark.accentPressed, luxuryDark.surface],
-  rim: ['rgba(27,52,66,0.55)', 'rgba(27,52,66,0)'],
+  rim: ['rgba(47,51,54,0.55)', 'rgba(47,51,54,0)'],
 };
 
 const lightGradients: ThemeGradients = {
@@ -316,25 +316,25 @@ applyThemeScheme('dark');
 export function headerFadeGradient(scheme: ColorScheme): readonly [string, string] {
   return scheme === 'light'
     ? ['rgba(248, 249, 250, 0.98)', 'rgba(248, 249, 250, 0)']
-    : ['rgba(7, 19, 28, 0.98)', 'rgba(7, 19, 28, 0)'];
+    : ['rgba(2, 2, 2, 0.98)', 'rgba(2, 2, 2, 0)'];
 }
 
 export function imageCardOverlay(scheme: ColorScheme): readonly [string, string] {
   return scheme === 'light'
     ? ['transparent', 'rgba(16, 24, 32, 0.68)']
-    : ['transparent', 'rgba(7, 19, 28, 0.88)'];
+    : ['transparent', 'rgba(2, 2, 2, 0.88)'];
 }
 
 export function imageCardOverlayStrong(scheme: ColorScheme): readonly [string, string] {
   return scheme === 'light'
     ? ['transparent', 'rgba(16, 24, 32, 0.78)']
-    : ['transparent', 'rgba(7, 19, 28, 0.94)'];
+    : ['transparent', 'rgba(2, 2, 2, 0.94)'];
 }
 
 export function scrimColor(scheme: ColorScheme, opacity = 0.85): string {
   return scheme === 'light'
     ? `rgba(248, 249, 250, ${opacity})`
-    : `rgba(7, 19, 28, ${opacity})`;
+    : `rgba(2, 2, 2, ${opacity})`;
 }
 
 /**
