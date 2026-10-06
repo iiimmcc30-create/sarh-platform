@@ -21,9 +21,11 @@ tcp_check "$DATA_IP" "$(env_get POSTGRES_PORT 5432)" && ok "postgres tcp" || bad
 tcp_check "$DATA_IP" "$(env_get REDIS_PORT 6379)" && ok "redis tcp" || bad "redis tcp"
 
 echo "=== Redis auth (from api container) ==="
+# enableReadyCheck:false: otherwise the anonymous client fails its INFO ready check and
+# connect() rejects with "Connection is closed." instead of the NOAUTH error.
 # shellcheck disable=SC2016  # evaluated by node inside the container
 redis_js='const R=require("ioredis");
-const o={host:process.env.REDIS_HOST,port:Number(process.env.REDIS_PORT||6379),maxRetriesPerRequest:1,lazyConnect:true,connectTimeout:3000,enableOfflineQueue:false};
+const o={host:process.env.REDIS_HOST,port:Number(process.env.REDIS_PORT||6379),maxRetriesPerRequest:1,lazyConnect:true,connectTimeout:3000,enableOfflineQueue:false,enableReadyCheck:false};
 (async()=>{let anon="?";const a=new R(o);try{await a.connect();await a.ping();anon="OPEN"}catch(e){anon=/NOAUTH|AUTH/i.test(String(e&&e.message))?"NOAUTH":"ERR"}a.disconnect();
 const b=new R({...o,password:process.env.REDIS_PASSWORD});let authed="ERR";let policy="";try{await b.connect();authed=await b.ping();policy=(await b.config("GET","maxmemory-policy"))[1]}catch(e){}b.disconnect();
 console.log(anon+" "+authed+" "+policy);process.exit(0)})()'
