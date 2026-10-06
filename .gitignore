@@ -6,6 +6,8 @@ node_modules/
 .env.*
 !.env.example
 !.env.e2e.example
+!.env.app.example
+!.env.data.example
 .env.local
 .env.*.local
 

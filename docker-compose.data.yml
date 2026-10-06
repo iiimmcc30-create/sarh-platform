@@ -1,0 +1,94 @@
+# Sarh DATA SERVER stack — PostgreSQL + Redis ONLY (two-server production).
+#
+# Primary use: IN-PLACE conversion of the existing single-server host. It reuses
+# the SAME compose project name (sarh), the SAME service names (postgres, redis)
+# and the SAME named volumes that docker-compose.prod.yml created, so switching
+# from the full stack to this file keeps all data. `docker compose up` on this
+# file RECREATES the postgres/redis containers (never two postgres on one volume).
+#
+# Usage (on the data server, from /opt/sarh):
+#   docker compose -f docker-compose.data.yml --env-file .env.data up -d
+#
+# Volumes are `external: true`: Compose refuses to start if the named volume does
+# not exist instead of silently creating an EMPTY database. Verify names first:
+#   docker volume ls | grep -E 'postgres_data|redis_data'
+#   docker inspect sarh-postgres-1 --format '{{json .Mounts}}'
+#
+# Ports are published ONLY on DATA_SERVER_PRIVATE_IP (provider private network IP
+# or WireGuard tunnel IP) — never 0.0.0.0. Docker-published ports bypass ufw, so
+# scripts/data-server/setup-firewall.sh also installs DOCKER-USER rules.
+#
+# NEVER run `docker compose down -v` or `docker volume rm` against this stack.
+# Requires .env.data (never commit). See .env.data.example
+
+name: sarh
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    mem_limit: ${POSTGRES_MEM_LIMIT:-768m}
+    cpus: ${POSTGRES_CPUS:-1.0}
+    stop_grace_period: 60s
+    environment:
+      # Only used by initdb on an EMPTY volume. The existing cluster keeps its
+      # current role/password — copy the same values from .env.production.
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sarh}
+    volumes:
+      # PG 18+ images expect the volume at /var/lib/postgresql (not .../data)
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - '${DATA_SERVER_PRIVATE_IP:?set DATA_SERVER_PRIVATE_IP}:${POSTGRES_PUBLISH_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sarh_internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: ${REDIS_MEM_LIMIT:-384m}
+    cpus: ${REDIS_CPUS:-0.50}
+    stop_grace_period: 30s
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    # Same persistence/eviction as docker-compose.prod.yml (AOF + noeviction for
+    # BullMQ) plus requirepass because Redis is now reachable over a network.
+    # $$REDIS_PASSWORD is expanded by sh inside the container (not by Compose);
+    # redis-server rewrites its process title, so the value is not left in `ps`.
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - redis_data:/data
+    ports:
+      - '${DATA_SERVER_PRIVATE_IP:?set DATA_SERVER_PRIVATE_IP}:${REDIS_PUBLISH_PORT:-6379}:6379'
+    healthcheck:
+      # REDISCLI_AUTH keeps the password off the redis-cli command line.
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - sarh_internal
+
+# Same network name as docker-compose.prod.yml so a rollback to the full stack
+# reattaches to the existing network.
+networks:
+  sarh_internal:
+    name: sarh_internal
+    driver: bridge
+
+volumes:
+  postgres_data:
+    external: true
+    name: ${POSTGRES_VOLUME_NAME:-sarh_postgres_data}
+  redis_data:
+    external: true
+    name: ${REDIS_VOLUME_NAME:-sarh_redis_data}

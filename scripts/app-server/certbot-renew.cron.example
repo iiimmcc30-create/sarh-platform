@@ -1,0 +1,5 @@
+# APP SERVER — /etc/cron.d/sarh-certbot-renew (after /etc/letsencrypt was copied
+# from the old server or a cert was issued here). Renews via webroot and reloads
+# the app-server nginx. Remove the old server's /etc/cron.d/sarh-certbot-renew
+# after the cut-over (its nginx is stopped there).
+0 3,15 * * * root docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/certbot:/var/www/certbot certbot/certbot renew --quiet --webroot -w /var/www/certbot && cd /opt/sarh && docker compose -f docker-compose.app.yml -f docker-compose.prod.ssl.yml --env-file .env.app exec -T nginx nginx -s reload

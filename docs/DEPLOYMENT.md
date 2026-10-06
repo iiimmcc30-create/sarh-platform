@@ -1,5 +1,8 @@
 # Deployment
 
+> **Two-server production (App Server + Data Server):** see [`deployment/two-server.md`](deployment/two-server.md)
+> — `docker-compose.app.yml` / `docker-compose.data.yml`, private network or WireGuard, firewall, backups, cut-over and rollback plan.
+
 Production deployment and live infrastructure were not re-verified during Phase 1.
 
 ما يلي مأخوذ من ملفات المستودع (`README.md` السابق، `docker-compose.prod.yml`، `scripts/hostinger/`). **لم يُنفَّذ** أي نشر أو `docker compose up` أو فحص حي في Phase 1 أو Phase 2.

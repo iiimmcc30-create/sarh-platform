@@ -1,0 +1,11 @@
+# /etc/wireguard/wg0.conf on the DATA server (template — prefer setup-wireguard.sh).
+# Private key lives in /etc/wireguard/wg0.key (chmod 600), loaded by PostUp.
+[Interface]
+Address = DATA_SERVER_PRIVATE_IP/24
+ListenPort = 51820
+PostUp = wg set %i private-key /etc/wireguard/wg0.key
+
+[Peer]
+# App server
+PublicKey = APP_SERVER_WG_PUBLIC_KEY
+AllowedIPs = APP_SERVER_PRIVATE_IP/32

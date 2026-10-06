@@ -59,6 +59,57 @@ describe('redisConnection', () => {
       db: 2,
     });
   });
+
+  // Two-server compose (docker-compose.app.yml) sets REDIS_URL='' and passes
+  // REDIS_HOST=<data server private IP> + REDIS_PASSWORD.
+  it('treats an empty REDIS_URL as absent and keeps REDIS_PASSWORD', () => {
+    process.env.REDIS_URL = '';
+    process.env.REDIS_HOST = '10.0.0.5';
+    process.env.REDIS_PORT = '6379';
+    process.env.REDIS_PASSWORD = 'from-env';
+
+    expect(redisConnection(3)).toMatchObject({
+      host: '10.0.0.5',
+      port: 6379,
+      password: 'from-env',
+      db: 3,
+    });
+  });
+
+  it('decodes a percent-encoded password in REDIS_URL', () => {
+    process.env.REDIS_URL = 'redis://:p%40ss%2Fw0rd@10.0.0.5:6379';
+
+    expect(redisConnection(1)).toMatchObject({
+      host: '10.0.0.5',
+      password: 'p@ss/w0rd',
+    });
+  });
+
+  it('falls back to REDIS_PASSWORD when REDIS_URL has no password', () => {
+    process.env.REDIS_URL = 'redis://10.0.0.5:6379';
+    process.env.REDIS_PASSWORD = 'from-env';
+
+    expect(redisConnection(0)).toMatchObject({
+      host: '10.0.0.5',
+      password: 'from-env',
+    });
+  });
+
+  it('passes REDIS_PASSWORD to shared clients and their duplicates (socket adapter pub/sub)', async () => {
+    process.env.REDIS_HOST = '10.0.0.5';
+    process.env.REDIS_PASSWORD = 'from-env';
+    try {
+      const pub = getSharedRedisClient(3, 'default');
+      const sub = getSharedRedisClient(3, 'subscriber');
+      const dup = pub.duplicate();
+      expect(pub.options.password).toBe('from-env');
+      expect(sub.options.password).toBe('from-env');
+      expect(dup.options.password).toBe('from-env');
+      dup.disconnect();
+    } finally {
+      await closeSharedRedisClients();
+    }
+  });
 });
 
 describe('getSharedRedisClient', () => {

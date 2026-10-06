@@ -1,54 +1,35 @@
-# Sarh production stack — Hostinger VPS
-# Usage:
-#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.ssl.yml \
-#     --env-file .env.production up -d
+# Sarh APP SERVER stack — nginx, API, Socket.IO, BullMQ worker, web, admin ONLY
+# (two-server production). PostgreSQL + Redis live on the data server
+# (docker-compose.data.yml) and are reached over the private network /
+# WireGuard tunnel at DATA_SERVER_PRIVATE_IP.
 #
-# Do NOT deploy with docker-compose.yml — that file is local-dev only and attaches
-# services to the Compose default network (sarh_default), which breaks nginx→socket.
+# Usage (on the app server, from /opt/sarh):
+#   docker compose -f docker-compose.app.yml -f docker-compose.prod.ssl.yml \
+#     --env-file .env.app up -d
 #
-# Requires .env.production (never commit). See scripts/hostinger/env.production.example
-# Compatible with backend-nest Dockerfile ENTRYPOINT (api|worker|socket roles).
+# Same images, entrypoints, healthchecks and nginx config as docker-compose.prod.yml.
+# Differences: no postgres/redis services; DB/Redis URLs point at the data
+# server; Redis password is required; migrations are NOT run on start
+# (SKIP_MIGRATIONS defaults to true — run scripts/app-server/migrate.sh explicitly).
+#
+# Requires .env.app (never commit). See .env.app.example
+# POSTGRES_PASSWORD must be URL-safe (it is embedded in DATABASE_URL as-is).
 
 name: sarh
 
+x-backend-env: &backend-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@${DATA_SERVER_PRIVATE_IP:?set DATA_SERVER_PRIVATE_IP}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-sarh}${DATABASE_URL_PARAMS:-}
+  DIRECT_URL: postgresql://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@${DATA_SERVER_PRIVATE_IP:?set DATA_SERVER_PRIVATE_IP}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-sarh}${DIRECT_URL_PARAMS:-}
+  # REDIS_URL takes precedence in src/redis/redis-connection.ts — force it empty
+  # so a stale value in .env.app cannot bypass host/port/password below.
+  REDIS_URL: ''
+  REDIS_HOST: ${DATA_SERVER_PRIVATE_IP:?set DATA_SERVER_PRIVATE_IP}
+  REDIS_PORT: ${REDIS_PORT:-6379}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+  REDIS_ENABLED: 'true'
+
 services:
-  postgres:
-    image: postgres:18-alpine
-    restart: unless-stopped
-    mem_limit: 768m
-    cpus: "1.0"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-sarh}
-    volumes:
-      # PG 18+ images expect the volume at /var/lib/postgresql (not .../data)
-      - postgres_data:/var/lib/postgresql
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - sarh_internal
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    mem_limit: 384m
-    cpus: "0.50"
-    # Cap memory so noeviction is meaningful for BullMQ/session keys on a small VPS.
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 3s
-      retries: 10
-    networks:
-      - sarh_internal
-
   api:
     build:
       context: ./backend-nest
@@ -58,21 +39,14 @@ services:
     mem_limit: 768m
     cpus: "1.0"
     env_file:
-      - .env.production
+      - .env.app
     environment:
-      NODE_ENV: production
+      <<: *backend-env
       SERVICE_MODE: api
       PORT: '3001'
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
-      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
-      REDIS_HOST: redis
-      REDIS_PORT: '6379'
-      REDIS_ENABLED: 'true'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      # Existing docker-entrypoint.sh flag. Two-server default: never migrate on
+      # boot; schema changes are applied manually (scripts/app-server/migrate.sh).
+      SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-true}
     ports:
       - '127.0.0.1:3001:3001'
     networks:
@@ -96,20 +70,11 @@ services:
     mem_limit: 512m
     cpus: "0.75"
     env_file:
-      - .env.production
+      - .env.app
     environment:
-      NODE_ENV: production
+      <<: *backend-env
       SERVICE_MODE: worker
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
-      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
-      REDIS_HOST: redis
-      REDIS_PORT: '6379'
-      REDIS_ENABLED: 'true'
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       api:
         condition: service_healthy
     networks:
@@ -134,23 +99,14 @@ services:
     mem_limit: 384m
     cpus: "0.50"
     env_file:
-      - .env.production
+      - .env.app
     environment:
-      NODE_ENV: production
+      <<: *backend-env
       SERVICE_MODE: socket
       PORT: '3002'
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
-      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarh}
-      REDIS_HOST: redis
-      REDIS_PORT: '6379'
-      REDIS_ENABLED: 'true'
       SOCKET_PORT: '3002'
       SOCKET_HTTP_PORT: '3002'
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       api:
         condition: service_healthy
     ports:
@@ -188,8 +144,6 @@ services:
       PORT: '3000'
       HOSTNAME: 0.0.0.0
       # Must match API JWT_SECRET — middleware verifies admin_token cookies.
-      # Without this, every /admin/* nav redirects to /admin/login, then login
-      # restores localStorage and bounces back to /admin (stuck on home).
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
     depends_on:
       api:
@@ -229,6 +183,7 @@ services:
       retries: 5
       start_period: 20s
 
+  # HTTPS: add -f docker-compose.prod.ssl.yml (overrides nginx ports/volumes only).
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -247,19 +202,11 @@ services:
       - ./nginx/admin-location.conf:/etc/nginx/includes/admin-location.conf:ro
       - ./nginx/web-location.conf:/etc/nginx/includes/web-location.conf:ro
       - ./nginx/payment-bridge.conf:/etc/nginx/includes/payment-bridge.conf:ro
-      # Host path shared with certbot (scripts/hostinger/06-setup-ssl.sh)
       - /var/www/certbot:/var/www/certbot:ro
     networks:
       - sarh_internal
 
-# Single shared bridge for api/worker/socket/nginx/postgres/redis.
-# Explicit `name` keeps the Docker network id stable across compose recreates
-# (avoids project-prefixed drift like sarh_sarh_internal vs sarh_default).
 networks:
   sarh_internal:
     name: sarh_internal
     driver: bridge
-
-volumes:
-  postgres_data:
-  redis_data:

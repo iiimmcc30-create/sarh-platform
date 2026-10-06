@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 # Validate production env without printing secret values.
+#
+# ENV_PROFILE selects the file layout (default: production = single-server stack):
+#   production  /opt/sarh/.env.production  (docker-compose.prod.yml)
+#   app         /opt/sarh/.env.app         (docker-compose.app.yml — two-server app server)
+#   data        /opt/sarh/.env.data        (docker-compose.data.yml — two-server data server)
 set -euo pipefail
 
 ROOT="${SARH_ROOT:-/opt/sarh}"
-ENV_FILE="${ENV_FILE:-$ROOT/.env.production}"
+ENV_PROFILE="${ENV_PROFILE:-production}"
+case "$ENV_PROFILE" in
+  production) ENV_FILE="${ENV_FILE:-$ROOT/.env.production}" ;;
+  app) ENV_FILE="${ENV_FILE:-$ROOT/.env.app}" ;;
+  data) ENV_FILE="${ENV_FILE:-$ROOT/.env.data}" ;;
+  *) echo "ENV_PROFILE must be production, app or data"; exit 1 ;;
+esac
 
 mask_status() {
   local key="$1"
@@ -36,7 +47,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$ENV_FILE"
 
 duplicate_keys=()
-for k in POSTGRES_PASSWORD POSTGRES_USER POSTGRES_DB DATABASE_URL DIRECT_URL JWT_SECRET JWT_REFRESH_SECRET; do
+for k in POSTGRES_PASSWORD POSTGRES_USER POSTGRES_DB DATABASE_URL DIRECT_URL JWT_SECRET JWT_REFRESH_SECRET DATA_SERVER_PRIVATE_IP REDIS_PASSWORD; do
   if [[ "${KEY_COUNTS[$k]:-0}" -gt 1 ]]; then
     duplicate_keys+=("$k (${KEY_COUNTS[$k]} lines — Docker Compose uses the last value)")
   fi
@@ -63,8 +74,48 @@ check_required() {
   fi
 }
 
+# ── Two-server helpers (app/data profiles) ──
+check_private_ip() {
+  local key="$1" val
+  val="$(get "$key")"
+  if [[ -z "${val// /}" || "$val" =~ ^[A-Z_]+$ ]]; then
+    echo "${key}=MISSING"; missing+=("$key")
+  elif [[ "$val" == 0.0.0.0 || "$val" == 127.* ]]; then
+    echo "${key}=INVALID (must be the private/tunnel IP, never 0.0.0.0/loopback)"; missing+=("$key")
+  else
+    echo "${key}=${val}"; present+=("$key")
+  fi
+}
+# Compose embeds these verbatim in DATABASE_URL — only RFC 3986 unreserved chars are safe.
+check_url_safe() {
+  local key="$1" val
+  val="$(get "$key")"
+  if [[ -n "$val" && ! "$val" =~ ^([A-Za-z0-9._~-]|%[0-9A-Fa-f]{2})+$ ]]; then
+    echo "${key}=NOT_URL_SAFE (use [A-Za-z0-9._~-] or percent-encode it)"; missing+=("${key}_URL_SAFE")
+  fi
+}
+
+if [[ "$ENV_PROFILE" == data ]]; then
+  echo "=== DATA SERVER (docker-compose.data.yml) ==="
+  check_private_ip DATA_SERVER_PRIVATE_IP
+  check_private_ip APP_SERVER_PRIVATE_IP
+  for k in POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB; do
+    check_required "$k" 1
+  done
+  check_required REDIS_PASSWORD 16
+  for k in POSTGRES_VOLUME_NAME REDIS_VOLUME_NAME BACKUP_DIR RETENTION_DAYS BACKUP_MIN_KEEP; do
+    v="$(get "$k")"; echo "${k}=${v:-default}"
+  done
+fi
+
+if [[ "$ENV_PROFILE" != data ]]; then
 echo "=== CRITICAL ==="
-for k in POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL DIRECT_URL NODE_ENV PORT JWT_SECRET JWT_REFRESH_SECRET APP_URL; do
+if [[ "$ENV_PROFILE" == app ]]; then
+  critical_keys=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATA_SERVER_PRIVATE_IP REDIS_PASSWORD NODE_ENV PORT JWT_SECRET JWT_REFRESH_SECRET APP_URL)
+else
+  critical_keys=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL DIRECT_URL NODE_ENV PORT JWT_SECRET JWT_REFRESH_SECRET APP_URL)
+fi
+for k in "${critical_keys[@]}"; do
   min=1
   [[ "$k" == JWT_* ]] && min=32
   check_required "$k" "$min"
@@ -77,15 +128,39 @@ fi
 
 echo ""
 echo "=== DATABASE ==="
-for k in DATABASE_URL DIRECT_URL POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB; do
-  check_required "$k" 1
-done
+if [[ "$ENV_PROFILE" == app ]]; then
+  # docker-compose.app.yml builds DATABASE_URL/DIRECT_URL from these.
+  check_private_ip DATA_SERVER_PRIVATE_IP
+  for k in POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB; do
+    check_required "$k" 1
+  done
+  check_url_safe POSTGRES_USER
+  check_url_safe POSTGRES_PASSWORD
+  check_url_safe POSTGRES_DB
+  if [[ "$(get SKIP_MIGRATIONS)" == false ]]; then
+    echo "SKIP_MIGRATIONS=false (WARNING: API will run prisma migrate deploy on every start)"
+  else
+    echo "SKIP_MIGRATIONS=true (manual: scripts/app-server/migrate.sh)"
+  fi
+else
+  for k in DATABASE_URL DIRECT_URL POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB; do
+    check_required "$k" 1
+  done
+fi
 
 echo ""
 echo "=== REDIS ==="
-for k in REDIS_ENABLED REDIS_HOST REDIS_PORT; do
-  check_required "$k" 1
-done
+if [[ "$ENV_PROFILE" == app ]]; then
+  # REDIS_HOST/PORT/URL are set by docker-compose.app.yml; only the password is needed here.
+  check_required REDIS_PASSWORD 16
+  if [[ -n "$(get REDIS_URL)" ]]; then
+    echo "REDIS_URL=IGNORED (docker-compose.app.yml forces REDIS_URL empty; remove it to avoid confusion)"
+  fi
+else
+  for k in REDIS_ENABLED REDIS_HOST REDIS_PORT; do
+    check_required "$k" 1
+  done
+fi
 
 echo ""
 echo "=== AUTH ==="
@@ -159,6 +234,8 @@ done
 for k in SENTRY_DSN OPENAI_API_KEY AGORA_APP_ID AGORA_APP_CERTIFICATE EXPO_ACCESS_TOKEN ADMIN_EMAIL ADMIN_PASSWORD; do
   mask_status "$k" "$(get "$k")" 1
 done
+
+fi # ENV_PROFILE != data
 
 # De-dupe missing
 if [[ ${#missing[@]} -gt 0 ]]; then

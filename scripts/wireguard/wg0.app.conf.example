@@ -1,0 +1,11 @@
+# /etc/wireguard/wg0.conf on the APP server (template — prefer setup-wireguard.sh).
+[Interface]
+Address = APP_SERVER_PRIVATE_IP/24
+PostUp = wg set %i private-key /etc/wireguard/wg0.key
+
+[Peer]
+# Data server
+PublicKey = DATA_SERVER_WG_PUBLIC_KEY
+Endpoint = DATA_SERVER_PUBLIC_IP:51820
+AllowedIPs = DATA_SERVER_PRIVATE_IP/32
+PersistentKeepalive = 25
