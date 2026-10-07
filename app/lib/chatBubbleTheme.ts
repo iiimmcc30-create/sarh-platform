@@ -111,6 +111,16 @@ export const chatBubbleColors = {
   onAccent: sarh.color.fab,
   track: sarh.color.lightBorder,
   danger: sarh.color.danger,
+  /**
+   * Composer send / mic, media-preview send and offer «قبول»: the Light primary
+   * (brand black, white icon). Disabled keeps the same look in Light (unchanged).
+   */
+  actionBg: sarh.color.lightAction,
+  actionFg: sarh.color.fab,
+  actionDisabledBg: sarh.color.lightAction,
+  actionDisabledFg: sarh.color.fab,
+  /** Offer card amount. */
+  offerAmount: sarh.color.lightAction,
 } as const;
 
 export type ChatBubbleColors = { readonly [K in keyof typeof chatBubbleColors]: string };
@@ -138,6 +148,13 @@ export const chatBubbleColorsDark: ChatBubbleColors = {
   onAccent: sarh.color.fabIcon,
   track: sarh.color.borderStrong,
   danger: sarh.color.danger,
+  /** Dark primary CTA: white control, black icon/label (matches the white sent bubble). */
+  actionBg: sarh.color.primaryActionButton,
+  actionFg: sarh.color.primaryActionText,
+  /** DS dark disabled: low-contrast fill, never a loud light grey. */
+  actionDisabledBg: sarh.color.darkDisabledFill,
+  actionDisabledFg: sarh.color.darkDisabledText,
+  offerAmount: sarh.color.primaryActionButton,
 };
 
 /** Palette for the active scheme (Light keeps the exact previous values). */

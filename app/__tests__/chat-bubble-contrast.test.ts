@@ -122,3 +122,54 @@ describe('chat thread in Dark Mode (black background)', () => {
     expect(voice).toContain('isMe ? palette.sentAccent : palette.accent');
   });
 });
+
+describe('chat controls: send / mic / offer (Light black, Dark white)', () => {
+  const l = chatBubbleColors;
+  const d = chatBubbleColorsDark;
+
+  it('keeps Light Mode controls exactly black with a white icon', () => {
+    expect(l.actionBg).toBe(sarh.color.lightAction);
+    expect(l.actionBg).toBe('#020202');
+    expect(l.actionFg).toBe('#FFFFFF');
+    expect(l.offerAmount).toBe('#020202');
+    // No new disabled look in Light: identical to the enabled control.
+    expect(l.actionDisabledBg).toBe(l.actionBg);
+    expect(l.actionDisabledFg).toBe(l.actionFg);
+  });
+
+  it('uses the dark primary CTA in Dark Mode: white control, black icon', () => {
+    expect(d.actionBg).toBe(sarh.color.primaryActionButton);
+    expect(d.actionBg).toBe('#FFFFFF');
+    expect(d.actionFg).toBe(sarh.color.primaryActionText);
+    expect(d.actionFg).toBe('#020202');
+    expect(d.offerAmount).toBe('#FFFFFF');
+    expect(d.actionBg).toBe(d.sentBg);
+    // No green left on the dark chat controls.
+    for (const c of [d.actionBg, d.actionFg, d.offerAmount]) {
+      expect(c).not.toBe(sarh.color.action);
+    }
+  });
+
+  it('meets AA for dark controls and still looks disabled when disabled', () => {
+    expect(contrastRatio(d.actionFg, d.actionBg)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(contrastRatio(d.offerAmount, sarh.color.surface)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(contrastRatio(d.actionBg, sarh.color.surface)).toBeGreaterThanOrEqual(AA_NON_TEXT);
+    expect(d.actionDisabledBg).toBe(sarh.color.darkDisabledFill);
+    expect(d.actionDisabledFg).toBe(sarh.color.darkDisabledText);
+    expect(contrastRatio(d.actionDisabledFg, d.actionDisabledBg)).toBeLessThan(
+      contrastRatio(d.actionFg, d.actionBg),
+    );
+  });
+
+  it('chat screen wires every control to the palette (no hard-coded white icons)', () => {
+    const chat = readFileSync(path.join(__dirname, '..', 'app', 'chat.tsx'), 'utf8');
+    expect(chat).toContain('backgroundColor: palette.actionBg');
+    expect(chat).toContain('backgroundColor: palette.actionDisabledBg');
+    expect(chat).toContain('offerAcceptText: { color: palette.actionFg }');
+    expect(chat).toContain('color: palette.offerAmount');
+    expect(chat).toContain('<AppIcon name="mic" size={18} color={palette.actionFg} />');
+    expect(chat).toContain('!canSend && styles.sendBtnDisabled');
+    expect(chat).not.toMatch(/color=["']#fff["']/i);
+    expect(chat).not.toContain('backgroundColor: colors.emerald');
+  });
+});

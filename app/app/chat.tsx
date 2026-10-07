@@ -363,6 +363,7 @@ function ChatComposer({
   onInputFocus,
   styles,
   colors,
+  palette,
   composerTextStyle,
   bottomPad,
   voice,
@@ -375,6 +376,8 @@ function ChatComposer({
   onInputFocus: () => void;
   styles: ChatScreenStyles;
   colors: ThemeColors;
+  /** Send / mic colours: black in Light, white with black icon in Dark. */
+  palette: ChatBubbleColors;
   composerTextStyle: object;
   bottomPad: number;
   voice: VoiceComposerProps;
@@ -417,16 +420,16 @@ function ChatComposer({
           </AppText>
         </View>
         <Pressable
-          style={styles.sendBtn}
+          style={[styles.sendBtn, voice.status === 'stopping' && styles.sendBtnDisabled]}
           onPress={voice.onSend}
           disabled={voice.status === 'stopping'}
           accessibilityRole="button"
           accessibilityLabel="إرسال الرسالة الصوتية"
         >
           {voice.status === 'stopping' ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={palette.actionDisabledFg} />
           ) : (
-            <AppIcon name="paper-plane" size={18} color="#fff" />
+            <AppIcon name="paper-plane" size={18} color={palette.actionFg} />
           )}
         </Pressable>
       </Row>
@@ -470,7 +473,7 @@ function ChatComposer({
 
       {hasText || sending ? (
         <Pressable
-          style={styles.sendBtn}
+          style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
           onPress={() => {
             const text = inputText.trim();
             if (!text || sending) return;
@@ -483,14 +486,22 @@ function ChatComposer({
           accessibilityState={{ disabled: !canSend, busy: sending }}
         >
           {sending ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={palette.actionDisabledFg} />
           ) : (
-            <AppIcon name="paper-plane" size={18} color="#fff" />
+            <AppIcon
+              name="paper-plane"
+              size={18}
+              color={canSend ? palette.actionFg : palette.actionDisabledFg}
+            />
           )}
         </Pressable>
       ) : (
         <Pressable
-          style={[styles.sendBtn, styles.sendBtnIdle]}
+          style={[
+            styles.sendBtn,
+            styles.sendBtnIdle,
+            voice.status === 'starting' && styles.sendBtnDisabled,
+          ]}
           onPress={voice.onStart}
           disabled={voice.status === 'starting'}
           accessibilityRole="button"
@@ -499,9 +510,9 @@ function ChatComposer({
           testID="chat-mic-button"
         >
           {voice.status === 'starting' ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={palette.actionDisabledFg} />
           ) : (
-            <AppIcon name="mic" size={18} color="#fff" />
+            <AppIcon name="mic" size={18} color={palette.actionFg} />
           )}
         </Pressable>
       )}
@@ -1278,7 +1289,7 @@ export default function ChatScreen() {
               accessibilityRole="button"
               accessibilityLabel="إرسال المرفق"
             >
-              <AppIcon name="paper-plane" size={18} color="#fff" />
+              <AppIcon name="paper-plane" size={18} color={palette.actionFg} />
             </Pressable>
           </View>
         ) : null}
@@ -1342,6 +1353,7 @@ export default function ChatScreen() {
           onInputFocus={() => setAttachOpen(false)}
           styles={styles}
           colors={colors}
+          palette={palette}
           composerTextStyle={composerTextStyle}
           bottomPad={
             keyboardVisible
@@ -1519,10 +1531,14 @@ function createStyles(colors: ThemeColors, palette: ChatBubbleColors) {
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.electricBright,
+    backgroundColor: palette.actionBg,
   },
   sendBtnIdle: {
-    backgroundColor: colors.emerald,
+    backgroundColor: palette.actionBg,
+  },
+  /** Dark: low-contrast DS disabled fill. Light: identical to the action (unchanged). */
+  sendBtnDisabled: {
+    backgroundColor: palette.actionDisabledBg,
   },
   recordingBar: {
     alignItems: 'center',
@@ -1664,7 +1680,7 @@ function createMessageStyles(colors: ThemeColors, palette: ChatBubbleColors) {
     borderColor: `${colors.electric}59`,
   },
   offerAmount: {
-    color: colors.electricBright,
+    color: palette.offerAmount,
   },
   offerStatus: {
     marginBottom: 4,
@@ -1679,9 +1695,9 @@ function createMessageStyles(colors: ThemeColors, palette: ChatBubbleColors) {
     alignItems: 'center',
     paddingVertical: 10,
     borderRadius: radius.md,
-    backgroundColor: colors.electricBright,
+    backgroundColor: palette.actionBg,
   },
-  offerAcceptText: { color: '#fff' },
+  offerAcceptText: { color: palette.actionFg },
   offerReject: {
     flex: 1,
     alignItems: 'center',
