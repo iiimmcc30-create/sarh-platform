@@ -330,6 +330,14 @@ export function formatCouncilCount(n: number): string {
   return Math.max(0, Math.floor(n || 0)).toLocaleString('en-US');
 }
 
+/**
+ * "@username" for RTL screens. The leading LRM keeps the "@" before the Latin handle
+ * on every platform (Android ignores `writingDirection`), so it never renders "user@".
+ */
+export function councilHandle(username: string): string {
+  return `\u200E@${username}`;
+}
+
 export function councilListenersLabel(n: number): string {
   return `${formatCouncilCount(n)} مستمع`;
 }

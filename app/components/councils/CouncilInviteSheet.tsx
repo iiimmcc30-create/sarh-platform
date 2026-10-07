@@ -10,6 +10,7 @@ import { showToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/services/media';
 import {
   councilErrorMessage,
+  councilHandle,
   councilInviteUrl,
   councilUserName,
   inviteToCouncil,
@@ -130,8 +131,8 @@ export function CouncilInviteSheet({
               <AppText variant="label" color="textPrimary" numberOfLines={1}>
                 {councilUserName(u)}
               </AppText>
-              <AppText variant="caption" color="textMuted" numberOfLines={1}>
-                @{u.username}
+              <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.handle}>
+                {councilHandle(u.username)}
               </AppText>
             </View>
             <SarhButton
@@ -160,5 +161,6 @@ function createStyles(colors: ThemeColors) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSoft,
     },
+    handle: { writingDirection: 'ltr', alignSelf: 'flex-start' },
   });
 }

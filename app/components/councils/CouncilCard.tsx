@@ -15,6 +15,9 @@ import {
 
 type Props = { council: CouncilCardData; onPress: (c: CouncilCardData) => void };
 
+/** How much neighbouring avatars in the speaker stack overlap. */
+const AVATAR_OVERLAP = 10;
+
 export function CouncilCard({ council, onPress }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
@@ -53,8 +56,8 @@ export function CouncilCard({ council, onPress }: Props) {
       ) : null}
       <Row gap="sm" align="center">
         <View style={styles.stack}>
-          {council.speakersPreview.slice(0, 4).map((u, i) => (
-            <View key={u.id} style={[styles.stackItem, i > 0 && styles.stackOverlap]}>
+          {council.speakersPreview.slice(0, 4).map((u) => (
+            <View key={u.id} style={styles.stackItem}>
               <SarhAvatar uri={u.avatar ? resolveMediaUrl(u.avatar) : null} name={councilUserName(u)} size="sm" />
             </View>
           ))}
@@ -79,8 +82,16 @@ function createStyles(colors: ThemeColors) {
     },
     pressed: { opacity: 0.85 },
     liveDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.success },
-    stack: { flexDirection: 'row' },
-    stackItem: { borderRadius: radius.pill, borderWidth: 2, borderColor: colors.bgSurface },
-    stackOverlap: { marginStart: -10 },
+    /**
+     * Overlap is symmetric (−AVATAR_OVERLAP/2 on both sides, padded back on the stack) so the
+     * stack's box always matches what is painted in LTR and RTL and never runs into the label.
+     */
+    stack: { flexDirection: 'row', paddingHorizontal: AVATAR_OVERLAP / 2, marginEnd: spacing.xs },
+    stackItem: {
+      borderRadius: radius.pill,
+      borderWidth: 2,
+      borderColor: colors.bgSurface,
+      marginHorizontal: -AVATAR_OVERLAP / 2,
+    },
   });
 }

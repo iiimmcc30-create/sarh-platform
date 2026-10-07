@@ -33,6 +33,6 @@ export function SpeakerGrid({ speakers, speakingUserIds, myUserId, onSpeakerPres
 }
 
 const styles = StyleSheet.create({
-  grid: { gap: spacing.lg },
+  grid: { gap: spacing.xl },
   row: { flexDirection: 'row', gap: spacing.sm },
 });

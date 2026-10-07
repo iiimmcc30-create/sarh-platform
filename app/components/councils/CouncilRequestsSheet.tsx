@@ -4,7 +4,7 @@ import { AppText, SarhAvatar, SarhButton } from '@/design-system/components';
 import { Row } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { resolveMediaUrl } from '@/services/media';
-import { COUNCIL_FULL_TEXT, councilUserName, type CouncilRequest } from '@/services/councils';
+import { COUNCIL_FULL_TEXT, councilHandle, councilUserName, type CouncilRequest } from '@/services/councils';
 import { CouncilSheet } from './CouncilSheet';
 
 type Props = {
@@ -41,8 +41,8 @@ export function CouncilRequestsSheet({ visible, requests, isFull, busyId, onDeci
                 <AppText variant="label" color="textPrimary" numberOfLines={1} onPress={onMore ? () => onMore(r) : undefined}>
                   {name}
                 </AppText>
-                <AppText variant="caption" color="textMuted" numberOfLines={1}>
-                  @{r.user.username}
+                <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.handle} testID="council-request-handle">
+                  {councilHandle(r.user.username)}
                 </AppText>
               </View>
               <SarhButton
@@ -71,5 +71,7 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.bgSurface,
     },
     empty: { paddingVertical: spacing.xl },
+    /** Latin handle reads LTR inside the RTL row ("@user", not "user@"); stays at the start edge. */
+    handle: { writingDirection: 'ltr', alignSelf: 'flex-start' },
   });
 }

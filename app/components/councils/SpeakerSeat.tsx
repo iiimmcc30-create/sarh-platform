@@ -8,7 +8,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { resolveMediaUrl } from '@/services/media';
 import { councilUserName, type CouncilSpeaker } from '@/services/councils';
 
-const AVATAR = 56;
+/** Seat avatar — sized so four seats fill a phone row (≈ 83pt each at 390pt wide). */
+const AVATAR = 64;
 
 type Props = {
   speaker: CouncilSpeaker | null;

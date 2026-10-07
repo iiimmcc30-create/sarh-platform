@@ -1,6 +1,6 @@
 // «المجالس» — create a council, or edit its settings (owner) when `id` is passed.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch, View, type SwitchProps } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -33,6 +33,14 @@ const VISIBILITY: { value: CouncilVisibility; label: string; hint: string }[] = 
   { value: 'PUBLIC', label: 'عام', hint: 'يظهر في قائمة المجالس للجميع' },
   { value: 'PRIVATE', label: 'خاص', hint: 'بالدعوة أو الرابط فقط' },
 ];
+
+/**
+ * Native paints both states with `thumbColor`; react-native-web paints the "on" thumb with
+ * `activeThumbColor` (teal by default) instead, so set it explicitly on web only — native is unchanged.
+ */
+function webActiveThumbProps(onThumb: string): Partial<SwitchProps> {
+  return Platform.OS === 'web' ? ({ activeThumbColor: onThumb } as Partial<SwitchProps>) : {};
+}
 
 type ModKey = 'modCanManageRequests' | 'modCanMute' | 'modCanRemove' | 'modCanBan';
 const MOD_TOGGLES: { key: ModKey; label: string }[] = [
@@ -230,7 +238,15 @@ export default function CouncilFormScreen() {
                   returnKeyType="done"
                 />
               </View>
-              <SarhButton title="إضافة" size="sm" shape="pill" variant="secondary" disabled={!newRule.trim()} onPress={addRule} />
+              {/* Primary pill: its disabled state is the standard grey pill, readable in light and dark. */}
+              <SarhButton
+                title="إضافة"
+                size="sm"
+                shape="pill"
+                disabled={!newRule.trim()}
+                onPress={addRule}
+                testID="council-add-rule"
+              />
             </Row>
           ) : null}
         </Stack>
@@ -249,6 +265,7 @@ export default function CouncilFormScreen() {
                 onValueChange={(v) => setMods((m) => ({ ...m, [t.key]: v }))}
                 trackColor={{ false: colors.bgDeep, true: colors.electric }}
                 thumbColor={mods[t.key] ? colors.onElectric : '#fff'}
+                {...webActiveThumbProps(colors.onElectric)}
               />
             </Row>
           ))}
@@ -300,11 +317,14 @@ function createStyles(colors: ThemeColors) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSoft,
     },
+    /** Same card as `ruleRow` so the rows read as cards in light (white page) and dark alike. */
     toggleRow: {
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
       borderRadius: radius.lg,
       backgroundColor: colors.bgSurface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
     },
   });
 }

@@ -37,6 +37,7 @@ import {
   CouncilApiError,
   cancelSpeakRequest,
   councilErrorMessage,
+  councilHandle,
   councilListenersLabel,
   councilMemberAction,
   councilMemberMenu,
@@ -446,7 +447,7 @@ export default function CouncilRoomScreen() {
         ...menu.map((m) => ({ key: m.key, label: m.label, icon: m.icon, destructive: m.destructive })),
         { key: 'cancel', label: 'إلغاء', cancel: true },
       ];
-      const key = await presentActionSheet({ title: name, message: `@${target.user.username}`, items });
+      const key = await presentActionSheet({ title: name, message: councilHandle(target.user.username), items });
       if (!key || key === 'cancel') return;
       if (key === 'profile') {
         openUserProfile(router, target.userId);
@@ -610,7 +611,7 @@ export default function CouncilRoomScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       {header}
-      <ScreenBody gap="xl" padTop="sm" bottomInset="action">
+      <ScreenBody gap="xl" padTop="sm" bottomInset="action" contentContainerStyle={styles.bodyContent}>
         <Stack gap="sm">
           <Row gap="sm" align="center">
             <View style={styles.liveDot} />
@@ -662,24 +663,27 @@ export default function CouncilRoomScreen() {
           </Row>
         ) : null}
 
-        <SpeakerGrid
-          speakers={state.speakers}
-          speakingUserIds={speakingUserIds}
-          myUserId={me.userId}
-          onSpeakerPress={(s) => void openMemberMenu(s, true)}
-        />
+        {/* Stage block takes the free height and centres the 4 × 3 grid + listeners pill in it. */}
+        <View style={styles.stage} testID="council-stage">
+          <SpeakerGrid
+            speakers={state.speakers}
+            speakingUserIds={speakingUserIds}
+            myUserId={me.userId}
+            onSpeakerPress={(s) => void openMemberMenu(s, true)}
+          />
 
-        <Row gap="sm" align="center" justify="center">
-          <AppIcon name="volume-high" size={14} color={colors.textMuted} />
-          <AppText variant="caption" color="textMuted">
-            {councilListenersLabel(state.listenerCount)}
-          </AppText>
-          {state.isFull ? (
-            <AppText variant="caption" color="textMuted">
-              · {COUNCIL_FULL_TEXT}
+          <Row gap="sm" align="center" justify="center" style={styles.listenersPill}>
+            <AppIcon name="volume-high" size={16} color={colors.textSecondary} />
+            <AppText variant="label" color="textSecondary">
+              {councilListenersLabel(state.listenerCount)}
             </AppText>
-          ) : null}
-        </Row>
+            {state.isFull ? (
+              <AppText variant="caption" color="textMuted">
+                · {COUNCIL_FULL_TEXT}
+              </AppText>
+            ) : null}
+          </Row>
+        </View>
       </ScreenBody>
 
       <View style={styles.bar}>
@@ -809,6 +813,17 @@ export default function CouncilRoomScreen() {
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    bodyContent: { flexGrow: 1 },
+    stage: { flexGrow: 1, justifyContent: 'center', gap: spacing.xxl, paddingBottom: spacing.xl },
+    listenersPill: {
+      alignSelf: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.pill,
+      backgroundColor: colors.bgSurface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
     liveDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.success },
     notice: {
       padding: spacing.md,
