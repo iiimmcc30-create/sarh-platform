@@ -176,7 +176,9 @@ describe('Councils: RTC engine guard', () => {
 describe('Councils: gating, wiring and design constraints', () => {
   it('uses its own flag; live gating is untouched', () => {
     const lib = src('lib/councilsAgora.ts');
-    expect(lib).toContain("process.env.EXPO_PUBLIC_COUNCILS_ENABLED === 'true'");
+    // Default-on: dev-client bundles from the local Metro scripts don't get eas.json env.
+    expect(lib).toContain("process.env.EXPO_PUBLIC_COUNCILS_ENABLED !== 'false'");
+    expect(lib).not.toContain("process.env.EXPO_PUBLIC_COUNCILS_ENABLED === 'true'");
     expect(lib).not.toContain('process.env.EXPO_PUBLIC_AGORA_ENABLED');
     expect(src('lib/councilsAgora.web.ts')).toContain('return null');
     expect(src('lib/agora.ts')).toContain("process.env.EXPO_PUBLIC_AGORA_ENABLED !== 'true'");

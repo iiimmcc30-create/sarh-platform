@@ -7,8 +7,15 @@ type AgoraModule = typeof import('react-native-agora');
 
 let cached: AgoraModule | null | undefined;
 
+/**
+ * On unless explicitly disabled with `EXPO_PUBLIC_COUNCILS_ENABLED=false`.
+ * The flag used to be opt-in (`=== 'true'`), but only EAS cloud builds set it
+ * (eas.json); dev-client bundles served by the local Metro scripts
+ * (`npm start` / `npm run android`) never had it, so the audio engine was never
+ * loaded there and the mic silently did nothing.
+ */
 export function isCouncilsFeatureEnabled(): boolean {
-  return process.env.EXPO_PUBLIC_COUNCILS_ENABLED === 'true';
+  return process.env.EXPO_PUBLIC_COUNCILS_ENABLED !== 'false';
 }
 
 export function getCouncilAgoraModule(): AgoraModule | null {

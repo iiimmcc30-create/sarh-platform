@@ -156,6 +156,19 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
         await applyCredentials(creds, micMuted);
         return 'connected';
       }
+      // Ask for the mic BEFORE the engine exists: on Android the permission dialog
+      // pauses the activity (AppState background → active), and the room screen's
+      // resume handler calls renew() → applyCredentials(). With no engine yet that
+      // is a no-op instead of a second permission prompt + role switch racing the join.
+      let publisher = creds.role === 'publisher';
+      if (publisher && !(await ensureMicPermission())) {
+        optsRef.current.onMicDenied?.();
+        publisher = false;
+      }
+      if (engineRef.current) {
+        await applyCredentials(creds, micMuted);
+        return 'connected';
+      }
       const engine = agora.createAgoraRtcEngine();
       let state: number | null = null;
       try {
@@ -225,11 +238,6 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
         engine.setDefaultAudioRouteToSpeakerphone(true);
         engine.enableAudioVolumeIndication(400, 3, true);
 
-        let publisher = creds.role === 'publisher';
-        if (publisher && !(await ensureMicPermission())) {
-          optsRef.current.onMicDenied?.();
-          publisher = false;
-        }
         const role = publisher
           ? agora.ClientRoleType.ClientRoleBroadcaster
           : agora.ClientRoleType.ClientRoleAudience;
