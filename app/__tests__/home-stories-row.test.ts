@@ -106,6 +106,6 @@ describe('StoriesBar add slot stays backward compatible', () => {
   it('Home add slot opens the existing story creation screen', () => {
     expect(row).toContain("safePush('/create/story', undefined, router)");
     expect(row).toContain('addLabel={HOME_ADD_STORY_LABEL}');
-    expect(src('app/_layout.tsx')).toContain('<Stack.Screen name="create/story" />');
+    expect(src('app/_layout.tsx')).toContain('<Stack.Screen name="create/story"');
   });
 });

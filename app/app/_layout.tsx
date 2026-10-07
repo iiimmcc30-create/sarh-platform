@@ -24,8 +24,8 @@ import { ActionSheetHost } from '@/components/ui/ActionSheetHost';
 import { ToastHost } from '@/components/ui/ToastHost';
 import { SarhPatternBackground } from '@/components/ui/SarhPatternBackground';
 import { NavigationPathTracker } from '@/components/navigation/NavigationPathTracker';
-import { fadeScaleScreenLayout } from '@/components/navigation/FadeScaleAppear';
-import { fadeScaleStackScreenOptions } from '@/lib/screenTransition';
+import { patternScreenLayout } from '@/components/navigation/ScreenPage';
+import { composerModalOptions, iosStackScreenOptions } from '@/lib/screenTransition';
 import { setupRtl, getRtlDirection, setupRtlFromStorage } from '@/lib/rtl';
 import { resolveBootNavigation } from '@/lib/bootRouting';
 import { SITE_NAME } from '@/lib/siteSeo';
@@ -81,11 +81,14 @@ function RootNavigator() {
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
-        screenLayout={fadeScaleScreenLayout}
-        screenOptions={fadeScaleStackScreenOptions({
+        // Modern iOS navigation on both platforms: native push + swipe-back
+        // (lib/screenTransition). Each pushed screen is an opaque patterned page.
+        screenLayout={patternScreenLayout}
+        screenOptions={iosStackScreenOptions({
           headerShown: false,
           freezeOnBlur: true,
           contentStyle: {
+            backgroundColor: themeColors.screenRoot,
             // RTL policy: root direction from I18nManager — never force 'ltr' here.
             ...getRtlDirection(),
           },
@@ -144,9 +147,9 @@ function RootNavigator() {
         <Stack.Screen name="fees" />
         <Stack.Screen name="profile/edit" />
         <Stack.Screen name="profile/connections" />
-        <Stack.Screen name="create/listing" />
-        <Stack.Screen name="create/post" />
-        <Stack.Screen name="create/story" />
+        <Stack.Screen name="create/listing" options={composerModalOptions()} />
+        <Stack.Screen name="create/post" options={composerModalOptions()} />
+        <Stack.Screen name="create/story" options={composerModalOptions()} />
         <Stack.Screen name="stories/view" options={{ animation: 'fade', presentation: 'fullScreenModal' }} />
         <Stack.Screen name="info/about" />
         <Stack.Screen name="info/privacy" />
@@ -166,6 +169,7 @@ function RootNavigator() {
             presentation: 'transparentModal',
             animation: 'slide_from_bottom',
             headerShown: false,
+            contentStyle: { backgroundColor: 'transparent', ...getRtlDirection() },
           }}
         />
         <Stack.Screen name="support/faq" />
@@ -179,6 +183,7 @@ function RootNavigator() {
             presentation: 'transparentModal',
             animation: 'slide_from_bottom',
             headerShown: false,
+            contentStyle: { backgroundColor: 'transparent', ...getRtlDirection() },
           }}
         />
         <Stack.Screen name="onboarding/index" options={{ animation: 'fade', presentation: 'card', gestureEnabled: false }} />

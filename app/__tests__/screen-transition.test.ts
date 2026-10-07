@@ -1,11 +1,13 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import {
   FADE_SCALE_BACK_MS,
   FADE_SCALE_FROM,
   FADE_SCALE_OPEN_MS,
-  fadeScaleStackScreenOptions,
-  shouldSkipFadeScale,
+  composerModalOptions,
+  iosPushAnimation,
+  iosStackScreenOptions,
+  screenHasOwnBackground,
 } from '@/lib/screenTransition';
 import { heroFromScale } from '@/lib/mediaOrigin';
 
@@ -15,50 +17,70 @@ function src(rel: string) {
   return readFileSync(path.join(root, rel), 'utf8');
 }
 
-describe('unified fade+scale navigation', () => {
-  it('uses a direction-independent open scale and ~200ms timing', () => {
-    expect(FADE_SCALE_FROM).toBe(0.96);
-    expect(FADE_SCALE_OPEN_MS).toBe(200);
-    expect(FADE_SCALE_BACK_MS).toBeGreaterThanOrEqual(180);
-    expect(FADE_SCALE_BACK_MS).toBeLessThanOrEqual(220);
+describe('modern iOS navigation (native push + swipe-back)', () => {
+  it('uses the native iOS push and an RTL-aware iOS-like slide on Android', () => {
+    expect(iosPushAnimation('ios', true)).toBe('default');
+    expect(iosPushAnimation('ios', false)).toBe('default');
+    expect(iosPushAnimation('android', true)).toBe('ios_from_left');
+    expect(iosPushAnimation('android', false)).toBe('ios_from_right');
   });
 
-  it('does not slide the default stack, including RTL', () => {
+  it('enables the swipe-back gesture as a card push by default', () => {
+    const options = iosStackScreenOptions({ headerShown: false }, 'ios', true);
+    expect(options.animation).toBe('default');
+    expect(options.presentation).toBe('card');
+    expect(options.gestureEnabled).toBe(true);
+    expect(options.gestureDirection).toBe('horizontal');
+    expect(options.headerShown).toBe(false);
+    // Callers can still opt out per screen.
+    expect(iosStackScreenOptions({ gestureEnabled: false }, 'android', true).gestureEnabled).toBe(false);
+  });
+
+  it('presents composers as a full-screen cover sliding up', () => {
+    const o = composerModalOptions();
+    expect(o.presentation).toBe('fullScreenModal');
+    expect(o.animation).toBe('slide_from_bottom');
+    expect(o.gestureEnabled).toBe(false);
     const layout = src('app/_layout.tsx');
-    expect(layout).toContain('fadeScaleScreenLayout');
-    expect(layout).toContain('fadeScaleStackScreenOptions');
-    expect(layout).not.toContain('stackSlideAnimation()');
-    expect(layout).not.toMatch(/animation:\s*stackSlideAnimation/);
-    expect(src('app/profile/edit/_layout.tsx')).not.toContain('slide_from_right');
-    expect(src('app/profile/settings/_layout.tsx')).not.toContain('slide_from_right');
-    expect(src('components/navigation/FadeScaleAppear.tsx')).toContain('transform: [');
-    expect(src('components/navigation/FadeScaleAppear.tsx')).toContain('scale: progress.interpolate');
-    expect(src('components/navigation/FadeScaleAppear.tsx')).not.toContain("slide_from_right");
-    expect(src('components/navigation/FadeScaleAppear.tsx')).toContain('FADE_SCALE_FROM');
+    for (const name of ['create/post', 'create/listing', 'create/story']) {
+      expect(layout).toContain(`<Stack.Screen name="${name}" options={composerModalOptions()} />`);
+    }
+  });
+
+  it('wires every stack to the native push (no JS fade/scale overlay)', () => {
+    for (const file of ['app/_layout.tsx', 'app/profile/edit/_layout.tsx', 'app/profile/settings/_layout.tsx']) {
+      const layout = src(file);
+      expect(layout).toContain('screenLayout={patternScreenLayout}');
+      expect(layout).toContain('iosStackScreenOptions(');
+      expect(layout).not.toContain('fadeScale');
+      expect(layout).not.toContain("presentation: 'transparentModal',\n          headerShown: false");
+    }
+    expect(existsSync(path.join(root, 'components/navigation/FadeScaleAppear.tsx'))).toBe(false);
+    expect(src('app/_layout.tsx')).toContain('backgroundColor: themeColors.screenRoot');
   });
 
   it('keeps tabs, sheets, auth, and stories on their own presentation', () => {
-    expect(shouldSkipFadeScale('(tabs)')).toBe(true);
-    expect(shouldSkipFadeScale('sidebar')).toBe(true);
-    expect(shouldSkipFadeScale('payment/checkout')).toBe(true);
-    expect(shouldSkipFadeScale('support/help')).toBe(true);
-    expect(shouldSkipFadeScale('stories/view')).toBe(true);
-    expect(shouldSkipFadeScale('auth/welcome')).toBe(true);
-    expect(shouldSkipFadeScale('listing/[id]')).toBe(false);
-    expect(shouldSkipFadeScale('chat')).toBe(false);
+    expect(screenHasOwnBackground('(tabs)')).toBe(true);
+    expect(screenHasOwnBackground('sidebar')).toBe(true);
+    expect(screenHasOwnBackground('support/help')).toBe(true);
+    expect(screenHasOwnBackground('stories/view')).toBe(true);
+    expect(screenHasOwnBackground('listing/[id]')).toBe(false);
+    expect(screenHasOwnBackground('chat')).toBe(false);
 
     const layout = src('app/_layout.tsx');
     expect(layout).toContain("name=\"(tabs)\"");
     expect(layout).toContain("presentation: 'card'");
     expect(layout).toContain("animation: 'slide_from_bottom'");
     expect(layout).toContain("name=\"stories/view\"");
+    // Transparent JS sheets stay see-through over the previous page.
+    expect(layout.match(/contentStyle: \{ backgroundColor: 'transparent', \.\.\.getRtlDirection\(\) \}/g)?.length).toBe(3);
   });
 
-  it('native stack options disable horizontal animation', () => {
-    const options = fadeScaleStackScreenOptions({ headerShown: false });
-    expect(options.animation).toBe('none');
-    expect(options.presentation).toBe('transparentModal');
-    expect(options.headerShown).toBe(false);
+  it('media viewer keeps its quick fade/scale timing', () => {
+    expect(FADE_SCALE_FROM).toBe(0.96);
+    expect(FADE_SCALE_OPEN_MS).toBe(200);
+    expect(FADE_SCALE_BACK_MS).toBeGreaterThanOrEqual(180);
+    expect(FADE_SCALE_BACK_MS).toBeLessThanOrEqual(220);
   });
 
   it('media viewer expands from the tapped origin instead of sliding', () => {

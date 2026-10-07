@@ -9,7 +9,7 @@ describe('create post composer (X-style)', () => {
     const fab = readFileSync(path.join(root, 'components/feature/CreatePostFab.tsx'), 'utf8');
     const layout = readFileSync(path.join(root, 'app/_layout.tsx'), 'utf8');
     expect(fab).toContain("router.push('/create/post')");
-    expect(layout).toContain('<Stack.Screen name="create/post" />');
+    expect(layout).toContain('<Stack.Screen name="create/post"');
   });
 
   it('has a close X at the start and a pill post button at the end of the header', () => {

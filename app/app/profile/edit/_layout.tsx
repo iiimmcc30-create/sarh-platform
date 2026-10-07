@@ -1,12 +1,12 @@
 import { Stack } from 'expo-router';
-import { fadeScaleScreenLayout } from '@/components/navigation/FadeScaleAppear';
-import { fadeScaleStackScreenOptions } from '@/lib/screenTransition';
+import { patternScreenLayout } from '@/components/navigation/ScreenPage';
+import { iosStackScreenOptions } from '@/lib/screenTransition';
 
 export default function EditProfileLayout() {
   return (
     <Stack
-      screenLayout={fadeScaleScreenLayout}
-      screenOptions={fadeScaleStackScreenOptions({
+      screenLayout={patternScreenLayout}
+      screenOptions={iosStackScreenOptions({
         headerShown: false,
       })}
     />
