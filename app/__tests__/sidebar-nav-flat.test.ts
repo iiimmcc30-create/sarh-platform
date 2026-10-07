@@ -86,9 +86,9 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(infoAt).toBeGreaterThan(promoteAt);
     expect(settingsAt).toBeGreaterThan(infoAt);
     expect(helpAt).toBeGreaterThan(settingsAt);
-    // Section text one step smaller: secondary bodySmall (14) → caption (12), primary 20 → 18.
-    expect(panel).toContain('variant="caption"');
-    expect(panel).not.toContain('variant="bodySmall"');
+    // Secondary sections (مركز المعلومات، الإعدادات، المساعدة) bodySmall (14), up from caption (12); primary 18.
+    expect(panel).toContain('<DsText variant="bodySmall" color="textSecondary" style={styles.secondaryLabel}>');
+    expect(panel).not.toContain('variant="caption" color="textSecondary" style={styles.secondaryLabel}');
     expect(panel).toMatch(/rowLabel: \{\s*\.\.\.typography\.sectionHeading,\s*fontSize: typography\.cardHeadingLarge\.fontSize,\s*lineHeight: typography\.cardHeadingLarge\.lineHeight,/);
     expect(panel).toContain('color="textSecondary"');
     expect(panel).toContain('size={20}');

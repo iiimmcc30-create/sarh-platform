@@ -142,7 +142,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             accessibilityLabel={item.label}
           >
             <AppIcon name={item.icon} size={20} color={colors.textPrimary} />
-            <DsText variant="caption" color="textSecondary" style={styles.secondaryLabel}>
+            <DsText variant="bodySmall" color="textSecondary" style={styles.secondaryLabel}>
               {item.label}
             </DsText>
           </Pressable>

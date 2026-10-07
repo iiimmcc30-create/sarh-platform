@@ -64,8 +64,8 @@ describe('design-system unification — allowed redesigns only', () => {
     expect(panel).toContain("route: '/profile/settings'");
     expect((panel.match(/SarhDivider/g) ?? []).length).toBeGreaterThanOrEqual(2);
     expect(panel).toContain('secondaryLabel');
-    // Secondary sections one type step smaller (bodySmall → caption).
-    expect(panel).toContain('variant="caption"');
+    // Secondary sections back to bodySmall (14): caption (12) read too small.
+    expect(panel).toContain('variant="bodySmall"');
     expect(panel.indexOf("label: 'مركز المعلومات'")).toBeLessThan(
       panel.indexOf("label: 'الإعدادات والخصوصية'"),
     );
