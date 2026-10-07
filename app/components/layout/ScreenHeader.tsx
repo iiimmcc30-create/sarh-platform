@@ -1,9 +1,9 @@
 // Powered by OnSpace.AI
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { motion } from '@/design-system';
-import { AppText, SarhBackButton } from '@/design-system/components';
+import { AppText, SarhBackButton, SpringPressable } from '@/design-system/components';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ds } from '@/constants/designSystem';
 import { controls, layout, radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useLayout } from '@/hooks/useLayout';
@@ -89,17 +89,18 @@ export function ScreenHeader({
   const hasSecondary = variant === 'screen' && Boolean(rightIcon) && Boolean(secondaryRightIcon);
 
   const leading = isModal ? (
-    <Pressable
+    <SpringPressable
       accessibilityRole="button"
       accessibilityLabel={cancelLabel}
       onPress={onCancel}
       hitSlop={12}
+      pressedScale={1}
       style={({ pressed }) => [styles.textAction, pressed && styles.iconBtnPressed]}
     >
       <AppText variant="button" color="textSecondary" numberOfLines={1}>
         {cancelLabel}
       </AppText>
-    </Pressable>
+    </SpringPressable>
   ) : canBack ? (
     <SarhBackButton
       onPress={() => (onBackPress ? onBackPress() : router.back())}
@@ -107,7 +108,7 @@ export function ScreenHeader({
       style={styles.backBtn}
     />
   ) : showSidebar && !isSheet && !isModal ? (
-    <Pressable
+    <SpringPressable
       accessibilityRole="button"
       accessibilityLabel="فتح القائمة"
       onPress={onSidebar}
@@ -115,17 +116,18 @@ export function ScreenHeader({
       style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
     >
       <AppIcon name="menu-burger" size={ds.icon.md} color={colors.textPrimary} />
-    </Pressable>
+    </SpringPressable>
   ) : null;
 
   const trailing = isModal && confirmLabel ? (
-    <Pressable
+    <SpringPressable
       accessibilityRole="button"
       accessibilityLabel={confirmLabel}
       accessibilityState={{ disabled: confirmDisabled }}
       disabled={confirmDisabled}
       onPress={onConfirm}
       hitSlop={12}
+      pressedScale={1}
       style={({ pressed }) => [styles.textAction, pressed && styles.iconBtnPressed]}
     >
       <AppText
@@ -135,9 +137,9 @@ export function ScreenHeader({
       >
         {confirmLabel}
       </AppText>
-    </Pressable>
+    </SpringPressable>
   ) : isSheet && onClose ? (
-    <Pressable
+    <SpringPressable
       accessibilityRole="button"
       accessibilityLabel={closeAccessibilityLabel ?? 'إغلاق'}
       onPress={onClose}
@@ -145,11 +147,11 @@ export function ScreenHeader({
       style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
     >
       <AppIcon name="close" size={ds.icon.md} color={colors.textPrimary} />
-    </Pressable>
+    </SpringPressable>
   ) : rightIcon ? (
     hasSecondary && secondaryRightIcon ? (
       <View style={[styles.trailingGroup, getRtlRow()]}>
-        <Pressable
+        <SpringPressable
           accessibilityRole="button"
           accessibilityLabel={secondaryRightAccessibilityLabel ?? 'إجراء'}
           accessibilityState={{ selected: secondaryRightActive }}
@@ -163,8 +165,8 @@ export function ScreenHeader({
             color={secondaryRightActive ? secondaryRightActiveColor ?? colors.textPrimary : colors.textPrimary}
             variant={secondaryRightActive ? 'sr' : 'rr'}
           />
-        </Pressable>
-        <Pressable
+        </SpringPressable>
+        <SpringPressable
           accessibilityRole="button"
           accessibilityLabel={rightAccessibilityLabel ?? 'إجراء إضافي'}
           onPress={onRightPress}
@@ -172,10 +174,10 @@ export function ScreenHeader({
           style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
         >
           <AppIcon name={rightIcon} size={ds.icon.md} color={colors.textPrimary} />
-        </Pressable>
+        </SpringPressable>
       </View>
     ) : (
-      <Pressable
+      <SpringPressable
         accessibilityRole="button"
         accessibilityLabel={rightAccessibilityLabel ?? 'إجراء إضافي'}
         onPress={onRightPress}
@@ -183,7 +185,7 @@ export function ScreenHeader({
         style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
       >
         <AppIcon name={rightIcon} size={ds.icon.md} color={colors.textPrimary} />
-      </Pressable>
+      </SpringPressable>
     )
   ) : null;
 
@@ -301,10 +303,11 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
       minHeight: controls.iconButton,
       justifyContent: 'center',
     },
+    /** Modern iOS nav-bar control: round, subtle fill. */
     iconBtn: {
       width: controls.iconButton,
       height: controls.iconButton,
-      borderRadius: 12,
+      borderRadius: controls.iconButton / 2,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.bgElevated,
@@ -318,8 +321,8 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
       justifyContent: 'center',
       backgroundColor: 'transparent',
     },
+    /** Scale comes from SpringPressable; the press only dims here. */
     iconBtnPressed: {
-      transform: [{ scale: motion.press.scale }],
       opacity: motion.press.opacity,
     },
   });

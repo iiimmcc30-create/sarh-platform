@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -10,6 +9,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow } from '@/lib/rtl';
 import { buttonMetrics, colors, motion } from '../tokens';
 import { AppText } from './AppText';
+import { SpringPressable } from './SpringPressable';
 import {
   resolveSarhButtonColorsForScheme,
   type SarhButtonShape,
@@ -72,8 +72,9 @@ export function SarhButton({
   }
 
   return (
-    <Pressable
+    <SpringPressable
       testID={testID}
+      pressedScale={blocked ? 1 : motion.pressScale}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: blocked, busy: loading }}
@@ -96,7 +97,6 @@ export function SarhButton({
             borderColor: palette.borderColor,
             // Dark uses dedicated low-contrast disabled tones (button tokens); light keeps the opacity wash.
             opacity: disabled && scheme !== 'dark' ? motion.opacity.disabled : 1,
-            transform: [{ scale: pressed && !blocked ? motion.pressScale : 1 }],
             shadowColor: colors.background,
             width: fullWidth ? '100%' : undefined,
             flexShrink: fullWidth ? 1 : 0,
@@ -128,7 +128,7 @@ export function SarhButton({
           </>
         );
       }}
-    </Pressable>
+    </SpringPressable>
   );
 }
 

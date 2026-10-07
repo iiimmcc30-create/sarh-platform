@@ -2,6 +2,9 @@ export * from './resolvers';
 export { AppText, APP_TEXT_COLOR, resolveAppTextStyle } from './AppText';
 export type { AppTextAlign, AppTextColor, AppTextProps, AppTextVariant } from './AppText';
 
+export { SpringPressable } from './SpringPressable';
+export type { SpringPressableProps } from './SpringPressable';
+
 export { SarhButton, resolveSarhButtonColors } from './SarhButton';
 export type { SarhButtonProps, SarhButtonState, SarhButtonVariant } from './SarhButton';
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { type StyleProp, type ViewStyle } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { motion, radius, space } from '../tokens';
 import {
@@ -9,6 +9,7 @@ import {
   type SarhIconButtonSize,
   type SarhIconButtonState,
 } from './resolvers';
+import { SpringPressable } from './SpringPressable';
 
 export type SarhIconButtonProps = {
   icon?: ReactNode | string;
@@ -44,8 +45,9 @@ export function SarhIconButton({
   const metrics = ICON_BUTTON_SIZE[size];
 
   return (
-    <Pressable
+    <SpringPressable
       testID={testID}
+      pressedScale={disabled ? 1 : motion.pressScale}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled, selected }}
@@ -100,7 +102,7 @@ export function SarhIconButton({
         }
         return icon ?? null;
       }}
-    </Pressable>
+    </SpringPressable>
   );
 }
 

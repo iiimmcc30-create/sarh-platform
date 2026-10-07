@@ -94,9 +94,9 @@ export function SarhSettingsRow({
           accessibilityState={{ disabled }}
           disabled={disabled}
           onPress={disabled ? undefined : onPress}
+          // iOS list row: dims on press, never shrinks.
           style={({ pressed }) => ({
             opacity: pressed ? motion.opacity.pressed : 1,
-            transform: [{ scale: pressed && !disabled ? motion.pressScale : 1 }],
           })}
         >
           {body}
