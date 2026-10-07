@@ -153,7 +153,7 @@ export function ChatActionsSheet({
               onValueChange={onToggleMute}
               disabled={!muteAvailable}
               trackColor={{ false: colors.borderMid, true: colors.electricBright }}
-              thumbColor="#FFFFFF"
+              thumbColor={muted ? colors.onElectric : '#FFFFFF'}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             />

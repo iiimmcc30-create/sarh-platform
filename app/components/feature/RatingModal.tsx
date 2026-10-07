@@ -179,7 +179,7 @@ function createStyles(colors: ThemeColors) {
     },
     submitText: {
       ...typography.bodyStrong,
-      color: '#fff',
+      color: colors.onElectric,
     },
     cancelBtn: {
       marginTop: spacing.md,

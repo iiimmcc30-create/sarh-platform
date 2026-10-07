@@ -17,13 +17,13 @@ describe('Primary CTA button tokens', () => {
     applyThemeScheme('dark');
   });
 
-  it('Light uses the brand black on colors.primary and success; Dark keeps its green', () => {
+  it('Light uses the brand black on colors.primary and success; Dark uses the logo white', () => {
     applyThemeScheme('light');
     expect(colors.primary).toBe('#020202');
     expect(colors.success).toBe('#020202');
     applyThemeScheme('dark');
-    expect(colors.primary).toBe('#24A86C');
-    expect(colors.success).toBe('#24A86C');
+    expect(colors.primary).toBe('#FBFBFB');
+    expect(colors.success).toBe('#FBFBFB');
     expect(colors.primary).not.toBe(resolveSarhButtonColors('primary', 'default').backgroundColor);
   });
 

@@ -1,13 +1,14 @@
 /**
  * Light mode = black & white identity: the former brand green is replaced by the
- * Sarh brand black (#020202) on light surfaces, while Dark keeps its green.
+ * Sarh brand black (#020202) on light surfaces. (Dark mirrors it with white —
+ * see dark-mode-white-accent.test.ts.)
  */
 import { readFileSync } from 'fs';
 import path from 'path';
 import { sarh } from '@/constants/sarhTokens';
 import { applyThemeScheme, colors as liveTheme } from '@/constants/theme';
 import { functional } from '@/design-system';
-import { INTERACTION_REPOST_GREEN, interactionRepostColor } from '@/lib/interactionActions';
+import { interactionRepostColor } from '@/lib/interactionActions';
 import { planGradientColors } from '@/services/subscriptionPlans';
 
 const src = (rel: string) =>
@@ -16,7 +17,7 @@ const src = (rel: string) =>
 describe('Light mode black identity', () => {
   afterEach(() => applyThemeScheme('dark'));
 
-  it('toggles, success and links resolve to black in Light, green stays in Dark', () => {
+  it('toggles, success and links resolve to black in Light, the accent tokens in Dark', () => {
     applyThemeScheme('light');
     expect(liveTheme.success).toBe('#020202');
     expect(liveTheme.textBrandStrong).toBe('#020202');
@@ -30,15 +31,15 @@ describe('Light mode black identity', () => {
     applyThemeScheme('light');
     expect(functional.presence).toBe(sarh.color.statusGreen);
     applyThemeScheme('dark');
-    expect(functional.presence).toBe(sarh.color.success);
+    expect(functional.presence).toBe(sarh.color.darkStatusGreen);
     expect(src('design-system/components/SarhAvatar.tsx')).toContain(
       'backgroundColor: functional.presence',
     );
   });
 
-  it('reposted state is black on Light theme surfaces, green in Dark', () => {
+  it('reposted state is black on Light theme surfaces, white in Dark', () => {
     expect(interactionRepostColor('light')).toBe('#020202');
-    expect(interactionRepostColor('dark')).toBe(INTERACTION_REPOST_GREEN);
+    expect(interactionRepostColor('dark')).toBe(sarh.color.action);
     expect(src('components/feature/PostItem.tsx')).toContain(
       'post.reposted ? interactionRepostColor(scheme) : colors.textSecondary',
     );
@@ -47,12 +48,12 @@ describe('Light mode black identity', () => {
     );
   });
 
-  it('paid plan card is black in Light and keeps the former green in Dark', () => {
+  it('paid plan card is black in Light and white in Dark', () => {
     expect(planGradientColors(1, 'light')).toEqual([
       sarh.color.lightAction,
       sarh.color.lightActionPressed,
     ]);
-    expect(planGradientColors(1, 'dark')).toEqual(['#1C8354', '#176B44']);
+    expect(planGradientColors(1, 'dark')).toEqual([sarh.color.action, sarh.color.actionPressed]);
     expect(planGradientColors(0, 'light')).toEqual(['#334155', '#1E293B']);
     expect(src('app/payment.tsx')).toContain('planGradientColors(plan.sortOrder, scheme)');
   });
@@ -68,8 +69,6 @@ describe('Light mode black identity', () => {
 
   it('routes the remaining hardcoded greens through tokens', () => {
     expect(src('app/chat.tsx')).toContain('borderColor: `${colors.electric}59`');
-    expect(src('components/feature/ProfileScreenLayout.tsx')).toContain(
-      "scheme === 'light' ? themeColors.glow : '#34D399'",
-    );
+    expect(src('components/feature/ProfileScreenLayout.tsx')).not.toContain('#34D399');
   });
 });

@@ -19,13 +19,17 @@ export const sarh = {
     surfaceRaised: '#16181C',
     surfaceAlt: '#1D1F23',
     /**
-     * Brand accent (Dark Mode). Same hue as the Light primary (#1C8354) but
-     * lighter so text/links reach >= 4.5:1 on every dark surface
-     * (#020202 6.82 · #0A0B0C 6.47 · #16181C 5.81 · #1D1F23 5.39).
+     * Brand accent (Dark Mode) = the Sarh logo white (#FBFBFB, `SARH_LOGO_INK_DARK`),
+     * mirroring Light's brand black so the identity is black & white in both
+     * schemes. Anything drawn ON the accent (icons/labels on accent fills, switch
+     * thumbs, badges) uses `onAction` (#020202, ≈ 20:1 on #FBFBFB). Pressed reuses
+     * the white-CTA pressed tone; muted is the same white at low alpha.
      */
-    action: '#24A86C',
-    actionPressed: '#1D8958',
-    actionMuted: 'rgba(36, 168, 108, 0.14)',
+    action: '#FBFBFB',
+    actionPressed: '#D7DBDC',
+    actionMuted: 'rgba(251, 251, 251, 0.14)',
+    /** Foreground on the dark accent (Sarh brand black). */
+    onAction: '#020202',
     text: '#E7E9EA',
     textSecondary: '#71767B',
     textMuted: '#5E6368',
@@ -55,7 +59,12 @@ export const sarh = {
     darkDisabledText: '#5E6368',
     danger: '#E85D5D',
     warning: '#D4A017',
-    success: '#24A86C',
+    success: '#FBFBFB',
+    /**
+     * Former Dark brand green (#24A86C). Kept ONLY where white would lose its
+     * meaning (online presence dot) — never for dark-mode actions.
+     */
+    darkStatusGreen: '#24A86C',
     /**
      * Light Mode primary = the Sarh brand black (#020202, the app-icon black and
      * the dark-mode CTA label), so the identity is black & white: light CTAs are

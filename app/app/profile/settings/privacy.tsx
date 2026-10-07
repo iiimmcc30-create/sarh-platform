@@ -177,7 +177,7 @@ export default function PrivacySettingsScreen() {
                     false: colors.bgDeep,
                     true: colors.electric,
                   }}
-                  thumbColor="#fff"
+                  thumbColor={settings[item.key] ? colors.onElectric : '#fff'}
                   ios_backgroundColor={colors.bgDeep}
                 />
               </Row>

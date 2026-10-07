@@ -477,7 +477,7 @@ export default function RegisterScreen() {
                 <Row gap="sm" align="center">
                   <View style={[styles.check, agreed && styles.checkOn]}>
                     {agreed ? (
-                      <AppIcon name="checkmark" size={14} color={colors.textPrimary} />
+                      <AppIcon name="checkmark" size={14} color={colors.onElectric} />
                     ) : null}
                   </View>
                   <AppText variant="caption" color="textSecondary" style={styles.termsText}>

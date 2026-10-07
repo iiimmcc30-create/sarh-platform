@@ -61,7 +61,7 @@ function LiveStreamItemInner({ stream, height, onComment, onShare }: LiveStreamI
             onPress={() => setFollowing((f) => !f)}
             style={[styles.followBtn, following && styles.followingBtn]}
           >
-            <AppIcon name={following ? 'checkmark' : 'add'} size={14} color="#fff" />
+            <AppIcon name={following ? 'checkmark' : 'add'} size={14} color={colors.onElectric} />
           </Pressable>
         </UserProfileLink>
 

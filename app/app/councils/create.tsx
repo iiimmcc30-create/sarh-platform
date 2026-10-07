@@ -248,7 +248,7 @@ export default function CouncilFormScreen() {
                 value={mods[t.key]}
                 onValueChange={(v) => setMods((m) => ({ ...m, [t.key]: v }))}
                 trackColor={{ false: colors.bgDeep, true: colors.electric }}
-                thumbColor="#fff"
+                thumbColor={mods[t.key] ? colors.onElectric : '#fff'}
               />
             </Row>
           ))}

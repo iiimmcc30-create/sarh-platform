@@ -548,7 +548,7 @@ function createStyles(colors: ThemeColors) {
     },
     applyText: {
       ...typography.bodyStrong,
-      color: '#FFFFFF',
+      color: colors.onElectric,
       includeFontPadding: false,
     },
     resetBtn: {

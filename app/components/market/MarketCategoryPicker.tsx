@@ -51,7 +51,7 @@ function Checkbox({ checked, colors }: { checked: boolean; colors: ThemeColors }
         checked && { backgroundColor: colors.electricBright, borderColor: colors.electricBright },
       ]}
     >
-      {checked ? <AppIcon name="checkmark" size={12} color="#fff" /> : null}
+      {checked ? <AppIcon name="checkmark" size={12} color={colors.onElectric} /> : null}
     </View>
   );
 }
@@ -364,7 +364,7 @@ function createStyles(colors: ThemeColors) {
     },
     applyText: {
       ...typography.bodyStrong,
-      color: '#FFFFFF',
+      color: colors.onElectric,
     },
     resetBtn: {
       flex: 1,

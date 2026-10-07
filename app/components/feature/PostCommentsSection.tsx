@@ -416,9 +416,9 @@ export function PostCommentsComposer() {
         accessibilityLabel="إرسال التعليق"
       >
         {sending ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={colors.onElectric} />
         ) : (
-          <AppIcon name="send" size={16} color="#fff" />
+          <AppIcon name="send" size={16} color={colors.onElectric} />
         )}
       </Pressable>
     </View>

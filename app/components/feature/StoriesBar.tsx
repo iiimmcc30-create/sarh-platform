@@ -92,7 +92,7 @@ export function StoriesBar({
   showAddSlot = true,
   addLabel = 'إضافة',
 }: StoriesBarProps) {
-  const { scheme } = useTheme();
+  const { scheme, colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createBarStyles(c, scheme, size));
   const [viewer, setViewer] = useState<{ groups: StoryGroup[]; index: number } | null>(
     null,
@@ -136,7 +136,7 @@ export function StoriesBar({
                 contentFit="cover"
               />
               <Pressable onPress={onAddStory} style={styles.addIcon} hitSlop={6}>
-                <AppIcon name="add" size={13} color="#fff" />
+                <AppIcon name="add" size={13} color={colors.onElectric} />
               </Pressable>
             </StoryRing>
             <Text style={styles.label} numberOfLines={1}>
@@ -303,7 +303,7 @@ function createBarStyles(
     },
     countText: {
       ...typography.badge,
-      color: '#fff',
+      color: colors.onElectric,
     },
     label: {
       ...typography.caption,

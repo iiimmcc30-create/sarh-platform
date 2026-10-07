@@ -3,7 +3,7 @@ import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/c
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image } from '@/components/ui/AppImage';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { functional, typography as dsType } from '@/design-system';
+import { typography as dsType } from '@/design-system';
 import { AppText, SarhButton, SarhInput } from '@/design-system/components';
 import { Row, Stack } from '@/design-system/layout';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -288,7 +288,7 @@ export function MessagesPanel({
                 </AppText>
                 {chat.unread > 0 ? (
                   <View style={styles.unreadBadge}>
-                    <AppText variant="caption" style={{ color: functional.onPrimary }}>
+                    <AppText variant="caption" style={{ color: colors.onElectric }}>
                       {chat.unread > 99 ? '99+' : chat.unread}
                     </AppText>
                   </View>

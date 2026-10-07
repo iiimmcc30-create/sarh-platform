@@ -74,7 +74,7 @@ export function SarhSettingsRow({
           onValueChange={onSwitchChange}
           disabled={disabled}
           trackColor={{ false: colors.surfaceElevated, true: colors.primary }}
-          thumbColor={functional.onPrimary}
+          thumbColor={switchValue ? functional.onAccent : functional.onPrimary}
           ios_backgroundColor={colors.surfaceElevated}
           accessibilityLabel={label}
         />

@@ -798,7 +798,7 @@ export default function ListingDetailScreen() {
             <Row wrap gap="sm" justify="end">
               {isListingPinnedActive(listing) ? (
                 <Row gap="xs" align="center" style={styles.pinned}>
-                  <AppIcon name="pin" size={11} color="#fff" />
+                  <AppIcon name="pin" size={11} color={colors.onElectric} />
                   <AppText variant="caption" style={styles.pinnedText}>مثبّت</AppText>
                 </Row>
               ) : null}
@@ -980,7 +980,7 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 4,
       borderRadius: radius.pill,
     },
-    pinnedText: { color: '#fff' },
+    pinnedText: { color: colors.onElectric },
     titleBlock: {
       width: '100%',
       gap: spacing.sm,

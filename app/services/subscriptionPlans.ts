@@ -88,8 +88,9 @@ export function planIcon(slug: string): string {
 }
 
 /**
- * Paid plan card fill. Light: brand black (black & white identity). Dark keeps
- * the former green so the card never disappears into the #020202 page.
+ * Paid plan card fill = the scheme's brand accent (black & white identity):
+ * black card on Light, white card on Dark (so it never disappears into the
+ * #020202 page). The free plan keeps its slate card in both schemes.
  */
 export function planGradientColors(
   sortOrder: number,
@@ -97,8 +98,16 @@ export function planGradientColors(
 ): [string, string] {
   if (sortOrder <= 0) return ['#334155', '#1E293B'];
   return scheme === 'dark'
-    ? [sarh.color.statusGreen, sarh.color.statusGreenPressed]
+    ? [sarh.color.action, sarh.color.actionPressed]
     : [sarh.color.lightAction, sarh.color.lightActionPressed];
+}
+
+/** Text/icons on the plan card: black on Dark's white paid card, white otherwise. */
+export function planCardContentColor(
+  sortOrder: number,
+  scheme: 'light' | 'dark' = 'light',
+): string {
+  return sortOrder > 0 && scheme === 'dark' ? sarh.color.onAction : sarh.color.fab;
 }
 
 export function planDisplayName(slug: string, fallback?: string): string {

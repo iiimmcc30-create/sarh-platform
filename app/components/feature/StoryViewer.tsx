@@ -531,9 +531,9 @@ export function StoryViewer({
               style={[styles.sendBtn, !replyText.trim() && { opacity: 0.35 }]}
             >
               {busy ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.onElectric} size="small" />
               ) : (
-                <AppIcon name="send" size={17} color="#fff" />
+                <AppIcon name="send" size={17} color={colors.onElectric} />
               )}
             </Pressable>
           </View>

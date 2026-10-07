@@ -126,7 +126,7 @@ export function resolveSarhIconButtonColors(
   if (state === 'selected') {
     return {
       backgroundColor: colors.primary,
-      contentColor: functional.onPrimary,
+      contentColor: functional.onAccent,
       borderColor: colors.primary,
     };
   }
@@ -290,7 +290,7 @@ export function resolveSarhChipColors(selected: boolean) {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
       text: 'textPrimary' as const,
-      textOverride: functional.onPrimary,
+      textOverride: functional.onAccent,
     };
   }
   return {

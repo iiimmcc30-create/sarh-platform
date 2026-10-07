@@ -1,7 +1,8 @@
 /**
  * Light primary = Sarh brand black #020202 (black & white identity): light CTAs
- * are black pills with white text. Dark keeps its green accent (#24A86C), the
- * lifted twin of the former Light green (#1C8354, now `sarh.color.statusGreen`).
+ * are black pills with white text. Dark mirrors it with the logo white #FBFBFB
+ * (black labels on it). The former greens survive only as status tokens
+ * (`statusGreen` #1C8354 / `darkStatusGreen` #24A86C) for the presence dot.
  */
 import fs from 'fs';
 import path from 'path';
@@ -59,8 +60,8 @@ describe('brand primary colour', () => {
     expect(contrastRatio('#FFFFFF', sarh.color.lightActionPressed)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('Dark primary keeps the hue and reaches AA text contrast on every dark surface', () => {
-    expect(Math.abs(hue(sarh.color.action) - hue(sarh.color.statusGreen))).toBeLessThan(1.5);
+  it('Dark primary is the logo white and reaches AA text contrast on every dark surface', () => {
+    expect(sarh.color.action).toBe('#FBFBFB');
     for (const bg of DARK_SURFACES) {
       expect(contrastRatio(sarh.color.action, bg)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(sarh.color.actionPressed, bg)).toBeGreaterThanOrEqual(3);
@@ -68,7 +69,9 @@ describe('brand primary colour', () => {
     applyThemeScheme('dark');
     expect(colors.primary).toBe(sarh.color.action);
     expect(colors.success).toBe(colors.primary);
-    expect(functional.presence).toBe(sarh.color.success);
+    // Presence dot keeps the former dark green (white would read as "no status").
+    expect(functional.presence).toBe(sarh.color.darkStatusGreen);
+    expect(Math.abs(hue(sarh.color.darkStatusGreen) - hue(sarh.color.statusGreen))).toBeLessThan(1.5);
   });
 
   it('chat sent bubble tint is derived from the new primary (neutral grey) and stays readable', () => {

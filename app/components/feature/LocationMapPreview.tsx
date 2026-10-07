@@ -78,7 +78,7 @@ function SchematicMap({
       <View style={[styles.pinWrap, { left: `${pos.x}%`, top: `${pos.y}%` }]}>
         <View style={styles.pinPulse} />
         <View style={styles.pinHead}>
-          <AppIcon name="location" size={22} color="#fff" />
+          <AppIcon name="location" size={22} color={colors.onElectric} />
         </View>
         <View style={styles.pinTail} />
         {cityLabel ? (
@@ -167,10 +167,10 @@ export function LocationMapPreview({
           disabled={locating}
         >
           {locating ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.onElectric} />
           ) : (
             <>
-              <AppIcon name="locate" size={16} color="#fff" />
+              <AppIcon name="locate" size={16} color={colors.onElectric} />
               <Text style={styles.locateBtnText}>موقعي الحالي</Text>
             </>
           )}
@@ -315,7 +315,7 @@ function createStyles(colors: ThemeColors) {
   },
   locateBtnText: {
     ...typography.caption,
-    color: '#fff',
+    color: colors.onElectric,
     fontWeight: '600',
   },
   hintOverlay: {

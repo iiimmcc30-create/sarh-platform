@@ -44,7 +44,12 @@ export type DesignSystemFunctionalValues = {
   primaryMuted: string;
   onPrimary: string;
   onPrimaryInverse: string;
-  /** Online presence dot (avatar). Stays green in Light, where `success` is black. */
+  /**
+   * Foreground on a `primary` (accent) fill — white on Light's black accent, black
+   * on Dark's white accent. `onPrimary` stays the literal white used on media/red.
+   */
+  onAccent: string;
+  /** Online presence dot (avatar). Stays green in both schemes (accent is black/white). */
   presence: string;
 };
 
@@ -75,7 +80,8 @@ export const functional: DesignSystemFunctionalValues = {
   primaryMuted: sarh.color.actionMuted,
   onPrimary: sarh.color.fab,
   onPrimaryInverse: sarh.color.fabIcon,
-  presence: sarh.color.success,
+  onAccent: sarh.color.onAction,
+  presence: sarh.color.darkStatusGreen,
 };
 
 /** Keep DS primitives on the same palette `theme.ts` just applied. */

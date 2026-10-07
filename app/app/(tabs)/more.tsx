@@ -243,7 +243,7 @@ function createStyles(colors: ThemeColors) {
     },
     langOptionActive: { backgroundColor: colors.success },
     langText: { ...typography.badge, color: colors.textMuted },
-    langTextActive: { color: '#FFFFFF' },
+    langTextActive: { color: colors.onElectric },
     sectionLabelWrap: { marginTop: spacing.xs, paddingHorizontal: 4 },
     sectionLabel: { ...typography.bodyStrong, color: colors.textMuted },
   });

@@ -1,4 +1,4 @@
-// SAFAT — Logo-aligned brand theme (black · white; dark mode keeps its green accents)
+// SAFAT — Logo-aligned brand theme (black · white: Light accent = black, Dark accent = white)
 // Supports dark + light palettes; apply via bootstrap before app modules load.
 // Phase-1 foundation tokens: `@/design-system`. This module remains the live theme.
 
@@ -25,6 +25,11 @@ export type ThemeColors = {
   royalDeep: string;
   electric: string;
   electricBright: string;
+  /**
+   * Foreground drawn ON an accent fill (`electric` / `electricBright` / `success`):
+   * white on Light's black accent, black on Dark's white accent.
+   */
+  onElectric: string;
   glow: string;
   cyan: string;
   silver: string;
@@ -87,7 +92,7 @@ const sharedAccents = {
   rose: '#F43F5E',
   /** @deprecated Former theme.warning — keep for gold-ring accents only. */
   amber: '#FBBF24',
-  /** Align success with brand accent — one green identity */
+  /** Success follows the brand accent (white in Dark, black in Light). */
   success: sarh.color.success,
   danger: sarh.color.danger,
   warning: sarh.color.warning,
@@ -104,8 +109,10 @@ const darkColors: BaseThemeColors = {
   bgOverlay: 'rgba(2, 2, 2, 0.78)',
   royal: luxuryDark.surfaceAlt,
   royalDeep: luxuryDark.bg,
+  /** Dark accent = Sarh logo white (#FBFBFB): black & white identity. */
   electric: luxuryDark.accent,
   electricBright: luxuryDark.accent,
+  onElectric: sarh.color.onAction,
   glow: luxuryDark.accent,
   cyan: luxuryDark.accent,
   silver: luxuryDark.textSecondary,
@@ -139,6 +146,7 @@ const lightColors: BaseThemeColors = {
   /** Light primary = Sarh brand black (#020202): black & white identity. */
   electric: sarh.color.lightAction,
   electricBright: sarh.color.lightAction,
+  onElectric: sarh.color.fab,
   glow: sarh.color.lightAction,
   cyan: sarh.color.lightAction,
   silver: '#65727D',
@@ -227,7 +235,7 @@ export function getActiveScheme(): ColorScheme {
 }
 
 function enrichTextColors(palette: BaseThemeColors, scheme: ColorScheme): ThemeColors {
-  // Dark: white/gray for all readable text — green is actions-only.
+  // Dark: white/gray for all readable text; the white accent is for actions.
   if (scheme === 'dark') {
     return {
       ...palette,
@@ -304,8 +312,9 @@ export function applyThemeScheme(scheme: ColorScheme) {
       primaryMuted: scheme === 'dark' ? sarh.color.actionMuted : sarh.color.lightActionMuted,
       onPrimary: sarh.color.fab,
       onPrimaryInverse: live.bgDeep,
-      // Online presence dot keeps a green in both schemes (black would read as "nothing").
-      presence: scheme === 'dark' ? sarh.color.success : sarh.color.statusGreen,
+      onAccent: live.onElectric,
+      // Online presence dot keeps a green in both schemes (black/white would read as "nothing").
+      presence: scheme === 'dark' ? sarh.color.darkStatusGreen : sarh.color.statusGreen,
     },
   );
   applyButtonTokens(scheme);

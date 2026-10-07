@@ -273,7 +273,7 @@ export function ListingFeePaymentSheet({
                       </Text>
                       {active ? (
                         <View style={styles.methodCheck}>
-                          <AppIcon name="checkmark" size={12} color="#fff" />
+                          <AppIcon name="checkmark" size={12} color={colors.onElectric} />
                         </View>
                       ) : null}
                     </Pressable>
@@ -291,10 +291,10 @@ export function ListingFeePaymentSheet({
                   ]}
                 >
                   {processing ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={colors.onElectric} />
                   ) : (
                     <>
-                      <AppIcon name="card-outline" size={20} color="#fff" />
+                      <AppIcon name="card-outline" size={20} color={colors.onElectric} />
                       <Text style={styles.payBtnText}>ادفع الآن</Text>
                     </>
                   )}
@@ -463,7 +463,7 @@ function createStyles(colors: ThemeColors) {
     payBtnPressed: { opacity: motion.press.opacity },
     payBtnText: {
       ...typography.button,
-      color: '#fff',
+      color: colors.onElectric,
     },
     resultWrap: {
       padding: spacing.xl,

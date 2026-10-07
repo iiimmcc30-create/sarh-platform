@@ -125,7 +125,7 @@ function OutlineMenuItem({
         </View>
         {showBadge ? (
           <View style={[styles.badge, { backgroundColor: colors.electric }]}>
-            <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+            <Text style={[styles.badgeText, { color: colors.onElectric }]}>{badge > 99 ? '99+' : badge}</Text>
           </View>
         ) : null}
         <View style={styles.chevronSlot}>
@@ -236,7 +236,7 @@ export function SidebarMenuItem({
 
       {showBadge ? (
         <View style={[styles.badge, { backgroundColor: colors.electric }]}>
-          <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          <Text style={[styles.badgeText, { color: colors.onElectric }]}>{badge > 99 ? '99+' : badge}</Text>
         </View>
       ) : null}
 

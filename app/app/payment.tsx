@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { API_BASE } from '@/services/api';
 import { launchPaymentCheckout } from '@/services/payments';
 import { NIPaymentMethod, PAYMENT_METHODS } from '@/services/network_international';
-import { normalizeSlug, planGradientColors } from '@/services/subscriptionPlans';
+import { normalizeSlug, planCardContentColor, planGradientColors } from '@/services/subscriptionPlans';
 import { usePlans } from '@/hooks/usePlans';
 import { useSubscriptionAudience } from '@/hooks/useSubscriptionAudience';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -131,6 +131,7 @@ export default function PaymentScreen() {
   const slug = normalizeSlug(planId ?? defaultPaidSlug);
   const plan = getPlanBySlug(slug);
   const [planColor, planColorEnd] = planGradientColors(plan.sortOrder, scheme);
+  const planContent = planCardContentColor(plan.sortOrder, scheme);
   const billingCycle = cycle ?? 'monthly';
   const amount = billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
 
@@ -264,7 +265,7 @@ export default function PaymentScreen() {
           <Animated.View style={[styles.successCenter, { transform: [{ scale: successScale }], opacity: successOpacity }]}>
             <Stack gap="lg" align="center">
               <LinearGradient colors={[planColor, planColorEnd]} style={styles.successIcon}>
-                <AppIcon name="check-bold" size={52} color={functional.onPrimary} />
+                <AppIcon name="check-bold" size={52} color={planContent} />
               </LinearGradient>
               <AppText variant="heading1" align="center">تمّ الاشتراك بنجاح 🎉</AppText>
               <AppText variant="body" color="textSecondary" align="center">
@@ -332,9 +333,13 @@ export default function PaymentScreen() {
           <Row key={s} gap="xs" align="center">
             <View style={[styles.stepDot, i <= currentStepIdx && styles.stepDotActive]}>
               {i < currentStepIdx
-                ? <AppIcon name="checkmark" size={10} color={functional.onPrimary} />
+                ? <AppIcon name="checkmark" size={10} color={functional.onAccent} />
                 : (
-                  <AppText variant="caption" color={i <= currentStepIdx ? 'textPrimary' : 'textMuted'}>
+                  <AppText
+                    variant="caption"
+                    color={i <= currentStepIdx ? 'textPrimary' : 'textMuted'}
+                    style={i <= currentStepIdx ? { color: functional.onAccent } : undefined}
+                  >
                     {i + 1}
                   </AppText>
                 )}
@@ -354,20 +359,20 @@ export default function PaymentScreen() {
           >
             <Row justify="between" align="start">
               <Stack gap="xs">
-                <AppText variant="caption" style={{ color: functional.onPrimary }}>
+                <AppText variant="caption" style={{ color: planContent }}>
                   {billingCycle === 'yearly' ? 'اشتراك سنوي' : 'اشتراك شهري'}
                 </AppText>
-                <AppText variant="heading2" style={{ color: functional.onPrimary }}>باقة {plan.name}</AppText>
+                <AppText variant="heading2" style={{ color: planContent }}>باقة {plan.name}</AppText>
               </Stack>
               <Stack gap="xs" align="end">
-                <AppText variant="display" style={{ color: functional.onPrimary }}>{amount}</AppText>
-                <AppText variant="label" style={{ color: functional.onPrimary }}>ريال</AppText>
+                <AppText variant="display" style={{ color: planContent }}>{amount}</AppText>
+                <AppText variant="label" style={{ color: planContent }}>ريال</AppText>
               </Stack>
             </Row>
             {billingCycle === 'yearly' && plan.monthlyPrice > 0 ? (
               <Row gap="xs" align="center" style={styles.savingsTag}>
-                <AppIcon name="tag" size={12} color={functional.onPrimary} />
-                <AppText variant="caption" style={{ color: functional.onPrimary }}>
+                <AppIcon name="tag" size={12} color={planContent} />
+                <AppText variant="caption" style={{ color: planContent }}>
                   وفّرت {Math.round(plan.monthlyPrice * 12 - plan.yearlyPrice)} ريال مقارنةً بالاشتراك الشهري
                 </AppText>
               </Row>

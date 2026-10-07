@@ -121,7 +121,7 @@ export function SidebarMenuRow({
 export { SidebarMenuItemRow as SidebarMenuItem };
 export type { SidebarMenuItemProps };
 
-/** iOS-style brand toggle — green track when on, white thumb. */
+/** iOS-style brand toggle — accent track when on; thumb contrasts with the track. */
 export function BrandSwitch({
   value,
   onValueChange,
@@ -136,7 +136,7 @@ export function BrandSwitch({
       value={value}
       onValueChange={onValueChange}
       trackColor={{ false: colors.bgDeep, true: colors.success }}
-      thumbColor="#FFFFFF"
+      thumbColor={value ? colors.onElectric : '#FFFFFF'}
       ios_backgroundColor={colors.bgDeep}
     />
   );
@@ -216,8 +216,8 @@ export function SidebarThemeToggle({
             !isDark && { backgroundColor: colors.electric, shadowColor: colors.electric },
           ]}
         >
-          <AppIcon name="sunny-outline" size={16} color={!isDark ? '#fff' : colors.textMuted} />
-          <Text style={[themeStyles.optionText, { color: !isDark ? '#fff' : colors.textMuted }]}>
+          <AppIcon name="sunny-outline" size={16} color={!isDark ? colors.onElectric : colors.textMuted} />
+          <Text style={[themeStyles.optionText, { color: !isDark ? colors.onElectric : colors.textMuted }]}>
             فاتح
           </Text>
         </Pressable>
@@ -229,8 +229,8 @@ export function SidebarThemeToggle({
             isDark && { backgroundColor: colors.electric, shadowColor: colors.electric },
           ]}
         >
-          <AppIcon name="weather-night" size={16} color={isDark ? '#fff' : colors.textMuted} />
-          <Text style={[themeStyles.optionText, { color: isDark ? '#fff' : colors.textMuted }]}>
+          <AppIcon name="weather-night" size={16} color={isDark ? colors.onElectric : colors.textMuted} />
+          <Text style={[themeStyles.optionText, { color: isDark ? colors.onElectric : colors.textMuted }]}>
             داكن
           </Text>
         </Pressable>

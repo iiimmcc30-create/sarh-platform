@@ -65,7 +65,7 @@ export function SarhListingCovenantModal({
               accessibilityLabel="إغلاق"
               hitSlop={10}
             >
-              <AppIcon name="close" size={20} color="#fff" />
+              <AppIcon name="close" size={20} color={colors.onElectric} />
             </Pressable>
             <Text style={styles.headerTitle}>معاهدة سرح</Text>
           </LinearGradient>
@@ -99,7 +99,7 @@ export function SarhListingCovenantModal({
               style={[styles.checkboxRow, getRtlRow(), checked && styles.checkboxRowActive]}
             >
               <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-                {checked ? <AppIcon name="checkmark" size={14} color="#fff" /> : null}
+                {checked ? <AppIcon name="checkmark" size={14} color={colors.onElectric} /> : null}
               </View>
               <Text style={[styles.checkboxText, getRtlText()]}>
                 إنني أوافق بما ورد أعلاه، كما أتعهد بالالتزام بـ{' '}
@@ -178,7 +178,7 @@ function createStyles(colors: ThemeColors) {
     },
     headerTitle: {
       ...typography.h3,
-      color: '#fff',
+      color: colors.onElectric,
       flex: 1,
       ...getRtlText(),
       ...getRtlText(),

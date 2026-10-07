@@ -318,8 +318,8 @@ export function ProfileScreenLayout({
                       colors={[
                         themeColors.electricBright,
                         themeColors.cyan,
-                        // Light: all-black ring (black & white identity); Dark keeps its mint tail.
-                        scheme === 'light' ? themeColors.glow : '#34D399',
+                        // All-accent ring: black in Light, white in Dark (black & white identity).
+                        themeColors.glow,
                       ]}
                       style={styles.avatarRing}
                       start={{ x: 0, y: 1 }}
@@ -344,7 +344,7 @@ export function ProfileScreenLayout({
                   )}
                   {mode === 'own' && onEditAvatar ? (
                     <Pressable style={styles.cameraBtn} onPress={onEditAvatar} hitSlop={8}>
-                      <AppIcon name="camera-outline" size={14} color="#fff" />
+                      <AppIcon name="camera-outline" size={14} color={themeColors.onElectric} />
                     </Pressable>
                   ) : null}
                 </Pressable>

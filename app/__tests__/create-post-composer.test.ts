@@ -21,7 +21,7 @@ describe('create post composer (X-style)', () => {
     expect(create).toContain("borderRadius: radius.pill");
     expect(create).toContain("{isEditing ? 'حفظ' : 'نشر'}");
     expect(create).toContain('postBtnDisabled: { opacity: 0.45 }');
-    expect(create).toContain('<ActivityIndicator size="small" color="#FFFFFF" />');
+    expect(create).toContain('<ActivityIndicator size="small" color={colors.onElectric} />');
   });
 
   it('enables posting with text or media and blocks double submit', () => {

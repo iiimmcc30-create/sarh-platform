@@ -51,12 +51,12 @@ export const INTERACTION_REPOST_GREEN = '#00BA7C';
 export const INTERACTION_BOOKMARK_BLUE = '#1D9BF0';
 
 /**
- * Reposted state on theme surfaces: brand black in Light (black & white
- * identity; still distinct from the grey idle glyph + solid when active),
- * the X-style green in Dark. Dark media overlays keep the green constant.
+ * Reposted state on theme surfaces = the scheme's brand accent (black & white
+ * identity): black in Light, white in Dark — still distinct from the grey idle
+ * glyph + solid when active. Dark media overlays keep the green constant.
  */
 export function interactionRepostColor(scheme: 'light' | 'dark'): string {
-  return scheme === 'light' ? sarh.color.lightAction : INTERACTION_REPOST_GREEN;
+  return scheme === 'light' ? sarh.color.lightAction : sarh.color.action;
 }
 
 /** The app-wide share glyph (Ionicons "share-social-outline" -> Lucide Share2). */

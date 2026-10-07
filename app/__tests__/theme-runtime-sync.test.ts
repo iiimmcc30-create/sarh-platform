@@ -37,8 +37,8 @@ describe('theme runtime Light ↔ Dark sync', () => {
     expect(resolveAppTextStyle({ color: 'textPrimary' }).color).toBe('#E7E9EA');
     expect(resolveSarhButtonColors('primary', 'default').backgroundColor).toBe('#FFFFFF');
     expect(resolveSarhButtonColors('primary', 'default').contentColor).toBe('#020202');
-    expect(colors.primary).toBe('#24A86C');
-    expect(colors.success).toBe('#24A86C');
+    expect(colors.primary).toBe('#FBFBFB');
+    expect(colors.success).toBe('#FBFBFB');
 
     applyThemeScheme('light');
     expect(colors.background).toBe('#FFFFFF');

@@ -278,9 +278,9 @@ export function ListingCommentsModal({
               disabled={!text.trim() || sending || !isAuthenticated || !!loadError}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.onElectric} />
               ) : (
-                <AppIcon name="send" size={18} color="#fff" />
+                <AppIcon name="send" size={18} color={colors.onElectric} />
               )}
             </Pressable>
           </View>

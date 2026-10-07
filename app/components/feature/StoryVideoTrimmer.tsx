@@ -233,7 +233,7 @@ export function StoryVideoTrimmer({
             disabled={busy}
           >
             {busy ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onElectric} />
             ) : (
               <Text style={styles.confirmText}>تأكيد المقطع ({clipDuration} ث)</Text>
             )}
@@ -307,6 +307,6 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
     },
     confirmBtnDisabled: { opacity: 0.7 },
-    confirmText: { ...typography.bodyStrong, color: '#fff' },
+    confirmText: { ...typography.bodyStrong, color: colors.onElectric },
   });
 }

@@ -29,15 +29,15 @@ describe('Sarh design-system foundation', () => {
     expect(palette.surface).toBe('#0A0B0C');
     expect(palette.surfaceRaised).toBe('#16181C');
     expect(palette.surfaceAlt).toBe('#1D1F23');
-    expect(palette.action).toBe('#24A86C');
-    expect(palette.actionPressed).toBe('#1D8958');
+    expect(palette.action).toBe('#FBFBFB');
+    expect(palette.actionPressed).toBe('#D7DBDC');
     expect(palette.text).toBe('#E7E9EA');
     expect(palette.textSecondary).toBe('#71767B');
     expect(palette.textMuted).toBe('#5E6368');
     expect(palette.border).toBe('#2F3336');
     expect(palette.danger).toBe('#E85D5D');
     expect(palette.warning).toBe('#D4A017');
-    expect(palette.success).toBe('#24A86C');
+    expect(palette.success).toBe('#FBFBFB');
 
     expect(colors.background).toBe(sarh.color.bg);
     expect(colors.surface).toBe(sarh.color.surface);
@@ -49,13 +49,14 @@ describe('Sarh design-system foundation', () => {
     expect(functional.primaryMuted).toBe(sarh.color.actionMuted);
   });
 
-  it('does not introduce extra brand greens', () => {
+  it('does not introduce extra brand greens (only the presence dot stays green)', () => {
     const greens = new Set(
       Object.values({ ...palette, ...colors, ...functional }).filter((value) =>
         /^#24A86C$|^#1D8958$|^#1C8354$|^#176B44$|^#20B66F$|^#18965B$/i.test(value),
       ),
     );
-    expect(greens).toEqual(new Set(['#24A86C', '#1D8958']));
+    expect(greens).toEqual(new Set([sarh.color.darkStatusGreen]));
+    expect(functional.presence).toBe(sarh.color.darkStatusGreen);
     expect(colors.success).toBe(colors.primary);
   });
 

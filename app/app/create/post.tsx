@@ -240,7 +240,7 @@ export default function CreatePostScreen() {
             testID="create-post-submit"
           >
             {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.onElectric} />
             ) : (
               <Text style={styles.postBtnText}>{isEditing ? 'حفظ' : 'نشر'}</Text>
             )}
@@ -401,7 +401,7 @@ function createStyles(colors: ThemeColors) {
     // Light tint of the brand colour while empty/disabled (reference: pale pill).
     postBtnDisabled: { opacity: 0.45 },
     postBtnPressed: { opacity: 0.85 },
-    postBtnText: { ...typography.smallHeading, fontWeight: '700', color: '#FFFFFF' },
+    postBtnText: { ...typography.smallHeading, fontWeight: '700', color: colors.onElectric },
     scroll: { flexGrow: 1, paddingBottom: spacing.lg },
     composeRow: {
       flexDirection: 'row',

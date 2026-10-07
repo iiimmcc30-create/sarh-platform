@@ -178,7 +178,7 @@ export default function OtpScreen() {
         <Stack gap="lg" align="center" fill style={styles.successCenter}>
           <Animated.View style={[styles.successRing, { transform: [{ scale: successScale }] }]}>
             <LinearGradient colors={[colors.electric, colors.electricBright]} style={styles.successInner}>
-              <AppIcon name="checkmark" size={52} color={colors.textPrimary} />
+              <AppIcon name="checkmark" size={52} color={colors.onElectric} />
             </LinearGradient>
           </Animated.View>
           <AppText variant="display" align="center">تم التحقق بنجاح</AppText>

@@ -340,7 +340,7 @@ export default function CreateStreamScreen() {
             {(permissionError || agoraError) && !previewReady ? (
               <View style={styles.previewCenter}>
                 <Pressable style={styles.allowBtn} onPress={requestPreview}>
-                  <AppIcon name="broadcast" size={22} color="#fff" />
+                  <AppIcon name="broadcast" size={22} color={colors.onElectric} />
                   <Text style={styles.allowBtnText}>السماح بالكاميرا والميكروفون</Text>
                 </Pressable>
               </View>
@@ -509,7 +509,7 @@ function createStyles(colors: ThemeColors) {
     paddingVertical: 5,
     borderRadius: radius.pill,
   },
-  previewBadgeText: { ...typography.badge, color: '#fff' },
+  previewBadgeText: { ...typography.badge, color: colors.onElectric },
   previewSide: {
     position: 'absolute',
     left: spacing.md,
@@ -542,7 +542,7 @@ function createStyles(colors: ThemeColors) {
     paddingVertical: spacing.md,
     borderRadius: radius.lg,
   },
-  allowBtnText: { ...typography.button, color: '#fff' },
+  allowBtnText: { ...typography.button, color: colors.onElectric },
   errorBanner: {
     position: 'absolute',
     bottom: 0,

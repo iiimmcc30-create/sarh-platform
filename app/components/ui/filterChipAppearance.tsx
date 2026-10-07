@@ -40,7 +40,7 @@ export function FilterChipAppearance({
     colors: theme.colors,
   }));
 
-  const iconColor = selected ? '#FFFFFF' : colors.textSecondary;
+  const iconColor = selected ? colors.onElectric : colors.textSecondary;
   const iconSize = compact ? MARKET_CHIP.iconSize : 15;
 
   return (
@@ -117,7 +117,7 @@ export function createChipStyles(colors: ThemeColors, compact: boolean) {
       width: compact ? MARKET_CHIP.checkSize : 18,
       height: compact ? MARKET_CHIP.checkSize : 18,
       borderRadius: compact ? MARKET_CHIP.checkSize / 2 : 9,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: colors.onElectric,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -131,7 +131,7 @@ export function createChipStyles(colors: ThemeColors, compact: boolean) {
       includeFontPadding: false,
     },
     labelSelected: {
-      color: '#FFFFFF',
+      color: colors.onElectric,
     },
   });
 }

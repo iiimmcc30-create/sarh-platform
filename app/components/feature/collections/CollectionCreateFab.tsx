@@ -58,7 +58,7 @@ export function CollectionCreateFab({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
       >
-        <AppIcon name="plus" size={24} color="#fff" style={styles.icon} />
+        <AppIcon name="plus" size={24} color={colors.onElectric} style={styles.icon} />
       </Pressable>
     </Animated.View>
   );

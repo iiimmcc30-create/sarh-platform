@@ -1,7 +1,7 @@
 /**
  * Sarh Design System — premium surface hierarchy, spacing grid, glass-lite chrome.
- * UI tokens only; no business logic. Accent: Light = brand black #020202
- * (black & white identity), Dark #24A86C — see sarhTokens.
+ * UI tokens only; no business logic. Accent: Light = brand black #020202,
+ * Dark = logo white #FBFBFB (black & white identity) — see sarhTokens.
  *
  * Canonical foundation tokens now live in `@/design-system`. Keep importing `ds`
  * from this file in existing screens; do not rewrite call sites in phase 1.

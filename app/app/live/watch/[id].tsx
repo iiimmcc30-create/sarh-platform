@@ -304,7 +304,7 @@ export default function WatchScreen() {
               disabled={!commentText.trim()}
               onPress={sendComment}
             >
-              <AppIcon name="send" size={17} color="#fff" />
+              <AppIcon name="send" size={17} color={colors.onElectric} />
             </Pressable>
 
             {/* Like button */}

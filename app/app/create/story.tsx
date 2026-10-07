@@ -59,7 +59,7 @@ function StoryVideoPreview({ uri }: { uri: string }) {
 }
 
 export default function CreateStoryScreen() {
-  const { gradients } = useTheme();
+  const { gradients, colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const insets = useSafeAreaInsets();
 
@@ -281,7 +281,7 @@ export default function CreateStoryScreen() {
                 style={[styles.publishChip, submitting && { opacity: 0.6 }]}
               >
                 {submitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={colors.onElectric} />
                 ) : (
                   <Text style={styles.publishChipText}>{publishLabel}</Text>
                 )}
@@ -426,7 +426,7 @@ function createStyles(colors: ThemeColors) {
     },
     publishChipText: {
       ...typography.button,
-      color: '#fff',
+      color: colors.onElectric,
     },
     pickerBody: {
       flex: 1,
