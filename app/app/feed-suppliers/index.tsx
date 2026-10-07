@@ -17,7 +17,8 @@ import { showToast } from '@/lib/toast';
 import { fetchFeedSuppliers, type FeedSupplier } from '@/services/feedSuppliers';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 const HERO_IMAGE = require('../../assets/images/feed-suppliers-hero.jpg');
 const HERO_ASPECT = 1408 / 768;
@@ -62,7 +63,7 @@ export default function FeedSuppliersScreen() {
         padBottom="xxxl"
         gap="section"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void load({ refresh: true })} />
+          <AppRefreshControl refreshing={refreshing} onRefresh={() => void load({ refresh: true })} />
         }
       >
         <View style={styles.hero} accessibilityRole="image" accessibilityLabel="موردو الأعلاف">

@@ -18,7 +18,6 @@ import { Row, Screen, ScreenBody } from '@/design-system/layout';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { useApp } from '@/hooks/useApp';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
-import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/contexts/AuthContext';
 import { openPostDetail } from '@/lib/openPost';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
@@ -40,11 +39,11 @@ import {
   Alert,
   Linking,
   Pressable,
-  RefreshControl,
   Share,
   StyleSheet,
   View,
 } from 'react-native';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 type MinistryTab = 'info' | 'posts' | 'services';
 
@@ -75,7 +74,6 @@ export default function MinistryProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
-  const { colors } = useTheme();
   const { isAuthenticated } = useAuth();
   const {
     me,
@@ -350,10 +348,9 @@ export default function MinistryProfileScreen() {
         gutter={false}
         padBottom="xxxl"
         refreshControl={
-          <RefreshControl
+          <AppRefreshControl
             refreshing={refreshing}
             onRefresh={() => void onRefresh()}
-            tintColor={colors.electricBright}
           />
         }
       >

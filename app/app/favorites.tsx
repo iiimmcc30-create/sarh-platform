@@ -7,7 +7,6 @@ import { AppText, SarhButton } from '@/design-system/components';
 import { Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useApp } from '@/hooks/useApp';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
-import { useTheme } from '@/hooks/useTheme';
 import { usePostFeedActions } from '@/lib/usePostFeedActions';
 import { safePush } from '@/lib/safeNavigate';
 import type { Post } from '@/services/types';
@@ -15,14 +14,13 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ListRenderItemInfo,
-  RefreshControl,
   StyleSheet,
 } from 'react-native';
 import { type ThemeColors } from '@/constants/theme';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 export default function FavoritesScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const { isAuthenticated } = useAuth();
   const {
@@ -82,10 +80,9 @@ export default function FavoritesScreen() {
           renderItem={renderItem}
           contentContainerStyle={favorites.length === 0 && !firstLoad ? styles.emptyList : styles.list}
           refreshControl={
-            <RefreshControl
+            <AppRefreshControl
               refreshing={refreshing}
               onRefresh={() => void load({ refresh: true })}
-              tintColor={colors.electricBright}
             />
           }
           ListEmptyComponent={

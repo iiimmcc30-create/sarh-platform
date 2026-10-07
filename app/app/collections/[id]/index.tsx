@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
-  RefreshControl,
   StyleSheet,
   View,
   type ListRenderItemInfo,
@@ -51,6 +50,7 @@ import {
 import { resolveMediaUrl } from '@/services/media';
 import { promptReport } from '@/services/reports';
 import type { Listing, Post } from '@/services/types';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 const COVER_HEIGHT = 168;
 
@@ -438,13 +438,12 @@ export default function CollectionDetailScreen() {
           onEndReachedThreshold={0.4}
           onEndReached={() => void loadMore()}
           refreshControl={
-            <RefreshControl
+            <AppRefreshControl
               refreshing={refreshing}
               onRefresh={() => {
                 setRefreshing(true);
                 void load(true);
               }}
-              tintColor={colors.electric}
             />
           }
           ListFooterComponent={
@@ -475,13 +474,12 @@ export default function CollectionDetailScreen() {
         onEndReachedThreshold={0.4}
         onEndReached={() => void loadMore()}
         refreshControl={
-          <RefreshControl
+          <AppRefreshControl
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
               void load(true);
             }}
-            tintColor={colors.electric}
           />
         }
         ListFooterComponent={

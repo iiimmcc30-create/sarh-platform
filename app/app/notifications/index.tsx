@@ -16,11 +16,11 @@ import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
-  RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
 import { type ThemeColors } from '@/constants/theme';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
@@ -110,7 +110,7 @@ export default function NotificationsScreen() {
               notifications.length === 0 && !firstLoad && styles.listEmpty,
             ]}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.glow} />
+              <AppRefreshControl refreshing={refreshing} onRefresh={refresh} />
             }
             onEndReached={() => loadMore()}
             onEndReachedThreshold={0.35}

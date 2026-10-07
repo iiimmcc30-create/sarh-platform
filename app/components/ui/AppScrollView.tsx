@@ -24,6 +24,8 @@ export const AppScrollView = forwardRef<ScrollView, AppScrollViewProps>(
       showsVerticalScrollIndicator = false,
       showsHorizontalScrollIndicator = false,
       keyboardShouldPersistTaps = 'handled',
+    // iOS: keyboard follows the finger down; Android: dismiss once the user drags.
+    keyboardDismissMode = Platform.OS === 'ios' ? 'interactive' : 'on-drag',
       scrollEventThrottle = 16,
       decelerationRate = 'normal',
       bounces = true,
@@ -42,6 +44,7 @@ export const AppScrollView = forwardRef<ScrollView, AppScrollViewProps>(
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
         showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
         keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+        keyboardDismissMode={keyboardDismissMode}
         scrollEventThrottle={scrollEventThrottle}
         decelerationRate={decelerationRate}
         bounces={bounces}

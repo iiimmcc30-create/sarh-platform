@@ -9,7 +9,6 @@ import { Row, Stack } from '@/design-system/layout';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  RefreshControl,
   StyleSheet,
   View,
   type NativeScrollEvent,
@@ -36,6 +35,7 @@ import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { NewMessageSheet } from '@/components/feature/NewMessageSheet';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import type { ChatContact } from '@/services/chatApi';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 function formatThreadTime(iso: string): string {
   const date = new Date(iso);
@@ -392,7 +392,7 @@ export function MessagesPanel({
           extraData={`${openSwipeId ?? ''}:${menu?.id ?? ''}`}
           contentContainerStyle={{ paddingBottom: listBottomPadding, flexGrow: 1 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+            <AppRefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
           }
           ListEmptyComponent={
             <Stack gap="sm" align="center" style={[styles.emptyCard, { marginHorizontal: gutter }]}>

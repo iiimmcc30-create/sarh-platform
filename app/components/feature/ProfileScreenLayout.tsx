@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   Animated,
   Pressable,
-  RefreshControl,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -55,6 +54,7 @@ import {
 } from '@/lib/profileHeader';
 import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 export type { ProfileTabKey };
 
@@ -296,10 +296,9 @@ export function ProfileScreenLayout({
         }}
         refreshControl={
           onRefresh ? (
-            <RefreshControl
+            <AppRefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={themeColors.electricBright}
               progressViewOffset={insets.top}
             />
           ) : undefined

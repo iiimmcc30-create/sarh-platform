@@ -1,6 +1,6 @@
 // «المجالس» — live voice councils: my council, private invitations, public list.
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -29,6 +29,7 @@ import {
   fetchCouncils,
   type CouncilCard as CouncilCardData,
 } from '@/services/councils';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 export default function CouncilsScreen() {
   const router = useRouter();
@@ -136,13 +137,12 @@ export default function CouncilsScreen() {
         padTop="sm"
         bottomInset="action"
         refreshControl={
-          <RefreshControl
+          <AppRefreshControl
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
               void load();
             }}
-            tintColor={colors.textMuted}
           />
         }
       >

@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  RefreshControl,
   StyleSheet,
   View,
   type ListRenderItemInfo,
@@ -36,6 +35,7 @@ import {
   setFollowCollection,
   type Collection,
 } from '@/services/collections';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 type Section = 'discover' | 'mine' | 'memberOf';
 
@@ -427,10 +427,9 @@ export default function CollectionsScreen() {
             onEndReachedThreshold={0.4}
             onEndReached={() => void loadMore()}
             refreshControl={
-              <RefreshControl
+              <AppRefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={colors.electric}
               />
             }
             ListFooterComponent={

@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ListRenderItemInfo,
   Pressable,
-  RefreshControl,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -23,7 +22,6 @@ import { space } from '@/design-system/tokens';
 import { AppText, SarhButton } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
-import { useTheme } from '@/hooks/useTheme';
 import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +34,7 @@ import { usePostFeedActions } from '@/lib/usePostFeedActions';
 import { safePush } from '@/lib/safeNavigate';
 import type { Post } from '@/services/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 type FeedTab = 'for_you' | 'following';
 
@@ -44,7 +43,6 @@ const FOLLOWING_AUTH_ACTION = 'عرض منشورات المتابَعين';
 
 export default function PostsScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(({ colors: c }) => createPostsStyles(c));
   const { postId, openComments } = useLocalSearchParams<{
@@ -244,10 +242,9 @@ export default function PostsScreen() {
                 ListEmptyComponent={loadingFeed && posts.length === 0 ? FeedSkeleton : ListEmpty}
                 ListFooterComponent={<View style={styles.listFooter} />}
                 refreshControl={
-                  <RefreshControl
+                  <AppRefreshControl
                     refreshing={refreshing}
                     onRefresh={() => void loadFeed(feedTab, { refresh: true })}
-                    tintColor={colors.electricBright}
                   />
                 }
                 initialNumToRender={6}

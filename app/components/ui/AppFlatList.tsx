@@ -34,6 +34,8 @@ function AppFlatListInner<T>(
     showsVerticalScrollIndicator = false,
     showsHorizontalScrollIndicator = false,
     keyboardShouldPersistTaps = 'handled',
+    // iOS: keyboard follows the finger down; Android: dismiss once the user drags.
+    keyboardDismissMode = Platform.OS === 'ios' ? 'interactive' : 'on-drag',
     scrollEventThrottle = 16,
     decelerationRate = 'normal',
     bounces = true,
@@ -57,6 +59,7 @@ function AppFlatListInner<T>(
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+      keyboardDismissMode={keyboardDismissMode}
       scrollEventThrottle={scrollEventThrottle}
       decelerationRate={decelerationRate}
       bounces={bounces}
