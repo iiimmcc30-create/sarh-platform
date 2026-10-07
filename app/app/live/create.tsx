@@ -23,6 +23,7 @@ import { AgoraVideoView } from '@/components/live/AgoraVideoView';
 import { LiveBroadcastPledgeModal } from '@/components/live/LiveBroadcastPledgeModal';
 import { VideoSourceType } from '@/lib/agora';
 import { useLiveStream } from '@/hooks/useLiveStream';
+import { useYieldCouncilForLive } from '@/contexts/CouncilSessionContext';
 import { colors, radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { FILTER_CHIP } from '@/components/ui/filterChipTokens';
 import { getRtlText, rtlInputText } from '@/lib/rtl';
@@ -71,6 +72,8 @@ export default function CreateStreamScreen() {
   const [previewReady, setPreviewReady] = useState(false);
   const [permissionError, setPermissionError] = useState(false);
 
+  // One native audio engine: an active «المجالس» session is left before broadcasting.
+  useYieldCouncilForLive(LIVE_BROADCAST_ENABLED);
   const {
     isJoined,
     localUid,

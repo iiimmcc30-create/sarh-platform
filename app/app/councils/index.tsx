@@ -1,14 +1,25 @@
 // «المجالس» — live voice councils: my council, private invitations, public list.
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CouncilCard } from '@/components/councils/CouncilCard';
+import { CouncilMiniPlayer } from '@/components/councils/CouncilMiniPlayer';
 import { CouncilNotice } from '@/components/councils/CouncilNotice';
-import { spacing } from '@/constants/theme';
+import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { radius, spacing } from '@/constants/theme';
+import { useOptionalCouncilSession } from '@/contexts/CouncilSessionContext';
 import { AppText, SarhButton } from '@/design-system/components';
-import { BottomAction, Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  COUNCIL_FAB_SIZE,
+  COUNCIL_MINI_PLAYER_GAP,
+  COUNCIL_MINI_PLAYER_HEIGHT,
+  councilFabAnchor,
+} from '@/lib/councilSession';
+import { isAppRtl } from '@/lib/rtl';
 import { safePush } from '@/lib/safeNavigate';
 import {
   COUNCIL_WEB_TEXT,
@@ -22,6 +33,9 @@ import {
 export default function CouncilsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const session = useOptionalCouncilSession();
+  const [fabScale] = useState(() => new Animated.Value(1));
   const [mine, setMine] = useState<CouncilCardData | null>(null);
   const [privateList, setPrivateList] = useState<CouncilCardData[]>([]);
   const [publicList, setPublicList] = useState<CouncilCardData[]>([]);
@@ -107,6 +121,13 @@ export default function CouncilsScreen() {
 
   const empty = !mine && !privateList.length && !publicList.length;
 
+  const miniInset = session?.miniPlayerVisible ? COUNCIL_MINI_PLAYER_HEIGHT + COUNCIL_MINI_PLAYER_GAP : 0;
+  const fabBottom = insets.bottom + spacing.lg + miniInset;
+  const pressFab = (toValue: number) =>
+    Animated.spring(fabScale, { toValue, useNativeDriver: true, speed: 40, bounciness: toValue === 1 ? 6 : 0 }).start();
+  // Same action as the old big button: my live council if I have one, otherwise create.
+  const startOrReturn = () => (mine ? open(mine) : safePush('/councils/create', undefined, router));
+
   return (
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader variant="screen" title="المجالس" showBack />
@@ -147,23 +168,38 @@ export default function CouncilsScreen() {
           </>
         )}
       </ScreenBody>
-      <BottomAction>
-        {mine ? (
-          <SarhButton title="العودة إلى مجلسك" leftIcon="mic" shape="pill" fullWidth onPress={() => open(mine)} />
-        ) : (
-          <SarhButton
-            title="بدء مجلس"
-            leftIcon="mic"
-            shape="pill"
-            fullWidth
-            onPress={() => safePush('/councils/create', undefined, router)}
-          />
-        )}
-      </BottomAction>
+      <Animated.View
+        style={[
+          styles.fab,
+          councilFabAnchor(isAppRtl(), spacing.lg),
+          { bottom: fabBottom, backgroundColor: colors.electric, transform: [{ scale: fabScale }] },
+        ]}
+      >
+        <Pressable
+          testID="council-start-fab"
+          onPress={startOrReturn}
+          onPressIn={() => pressFab(0.9)}
+          onPressOut={() => pressFab(1)}
+          accessibilityRole="button"
+          accessibilityLabel={mine ? 'العودة إلى مجلسك' : 'بدء مجلس'}
+          style={styles.fabHit}
+        >
+          <AppIcon name="mic" size={24} color={colors.onElectric} />
+        </Pressable>
+      </Animated.View>
+      <CouncilMiniPlayer style={[styles.mini, { bottom: insets.bottom + spacing.sm }]} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   center: { paddingVertical: spacing.xxxl, alignItems: 'center' },
+  fab: {
+    position: 'absolute',
+    width: COUNCIL_FAB_SIZE,
+    height: COUNCIL_FAB_SIZE,
+    borderRadius: radius.pill,
+  },
+  fabHit: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  mini: { position: 'absolute', left: 0, right: 0 },
 });

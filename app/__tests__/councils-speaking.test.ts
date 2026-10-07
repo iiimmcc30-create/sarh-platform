@@ -98,7 +98,9 @@ describe('Councils speaking mic indicator', () => {
     expect(hook).toContain('enableAudioVolumeIndication(COUNCIL_VOLUME_INTERVAL_MS, 3, true)');
     expect(hook).toContain('updateSpeaking(lastLoud.current, speakers, Date.now(), mutedRef.current)');
     expect(hook).toContain('clearDecay();');
-    expect(room).toContain('speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me)');
+    // computed in the global session provider (room + mini player read it from there)
+    expect(src('contexts/CouncilSessionContext.tsx')).toContain('speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me)');
+    expect(room).toContain('speakingUserIds={session.speakingUserIds}');
   });
 });
 
@@ -128,10 +130,11 @@ describe('Councils: my seat reflects my mic state', () => {
 
   it('the room renders the stage from the merged list and reverts a failed unmute', () => {
     const room = src('app/councils/[id].tsx');
-    expect(room).toContain('withMyMicState(state.speakers, state.me)');
-    expect(room).toContain('speakers={stageSpeakers}');
+    const provider = src('contexts/CouncilSessionContext.tsx');
+    expect(provider).toContain('withMyMicState(state.speakers, state.me)');
+    expect(room).toContain('speakers={session.stageSpeakers}');
     expect(room).not.toContain('speakers={state.speakers}');
-    expect(room).toContain('if (!nextMuted) setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));');
+    expect(provider).toContain('if (!nextMuted) setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));');
   });
 });
 

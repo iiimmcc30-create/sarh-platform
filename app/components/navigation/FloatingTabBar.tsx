@@ -10,6 +10,7 @@ import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { isNavigationLocked, safeNavigateTab } from '@/lib/safeNavigate';
 import { HOME_TAB_RESELECT_EVENT } from '@/lib/homeQuickAccess';
 import { isTabBarHiddenForRoute } from '@/lib/tabBarVisibility';
+import { CouncilMiniPlayer } from '@/components/councils/CouncilMiniPlayer';
 import {
   TAB_ACTIVATE_SCALE,
   TAB_PRESS_IN_MS,
@@ -105,6 +106,8 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
       ]}
       pointerEvents={chromeVisible ? 'box-none' : 'none'}
     >
+      {/* «المجالس» listening session: docked above the tab row (moves with the bar). */}
+      <CouncilMiniPlayer />
       <View
         style={[
           styles.bar,

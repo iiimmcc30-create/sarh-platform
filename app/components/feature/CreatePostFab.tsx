@@ -16,7 +16,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ds } from '@/constants/designSystem';
 import { spacing } from '@/constants/theme';
+import { useOptionalCouncilSession } from '@/contexts/CouncilSessionContext';
 import { useTheme } from '@/hooks/useTheme';
+import { COUNCIL_MINI_PLAYER_GAP, COUNCIL_MINI_PLAYER_HEIGHT } from '@/lib/councilSession';
 import { inlineEnd } from '@/lib/rtl';
 
 const FAB_SIZE = 56;
@@ -57,6 +59,10 @@ export function CreatePostFab({ onPress, bottomOffset = TAB_BAR_CLEARANCE, mode 
   const router = useRouter();
   const insets = useSafeAreaInsets();
   useTheme();
+  // Lift above the «المجالس» mini player docked on the tab bar.
+  const councilInset = useOptionalCouncilSession()?.miniPlayerVisible
+    ? COUNCIL_MINI_PLAYER_HEIGHT + COUNCIL_MINI_PLAYER_GAP
+    : 0;
   const scale = useRef(new Animated.Value(1)).current;
   const fabColors = useMemo(
     () => ({
@@ -122,7 +128,7 @@ export function CreatePostFab({ onPress, bottomOffset = TAB_BAR_CLEARANCE, mode 
           styles.fab,
           fabColors,
           inlineEnd(spacing.lg),
-          { bottom: insets.bottom + bottomOffset, transform: [{ scale }] },
+          { bottom: insets.bottom + bottomOffset + councilInset, transform: [{ scale }] },
         ]}
       >
         <Pressable

@@ -19,7 +19,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AgoraVideoView } from '@/components/live/AgoraVideoView';
-import { VideoSourceType } from '@/lib/agora';
+import { isAgoraAvailable, VideoSourceType } from '@/lib/agora';
+import { useYieldCouncilForLive } from '@/contexts/CouncilSessionContext';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useLiveSocket } from '@/hooks/useLiveSocket';
 import { colors, radius, spacing, typography, type ThemeColors } from '@/constants/theme';
@@ -81,6 +82,8 @@ export default function WatchScreen() {
   const [hostUid, setHostUid]     = useState<number | null>(null);
   const flatRef = useRef<FlatList>(null);
 
+  // One native audio engine: an active «المجالس» session is left before the stream starts.
+  useYieldCouncilForLive(isAgoraAvailable());
   const { isJoined, remoteUsers, error, join, leave } = useLiveStream({
     role: 'viewer',
     onTokenWillExpire: async () => {

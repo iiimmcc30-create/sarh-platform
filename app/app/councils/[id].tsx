@@ -1,27 +1,27 @@
-// «المجالس» room: 4 × 3 stage, speak requests, moderation, audio via Agora (councils flag).
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Platform, Pressable, StyleSheet, View } from 'react-native';
+// «المجالس» room: 4 × 3 stage, speak requests, moderation. Audio + realtime live in the
+// global CouncilSessionProvider, so minimising / going back keeps listening; only
+// «مغادرة», council end, kick/ban or logout disconnect.
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { CouncilInviteSheet } from '@/components/councils/CouncilInviteSheet';
+import { CouncilMicButton } from '@/components/councils/CouncilMicButton';
 import { CouncilNotice } from '@/components/councils/CouncilNotice';
 import { CouncilRequestsSheet } from '@/components/councils/CouncilRequestsSheet';
+import { CouncilRoomHeader } from '@/components/councils/CouncilRoomHeader';
 import { CouncilRulesSheet } from '@/components/councils/CouncilRulesSheet';
 import { CouncilSheet } from '@/components/councils/CouncilSheet';
 import { SpeakerGrid } from '@/components/councils/SpeakerGrid';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCouncilSession } from '@/contexts/CouncilSessionContext';
 import { AppText, SarhAvatar, SarhButton } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
-import { useCouncilAudio } from '@/hooks/useCouncilAudio';
-import { useCouncilSocket } from '@/hooks/useCouncilSocket';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { confirmDestructive, presentActionSheet, type ActionSheetItem } from '@/lib/actionSheet';
 import { isCouncilAudioAvailable } from '@/lib/councilsAgora';
-import { speakingUserIdsFor, withMyMicState } from '@/lib/councilSpeaking';
-import { ensureMicPermission } from '@/lib/livePermissions';
 import { openUserProfile } from '@/lib/openUserProfile';
 import { safePush } from '@/lib/safeNavigate';
 import { showToast } from '@/lib/toast';
@@ -33,9 +33,7 @@ import {
   COUNCIL_FULL_TEXT,
   COUNCIL_KICKED_TEXT,
   COUNCIL_LIVE_BUSY_TEXT,
-  COUNCIL_RESYNC_MS,
   COUNCIL_WEB_TEXT,
-  CouncilApiError,
   cancelSpeakRequest,
   councilErrorMessage,
   councilHandle,
@@ -45,341 +43,89 @@ import {
   councilUserName,
   decideSpeakRequest,
   endCouncil,
-  fetchCouncil,
   fetchCouncilBanned,
-  fetchCouncilToken,
-  joinCouncil,
-  leaveCouncil,
   leaveCouncilStage,
   requestToSpeak,
-  setCouncilMic,
   type CouncilMemberAction,
   type CouncilRequest,
   type CouncilSpeaker,
-  type CouncilState,
   type CouncilUser,
 } from '@/services/councils';
-
-type Blocked = 'ended' | 'banned' | 'kicked' | 'not_found' | null;
 
 export default function CouncilRoomScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; code?: string }>();
   const id = typeof params.id === 'string' ? params.id : '';
   const code = typeof params.code === 'string' && params.code ? params.code : null;
-  const { accessToken } = useAuth();
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
+  const session = useCouncilSession();
 
-  const [state, setState] = useState<CouncilState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [blocked, setBlocked] = useState<Blocked>(null);
-  const [joined, setJoined] = useState(false);
+  // The session may still hold another council for a moment while this one opens.
+  const mine = session.councilId === id;
+  const state = mine ? session.state : null;
+  const blocked = mine ? session.blocked : null;
+  const joined = mine && session.joined;
+  const { audio, busy, run, refresh } = session;
+
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rulesReadOnly, setRulesReadOnly] = useState(false);
-  const [joining, setJoining] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [bannedOpen, setBannedOpen] = useState(false);
   const [banned, setBanned] = useState<CouncilUser[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [agoraError, setAgoraError] = useState<string | null>(null);
 
-  const stateRef = useRef<CouncilState | null>(null);
-  stateRef.current = state;
-  const joinedRef = useRef(false);
-  joinedRef.current = joined;
-  const focused = useRef(false);
-
-  const audio = useCouncilAudio({
-    councilId: id || undefined,
-    requestToken: useCallback(async () => {
-      try {
-        return await fetchCouncilToken(id);
-      } catch (err) {
-        if (err instanceof CouncilApiError) handleBlockingError(err);
-        return null;
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]),
-    onFatal: (reason) => {
-      if (reason === 'banned') void refresh();
-    },
-    onMicDenied: () => void showToast('يجب السماح بالميكروفون للتحدث في المجلس', 'error'),
+  const stateRef = useRef(state);
+  const joinedRef = useRef(joined);
+  useEffect(() => {
+    stateRef.current = state;
+    joinedRef.current = joined;
   });
 
-  // ─── State loading ──────────────────────────────────────────────────────
-
-  const applyState = useCallback((next: CouncilState) => {
-    setState(next);
-    setLoadError(null);
-    if (next.council.status === 'ENDED') setBlocked('ended');
-    else if (next.me.banned) setBlocked('banned');
-    else if (next.me.kickedUntil) setBlocked('kicked');
-    else setBlocked(null);
-  }, []);
-
-  function handleBlockingError(err: CouncilApiError): boolean {
-    const map: Record<string, Blocked> = {
-      council_ended: 'ended',
-      council_banned: 'banned',
-      council_kicked: 'kicked',
-      not_found: 'not_found',
-    };
-    const b = map[err.code] ?? (err.status === 404 ? 'not_found' : null);
-    if (!b) return false;
-    setBlocked(b);
-    setJoined(false);
-    audio.stop();
-    return true;
-  }
-
-  const refresh = useCallback(async () => {
-    if (!id) return null;
-    try {
-      const next = await fetchCouncil(id, code);
-      applyState(next);
-      return next;
-    } catch (err) {
-      if (err instanceof CouncilApiError && handleBlockingError(err)) return null;
-      setLoadError(councilErrorMessage(err));
-      return null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, code, applyState]);
-
-  const doJoin = useCallback(
-    async (acceptRules: boolean) => {
-      if (!id) return;
-      setJoining(true);
-      try {
-        const res = await joinCouncil(id, { code, acceptRules });
-        applyState(res.state);
-        setRulesOpen(false);
-        setJoined(true);
-        if (!res.agora) {
-          setAgoraError(res.agoraError ?? 'agora_unavailable');
-          return;
-        }
-        setAgoraError(null);
-        if (focused.current) await audio.start(res.agora, res.state.me.micMuted);
-      } catch (err) {
-        if (err instanceof CouncilApiError) {
-          if (err.code === 'rules_required') {
-            setRulesReadOnly(false);
-            setRulesOpen(true);
-            return;
-          }
-          if (handleBlockingError(err)) return;
-        }
-        void showToast(councilErrorMessage(err), 'error');
-      } finally {
-        setJoining(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, code, applyState],
-  );
-
   const enter = useCallback(async () => {
-    setLoading(true);
-    const next = await refresh();
-    setLoading(false);
-    if (!next || next.council.status !== 'LIVE' || next.me.banned || next.me.kickedUntil) return;
-    if (!next.me.rulesAccepted) {
+    const r = await session.open(id, code);
+    if (r === 'rules') {
       setRulesReadOnly(false);
       setRulesOpen(true);
-      return;
     }
-    await doJoin(false);
-  }, [refresh, doJoin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, code, session.open]);
 
-  // Audio only while the room is focused; leave the council when the screen goes away.
+  const acceptRules = useCallback(async () => {
+    const r = await session.join(true);
+    if (r !== 'rules') setRulesOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.join]);
+
+  // Focus only toggles the mini player; blur never stops audio (minimise = keep listening).
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS === 'web' || !id) return undefined;
-      focused.current = true;
+      session.setRoomFocused(true);
       void enter();
-      return () => {
-        focused.current = false;
-        audio.stop();
-        setJoined(false);
-      };
+      return () => session.setRoomFocused(false);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, enter]),
   );
 
-  useEffect(() => {
-    if (Platform.OS === 'web' || !id) return undefined;
-    return () => {
-      const s = stateRef.current;
-      if (s?.me.permissions.isOwner && s.me.onStage && !s.me.micMuted) {
-        void setCouncilMic(id, true).catch(() => undefined);
-      }
-      void leaveCouncil(id).catch(() => undefined);
-    };
-  }, [id]);
-
-  // Safety-net resync while inside the room.
-  useEffect(() => {
-    if (!joined) return undefined;
-    const t = setInterval(() => void refresh(), COUNCIL_RESYNC_MS);
-    return () => clearInterval(t);
-  }, [joined, refresh]);
-
-  // v1 background policy: auto-mute when the app leaves the foreground, resync on return.
-  useEffect(() => {
-    if (Platform.OS === 'web') return undefined;
-    let wasBackground = false;
-    const sub = AppState.addEventListener('change', (next) => {
-      const s = stateRef.current;
-      if (!joinedRef.current || !s) return;
-      // Only real backgrounding — iOS goes `inactive` for permission prompts/control center.
-      if (next === 'background') {
-        wasBackground = true;
-        if (s.me.onStage && !s.me.micMuted) {
-          audio.setMuted(true);
-          setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));
-          void setCouncilMic(id, true).catch(() => undefined);
-        }
-      } else if (next === 'active' && wasBackground) {
-        wasBackground = false;
-        void refresh();
-        void audio.renew();
-      }
-    });
-    return () => sub.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, refresh]);
-
-  // ─── Realtime ───────────────────────────────────────────────────────────
-
-  useCouncilSocket({
-    councilId: id,
-    accessToken,
-    enabled: joined && !blocked,
-    handlers: {
-      onResync: () => void refresh(),
-      onSpeakers: (p) =>
-        setState((prev) =>
-          prev
-            ? {
-                ...prev,
-                speakers: p.speakers,
-                speakersCount: p.speakersCount,
-                listenerCount: p.listenerCount,
-                isFull: p.speakersCount >= prev.council.maxSpeakers,
-              }
-            : prev,
-        ),
-      onListeners: (p) => setState((prev) => (prev ? { ...prev, listenerCount: p.listenerCount } : prev)),
-      onMic: (p) =>
-        setState((prev) => {
-          if (!prev) return prev;
-          const speakers = prev.speakers.map((s) =>
-            s.userId === p.userId
-              ? { ...s, micMuted: p.micMuted, mutedByModerator: p.mutedByModerator ?? s.mutedByModerator }
-              : s,
-          );
-          const mine = p.userId === prev.me.userId;
-          if (mine) audio.setMuted(p.micMuted);
-          return {
-            ...prev,
-            speakers,
-            me: mine
-              ? { ...prev.me, micMuted: p.micMuted, mutedByModerator: p.mutedByModerator ?? prev.me.mutedByModerator }
-              : prev.me,
-          };
-        }),
-      onRole: (p) => {
-        const before = stateRef.current?.me;
-        if (before && before.seatIndex === null && p.seatIndex !== null) {
-          void showToast('أصبحت متحدثاً — الميكروفون مغلق حتى تفتحه', 'success');
-        } else if (before && before.seatIndex !== null && p.seatIndex === null) {
-          void showToast('عدت إلى المستمعين', 'info');
-        } else if (p.mutedByModerator && !before?.mutedByModerator) {
-          void showToast('تم كتم الميكروفون من المشرف', 'info');
-        }
-        if (p.micMuted) audio.setMuted(true);
-        void refresh();
-        void audio.renew();
-      },
-      onKicked: (p) => {
-        audio.stop();
-        setJoined(false);
-        setBlocked(p.reason === 'banned' ? 'banned' : 'kicked');
-      },
-      onRequestResult: (p) => {
-        if (p.status === 'REJECTED') void showToast('لم يتم قبول طلبك هذه المرة', 'info');
-        void refresh();
-      },
-      onRequests: (p) => setState((prev) => (prev ? { ...prev, pendingRequests: p.pending } : prev)),
-      onEnded: () => {
-        audio.stop();
-        setJoined(false);
-        setBlocked('ended');
-      },
-      onUpdated: () => void refresh(),
-      onError: (p) => {
-        if (p.code === 'council_ended') setBlocked('ended');
-        else if (p.code === 'council_banned') setBlocked('banned');
-        else if (p.code === 'council_kicked') setBlocked('kicked');
-        else void refresh();
-      },
-    },
-  });
-
   // ─── Actions ────────────────────────────────────────────────────────────
 
-  const run = useCallback(async (key: string, fn: () => Promise<unknown>, ok?: string) => {
-    setBusy(key);
-    try {
-      await fn();
-      if (ok) void showToast(ok, 'success');
-      return true;
-    } catch (err) {
-      if (!(err instanceof CouncilApiError && handleBlockingError(err))) {
-        void showToast(councilErrorMessage(err), 'error');
-      }
-      void refresh();
-      return false;
-    } finally {
-      setBusy(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refresh]);
+  // Opened from a link/notification with nothing underneath: land on the home tabs.
+  const goBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  }, [router]);
 
-  const toggleMic = useCallback(async () => {
-    const s = stateRef.current;
-    if (!s?.me.onStage) return;
-    if (s.me.mutedByModerator) {
-      void showToast('الميكروفون مكتوم من المشرف', 'info');
-      return;
-    }
-    const nextMuted = !s.me.micMuted;
-    if (!nextMuted) {
-      if (!(await ensureMicPermission())) {
-        void showToast('يجب السماح بالميكروفون للتحدث في المجلس', 'error');
-        return;
-      }
-    } else {
-      audio.setMuted(true);
-    }
-    setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: nextMuted } } : prev));
-    const ok = await run('mic', async () => {
-      await setCouncilMic(id, nextMuted);
-      if (!nextMuted) {
-        if (!audio.isPublisher()) await audio.renew();
-        audio.setMuted(false);
-      }
-    });
-    if (!ok) {
-      audio.setMuted(true);
-      // Unmute failed: don't leave my seat/button showing an open mic.
-      if (!nextMuted) setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));
-    }
-  }, [audio, id, run]);
+  /** Minimise: leave the screen, keep listening (mini player takes over). */
+  const minimize = goBack;
+
+  const onLeave = useCallback(async () => {
+    await session.leave();
+    goBack();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goBack, session.leave]);
+
+  const toggleMic = session.toggleMic;
 
   const onRequest = useCallback(() => {
     const s = stateRef.current;
@@ -400,15 +146,16 @@ export default function CouncilRoomScreen() {
 
   const onDecide = useCallback(
     (r: CouncilRequest, accept: boolean) => {
-      setBusy(`req:${r.id}`);
+      session.setBusy(`req:${r.id}`);
       void decideSpeakRequest(id, r.id, accept)
         .catch((err) => void showToast(councilErrorMessage(err), 'error'))
         .finally(() => {
-          setBusy(null);
+          session.setBusy(null);
           void refresh();
         });
     },
-    [id, refresh],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [id, refresh, session.setBusy],
   );
 
   const memberAction = useCallback(
@@ -478,8 +225,9 @@ export default function CouncilRoomScreen() {
     if (!ok) return;
     audio.stop();
     await run('end', () => endCouncil(id), 'تم إنهاء المجلس');
-    setBlocked('ended');
-  }, [audio, id, run]);
+    session.setBlocked('ended');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audio, id, run, session.setBlocked]);
 
   const openMenu = useCallback(async () => {
     const s = stateRef.current;
@@ -492,7 +240,6 @@ export default function CouncilRoomScreen() {
     if (p.canEdit) items.push({ key: 'edit', label: 'إعدادات المجلس', icon: 'settings-outline' });
     if (s.me.onStage && !p.isOwner) items.push({ key: 'stage', label: 'النزول إلى المستمعين', icon: 'volume-high' });
     if (p.canEnd) items.push({ key: 'end', label: 'إنهاء المجلس', icon: 'close-circle-outline', destructive: true });
-    items.push({ key: 'leave', label: 'مغادرة المجلس', icon: 'log-out-outline', destructive: !p.canEnd });
     items.push({ key: 'cancel', label: 'إلغاء', cancel: true });
     const key = await presentActionSheet({ title: s.council.name, items });
     switch (key) {
@@ -518,20 +265,10 @@ export default function CouncilRoomScreen() {
       case 'end':
         void onEnd();
         break;
-      case 'leave':
-        router.back();
-        break;
       default:
         break;
     }
   }, [onEnd, onLeaveStage, openBanned, router]);
-
-  // My seat mirrors my local mic state immediately (not only after the socket echo).
-  const stageSpeakers = useMemo(() => (state ? withMyMicState(state.speakers, state.me) : []), [state]);
-  const speakingUserIds = useMemo(
-    () => (state ? speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me) : new Set<string>()),
-    [audio.speakingUids, stageSpeakers, state],
-  );
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -545,13 +282,11 @@ export default function CouncilRoomScreen() {
   }
 
   const header = (
-    <ScreenHeader
-      variant="screen"
+    <CouncilRoomHeader
       title={state?.council.name ?? 'المجلس'}
-      showBack
-      rightIcon={state && !blocked ? 'ellipsis-horizontal' : undefined}
-      onRightPress={state && !blocked ? () => void openMenu() : undefined}
-      rightAccessibilityLabel="خيارات المجلس"
+      onMinimize={minimize}
+      onLeave={state && !blocked ? () => void onLeave() : undefined}
+      onMore={state && !blocked ? () => void openMenu() : undefined}
     />
   );
 
@@ -571,6 +306,7 @@ export default function CouncilRoomScreen() {
   }
 
   if (!state) {
+    const loading = !mine || session.loading;
     return (
       <Screen edges={['top', 'bottom']}>
         {header}
@@ -582,7 +318,7 @@ export default function CouncilRoomScreen() {
           <CouncilNotice
             icon="alert-circle-outline"
             title="تعذّر فتح المجلس"
-            message={loadError ?? undefined}
+            message={session.loadError ?? undefined}
             actionLabel="إعادة المحاولة"
             onAction={() => void enter()}
           />
@@ -594,6 +330,7 @@ export default function CouncilRoomScreen() {
   const { council, me } = state;
   const perms = me.permissions;
   const requestsCount = state.pendingRequests.length;
+  const agoraError = session.agoraError;
   const audioNotice = !isCouncilAudioAvailable()
     ? 'الصوت يتطلب أحدث إصدار من التطبيق'
     : agoraError
@@ -652,7 +389,7 @@ export default function CouncilRoomScreen() {
               {audioNotice}
             </AppText>
             {audio.status === 'failed' || audio.status === 'busy' ? (
-              <Pressable onPress={() => void doJoin(false)} hitSlop={8} accessibilityRole="button">
+              <Pressable onPress={() => void session.join(false)} hitSlop={8} accessibilityRole="button">
                 <AppText variant="caption" color="textPrimary">
                   إعادة المحاولة
                 </AppText>
@@ -664,8 +401,8 @@ export default function CouncilRoomScreen() {
         {/* Stage block takes the free height and centres the 4 × 3 grid + listeners pill in it. */}
         <View style={styles.stage} testID="council-stage">
           <SpeakerGrid
-            speakers={stageSpeakers}
-            speakingUserIds={speakingUserIds}
+            speakers={session.stageSpeakers}
+            speakingUserIds={session.speakingUserIds}
             myUserId={me.userId}
             onSpeakerPress={(s) => void openMemberMenu(s, true)}
           />
@@ -685,33 +422,31 @@ export default function CouncilRoomScreen() {
       </ScreenBody>
 
       <View style={styles.bar}>
-        {perms.canManageRequests ? (
-          <Pressable
-            onPress={() => setRequestsOpen(true)}
-            style={styles.barIcon}
-            accessibilityRole="button"
-            accessibilityLabel={`طلبات التحدث ${requestsCount}`}
-          >
-            <AppIcon name="hand-left-outline" size={20} color={colors.textPrimary} />
-            {requestsCount > 0 ? (
-              <View style={styles.badge}>
-                <AppText variant="micro" color="textPrimary">
-                  {requestsCount > 9 ? '9+' : requestsCount}
-                </AppText>
-              </View>
-            ) : null}
-          </Pressable>
-        ) : null}
+        <View style={styles.barSide}>
+          {perms.canManageRequests ? (
+            <Pressable
+              onPress={() => setRequestsOpen(true)}
+              style={styles.barIcon}
+              accessibilityRole="button"
+              accessibilityLabel={`طلبات التحدث ${requestsCount}`}
+            >
+              <AppIcon name="hand-left-outline" size={20} color={colors.textPrimary} />
+              {requestsCount > 0 ? (
+                <View style={styles.badge}>
+                  <AppText variant="micro" color="textPrimary">
+                    {requestsCount > 9 ? '9+' : requestsCount}
+                  </AppText>
+                </View>
+              ) : null}
+            </Pressable>
+          ) : null}
+        </View>
 
-        <View style={{ flex: 1 }}>
+        <View style={styles.barCenter}>
           {me.onStage ? (
-            <SarhButton
-              title={me.mutedByModerator ? 'مكتوم من المشرف' : me.micMuted ? 'فتح الميكروفون' : 'إغلاق الميكروفون'}
-              leftIcon={me.micMuted || me.mutedByModerator ? 'mic-off' : 'mic'}
-              variant={me.micMuted || me.mutedByModerator ? 'secondary' : 'primary'}
-              shape="pill"
-              fullWidth
-              disabled={me.mutedByModerator}
+            <CouncilMicButton
+              muted={me.micMuted}
+              mutedByModerator={me.mutedByModerator}
               loading={busy === 'mic'}
               onPress={() => void toggleMic()}
             />
@@ -723,20 +458,13 @@ export default function CouncilRoomScreen() {
               shape="pill"
               fullWidth
               disabled={(!me.pendingRequestId && state.isFull) || !joined}
-              loading={busy === 'request' || joining}
+              loading={busy === 'request' || session.joining}
               onPress={onRequest}
             />
           )}
         </View>
 
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.barIcon}
-          accessibilityRole="button"
-          accessibilityLabel="مغادرة المجلس"
-        >
-          <AppIcon name="log-out-outline" size={20} color={colors.textSecondary} />
-        </Pressable>
+        <View style={styles.barSide} />
       </View>
 
       <CouncilRulesSheet
@@ -744,8 +472,8 @@ export default function CouncilRoomScreen() {
         councilName={council.name}
         rules={council.rules}
         readOnly={rulesReadOnly}
-        loading={joining}
-        onAccept={() => void doJoin(true)}
+        loading={session.joining}
+        onAccept={() => void acceptRules()}
         onClose={() => {
           setRulesOpen(false);
           if (!rulesReadOnly && !joinedRef.current) router.back();
@@ -771,7 +499,7 @@ export default function CouncilRoomScreen() {
           isPrivate={council.visibility === 'PRIVATE'}
           canRotate={perms.isOwner}
           onCodeRotated={(c) =>
-            setState((prev) => (prev ? { ...prev, council: { ...prev.council, inviteCode: c } } : prev))
+            session.setState((prev) => (prev ? { ...prev, council: { ...prev.council, inviteCode: c } } : prev))
           }
           onClose={() => setInviteOpen(false)}
         />
@@ -840,6 +568,9 @@ function createStyles(colors: ThemeColors) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.borderSoft,
     },
+    /** Equal side slots keep the round mic button centred. */
+    barSide: { width: 48, alignItems: 'center' },
+    barCenter: { flex: 1, alignItems: 'center' },
     barIcon: {
       width: 48,
       height: 48,

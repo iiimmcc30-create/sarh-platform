@@ -15,6 +15,7 @@ import { AppProvider } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import { CouncilSessionProvider } from '@/contexts/CouncilSessionContext';
 import { NotificationManager } from '@/components/NotificationManager';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { BootSplashGate } from '@/components/ui/BootSplashGate';
@@ -212,11 +213,13 @@ function RootLayoutBody() {
               <AuthGuard>
                 <NotificationManager />
                 <SubscriptionProvider>
-                  <NavigationPathTracker />
-                  <RootNavigator />
-                  <ActionSheetHost />
-                  <ListingCovenantHost />
-                  <ToastHost />
+                  <CouncilSessionProvider>
+                    <NavigationPathTracker />
+                    <RootNavigator />
+                    <ActionSheetHost />
+                    <ListingCovenantHost />
+                    <ToastHost />
+                  </CouncilSessionProvider>
                 </SubscriptionProvider>
               </AuthGuard>
             </AppProvider>
