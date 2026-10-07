@@ -15,9 +15,20 @@ import {
   type SetStateAction,
 } from 'react';
 import { AppState, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCouncilAudio } from '@/hooks/useCouncilAudio';
 import { useCouncilSocket } from '@/hooks/useCouncilSocket';
+import {
+  applyBackgroundAudio,
+  getCouncilAudioNative,
+  micCaptureAllowedInBackground,
+  planBackgroundAudio,
+  shouldAutoMuteOnBackground,
+  shouldLeaveFromNative,
+  subscribeCouncilAudio,
+  type BackgroundAudioPlan,
+} from '@/lib/councilBackgroundAudio';
 import {
   isMiniPlayerVisible,
   leaveCouncilSession,
@@ -81,6 +92,20 @@ export type CouncilSessionValue = {
 
 const CouncilSessionContext = createContext<CouncilSessionValue | null>(null);
 
+/**
+ * Android 13+: the foreground-service notification (title, «مغادرة») needs
+ * POST_NOTIFICATIONS. Asked once, only if never answered; the service runs either way.
+ */
+async function ensureCouncilNotificationPermission(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    if (current.status === 'undetermined' && current.canAskAgain) await Notifications.requestPermissionsAsync();
+  } catch {
+    // notifications unavailable — background audio still runs
+  }
+}
+
 const BLOCKED_TEXT: Record<Exclude<CouncilBlocked, null>, string> = {
   ended: COUNCIL_ENDED_TEXT,
   banned: COUNCIL_BANNED_TEXT,
@@ -132,6 +157,11 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
   });
   const audioRef = useRef(audio);
   audioRef.current = audio;
+
+  // Native background-audio module (null on builds without it → everything no-ops).
+  const [bgNative] = useState(() => getCouncilAudioNative());
+  const bgKeyRef = useRef('');
+  const bgPlanRef = useRef<BackgroundAudioPlan>({ kind: 'stop' });
 
   const reset = useCallback(() => {
     audioRef.current.stop();
@@ -371,19 +401,71 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       // Only real backgrounding — iOS goes `inactive` for permission prompts/control center.
       if (next === 'background') {
         wasBackground = true;
-        if (s.me.onStage && !s.me.micMuted) {
+        // With the background module (Android microphone service / iOS audio mode) the
+        // mic keeps working; without it (older builds) fall back to the v1 auto-mute.
+        const micCaptureAllowed = micCaptureAllowedInBackground(bgNative);
+        if (shouldAutoMuteOnBackground({ onStage: s.me.onStage, micMuted: s.me.micMuted, micCaptureAllowed })) {
           audioRef.current.setMuted(true);
           setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));
           void setCouncilMic(id, true).catch(() => undefined);
         }
       } else if (next === 'active' && wasBackground) {
         wasBackground = false;
+        // Re-apply the service so Android can upgrade to the microphone type now that
+        // we're in the foreground again (refused from the background on Android 14+).
+        bgKeyRef.current = applyBackgroundAudio(bgNative, bgPlanRef.current, bgKeyRef.current, true);
         void refresh();
         void audioRef.current.renew();
       }
     });
     return () => sub.remove();
-  }, [refresh]);
+  }, [refresh, bgNative]);
+
+  // Background audio service: runs while the council audio is live; type follows the stage.
+  const bgPlan = useMemo(
+    () =>
+      planBackgroundAudio({
+        councilId,
+        joined,
+        blocked,
+        audioStatus: audio.status,
+        title: state?.council.name,
+        onStage: Boolean(state?.me.onStage),
+        micMuted: state?.me.micMuted ?? true,
+      }),
+    [councilId, joined, blocked, audio.status, state?.council.name, state?.me.onStage, state?.me.micMuted],
+  );
+  useEffect(() => {
+    const prev = bgKeyRef.current;
+    bgPlanRef.current = bgPlan;
+    bgKeyRef.current = applyBackgroundAudio(bgNative, bgPlan, prev);
+    if (bgNative && bgPlan.kind === 'run' && (prev === '' || prev === 'stop')) {
+      void ensureCouncilNotificationPermission();
+    }
+  }, [bgNative, bgPlan]);
+
+  // Provider unmount (app teardown): don't leave the notification behind.
+  useEffect(
+    () => () => {
+      if (bgKeyRef.current !== 'stop') applyBackgroundAudio(bgNative, { kind: 'stop' }, bgKeyRef.current);
+    },
+    [bgNative],
+  );
+
+  // Notification «مغادرة» / app swiped away → the same flow as the in-app «مغادرة».
+  // iOS call/Siri interruption ended → resume the engine's audio.
+  useEffect(
+    () =>
+      subscribeCouncilAudio(bgNative, {
+        onLeave: (e) => {
+          if (shouldLeaveFromNative(e, idRef.current)) void leave();
+        },
+        onInterruption: (e) => {
+          if (e?.phase === 'ended' && idRef.current && joinedRef.current) audioRef.current.recover();
+        },
+      }),
+    [bgNative, leave],
+  );
 
   useCouncilSocket({
     councilId: councilId ?? undefined,

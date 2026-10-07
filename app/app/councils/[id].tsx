@@ -75,6 +75,8 @@ export default function CouncilRoomScreen() {
   const [bannedOpen, setBannedOpen] = useState(false);
   const [banned, setBanned] = useState<CouncilUser[]>([]);
 
+  const focusedRef = useRef(false);
+  const wasJoinedRef = useRef(false);
   const stateRef = useRef(state);
   const joinedRef = useRef(joined);
   useEffect(() => {
@@ -102,8 +104,12 @@ export default function CouncilRoomScreen() {
     useCallback(() => {
       if (Platform.OS === 'web' || !id) return undefined;
       session.setRoomFocused(true);
+      focusedRef.current = true;
       void enter();
-      return () => session.setRoomFocused(false);
+      return () => {
+        focusedRef.current = false;
+        session.setRoomFocused(false);
+      };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, enter]),
   );
@@ -120,10 +126,21 @@ export default function CouncilRoomScreen() {
   const minimize = goBack;
 
   const onLeave = useCallback(async () => {
+    wasJoinedRef.current = false;
     await session.leave();
     goBack();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goBack, session.leave]);
+
+  // Left from outside this screen (notification «مغادرة», logout): close the room.
+  useEffect(() => {
+    if (joined) {
+      wasJoinedRef.current = true;
+    } else if (wasJoinedRef.current && session.councilId === null) {
+      wasJoinedRef.current = false;
+      if (focusedRef.current) goBack();
+    }
+  }, [joined, session.councilId, goBack]);
 
   const toggleMic = session.toggleMic;
 

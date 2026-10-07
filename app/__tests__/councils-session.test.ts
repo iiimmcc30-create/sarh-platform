@@ -95,7 +95,7 @@ describe('Councils session wiring', () => {
   });
 
   it('room blur only toggles the mini player; it never stops audio or leaves', () => {
-    expect(room).toContain('return () => session.setRoomFocused(false);');
+    expect(room).toMatch(/return \(\) => \{\s*focusedRef\.current = false;\s*session\.setRoomFocused\(false\);/);
     expect(room).not.toContain('leaveCouncil(');
     expect(room).not.toMatch(/focused\.current = false;\s*audio\.stop\(\)/);
     expect(room).toContain('await session.leave();');

@@ -332,6 +332,23 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
     setStatus('idle');
   }, [teardown]);
 
+  /**
+   * After an audio interruption (iOS call/Siri/alarm) the session is re-activated
+   * natively; restart the engine's audio module (enableAudio replaces the deprecated
+   * resumeAudio), re-apply my mic state and refresh the token/role.
+   */
+  const recover = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    try {
+      engine.enableAudio();
+      if (publisherRef.current) engine.muteLocalAudioStream(mutedRef.current);
+    } catch {
+      // engine gone — the connection-state handler rejoins if needed
+    }
+    void renew();
+  }, [renew]);
+
   useEffect(() => () => teardown(), [teardown]);
 
   return {
@@ -342,6 +359,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
     setMuted,
     applyCredentials,
     renew,
+    recover,
     isPublisher: () => publisherRef.current,
   };
 }
