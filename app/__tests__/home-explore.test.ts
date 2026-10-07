@@ -225,7 +225,7 @@ describe('HomeAppBar chrome', () => {
     expect(src).toContain('sortActive');
     expect(src).not.toContain('categoryIconBtn');
     expect(src).not.toContain('options-outline');
-    expect(src).toContain('borderColor: colors.borderHairline');
+    expect(src).toContain('borderColor: quickAccess.borderColor');
     expect(src).toContain('fontSize: MARKET_CHIP.fontSize');
   });
 
@@ -246,13 +246,13 @@ describe('HomeAppBar chrome', () => {
     expect(feed).not.toContain("id: 'nearby'");
   });
 
-  it('uses elevated listing-card surface for compact market chips', () => {
+  it('uses the quick-access chip surface for compact market chips', () => {
     const chipSrc = fs.readFileSync(
       path.join(__dirname, '../components/ui/filterChipAppearance.tsx'),
       'utf8',
     );
-    expect(chipSrc).toContain('colors.royal');
-    expect(chipSrc).toContain('const idleBorderWidth = compact ? 0');
+    expect(chipSrc).toContain('resolveQuickAccessSurface(scheme)');
+    expect(chipSrc).toContain('const idleBorderWidth = 1;');
   });
 
   it('keeps explore banners aligned to the home gutter', () => {

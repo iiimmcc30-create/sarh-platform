@@ -30,6 +30,7 @@ import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoo
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { LISTING_LIST_LAYOUT } from '@/components/feature/listingCardLayout';
+import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
 
 interface ListingCardProps {
   listing: Listing;
@@ -377,6 +378,8 @@ function ListingCardInner({
 }
 
 function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
+  // Card surface + border = Home quick-access chip colours (colour only; metrics unchanged).
+  const quickAccess = resolveQuickAccessSurface(_scheme);
   return StyleSheet.create({
   pressed: {
     opacity: 0.92,
@@ -390,7 +393,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     paddingHorizontal: spacing.md,
     paddingVertical: LISTING_LIST_LAYOUT.rowPaddingVertical,
     gap: LISTING_LIST_LAYOUT.rowGap,
-    backgroundColor: _scheme === 'light' ? '#FFFFFF' : colors.bgSurface,
+    backgroundColor: quickAccess.backgroundColor,
   },
   listContent: {
     flex: 1,
@@ -531,7 +534,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
   listRowChrome: {
     borderRadius: MENU_CARD.radius,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderHairline,
+    borderColor: quickAccess.borderColor,
     marginHorizontal: spacing.sm,
     ...ambientShadow(_scheme, 'soft'),
   },
@@ -688,11 +691,11 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
 
   harajCard: {
     width: '100%',
-    backgroundColor: colors.bgSurface,
+    backgroundColor: quickAccess.backgroundColor,
     borderRadius: radius.xl,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: quickAccess.borderColor,
     paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,

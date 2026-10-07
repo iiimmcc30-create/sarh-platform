@@ -6,6 +6,7 @@ import { getRtlRow } from '@/lib/rtl';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { motion } from '@/design-system';
 import { FILTER_CHIP, MARKET_CHIP } from '@/components/ui/filterChipTokens';
+import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
 
 export type FilterChipAppearanceProps = {
   label: string;
@@ -35,13 +36,16 @@ export function FilterChipAppearance({
   leading,
   compact = false,
 }: FilterChipAppearanceProps) {
-  const { styles, colors } = useThemedStyles((theme) => ({
-    styles: createChipStyles(theme.colors, compact),
+  const { styles, colors, scheme } = useThemedStyles((theme) => ({
+    styles: createChipStyles(theme.colors, compact, theme.scheme),
     colors: theme.colors,
+    scheme: theme.scheme,
   }));
 
   const iconColor = selected ? colors.onElectric : colors.textSecondary;
   const iconSize = compact ? MARKET_CHIP.iconSize : 15;
+  // Idle icons share the Home quick-access chip content colour; selected keeps the accent tone.
+  const chipIconColor = selected ? iconColor : resolveQuickAccessSurface(scheme).contentColor;
 
   return (
     <Pressable
@@ -67,21 +71,27 @@ export function FilterChipAppearance({
         ) : leading ? (
           leading
         ) : icon ? (
-          <AppIcon name={icon} size={iconSize} color={iconColor} />
+          <AppIcon name={icon} size={iconSize} color={chipIconColor} />
         ) : null}
         <Text numberOfLines={1} style={[styles.label, selected && styles.labelSelected]}>
           {label}
         </Text>
-        {chevron ? <AppIcon name="angle-down" size={compact ? 11 : 13} color={iconColor} /> : null}
+        {chevron ? <AppIcon name="angle-down" size={compact ? 11 : 13} color={chipIconColor} /> : null}
       </View>
     </Pressable>
   );
 }
 
-export function createChipStyles(colors: ThemeColors, compact: boolean) {
+export function createChipStyles(
+  colors: ThemeColors,
+  compact: boolean,
+  scheme: 'light' | 'dark',
+) {
   const tokens = compact ? MARKET_CHIP : FILTER_CHIP;
-  const idleBackground = colors.royal || FILTER_CHIP.idleSurfaceFallback;
-  const idleBorderWidth = compact ? 0 : StyleSheet.hairlineWidth;
+  // Idle chip = Home quick-access chip colours (SarhButton secondary): bg, 1px border, label.
+  const quickAccess = resolveQuickAccessSurface(scheme);
+  const idleBackground = quickAccess.backgroundColor || FILTER_CHIP.idleSurfaceFallback;
+  const idleBorderWidth = 1;
   return StyleSheet.create({
     chip: {
       height: tokens.height,
@@ -95,7 +105,7 @@ export function createChipStyles(colors: ThemeColors, compact: boolean) {
       maxWidth: '100%',
       backgroundColor: idleBackground,
       borderWidth: idleBorderWidth,
-      borderColor: colors.borderSoft,
+      borderColor: quickAccess.borderColor,
       overflow: 'hidden',
     },
     chipSelected: {
@@ -125,7 +135,7 @@ export function createChipStyles(colors: ThemeColors, compact: boolean) {
       ...typography.caption,
       fontSize: tokens.fontSize,
       lineHeight: tokens.lineHeight,
-      color: colors.textPrimary,
+      color: quickAccess.contentColor,
       textAlign: 'center',
       writingDirection: 'rtl',
       includeFontPadding: false,

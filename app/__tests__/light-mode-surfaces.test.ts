@@ -32,10 +32,10 @@ describe('light mode surface hierarchy', () => {
     expect(liveTheme.bgField).toBe(liveTheme.bgElevated);
   });
 
-  it('routes inputs and market search through bgField and chips through royal', () => {
+  it('routes inputs and market search through bgField and chips through the quick-access surface', () => {
     expect(src('design-system/components/SarhInput.tsx')).toContain('themeColors.bgField');
     expect(src('components/market/MarketAppBar.tsx')).toContain('backgroundColor: colors.bgField');
-    expect(src('components/ui/filterChipAppearance.tsx')).toContain('colors.royal');
+    expect(src('components/ui/filterChipAppearance.tsx')).toContain('resolveQuickAccessSurface');
   });
 
   it('keeps chat chrome on live light/dark tokens instead of fixed light fills', () => {

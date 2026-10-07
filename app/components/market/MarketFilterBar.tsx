@@ -6,6 +6,7 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRtlRow } from '@/lib/rtl';
 import { MARKET_CHIP } from '@/components/ui/filterChipTokens';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 type Props = {
@@ -37,10 +38,13 @@ export function MarketFilterBar({
   sortActive = false,
   sortLabel = 'الترتيب',
 }: Props) {
-  const { styles, colors } = useThemedStyles((theme) => ({
-    styles: createStyles(theme.colors),
+  const { styles, colors, scheme } = useThemedStyles((theme) => ({
+    styles: createStyles(theme.colors, theme.scheme),
     colors: theme.colors,
+    scheme: theme.scheme,
   }));
+  // Idle chips use the Home quick-access chip colours (bg / border / label + icon).
+  const idle = resolveQuickAccessSurface(scheme);
 
   const regionOpen = regionActive || regionSelection.type !== 'all';
   const regionLabel = regionSelectionLabel(regionSelection);
@@ -51,9 +55,10 @@ export function MarketFilterBar({
     <View style={styles.wrap}>
       <SarhChipRow contentPaddingHorizontal={spacing.md}>
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.chip,
             styles.regionChip,
+            pressed && styles.chipPressed,
             regionOpen && styles.chipActive,
             getRtlRow(),
           ]}
@@ -64,7 +69,7 @@ export function MarketFilterBar({
           <AppIcon
             name="map-marker-outline"
             size={MARKET_CHIP.iconSize}
-            color={regionOpen ? accent : colors.textPrimary}
+            color={regionOpen ? accent : idle.contentColor}
           />
           <Text
             style={[styles.chipLabel, regionOpen && styles.chipLabelActive]}
@@ -75,12 +80,17 @@ export function MarketFilterBar({
           <AppIcon
             name="angle-down"
             size={11}
-            color={regionOpen ? accent : colors.textSecondary}
+            color={regionOpen ? accent : idle.contentColor}
           />
         </Pressable>
 
         <Pressable
-          style={[styles.chip, nearbyActive && styles.chipActive, getRtlRow()]}
+          style={({ pressed }) => [
+            styles.chip,
+            pressed && styles.chipPressed,
+            nearbyActive && styles.chipActive,
+            getRtlRow(),
+          ]}
           onPress={onNearbyPress}
           accessibilityRole="button"
           accessibilityLabel="القريب"
@@ -90,13 +100,18 @@ export function MarketFilterBar({
           <AppIcon
             name="navigation"
             size={MARKET_CHIP.iconSize}
-            color={nearbyActive ? accent : colors.textPrimary}
+            color={nearbyActive ? accent : idle.contentColor}
           />
           <Text style={[styles.chipLabel, nearbyActive && styles.chipLabelActive]}>القريب</Text>
         </Pressable>
 
         <Pressable
-          style={[styles.chip, sortActive && styles.chipActive, getRtlRow()]}
+          style={({ pressed }) => [
+            styles.chip,
+            pressed && styles.chipPressed,
+            sortActive && styles.chipActive,
+            getRtlRow(),
+          ]}
           onPress={onSortPress}
           accessibilityRole="button"
           accessibilityLabel={`الترتيب: ${sortLabel}`}
@@ -106,7 +121,7 @@ export function MarketFilterBar({
           <AppIcon
             name="sort-alt"
             size={MARKET_CHIP.iconSize}
-            color={sortActive ? accent : colors.textPrimary}
+            color={sortActive ? accent : idle.contentColor}
           />
           <Text style={[styles.chipLabel, sortActive && styles.chipLabelActive]} numberOfLines={1}>
             {sortLabel}
@@ -114,7 +129,12 @@ export function MarketFilterBar({
         </Pressable>
 
         <Pressable
-          style={[styles.chip, categoryOpen && styles.chipActive, getRtlRow()]}
+          style={({ pressed }) => [
+            styles.chip,
+            pressed && styles.chipPressed,
+            categoryOpen && styles.chipActive,
+            getRtlRow(),
+          ]}
           onPress={onCategoryPress}
           accessibilityRole="button"
           accessibilityLabel="التصنيف"
@@ -123,7 +143,7 @@ export function MarketFilterBar({
           <AppIcon
             name="apps"
             size={MARKET_CHIP.iconSize}
-            color={categoryOpen ? accent : colors.textPrimary}
+            color={categoryOpen ? accent : idle.contentColor}
           />
           <Text style={[styles.chipLabel, categoryOpen && styles.chipLabelActive]}>التصنيف</Text>
         </Pressable>
@@ -132,7 +152,10 @@ export function MarketFilterBar({
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
+  // Same tokens as the Home quick-access chips (SarhButton secondary).
+  const quickAccess = resolveQuickAccessSurface(scheme);
+  const quickAccessPressed = resolveQuickAccessSurface(scheme, true);
   return StyleSheet.create({
     wrap: {
       flexGrow: 0,
@@ -148,10 +171,14 @@ function createStyles(colors: ThemeColors) {
       gap: MARKET_CHIP.gap,
       paddingHorizontal: MARKET_CHIP.paddingHorizontal,
       borderRadius: radius.md,
-      backgroundColor: colors.bgElevated,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderHairline,
+      backgroundColor: quickAccess.backgroundColor,
+      borderWidth: 1,
+      borderColor: quickAccess.borderColor,
       flexShrink: 0,
+    },
+    chipPressed: {
+      backgroundColor: quickAccessPressed.backgroundColor,
+      borderColor: quickAccessPressed.borderColor,
     },
     regionChip: {
       maxWidth: 160,
@@ -165,7 +192,7 @@ function createStyles(colors: ThemeColors) {
       ...typography.caption,
       fontSize: MARKET_CHIP.fontSize,
       lineHeight: MARKET_CHIP.lineHeight,
-      color: colors.textPrimary,
+      color: quickAccess.contentColor,
       writingDirection: 'rtl',
       includeFontPadding: false,
     },
