@@ -3,19 +3,20 @@
  * Back sits where the old pencil was; Share + Edit are equal outline pills
  * above the tabs strip (X-style). Colors come from the DS secondary button.
  */
-export const PROFILE_ACTION_PILL_HEIGHT = 40;
+/** 40 → 44: slightly larger pills for a calmer, more premium header. */
+export const PROFILE_ACTION_PILL_HEIGHT = 44;
 /** Space between the two pills (DS space[12]). */
 export const PROFILE_ACTION_PILL_GAP = 12;
 export const PROFILE_ACTION_PILL_VARIANT = 'secondary' as const;
 export const PROFILE_ACTION_PILL_SHAPE = 'pill' as const;
-/** Circular outline back button, same height as the pills. */
+/** Circular outline back button (kept at 40; only the Share / Edit pills grew). */
 export const PROFILE_BACK_BUTTON_SIZE = 40;
 export const PROFILE_BACK_LABEL = 'رجوع';
 export const PROFILE_EDIT_LABEL = 'تعديل الملفّ الشخصيّ';
 /** My Profile share pill: shares the profile link (sarhProfileShareUrl). */
 export const PROFILE_SHARE_LABEL = 'مشاركة الملف الشخصي';
-/** Pill side padding: tight enough that both long labels fit on one line on narrow phones. */
-export const PROFILE_ACTION_PILL_PADDING_H = 8;
+/** Pill side padding (8 → 10): still tight enough that both long labels fit on one line on narrow phones. */
+export const PROFILE_ACTION_PILL_PADDING_H = 10;
 /** Existing edit profile route (unchanged). */
 export const PROFILE_EDIT_ROUTE = '/profile/edit';
 /** Where Back lands when there is no history (deep link / cold start). */

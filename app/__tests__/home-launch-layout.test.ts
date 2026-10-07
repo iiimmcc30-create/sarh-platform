@@ -44,7 +44,7 @@ describe('home launch layout', () => {
     expect(quick).toContain('HOME_QUICK_ACCESS_ITEMS.map');
     // One horizontal RTL row of flex: 1 tiles sized by the item count.
     expect(quick).toContain('<Row align="center" gap="sm" style={[styles.rail, { paddingHorizontal: gutter }]}>');
-    expect(quick).toContain('borderRadius: radius[12]');
+    expect(quick).toContain('borderRadius: radius[999]');
     expect(src('app/ministry/index.tsx')).toContain("value === 'posts' || value === 'services'");
     expect(src('app/favorites.tsx')).toContain('export default function FavoritesScreen');
     expect(src('app/feed-suppliers/index.tsx')).toContain('export default function FeedSuppliersScreen');

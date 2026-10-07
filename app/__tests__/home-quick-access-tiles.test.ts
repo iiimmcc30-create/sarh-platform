@@ -80,14 +80,15 @@ describe('Home quick access: title and tile layout', () => {
     expect(quick).toMatch(/iconBox: \{\s*width: ICON_BOX,\s*height: ICON_BOX,\s*alignItems: 'center',\s*justifyContent: 'center',/);
     expect(quick).toMatch(/label: \{\s*flexShrink: 1,\s*lineHeight: ICON_BOX,\s*includeFontPadding: false,\s*textAlignVertical: 'center',/);
     expect(quick).toContain('<View style={styles.iconBox}>');
-    expect(quick).toContain('style={[styles.label, { fontSize: tileMetrics.fontSize }]}');
+    expect(quick).toContain('style={[styles.label, { fontSize: tileMetrics.fontSize, color: chip.contentColor }]}');
   });
 
-  it('uses a compact tile with DS tokens: light corners, thin border, no gradient or heavy shadow', () => {
+  it('uses a compact pill chip with DS tokens: full pill radius, thin border, no gradient or heavy shadow', () => {
     // ~17% shorter than the first tile pass (48 -> 40).
     expect(quick).toMatch(/tile: \{[^}]*height: space\[40\],/);
     expect(quick).not.toMatch(/tile: \{[^}]*height: space\[48\],/);
-    expect(quick).toMatch(/tile: \{[^}]*borderRadius: radius\[12\],/);
+    expect(quick).toMatch(/tile: \{[^}]*borderRadius: radius\[999\],/);
+    expect(quick).not.toMatch(/tile: \{[^}]*borderRadius: radius\[12\],/);
     expect(quick).toMatch(/tile: \{[^}]*borderWidth: 1,/);
     expect(quick).not.toMatch(/LinearGradient|shadowOpacity|elevation:/);
   });
@@ -122,12 +123,32 @@ describe('Home quick access: full labels on narrow phones (المحفوظات wa
 
   it('wires the metrics into the tile without changing height, radius, border or the equal row', () => {
     expect(quick).toContain('resolveQuickAccessTileMetrics(');
-    expect(quick).toContain('{ paddingHorizontal: tileMetrics.paddingHorizontal }');
-    expect(quick).toContain('style={[styles.label, { fontSize: tileMetrics.fontSize }]}');
+    expect(quick).toContain('paddingHorizontal: tileMetrics.paddingHorizontal,');
+    expect(quick).toContain('{ fontSize: tileMetrics.fontSize, color: chip.contentColor }');
     expect(quick).toContain('numberOfLines={1}');
     expect(quick).toContain('adjustsFontSizeToFit');
     expect(quick).toMatch(/tile: \{[^}]*height: space\[40\],/);
-    expect(quick).toMatch(/tile: \{[^}]*borderRadius: radius\[12\],/);
+    expect(quick).toMatch(/tile: \{[^}]*borderRadius: radius\[999\],/);
     expect(quick).toMatch(/tile: \{\s*flex: 1,\s*minWidth: 0,/);
+  });
+});
+
+describe('Home quick access: chips share the profile Share / Edit pill variant', () => {
+  const catalog = src('lib/homeQuickAccess.ts');
+  const profileHeader = src('lib/profileHeader.ts');
+
+  it('uses the same DS secondary button variant as the profile pills', () => {
+    expect(catalog).toContain("export const HOME_QUICK_ACCESS_CHIP_VARIANT = 'secondary' as const;");
+    expect(profileHeader).toContain("export const PROFILE_ACTION_PILL_VARIANT = 'secondary' as const;");
+    expect(quick).toContain('resolveSarhButtonColorsForScheme(scheme, HOME_QUICK_ACCESS_CHIP_VARIANT, \'default\')');
+    expect(quick).toMatch(/resolveSarhButtonColorsForScheme\(\s*scheme,\s*HOME_QUICK_ACCESS_CHIP_VARIANT,\s*'pressed',?\s*\)/);
+    expect(quick).toContain('backgroundColor: (pressed ? chipPressed : chip).backgroundColor');
+    expect(quick).toContain('borderColor: (pressed ? chipPressed : chip).borderColor');
+  });
+
+  it('paints icon and label with the variant content color (no grey frame tokens, no hardcoded hex)', () => {
+    expect(quick).toContain('color={chip.contentColor}');
+    expect(quick).not.toMatch(/bgElevated|borderHairline/);
+    expect(quick).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });

@@ -1,15 +1,15 @@
 import { Image } from '@/components/ui/AppImage';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { motion, radius, space } from '@/design-system';
-import { AppText } from '@/design-system/components';
+import { AppText, resolveSarhButtonColorsForScheme } from '@/design-system/components';
 import { Row } from '@/design-system/layout';
 import { useLayout } from '@/hooks/useLayout';
 import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
+  HOME_QUICK_ACCESS_CHIP_VARIANT,
   HOME_QUICK_ACCESS_ITEMS,
   resolveQuickAccessTileMetrics,
-  type HomeQuickAccessItem,
 } from '@/lib/homeQuickAccess';
 import { safePush } from '@/lib/safeNavigate';
 import { useRouter } from 'expo-router';
@@ -17,16 +17,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 /** Icon / logo box and label line box (20px, unchanged logo size). */
 const ICON_BOX = space[20];
-
-function iconColor(
-  item: HomeQuickAccessItem,
-  theme: { rose: string; electric: string; silver: string; electricBright: string },
-): string {
-  if (item.iconTone === 'rose') return theme.rose;
-  if (item.iconTone === 'leaf') return theme.electric;
-  if (item.iconTone === 'silver') return theme.silver;
-  return theme.electricBright;
-}
 
 export function HomeQuickAccess() {
   const router = useRouter();
@@ -36,8 +26,16 @@ export function HomeQuickAccess() {
     maxWidth != null ? Math.min(width, maxWidth) : width,
     gutter,
   );
-  const { colors: themeColors } = useTheme();
-  const styles = useThemedStyles(({ colors: c }) => createStyles(c.bgElevated, c.borderHairline));
+  // Same DS variant as the profile Share / Edit pills (SarhButton "secondary"):
+  // dark pill + white label/icon + very subtle border in dark, light surface in light.
+  const { scheme } = useTheme();
+  const chip = resolveSarhButtonColorsForScheme(scheme, HOME_QUICK_ACCESS_CHIP_VARIANT, 'default');
+  const chipPressed = resolveSarhButtonColorsForScheme(
+    scheme,
+    HOME_QUICK_ACCESS_CHIP_VARIANT,
+    'pressed',
+  );
+  const styles = useThemedStyles(() => createStyles());
 
   return (
     <View style={styles.wrap}>
@@ -60,7 +58,11 @@ export function HomeQuickAccess() {
             onPress={() => safePush(item.href, undefined, router)}
             style={({ pressed }) => [
               styles.tile,
-              { paddingHorizontal: tileMetrics.paddingHorizontal },
+              {
+                paddingHorizontal: tileMetrics.paddingHorizontal,
+                backgroundColor: (pressed ? chipPressed : chip).backgroundColor,
+                borderColor: (pressed ? chipPressed : chip).borderColor,
+              },
               pressed && styles.pressed,
             ]}
           >
@@ -73,7 +75,7 @@ export function HomeQuickAccess() {
                   <AppIcon
                     name={item.icon ?? 'apps'}
                     size={space[16]}
-                    color={iconColor(item, themeColors)}
+                    color={chip.contentColor}
                     variant={item.iconTone === 'rose' ? 'sr' : 'rr'}
                   />
                 )}
@@ -84,7 +86,7 @@ export function HomeQuickAccess() {
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.85}
-                style={[styles.label, { fontSize: tileMetrics.fontSize }]}
+                style={[styles.label, { fontSize: tileMetrics.fontSize, color: chip.contentColor }]}
               >
                 {item.label}
               </AppText>
@@ -96,7 +98,7 @@ export function HomeQuickAccess() {
   );
 }
 
-function createStyles(chipBg: string, chipBorder: string) {
+function createStyles() {
   return StyleSheet.create({
     wrap: {
       paddingBottom: 0,
@@ -110,9 +112,10 @@ function createStyles(chipBg: string, chipBorder: string) {
       alignItems: 'stretch',
     },
     /**
-     * Compact tile: fixed height, balanced padding, light corners and a thin
-     * calm border. Content is centred on both axes so the row sits on the
-     * tile's midline (it used to be pinned to the top of a taller chip).
+     * Compact pill chip: fixed height, balanced padding, full pill radius and the
+     * DS secondary button's thin border (colors applied inline from the variant,
+     * so light/dark follow the same tokens as the profile pills). Content is
+     * centred on both axes so the row sits on the chip's midline.
      */
     tile: {
       flex: 1,
@@ -121,10 +124,8 @@ function createStyles(chipBg: string, chipBorder: string) {
       paddingHorizontal: space[12],
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: radius[12],
-      backgroundColor: chipBg,
+      borderRadius: radius[999],
       borderWidth: 1,
-      borderColor: chipBorder,
     },
     tileRow: {
       height: ICON_BOX,

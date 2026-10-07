@@ -48,6 +48,14 @@ export const HOME_QUICK_ACCESS_ITEMS: HomeQuickAccessItem[] = [
 ];
 
 /**
+ * Quick-access chips reuse the profile Share / Edit pills' DS button variant
+ * (`PROFILE_ACTION_PILL_VARIANT` = SarhButton "secondary"; the chip uses the full
+ * pill radius too): dark
+ * pill + white label/icon + subtle border, with the same light-mode tokens.
+ */
+export const HOME_QUICK_ACCESS_CHIP_VARIANT = 'secondary' as const;
+
+/**
  * Quick-access tile sizing.
  *
  * Why labels were cut: every tile is `flex: 1` of a 3-tile row, so on a

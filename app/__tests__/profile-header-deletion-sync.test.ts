@@ -76,12 +76,13 @@ describe('profile header', () => {
     const back = layout.slice(layout.indexOf('backCircle: {'), layout.indexOf('},', layout.indexOf('backCircle: {')));
     expect(back).toContain('borderWidth: 1');
     expect(back).not.toMatch(/shadow|elevation|gradient/i);
-    expect(PROFILE_BACK_BUTTON_SIZE).toBe(PROFILE_ACTION_PILL_HEIGHT);
+    // Back keeps its 40pt circle; only the Share / Edit pills grew slightly (40 → 44).
+    expect(PROFILE_BACK_BUTTON_SIZE).toBe(40);
   });
 
   it('uses X-style outline pill tokens', () => {
-    expect(PROFILE_ACTION_PILL_HEIGHT).toBeGreaterThanOrEqual(40);
-    expect(PROFILE_ACTION_PILL_HEIGHT).toBeLessThanOrEqual(44);
+    // Slightly larger, more premium pills: 40 → 44 (+4), still a compact header row.
+    expect(PROFILE_ACTION_PILL_HEIGHT).toBe(44);
     expect(PROFILE_ACTION_PILL_GAP).toBeGreaterThanOrEqual(12);
     expect(PROFILE_ACTION_PILL_GAP).toBeLessThanOrEqual(16);
     expect(PROFILE_ACTION_PILL_VARIANT).toBe('secondary');
@@ -91,7 +92,7 @@ describe('profile header', () => {
     expect(pill).toContain('minHeight: PROFILE_ACTION_PILL_HEIGHT');
     // Long labels fit on one line: tighter side padding, both pills share the row equally.
     expect(pill).toContain('paddingHorizontal: PROFILE_ACTION_PILL_PADDING_H');
-    expect(PROFILE_ACTION_PILL_PADDING_H).toBe(8);
+    expect(PROFILE_ACTION_PILL_PADDING_H).toBe(10);
     expect(pill).not.toMatch(/shadow|elevation|gradient/i);
     expect(layout).toContain('gap: PROFILE_ACTION_PILL_GAP');
   });
