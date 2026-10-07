@@ -1,35 +1,24 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { LinearGradient } from '@/components/ui/AppLinearGradient';
+import { SheetModal } from '@/components/ui/SheetModal';
 import {
   FEE_PAYMENT_METHODS,
   PaymentBrandLogo,
 } from '@/components/payment/PaymentBrandLogos';
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
-import { motion } from '@/design-system';
 import { useAuth } from '@/contexts/AuthContext';
+import { AppText, SarhButton, SpringPressable } from '@/design-system/components';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
-import { getRtlRow, getRtlDirection, getRtlText } from '@/lib/rtl';
+import { getRtlDirection, getRtlRow, getRtlText } from '@/lib/rtl';
 import {
   initiateListingFeePayment,
   quoteListingFee,
 } from '@/services/listingFeePayment';
 import { launchPaymentCheckout } from '@/services/payments';
 import type { NIPaymentMethod } from '@/services/network_international';
-import { useEffect, useRef, useState } from 'react';
-import { SarhButton } from '@/design-system/components';
-import {
-  ActivityIndicator,
-  Animated,
-  KeyboardAvoidingView,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type SheetPhase = 'form' | 'success' | 'error';
 
@@ -40,6 +29,11 @@ type ListingFeePaymentSheetProps = {
   onClose: () => void;
 };
 
+/**
+ * Sarh fee payment (1% commission) — iOS checkout-style sheet: amount summary
+ * card, grouped payment-method list with the official brand marks, and a pinned
+ * capsule CTA. Uses the shared SheetModal (spring up, drag down to dismiss).
+ */
 export function ListingFeePaymentSheet({
   visible,
   listingId,
@@ -47,7 +41,8 @@ export function ListingFeePaymentSheet({
   onClose,
 }: ListingFeePaymentSheetProps) {
   const { accessToken } = useAuth();
-  const { colors, gradients } = useTheme();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
 
   const [amount, setAmount] = useState('');
@@ -56,7 +51,6 @@ export function ListingFeePaymentSheet({
   const [processing, setProcessing] = useState(false);
   const [phase, setPhase] = useState<SheetPhase>('form');
   const [errorMessage, setErrorMessage] = useState('');
-  const slideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!visible) return;
@@ -67,17 +61,6 @@ export function ListingFeePaymentSheet({
     setErrorMessage('');
     setProcessing(false);
   }, [visible]);
-
-  useEffect(() => {
-    if (visible) {
-      slideAnim.setValue(0);
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        ...motion.spring.sheet,
-      }).start();
-    }
-  }, [visible, slideAnim]);
 
   const handleClose = () => {
     if (processing) return;
@@ -162,81 +145,89 @@ export function ListingFeePaymentSheet({
     );
   };
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [420, 0],
-  });
+  const bottomPad = Math.max(insets.bottom, spacing.lg);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        <Animated.View
-          style={[
-            styles.sheet, getRtlDirection(),
-            { transform: [{ translateY }] },
-          ]}
-        >
-          <View style={styles.handleWrap}>
-            <View style={styles.handle} />
-          </View>
+    <SheetModal
+      visible={visible}
+      onClose={handleClose}
+      dismissible={!processing}
+      keyboardAvoiding
+      containerStyle={styles.container}
+    >
+      <View style={[styles.sheet, getRtlDirection()]}>
+        <View style={styles.handle} />
 
-          <View style={[styles.header, getRtlRow()]}>
-            <Pressable onPress={handleClose} style={styles.closeBtn} hitSlop={8}>
-              <AppIcon name="close" size={20} color={colors.textMuted} />
-            </Pressable>
-            <View style={styles.headerText}>
-              <Text style={[styles.title, getRtlText()]}>سداد رسوم سرح</Text>
-              <Text style={[styles.subtitle, getRtlText()]}>
-                أدخل مبلغ البيع لحساب عمولة سرح 1%. السداد اختياري ولا يُفترض البيع بفتح هذه الصفحة.
-              </Text>
-            </View>
-            <View style={styles.headerIcon}>
-              <AppIcon name="receipt-outline" size={22} color={colors.textBrandStrong} />
-            </View>
+        <View style={[styles.header, getRtlRow()]}>
+          <View style={styles.headerText}>
+            <AppText variant="heading2" style={getRtlText()}>
+              سداد رسوم سرح
+            </AppText>
+            <AppText variant="bodySmall" color="textMuted" style={getRtlText()}>
+              أدخل مبلغ البيع لحساب عمولة سرح 1%. السداد اختياري ولا يُفترض البيع بفتح هذه الصفحة.
+            </AppText>
           </View>
+          <SpringPressable
+            onPress={handleClose}
+            disabled={processing}
+            style={styles.closeBtn}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
+          >
+            <AppIcon name="close" size={18} color={colors.textSecondary} />
+          </SpringPressable>
+        </View>
 
-          {phase === 'success' ? (
-            <View style={styles.resultWrap}>
-              <View style={styles.successIcon}>
-                <AppIcon name="checkmark-circle" size={56} color={colors.emerald} />
-              </View>
-              <Text style={[styles.resultTitle, getRtlText()]}>
-                تم سداد الرسوم بنجاح، شكراً لك.
-              </Text>
-              <SarhButton title="حسناً" onPress={handleClose} fullWidth />
+        {phase === 'success' ? (
+          <View style={[styles.resultWrap, { paddingBottom: bottomPad }]}>
+            <View style={[styles.resultBadge, styles.resultBadgeSuccess]}>
+              <AppIcon name="checkmark" size={34} color={colors.onElectric} />
             </View>
-          ) : phase === 'error' ? (
-            <View style={styles.resultWrap}>
-              <View style={styles.errorIcon}>
-                <AppIcon name="alert-circle-outline" size={52} color={colors.danger} />
-              </View>
-              <Text style={[styles.resultTitle, getRtlText()]}>تعذّر إتمام الدفع</Text>
-              <Text style={[styles.errorBody, getRtlText()]}>{errorMessage}</Text>
-              <SarhButton
-                title="إعادة المحاولة"
-                onPress={() => {
-                  setPhase('form');
-                  setErrorMessage('');
-                }}
-                fullWidth
-                leftIcon="refresh-outline"
-              />
-              <Pressable onPress={handleClose} style={styles.cancelBtn}>
-                <Text style={[styles.cancelText, getRtlText()]}>إغلاق</Text>
-              </Pressable>
+            <AppText variant="heading3" align="center">
+              تم سداد الرسوم بنجاح، شكراً لك.
+            </AppText>
+            <SarhButton title="حسناً" onPress={handleClose} shape="pill" fullWidth style={styles.resultCta} />
+          </View>
+        ) : phase === 'error' ? (
+          <View style={[styles.resultWrap, { paddingBottom: bottomPad }]}>
+            <View style={[styles.resultBadge, styles.resultBadgeError]}>
+              <AppIcon name="alert-circle-outline" size={34} color={colors.danger} />
             </View>
-          ) : (
+            <AppText variant="heading3" align="center">
+              تعذّر إتمام الدفع
+            </AppText>
+            <AppText variant="bodySmall" color="textMuted" align="center">
+              {errorMessage}
+            </AppText>
+            <SarhButton
+              title="إعادة المحاولة"
+              onPress={() => {
+                setPhase('form');
+                setErrorMessage('');
+              }}
+              shape="pill"
+              fullWidth
+              leftIcon="refresh-outline"
+              style={styles.resultCta}
+            />
+            <SarhButton title="إغلاق" onPress={handleClose} variant="ghost" shape="pill" fullWidth />
+          </View>
+        ) : (
+          <>
             <ScrollView
+              style={styles.scroll}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.formContent}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
             >
-              <View style={styles.fieldBlock}>
-                <Text style={[styles.fieldLabel, getRtlText()]}>مبلغ البيع</Text>
+              {/* Amount summary */}
+              <View style={styles.summaryCard}>
+                <AppText variant="caption" color="textMuted" style={getRtlText()}>
+                  مبلغ البيع
+                </AppText>
                 <View style={[styles.amountRow, getRtlRow()]}>
-                  <Text style={styles.currencyTag}>ر.س</Text>
                   <TextInput
                     value={amount}
                     onChangeText={handleAmountChange}
@@ -244,249 +235,243 @@ export function ListingFeePaymentSheet({
                     placeholderTextColor={colors.textSubtle}
                     keyboardType="decimal-pad"
                     style={[styles.amountInput, getRtlText()]}
+                    accessibilityLabel="مبلغ البيع"
                   />
+                  <AppText variant="heading3" color="textSecondary">
+                    ر.س
+                  </AppText>
                 </View>
-                <Text style={[styles.fieldHint, getRtlText()]}>
-                  عمولة سرح: 1%
-                  {quotedFee != null ? ` — الرسوم: ${quotedFee} ر.س` : ''}
-                </Text>
+                <View style={styles.divider} />
+                <View style={[styles.breakdownRow, getRtlRow()]}>
+                  <AppText variant="bodySmall" color="textSecondary">
+                    عمولة سرح
+                  </AppText>
+                  <AppText variant="label">1%</AppText>
+                </View>
+                <View style={[styles.breakdownRow, getRtlRow()]}>
+                  <AppText variant="bodySmall" color="textSecondary">
+                    الرسوم المستحقة
+                  </AppText>
+                  {quotedFee != null ? (
+                    <AppText variant="price">{`${quotedFee} ر.س`}</AppText>
+                  ) : (
+                    <AppText variant="bodySmall" color="textMuted">
+                      تُحسب عند الدفع
+                    </AppText>
+                  )}
+                </View>
               </View>
 
-              <Text style={[styles.sectionLabel, getRtlText()]}>وسائل الدفع</Text>
-              <View style={styles.methodsGrid}>
-                {FEE_PAYMENT_METHODS.map((item) => {
+              {/* Payment methods — iOS grouped inset list */}
+              <AppText variant="caption" color="textMuted" style={[styles.sectionLabel, getRtlText()]}>
+                وسائل الدفع
+              </AppText>
+              <View style={styles.group} accessibilityRole="radiogroup">
+                {FEE_PAYMENT_METHODS.map((item, index) => {
                   const active = method === item.id;
                   return (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => setMethod(item.id)}
-                      style={[styles.methodCard, active && styles.methodCardActive]}
-                    >
-                      <PaymentBrandLogo id={item.id} size={28} />
-                      <Text
-                        style={[
-                          styles.methodLabel, getRtlText(),
-                          active && styles.methodLabelActive,
+                    <View key={item.id}>
+                      {index > 0 ? <View style={styles.rowSeparator} /> : null}
+                      <SpringPressable
+                        onPress={() => setMethod(item.id)}
+                        pressedScale={1}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: active, checked: active }}
+                        accessibilityLabel={item.labelAr}
+                        style={({ pressed }) => [
+                          styles.methodRow,
+                          getRtlRow(),
+                          pressed && styles.methodRowPressed,
                         ]}
                       >
-                        {item.labelAr}
-                      </Text>
-                      {active ? (
-                        <View style={styles.methodCheck}>
-                          <AppIcon name="checkmark" size={12} color={colors.onElectric} />
+                        <PaymentBrandLogo id={item.id} size={30} />
+                        <View style={styles.methodText}>
+                          <AppText variant="label" style={getRtlText()}>
+                            {item.labelAr}
+                          </AppText>
+                          <AppText variant="caption" color="textMuted" style={getRtlText()}>
+                            {item.hintAr}
+                          </AppText>
                         </View>
-                      ) : null}
-                    </Pressable>
+                        <View style={[styles.radio, active && styles.radioActive]}>
+                          {active ? (
+                            <AppIcon name="checkmark" size={14} color={colors.onElectric} />
+                          ) : null}
+                        </View>
+                      </SpringPressable>
+                    </View>
                   );
                 })}
               </View>
 
-              <LinearGradient colors={gradients.electric} style={styles.payBtnWrap}>
-                <Pressable
-                  onPress={() => void handlePay()}
-                  disabled={processing}
-                  style={({ pressed }) => [
-                    styles.payBtn,
-                    pressed && styles.payBtnPressed,
-                  ]}
-                >
-                  {processing ? (
-                    <ActivityIndicator color={colors.onElectric} />
-                  ) : (
-                    <>
-                      <AppIcon name="card-outline" size={20} color={colors.onElectric} />
-                      <Text style={styles.payBtnText}>ادفع الآن</Text>
-                    </>
-                  )}
-                </Pressable>
-              </LinearGradient>
+              <View style={[styles.secureNote, getRtlRow()]}>
+                <AppIcon name="lock-closed-outline" size={14} color={colors.textMuted} />
+                <AppText variant="caption" color="textMuted" style={getRtlText()}>
+                  الدفع عبر بوابة دفع آمنة ومشفّرة
+                </AppText>
+              </View>
             </ScrollView>
-          )}
-        </Animated.View>
+
+            {/* Pinned capsule CTA */}
+            <View style={[styles.footer, { paddingBottom: bottomPad }]}>
+              <SarhButton
+                title="ادفع الآن"
+                onPress={() => void handlePay()}
+                loading={processing}
+                shape="pill"
+                fullWidth
+                leftIcon="lock-closed"
+                style={styles.payBtn}
+                testID="fee-pay-now"
+              />
+            </View>
+          </>
+        )}
       </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: colors.bgOverlay,
-      justifyContent: 'flex-end',
-    },
+    container: { maxHeight: '92%' },
     sheet: {
-      backgroundColor: colors.bgElevated,
+      backgroundColor: colors.bgSurface,
       borderTopLeftRadius: radius.xxl,
       borderTopRightRadius: radius.xxl,
-      maxHeight: '92%',
       borderWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: 0,
       borderColor: colors.borderSoft,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: -8 },
-      shadowOpacity: 0.12,
-      shadowRadius: 20,
-      elevation: 16,
+      paddingTop: spacing.sm,
+      flexShrink: 1,
     },
-    handleWrap: { alignItems: 'center', paddingTop: spacing.sm },
     handle: {
-      width: 40,
-      height: 4,
-      borderRadius: 2,
+      alignSelf: 'center',
+      width: 36,
+      height: 5,
+      borderRadius: 3,
       backgroundColor: colors.borderMid,
+      marginBottom: spacing.sm,
     },
     header: {
       alignItems: 'flex-start',
       gap: spacing.md,
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderSoft,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.md,
     },
+    headerText: { flex: 1, gap: spacing.xs },
     closeBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 16,
-      backgroundColor: colors.bgSurface,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.bgField,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    headerText: { flex: 1 },
-    headerIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 16,
-      backgroundColor: `${colors.electric}16`,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    title: {
-      ...typography.sectionHeading,
-      color: colors.textPrimary,
-    },
-    subtitle: {
-      ...typography.body,
-      color: colors.textMuted,
-      marginTop: 4,
-      lineHeight: 22,
-    },
+    scroll: { flexShrink: 1 },
     formContent: {
-      padding: spacing.lg,
-      gap: spacing.lg,
-      paddingBottom: spacing.xxxl,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.lg,
+      gap: spacing.sm,
     },
-    fieldBlock: { gap: spacing.sm },
-    fieldLabel: {
-      ...typography.bodyStrong,
-      color: colors.textPrimary,
+    summaryCard: {
+      backgroundColor: colors.bgElevated,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      gap: spacing.xs,
     },
     amountRow: {
       alignItems: 'center',
-      backgroundColor: colors.bgSurface,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-      paddingHorizontal: spacing.md,
-    },
-    currencyTag: {
-      ...typography.bodyStrong,
-      color: colors.textBrandStrong,
-      paddingHorizontal: spacing.sm,
+      gap: spacing.sm,
     },
     amountInput: {
       flex: 1,
-      ...typography.valueLarge,
+      ...typography.display,
       color: colors.textPrimary,
-      paddingVertical: spacing.md,
+      paddingVertical: spacing.xs,
     },
-    fieldHint: {
-      ...typography.caption,
-      color: colors.textMuted,
-      lineHeight: 20,
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.borderSoft,
+      marginVertical: spacing.sm,
+    },
+    breakdownRow: {
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      minHeight: 26,
     },
     sectionLabel: {
-      ...typography.bodyStrong,
-      color: colors.textPrimary,
+      marginTop: spacing.md,
+      paddingHorizontal: spacing.xs,
     },
-    methodsGrid: {
-      ...getRtlRow(),
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    methodCard: {
-      width: '48%',
-      backgroundColor: colors.bgSurface,
+    group: {
+      backgroundColor: colors.bgElevated,
       borderRadius: radius.lg,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSoft,
-      padding: spacing.md,
+      overflow: 'hidden',
+    },
+    methodRow: {
       alignItems: 'center',
-      gap: spacing.sm,
-      position: 'relative',
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      minHeight: 64,
     },
-    methodCardActive: {
-      borderColor: colors.electric,
-      backgroundColor: `${colors.electric}10`,
+    methodRowPressed: { backgroundColor: colors.bgField },
+    rowSeparator: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.borderSoft,
+      marginStart: spacing.lg + 47 + spacing.md,
     },
-    methodLabel: {
-      ...typography.caption,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
-    methodLabelActive: {
-      color: colors.textBrandStrong,
-    },
-    methodCheck: {
-      position: 'absolute',
-      top: 8,
-      left: 8,
-      width: 20,
-      height: 20,
-      borderRadius: 12,
-      backgroundColor: colors.electric,
+    methodText: { flex: 1, gap: 2 },
+    radio: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 1.5,
+      borderColor: colors.borderStrong,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    payBtnWrap: {
-      borderRadius: radius.xl,
-      overflow: 'hidden',
+    radioActive: {
+      backgroundColor: colors.electric,
+      borderColor: colors.electric,
+    },
+    secureNote: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
       marginTop: spacing.sm,
     },
-    payBtn: {
-      ...getRtlRow(),
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.md + 2,
+    footer: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderSoft,
+      backgroundColor: colors.bgSurface,
     },
-    payBtnPressed: { opacity: motion.press.opacity },
-    payBtnText: {
-      ...typography.button,
-      color: colors.onElectric,
-    },
+    payBtn: { minHeight: 52 },
     resultWrap: {
-      padding: spacing.xl,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.lg,
       gap: spacing.md,
       alignItems: 'center',
     },
-    successIcon: { marginBottom: spacing.sm },
-    errorIcon: { marginBottom: spacing.sm },
-    resultTitle: {
-      ...typography.h3,
-      color: colors.textPrimary,
-      textAlign: 'center',
+    resultBadge: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
     },
-    errorBody: {
-      ...typography.body,
-      color: colors.textMuted,
-      textAlign: 'center',
-      lineHeight: 24,
-    },
-    cancelBtn: { paddingVertical: spacing.sm },
-    cancelText: {
-      ...typography.bodyStrong,
-      color: colors.textMuted,
-    },
+    resultBadgeSuccess: { backgroundColor: colors.electric },
+    resultBadgeError: { backgroundColor: colors.bgField },
+    resultCta: { marginTop: spacing.sm },
   });
 }
