@@ -27,16 +27,19 @@ describe('Collections: naming & navigation', () => {
     expect(panel.indexOf("key: 'promote'")).toBeGreaterThan(panel.indexOf("key: 'collections'"));
   });
 
-  it('quick access replaces الخدمات with القوائم and keeps the services route elsewhere', () => {
+  it('quick access: المجالس took the القوائم slot; القوائم stays in the sidebar', () => {
     expect(HOME_QUICK_ACCESS_ITEMS.map((i) => i.key)).toEqual([
-      'collections',
+      'councils',
       'bookmarks',
       'settings',
     ]);
     expect(HOME_QUICK_ACCESS_ITEMS[0]).toMatchObject({
-      label: 'القوائم',
-      href: '/collections',
+      label: 'المجالس',
+      href: '/councils',
     });
+    // Lists remain reachable (sidebar row + routes).
+    expect(src('components/feature/AppSidebar.tsx')).toContain("route: '/collections'");
+    expect(existsSync(path.join(root, 'app/collections/index.tsx'))).toBe(true);
     expect(HOME_QUICK_ACCESS_ITEMS.some((i) => i.label === 'الخدمات')).toBe(false);
     // Services page/route remains (Search still reaches it).
     expect(src('app/search.tsx')).toContain("{ id: 'services', label: 'الخدمات' }");
@@ -61,7 +64,8 @@ describe('Collections: naming & navigation', () => {
       expect(src(file)).not.toContain('مجموع');
     }
     expect(src('components/feature/AppSidebar.tsx')).toContain("label: 'القوائم'");
-    expect(src('lib/homeQuickAccess.ts')).toContain("label: 'القوائم'");
+    // Quick access now shows المجالس in that slot; Lists stays in the sidebar.
+    expect(src('lib/homeQuickAccess.ts')).not.toContain("label: 'القوائم'");
   });
 });
 

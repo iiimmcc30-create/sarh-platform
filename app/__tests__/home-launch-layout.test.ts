@@ -26,7 +26,7 @@ describe('home launch layout', () => {
   it('wires quick access to existing app routes and stays append-only', () => {
     const catalog = src('lib/homeQuickAccess.ts');
     const quick = src('components/feature/HomeQuickAccess.tsx');
-    expect(catalog).toContain("key: 'collections'");
+    expect(catalog).toContain("key: 'councils'");
     expect(catalog).not.toContain("key: 'services'");
     expect(catalog).toContain("key: 'bookmarks'");
     expect(catalog).not.toContain("key: 'favorites'");
@@ -34,7 +34,7 @@ describe('home launch layout', () => {
     expect(catalog).not.toContain("key: 'feed-suppliers'");
     expect(catalog).not.toContain("label: 'الموردين'");
     expect(catalog).toContain("key: 'settings'");
-    expect(catalog).toContain("href: '/collections'");
+    expect(catalog).toContain("href: '/councils'");
     expect(catalog).not.toContain("tab: 'services'");
     expect(catalog).toContain("href: '/bookmarks'");
     expect(catalog).not.toContain("href: '/favorites'");

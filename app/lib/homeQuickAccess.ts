@@ -22,12 +22,12 @@ export type HomeQuickAccessItem = {
  */
 export const HOME_QUICK_ACCESS_ITEMS: HomeQuickAccessItem[] = [
   {
-    // Replaces the former «الخدمات» shortcut; the services page/route stays
-    // (reachable from Search).
-    key: 'collections',
-    label: 'القوائم',
-    href: '/collections',
-    icon: 'people-outline',
+    // «المجالس» took the former «القوائم» slot; Lists stays in the sidebar
+    // (directly under العلامات المرجعية) and its routes are unchanged.
+    key: 'councils',
+    label: 'المجالس',
+    href: '/councils',
+    icon: 'mic',
     iconTone: 'primary',
   },
   {
