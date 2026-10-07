@@ -118,20 +118,15 @@ describe('launch path', () => {
     expect(splash).toContain('SARH_LOGO_MARK_PATHS');
     expect(splash).not.toContain('useColorScheme');
     expect(splash).toContain('isReduceMotionEnabled');
-    expect(splash).toContain('سرح');
-    expect(splash).toContain('Sarh');
     expect(splash).not.toMatch(/react-native-reanimated|LinearGradient|shadow/i);
   });
 
-  it('exit waits for the intro completion callback, text is never clipped', () => {
+  it('exit waits for the intro completion callback, only the outline windows clip', () => {
     const splash = src('components/ui/LaunchSplash.tsx');
     expect(splash).toContain('intro.start(({ finished }) => {');
     expect(splash).toMatch(/if \(finished\) \{\s*clearTimeout\(fallback\);\s*finish\(\);/);
     expect(splash).toContain('launchSplashFallbackMs(reduceMotion)');
-    // Text mounts after fonts are ready (measured with Tajawal) inside a full-width box.
-    expect(splash).toContain('{started ? (');
-    expect(splash).toMatch(/style=\{\{\s*width,/);
-    // Only the logo's outline clip windows clip; the text box never does.
+    // Only the logo's outline clip windows clip.
     expect(splash.match(/overflow:\s*'hidden'/g)).toHaveLength(1);
     expect(splash).toMatch(/wipeWindow: \{\s*\.\.\.StyleSheet\.absoluteFillObject,\s*overflow: 'hidden',/);
     expect(splash).not.toMatch(/width:\s*values\./);
@@ -233,5 +228,30 @@ describe('launch splash native timeline (logo never stalls on a busy JS thread)'
       expect(to).toBeGreaterThan((maxX / 611) * W);
       expect(to).toBeLessThanOrEqual(W);
     });
+  });
+});
+
+describe('launch splash is logo only', () => {
+  it('renders no «سرح / Sarh» wordmark, keeps the mark centred and the native timeline', () => {
+    const splash = src('components/ui/LaunchSplash.tsx');
+    expect(splash).not.toMatch(/<(Animated\.)?Text\b/);
+    expect(splash).not.toMatch(/>\s*سرح\s*</);
+    expect(splash).not.toMatch(/>\s*Sarh\s*</);
+    expect(splash).not.toContain('titleStyle');
+    expect(splash).not.toContain('subtitleStyle');
+    // Centred: no vertical offset reserved for text, only the large → final scale.
+    expect(splash).not.toContain('translateY');
+    expect(splash).toContain('mapTimelineRange(ch.settle, LAUNCH_LOGO_START_SCALE, 1)');
+    expect(splash).toMatch(/justifyContent: 'center'/);
+    // Still the same native-driven intro and duration.
+    expect(splash).toContain('launchSplashChannels(reduceMotion).totalMs');
+    expect(splash).not.toMatch(/useNativeDriver:\s*false/);
+  });
+
+  it('native splash image carries no text (fully transparent asset)', () => {
+    const app = JSON.parse(src('app.json'));
+    const plugin = app.expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-splash-screen');
+    expect(plugin[1].image).toBe('./assets/images/splash-blank.png');
+    expect(plugin[1].dark.image).toBe('./assets/images/splash-blank.png');
   });
 });

@@ -155,12 +155,13 @@ describe('in-app Sarh mark colours match the icon', () => {
     expect(src).not.toMatch(/<SarhLogoMark[^>]*electric/);
   });
 
-  it('launch splash is always reference black with white waves and names (any scheme)', () => {
+  it('launch splash is always reference black with white waves, logo only (any scheme)', () => {
     const splash = read('components/ui/LaunchSplash.tsx');
     expect(splash).toContain('const SPLASH_BG = sarh.color.darkBackground;');
     expect(splash).toContain('const SPLASH_INK = SARH_LOGO_INK_DARK;');
     expect(splash).toContain('backgroundColor: SPLASH_BG,');
-    expect(splash.match(/color: SPLASH_INK,/g)).toHaveLength(2);
+    // Logo only: no wordmark text styles.
+    expect(splash).not.toMatch(/color: SPLASH_INK,/);
     expect(splash).toContain('fill={SPLASH_INK}');
     expect(splash).toContain('<StatusBar style="light" />');
     expect(splash).not.toMatch(/useColorScheme|lightSurface|lightTextSecondary|DIAMOND|LOGO_ACCENT/);

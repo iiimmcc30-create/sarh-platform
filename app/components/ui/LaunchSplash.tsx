@@ -1,5 +1,4 @@
 import { sarh } from '@/constants/sarhTokens';
-import { fontFamily } from '@/design-system/tokens/typography';
 import {
   launchSplashChannels,
   launchSplashDrawEdges,
@@ -34,7 +33,8 @@ import Svg, { Path } from 'react-native-svg';
 
 /**
  * Always the app-icon look, in Light and Dark alike: reference black surface with the
- * white waves and white names. Matches the native splash (app.json, #020202). No gradient.
+ * white waves only (logo only, no «سرح / Sarh» wordmark). Matches the native splash
+ * (app.json, #020202). No gradient.
  */
 const SPLASH_BG = sarh.color.darkBackground;
 const SPLASH_INK = SARH_LOGO_INK_DARK;
@@ -71,8 +71,6 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
   const [laidOut, setLaidOut] = useState(false);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [animationDone, setAnimationDone] = useState(false);
-  /** Text mounts only once fonts are ready, so Tajawal (not a fallback face) is measured. */
-  const [started, setStarted] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [gone, setGone] = useState(false);
   const startedRef = useRef(false);
@@ -99,7 +97,6 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
   useEffect(() => {
     if (startedRef.current || !laidOut || !nativeReady || reduceMotion === null) return;
     startedRef.current = true;
-    setStarted(true);
 
     // One linear native timeline; every channel is a (sampled-easing) interpolation of it.
     const intro = Animated.timing(values.timeline, {
@@ -152,16 +149,9 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
     const ch = launchSplashChannels(Boolean(reduceMotion));
     const tl = values.timeline;
     const W = layout.logoWidth;
-    // Before settling, the hidden text still reserves its space (no layout jump);
-    // the mark is shifted down so it starts optically centred, then rises into place.
-    const textBlock = layout.logoGap + layout.titleLineHeight + layout.textGap + layout.subtitleLineHeight;
-    const textRise = (range: typeof ch.title) => ({
-      opacity: tl.interpolate({ ...range, extrapolate: 'clamp' }),
-      transform: [{ translateY: tl.interpolate({ ...mapTimelineRange(range, 8, 0), extrapolate: 'clamp' }) }],
-    });
     return {
+      // Logo only: the mark stays centred and just settles from large to its final size.
       logoTransform: [
-        { translateY: tl.interpolate({ ...mapTimelineRange(ch.settle, textBlock / 2, 0), extrapolate: 'clamp' }) },
         { scale: tl.interpolate({ ...mapTimelineRange(ch.settle, LAUNCH_LOGO_START_SCALE, 1), extrapolate: 'clamp' }) },
       ],
       fillOpacity: tl.interpolate({ ...ch.fill, extrapolate: 'clamp' }),
@@ -175,14 +165,12 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
           content: tl.interpolate({ ...mapTimelineRange(range, W - from, W - to), extrapolate: 'clamp' }),
         };
       }),
-      titleStyle: textRise(ch.title),
-      subtitleStyle: textRise(ch.subtitle),
     };
   }, [layout, reduceMotion, values]);
 
   if (gone) return null;
 
-  const { logoTransform, strokeOpacity, fillOpacity, wipes, titleStyle, subtitleStyle } = anim;
+  const { logoTransform, strokeOpacity, fillOpacity, wipes } = anim;
 
   return (
     <Animated.View
@@ -238,48 +226,6 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
             </Svg>
           </Animated.View>
         </Animated.View>
-
-        {/* Fixed-height, full-width box: space is reserved from the first frame (no
-            layout jump) and wide enough that Arabic shaping is never clipped. */}
-        <View
-          style={{
-            width,
-            marginTop: layout.logoGap,
-            height: layout.titleLineHeight + layout.textGap + layout.subtitleLineHeight,
-          }}
-        >
-          {started ? (
-            <>
-              <Animated.Text
-                allowFontScaling={false}
-                numberOfLines={1}
-                style={[
-                  styles.title,
-                  { fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
-                  titleStyle,
-                ]}
-              >
-                سرح
-              </Animated.Text>
-              <Animated.Text
-                allowFontScaling={false}
-                numberOfLines={1}
-                style={[
-                  styles.subtitle,
-                  {
-                    marginTop: layout.textGap,
-                    fontSize: layout.subtitleSize,
-                    lineHeight: layout.subtitleLineHeight,
-                    letterSpacing: layout.subtitleSize * 0.08,
-                  },
-                  subtitleStyle,
-                ]}
-              >
-                Sarh
-              </Animated.Text>
-            </>
-          ) : null}
-        </View>
       </View>
     </Animated.View>
   );
@@ -298,25 +244,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /** Clip window of one wave's outline (logo box only — the text box never clips). */
+  /** Clip window of one wave's outline (inside the logo box only). */
   wipeWindow: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
-  },
-  title: {
-    alignSelf: 'stretch',
-    fontFamily: fontFamily.bold,
-    color: SPLASH_INK,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    includeFontPadding: false,
-  },
-  subtitle: {
-    alignSelf: 'stretch',
-    fontFamily: fontFamily.regular,
-    color: SPLASH_INK,
-    textAlign: 'center',
-    writingDirection: 'ltr',
-    includeFontPadding: false,
   },
 });
