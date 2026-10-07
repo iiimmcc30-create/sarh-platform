@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import path from 'path';
-import { applyThemeScheme } from '@/constants/theme';
+import { applyThemeScheme, colors as liveColors } from '@/constants/theme';
 import { resolveSarhButtonColorsForScheme } from '@/design-system/components/resolvers';
 import { HOME_QUICK_ACCESS_CHIP_VARIANT } from '@/lib/homeQuickAccess';
 import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
@@ -72,11 +72,13 @@ describe('quick-access surface: filter chips + listing cards match the Home quic
     expect(bar).toContain('borderRadius: radius.md,');
   });
 
-  it('ListingCard row + haraj card take the quick-access surface colour only', () => {
+  it('ListingCard row + haraj card take the quick-access surface colour with a subtle border', () => {
     expect(card).toContain('const quickAccess = resolveQuickAccessSurface(_scheme);');
     expect(card).toMatch(/listRow: \{[^}]*backgroundColor: quickAccess\.backgroundColor,/);
-    expect(card).toMatch(/listRowChrome: \{[^}]*borderColor: quickAccess\.borderColor,/);
-    expect(card).toMatch(/harajCard: \{[^}]*backgroundColor: quickAccess\.backgroundColor,[^}]*borderColor: quickAccess\.borderColor,/);
+    expect(card).toMatch(/listRowChrome: \{[^}]*borderColor: colors\.borderHairline,/);
+    expect(card).toMatch(/harajCard: \{[^}]*backgroundColor: quickAccess\.backgroundColor,[^}]*borderColor: colors\.borderHairline,/);
+    // Softer than the quick-access chip border (#536471 in dark).
+    expect(card).not.toContain('quickAccess.borderColor');
     expect(card).not.toContain("backgroundColor: _scheme === 'light' ? '#FFFFFF' : colors.bgSurface");
   });
 
@@ -85,13 +87,24 @@ describe('quick-access surface: filter chips + listing cards match the Home quic
       /listRow: \{\n\s+\.\.\.getRtlRow\(\),\n\s+alignItems: 'flex-start',\n\s+flexGrow: 0,\n\s+paddingHorizontal: spacing\.md,\n\s+paddingVertical: LISTING_LIST_LAYOUT\.rowPaddingVertical,\n\s+gap: LISTING_LIST_LAYOUT\.rowGap,/,
     );
     expect(card).toMatch(
-      /listRowChrome: \{\n\s+borderRadius: MENU_CARD\.radius,\n\s+borderWidth: StyleSheet\.hairlineWidth,\n\s+borderColor: quickAccess\.borderColor,\n\s+marginHorizontal: spacing\.sm,\n\s+\.\.\.ambientShadow\(_scheme, 'soft'\),/,
+      /listRowChrome: \{\n\s+borderRadius: MENU_CARD\.radius,\n\s+borderWidth: StyleSheet\.hairlineWidth,\n\s+borderColor: colors\.borderHairline,\n\s+marginHorizontal: spacing\.sm,\n\s+\.\.\.ambientShadow\(_scheme, 'soft'\),/,
     );
     expect(card).toMatch(
-      /harajCard: \{\n\s+width: '100%',\n\s+backgroundColor: quickAccess\.backgroundColor,\n\s+borderRadius: radius\.xl,\n\s+overflow: 'hidden',\n\s+borderWidth: 1,\n\s+borderColor: quickAccess\.borderColor,\n\s+paddingTop: spacing\.md,\n\s+paddingHorizontal: spacing\.md,\n\s+paddingBottom: spacing\.md,\n\s+gap: spacing\.sm,/,
+      /harajCard: \{\n\s+width: '100%',\n\s+backgroundColor: quickAccess\.backgroundColor,\n\s+borderRadius: radius\.xl,\n\s+overflow: 'hidden',\n\s+borderWidth: 1,\n\s+borderColor: colors\.borderHairline,\n\s+paddingTop: spacing\.md,\n\s+paddingHorizontal: spacing\.md,\n\s+paddingBottom: spacing\.md,\n\s+gap: spacing\.sm,/,
     );
     expect(card).toMatch(/feature: \{\n\s+width: 280,\n\s+height: 380,/);
     expect(card).toMatch(/featureCompact: \{\n\s+width: 248,\n\s+height: 268,/);
     expect(card).toContain('aspectRatio: 0.82,');
+  });
+});
+
+describe('ListingCard border token values', () => {
+  afterAll(() => applyThemeScheme('dark'));
+
+  it('uses the subtle hairline border in both schemes', () => {
+    applyThemeScheme('dark');
+    expect(liveColors.borderHairline).toBe('#2F3336');
+    applyThemeScheme('light');
+    expect(liveColors.borderHairline).toBe('#E6E8EB');
   });
 });

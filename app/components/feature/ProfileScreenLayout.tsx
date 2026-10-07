@@ -35,6 +35,7 @@ import {
   PROFILE_BACK_LABEL,
   PROFILE_EDIT_LABEL,
   PROFILE_SHARE_LABEL,
+  PROFILE_STATS_HEIGHT,
 } from '@/lib/profileHeader';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
 
@@ -420,32 +421,54 @@ export function ProfileScreenLayout({
                 </AppText>
               </Stack>
 
-              <Row gap="none" align="stretch" style={styles.statsRow}>
-                {stats.map((stat, index) => {
-                  const body = (
-                    <Stack gap="xs" align="center" style={styles.statItem}>
-                      <AppText variant="cardTitle" color="textPrimary" align="center">
-                        {stat.value}
-                      </AppText>
-                      <AppText variant="caption" color="textMuted" align="center">
-                        {stat.label}
-                      </AppText>
-                    </Stack>
-                  );
+              {/* Stats: one block the size of the edit pill (not its shape), at the inline start (right in Arabic). */}
+              <Row gap="none" align="center" style={styles.statsRow} testID="profile-stats-row">
+                <Row gap="none" align="stretch" style={styles.statsBlock} testID="profile-stats">
+                  {stats.map((stat) => {
+                    const body = (
+                      <Stack gap="none" align="center" style={styles.statItem}>
+                        <AppText
+                          variant="label"
+                          color="textPrimary"
+                          align="center"
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.8}
+                        >
+                          {stat.value}
+                        </AppText>
+                        <AppText
+                          variant="meta"
+                          color="textMuted"
+                          align="center"
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.85}
+                        >
+                          {stat.label}
+                        </AppText>
+                      </Stack>
+                    );
 
-                  return (
-                    <Row key={stat.key} gap="none" align="stretch" fill>
-                      {index > 0 ? <View style={styles.statDivider} /> : null}
-                      {stat.onPress ? (
-                        <Pressable style={styles.statPress} onPress={stat.onPress}>
-                          {body}
-                        </Pressable>
-                      ) : (
-                        body
-                      )}
-                    </Row>
-                  );
-                })}
+                    return stat.onPress ? (
+                      <Pressable
+                        key={stat.key}
+                        style={styles.statPress}
+                        onPress={stat.onPress}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${stat.value} ${stat.label}`}
+                      >
+                        {body}
+                      </Pressable>
+                    ) : (
+                      <View key={stat.key} style={styles.statPress}>
+                        {body}
+                      </View>
+                    );
+                  })}
+                </Row>
+                {/* Mirrors the second pill slot so the block keeps the pill's width rule. */}
+                <View style={styles.statsSpacer} />
               </Row>
 
               {user.bio ? (
@@ -613,23 +636,31 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     starsRow: {
       gap: 2,
     },
+    /** Same row geometry as the two pills: two equal slots split by the pill gap. */
     statsRow: {
       width: '100%',
+      gap: PROFILE_ACTION_PILL_GAP,
       paddingTop: spacing.xs,
+    },
+    /** Pill-sized block (44 high, one pill slot wide); plain: no background, border or radius. */
+    statsBlock: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+      height: PROFILE_STATS_HEIGHT,
+    },
+    statsSpacer: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+    },
+    statPress: {
+      flex: 1,
+      minWidth: 0,
     },
     statItem: {
       flex: 1,
       justifyContent: 'center',
-      paddingVertical: spacing.xs,
-    },
-    statPress: {
-      flex: 1,
-    },
-    statDivider: {
-      width: StyleSheet.hairlineWidth,
-      backgroundColor: colors.borderMid,
-      marginVertical: spacing.sm,
-      alignSelf: 'stretch',
     },
     bio: {
       lineHeight: 22,

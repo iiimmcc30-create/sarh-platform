@@ -15,6 +15,13 @@ export const PROFILE_BACK_LABEL = 'رجوع';
 export const PROFILE_EDIT_LABEL = 'تعديل الملفّ الشخصيّ';
 /** My Profile share pill: shares the profile link (sarhProfileShareUrl). */
 export const PROFILE_SHARE_LABEL = 'مشاركة الملف الشخصي';
+/**
+ * Profile stats (followers / following / posts): one compact block the SIZE of
+ * the «تعديل الملف الشخصي» pill (not its shape): same 44 height and the same
+ * width rule as a pill in the two-pill row (half the row minus half the gap),
+ * pinned to the inline start (right in Arabic).
+ */
+export const PROFILE_STATS_HEIGHT = PROFILE_ACTION_PILL_HEIGHT;
 /** Pill side padding (8 → 10): still tight enough that both long labels fit on one line on narrow phones. */
 export const PROFILE_ACTION_PILL_PADDING_H = 10;
 /** Existing edit profile route (unchanged). */

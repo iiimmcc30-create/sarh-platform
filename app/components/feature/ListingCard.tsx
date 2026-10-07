@@ -378,7 +378,8 @@ function ListingCardInner({
 }
 
 function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
-  // Card surface + border = Home quick-access chip colours (colour only; metrics unchanged).
+  // Card surface = Home quick-access chip colour; border stays the subtle hairline token
+  // (#E6E8EB light / #2F3336 dark) so it doesn't read as a bright frame. Metrics unchanged.
   const quickAccess = resolveQuickAccessSurface(_scheme);
   return StyleSheet.create({
   pressed: {
@@ -534,7 +535,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
   listRowChrome: {
     borderRadius: MENU_CARD.radius,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: quickAccess.borderColor,
+    borderColor: colors.borderHairline,
     marginHorizontal: spacing.sm,
     ...ambientShadow(_scheme, 'soft'),
   },
@@ -695,7 +696,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     borderRadius: radius.xl,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: quickAccess.borderColor,
+    borderColor: colors.borderHairline,
     paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
