@@ -20,7 +20,7 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { confirmDestructive, presentActionSheet, type ActionSheetItem } from '@/lib/actionSheet';
 import { isCouncilAudioAvailable } from '@/lib/councilsAgora';
-import { speakingUserIdsFor } from '@/lib/councilSpeaking';
+import { speakingUserIdsFor, withMyMicState } from '@/lib/councilSpeaking';
 import { ensureMicPermission } from '@/lib/livePermissions';
 import { openUserProfile } from '@/lib/openUserProfile';
 import { safePush } from '@/lib/safeNavigate';
@@ -374,7 +374,11 @@ export default function CouncilRoomScreen() {
         audio.setMuted(false);
       }
     });
-    if (!ok) audio.setMuted(true);
+    if (!ok) {
+      audio.setMuted(true);
+      // Unmute failed: don't leave my seat/button showing an open mic.
+      if (!nextMuted) setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));
+    }
   }, [audio, id, run]);
 
   const onRequest = useCallback(() => {
@@ -522,9 +526,11 @@ export default function CouncilRoomScreen() {
     }
   }, [onEnd, onLeaveStage, openBanned, router]);
 
+  // My seat mirrors my local mic state immediately (not only after the socket echo).
+  const stageSpeakers = useMemo(() => (state ? withMyMicState(state.speakers, state.me) : []), [state]);
   const speakingUserIds = useMemo(
-    () => (state ? speakingUserIdsFor(audio.speakingUids, state.speakers, state.me) : new Set<string>()),
-    [audio.speakingUids, state],
+    () => (state ? speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me) : new Set<string>()),
+    [audio.speakingUids, stageSpeakers, state],
   );
 
   // ─── Render ─────────────────────────────────────────────────────────────
@@ -658,7 +664,7 @@ export default function CouncilRoomScreen() {
         {/* Stage block takes the free height and centres the 4 × 3 grid + listeners pill in it. */}
         <View style={styles.stage} testID="council-stage">
           <SpeakerGrid
-            speakers={state.speakers}
+            speakers={stageSpeakers}
             speakingUserIds={speakingUserIds}
             myUserId={me.userId}
             onSpeakerPress={(s) => void openMemberMenu(s, true)}

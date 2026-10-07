@@ -7,7 +7,9 @@ import {
   speakingFrom,
   speakingUserIdsFor,
   updateSpeaking,
+  withMyMicState,
 } from '@/lib/councilSpeaking';
+import { resetApiFallbackState, resolveSocketBase, setApiRebase } from '@/services/apiFallback';
 
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -96,6 +98,56 @@ describe('Councils speaking mic indicator', () => {
     expect(hook).toContain('enableAudioVolumeIndication(COUNCIL_VOLUME_INTERVAL_MS, 3, true)');
     expect(hook).toContain('updateSpeaking(lastLoud.current, speakers, Date.now(), mutedRef.current)');
     expect(hook).toContain('clearDecay();');
-    expect(room).toContain('speakingUserIdsFor(audio.speakingUids, state.speakers, state.me)');
+    expect(room).toContain('speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me)');
+  });
+});
+
+describe('Councils: my seat reflects my mic state', () => {
+  const speakers = [
+    { userId: 'me', agoraUid: 1, micMuted: true, mutedByModerator: false },
+    { userId: 'a', agoraUid: 2, micMuted: true, mutedByModerator: false },
+  ];
+
+  it('overrides only my own seat with my local mic state', () => {
+    const out = withMyMicState(speakers, { userId: 'me', onStage: true, micMuted: false, mutedByModerator: false });
+    expect(out.find((s) => s.userId === 'me')?.micMuted).toBe(false);
+    expect(out.find((s) => s.userId === 'a')?.micMuted).toBe(true);
+    expect(speakers[0].micMuted).toBe(true); // no mutation
+  });
+
+  it('keeps the same array when nothing differs (stable memo)', () => {
+    expect(withMyMicState(speakers, { userId: 'me', onStage: true, micMuted: true, mutedByModerator: false })).toBe(
+      speakers,
+    );
+  });
+
+  it('moderator mute on me still shows on my seat', () => {
+    const out = withMyMicState(speakers, { userId: 'me', onStage: true, micMuted: true, mutedByModerator: true });
+    expect(out[0].mutedByModerator).toBe(true);
+  });
+
+  it('the room renders the stage from the merged list and reverts a failed unmute', () => {
+    const room = src('app/councils/[id].tsx');
+    expect(room).toContain('withMyMicState(state.speakers, state.me)');
+    expect(room).toContain('speakers={stageSpeakers}');
+    expect(room).not.toContain('speakers={state.speakers}');
+    expect(room).toContain('if (!nextMuted) setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));');
+  });
+});
+
+describe('Dev socket follows the API production fallback', () => {
+  afterEach(() => resetApiFallbackState());
+
+  it('switches a local http socket URL once the API fell back', () => {
+    expect(resolveSocketBase('http://127.0.0.1:3002')).toBe('http://127.0.0.1:3002');
+    setApiRebase('http://127.0.0.1:3001', 'https://sarhsa.online');
+    expect(resolveSocketBase('http://127.0.0.1:3002')).toBe('https://sarhsa.online');
+    expect(resolveSocketBase('https://other.example')).toBe('https://other.example');
+  });
+
+  it('is wired into connectSocket URL resolution', () => {
+    const sock = src('lib/socket.ts');
+    expect(sock).toContain('resolveSocketBase(resolveDevServiceUrl(process.env.EXPO_PUBLIC_SOCKET_URL, 3002))');
+    expect(sock).toContain('__DEV__ ? resolveSocketBase(fromEnv) : fromEnv');
   });
 });

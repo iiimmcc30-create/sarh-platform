@@ -78,6 +78,18 @@ export async function resolveRequestUrl(url: string): Promise<string> {
   return rebaseApiUrl(url);
 }
 
+/**
+ * Socket base for a dev session. The API falls back to production when the local
+ * backend is unreachable, but the socket URL used to stay on the dead local
+ * `http://…:3002` (e.g. `npm run android` → 127.0.0.1), so realtime events (council
+ * mic/seat updates, chat) never arrived. Follow the API: once it has switched to
+ * production, a local http socket URL switches too. https / production URLs are untouched.
+ */
+export function resolveSocketBase(socketUrl: string): string {
+  if (!rebase || !/^http:\/\//i.test(socketUrl.trim())) return socketUrl;
+  return rebase.to;
+}
+
 /** Test helper. */
 export function resetApiFallbackState(): void {
   pendingProbe = null;

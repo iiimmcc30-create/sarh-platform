@@ -78,3 +78,20 @@ export function speakingUserIdsFor(
   }
   return set;
 }
+
+/**
+ * The stage as I should see it: my own seat follows my local mic state right away
+ * (toggle is optimistic; the `council:mic` socket echo and REST resync reconcile it).
+ * Without this my seat kept the muted badge until the next server push.
+ */
+export function withMyMicState<T extends SpeakerLike>(speakers: readonly T[], me: MeLike): T[] {
+  let changed = false;
+  const next = speakers.map((s) => {
+    if (s.userId !== me.userId) return s;
+    const mutedByModerator = me.mutedByModerator ?? s.mutedByModerator;
+    if (s.micMuted === me.micMuted && s.mutedByModerator === mutedByModerator) return s;
+    changed = true;
+    return { ...s, micMuted: me.micMuted, mutedByModerator };
+  });
+  return changed ? next : (speakers as T[]);
+}
