@@ -14,7 +14,8 @@
       "bundleIdentifier": "com.sarh.app",
       "icon": "./assets/images/icon.png",
       "infoPlist": {
-        "CFBundleDisplayName": "سرح | Sarh"
+        "CFBundleDisplayName": "سرح | Sarh",
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
