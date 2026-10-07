@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- «المجالس»: keeps council audio alive in the background / screen off.
+       mediaPlayback while listening; microphone is added only while the user is on stage. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application>
+    <service
+      android:name="expo.modules.councilaudio.CouncilAudioService"
+      android:exported="false"
+      android:stopWithTask="false"
+      android:foregroundServiceType="mediaPlayback|microphone" />
+  </application>
+</manifest>
