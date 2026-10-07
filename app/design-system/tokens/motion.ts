@@ -44,6 +44,8 @@ export const spring = {
     stiffness: 320,
     damping: 34,
     mass: 1,
+    /** Never past the edge — no 1px gap under sheets / beside the drawer. */
+    overshootClamping: true,
   },
   /** Press-in: quick, no bounce (Animated.spring speed/bounciness). */
   pressIn: {

@@ -34,3 +34,12 @@ describe('iOS press feedback', () => {
     expect(sheet).toMatch(/itemPressed: \{\s*opacity: 0\.6,\s*\}/);
   });
 });
+
+describe('iOS motion polish', () => {
+  it('drawer opens with the iOS spring and nav titles are compact on pushed screens', () => {
+    const sidebar = src('app/sidebar.tsx');
+    expect(sidebar).toContain('Animated.spring(progress, { toValue: 1, ...spring.ios, useNativeDriver: true })');
+    expect(spring.ios.overshootClamping).toBe(true);
+    expect(src('components/layout/ScreenHeader.tsx')).toContain("variant={isTab ? 'heading2' : 'heading3'}");
+  });
+});

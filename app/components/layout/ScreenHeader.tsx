@@ -197,7 +197,8 @@ export function ScreenHeader({
 
       <View style={[styles.titleWrap, isTab && styles.titleWrapStart]}>
         <AppText
-          variant="heading2"
+          // iOS: large-ish title on tab roots, compact inline title on pushed screens.
+          variant={isTab ? 'heading2' : 'heading3'}
           color="textPrimary"
           align={isTab ? 'auto' : 'center'}
           numberOfLines={1}

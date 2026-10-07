@@ -1,5 +1,6 @@
 import { AppSidebar } from '@/components/feature/AppSidebar';
 import { getRtlDirection, getRtlRow, isAppRtl } from '@/lib/rtl';
+import { spring } from '@/design-system/tokens/motion';
 import { useRouter } from 'expo-router';
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import {
@@ -15,7 +16,6 @@ import {
 const BACKDROP_COLOR = 'rgba(0,0,0,0.28)';
 const PANEL_WIDTH_RATIO = 0.82;
 const PANEL_MAX_WIDTH = 340;
-const OPEN_MS = 280;
 const CLOSE_MS = 280;
 
 export default function SidebarScreen() {
@@ -52,12 +52,16 @@ export default function SidebarScreen() {
   useLayoutEffect(() => {
     mountedRef.current = true;
     closingRef.current = false;
-    run(1, OPEN_MS, Easing.out(Easing.cubic));
+    // Open with the iOS spring (one Animated value drives panel + dim, native driver).
+    animRef.current?.stop();
+    const open = Animated.spring(progress, { toValue: 1, ...spring.ios, useNativeDriver: true });
+    animRef.current = open;
+    open.start();
     return () => {
       mountedRef.current = false;
       animRef.current?.stop();
     };
-  }, [run]);
+  }, [progress, run]);
 
   const close = useCallback(() => {
     if (closingRef.current) return;

@@ -12,7 +12,7 @@ const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8');
 
 describe('iOS-style bottom sheet motion', () => {
   it('springs with a near-critically damped iOS spring', () => {
-    expect(spring.ios).toEqual({ stiffness: 320, damping: 34, mass: 1 });
+    expect(spring.ios).toEqual({ stiffness: 320, damping: 34, mass: 1, overshootClamping: true });
     const ratio = spring.ios.damping / (2 * Math.sqrt(spring.ios.stiffness * spring.ios.mass));
     expect(ratio).toBeGreaterThan(0.9);
     expect(ratio).toBeLessThanOrEqual(1);
