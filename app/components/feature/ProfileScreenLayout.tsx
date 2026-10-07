@@ -533,8 +533,13 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       paddingBottom: spacing.sm,
       minHeight: 44,
     },
+    /** Full screen width: the body has no gutter here, so the band runs edge to edge with square corners. */
     coverBand: {
       height: PROFILE_COVER_HEIGHT,
+      width: '100%',
+      alignSelf: 'stretch',
+      marginHorizontal: 0,
+      borderRadius: 0,
       marginBottom: spacing.sm,
       overflow: 'hidden',
     },

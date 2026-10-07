@@ -16,7 +16,7 @@ import { rtlForwardIcon } from '@/lib/rtl';
 import { safePush } from '@/lib/safeNavigate';
 import { presentActionSheet } from '@/lib/actionSheet';
 import { AppText, SarhCard, SarhDivider } from '@/design-system/components';
-import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { FullBleed, Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 
 export default function EditProfileScreen() {
   const { colors } = useTheme();
@@ -128,16 +128,19 @@ export default function EditProfileScreen() {
           accessibilityLabel="تغيير غلاف الملف الشخصي"
           style={styles.coverBlock}
         >
-          <View style={styles.coverFrame}>
-            {coverUri ? (
-              <Image source={{ uri: coverUri }} style={styles.coverImage} contentFit="cover" />
-            ) : (
-              <View style={[styles.coverImage, styles.coverDefault]} />
-            )}
-            <View style={styles.coverIcon} pointerEvents="none">
-              <AppIcon name="image-outline" size={20} color={colors.textPrimary} />
+          {/* Edge to edge like the profile page cover: escapes the form gutter, no rounded card corners. */}
+          <FullBleed testID="edit-profile-cover">
+            <View style={styles.coverFrame}>
+              {coverUri ? (
+                <Image source={{ uri: coverUri }} style={styles.coverImage} contentFit="cover" />
+              ) : (
+                <View style={[styles.coverImage, styles.coverDefault]} />
+              )}
+              <View style={styles.coverIcon} pointerEvents="none">
+                <AppIcon name="image-outline" size={20} color={colors.textPrimary} />
+              </View>
             </View>
-          </View>
+          </FullBleed>
           <AppText variant="label" color="primary" align="center">
             {coverBusy ? 'جارٍ حفظ الغلاف…' : 'تغيير غلاف الملف الشخصي'}
           </AppText>
@@ -314,11 +317,13 @@ function createStyles(colors: ThemeColors) {
     coverBlock: {
       gap: spacing.sm,
     },
+    /** Full screen width: no side borders or corner radius, hairlines only above and below. */
     coverFrame: {
       height: 104,
-      borderRadius: 12,
+      width: '100%',
       overflow: 'hidden',
-      borderWidth: StyleSheet.hairlineWidth,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSoft,
       alignItems: 'center',
       justifyContent: 'center',
