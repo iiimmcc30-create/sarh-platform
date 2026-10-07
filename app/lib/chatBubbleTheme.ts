@@ -1,16 +1,25 @@
 /**
  * Chat thread palette — built from existing Sarh DS tokens only.
  *
- * The thread background is explicitly #FFFFFF, so bubble colours use the
- * light-mode token set regardless of the app theme. The sent bubble uses the
- * Light brand tint (`lightActionMuted`, the brand black #020202 at 14%) —
- * a neutral grey on white — with the DS ink colour; controls use the Light
- * pressed primary (black family, black & white identity). Received bubbles use the DS light field neutral.
+ * Light Mode (unchanged): the thread background is #FFFFFF. The sent bubble
+ * uses the Light brand tint (`lightActionMuted`, the brand black #020202 at
+ * 14%) — a neutral grey on white — with the DS ink colour; controls use the
+ * Light pressed primary (black family, black & white identity). Received
+ * bubbles use the DS light field neutral.
+ *
+ * Dark Mode: the thread background is the brand black (#020202, `sarh.color.bg`).
+ * Received bubbles are a lifted X-style dark surface (`surfaceAlt`) with the
+ * dark primary text; sent bubbles reuse the dark primary CTA treatment
+ * (white fill `primaryActionButton`, black `primaryActionText`) — the Sarh
+ * black & white identity, no gradients, no glow.
+ *
  * Ratios are asserted in __tests__/chat-bubble-contrast.test.ts.
  */
 import { sarh } from '@/constants/sarhTokens';
 
 export const CHAT_BACKGROUND = '#FFFFFF';
+/** Dark Mode thread background — the app-icon / dark page black. */
+export const CHAT_BACKGROUND_DARK = sarh.color.bg;
 
 type Rgb = { r: number; g: number; b: number };
 
@@ -83,20 +92,55 @@ const RECEIVED_BG = sarh.color.lightField;
 /** DS lightTextSecondary (#65727D) is ~4.4:1 on the bubbles; ink @68% keeps AA. */
 const META_INK = withAlpha(sarh.color.lightText, 0.68);
 
+/** Light Mode palette — values unchanged since the black & white identity pass. */
 export const chatBubbleColors = {
   background: CHAT_BACKGROUND,
   sentBg: SENT_BG,
   sentText: sarh.color.lightText,
   sentMeta: compositeOver(META_INK, SENT_BG),
   sentTickRead: sarh.color.lightActionPressed,
+  /** Controls inside sent bubbles (voice play button, progress, upload spinner). */
+  sentAccent: sarh.color.lightActionPressed,
+  sentOnAccent: sarh.color.fab,
+  sentTrack: sarh.color.lightBorder,
   receivedBg: RECEIVED_BG,
   receivedText: sarh.color.lightText,
   receivedMeta: compositeOver(META_INK, RECEIVED_BG),
-  /** Controls inside bubbles (voice play button, progress fill). */
+  /** Controls inside received bubbles / on the thread background. */
   accent: sarh.color.lightActionPressed,
   onAccent: sarh.color.fab,
   track: sarh.color.lightBorder,
   danger: sarh.color.danger,
 } as const;
 
-export type ChatBubbleColors = typeof chatBubbleColors;
+export type ChatBubbleColors = { readonly [K in keyof typeof chatBubbleColors]: string };
+
+const DARK_SENT_BG = sarh.color.primaryActionButton;
+const DARK_RECEIVED_BG = sarh.color.surfaceAlt;
+/** Dark ink at 68%: AA on the lifted surface (dark textSecondary is ~3.6:1 there). */
+const DARK_META_INK = withAlpha(sarh.color.text, 0.68);
+const DARK_SENT_META_INK = withAlpha(sarh.color.primaryActionText, 0.68);
+
+/** Dark Mode palette — black thread, lifted received, white sent bubble. */
+export const chatBubbleColorsDark: ChatBubbleColors = {
+  background: CHAT_BACKGROUND_DARK,
+  sentBg: DARK_SENT_BG,
+  sentText: sarh.color.primaryActionText,
+  sentMeta: compositeOver(DARK_SENT_META_INK, DARK_SENT_BG),
+  sentTickRead: sarh.color.primaryActionText,
+  sentAccent: sarh.color.primaryActionText,
+  sentOnAccent: sarh.color.primaryActionButton,
+  sentTrack: sarh.color.lightBorder,
+  receivedBg: DARK_RECEIVED_BG,
+  receivedText: sarh.color.text,
+  receivedMeta: compositeOver(DARK_META_INK, DARK_RECEIVED_BG),
+  accent: sarh.color.fab,
+  onAccent: sarh.color.fabIcon,
+  track: sarh.color.borderStrong,
+  danger: sarh.color.danger,
+};
+
+/** Palette for the active scheme (Light keeps the exact previous values). */
+export function getChatBubbleColors(scheme: 'light' | 'dark'): ChatBubbleColors {
+  return scheme === 'dark' ? chatBubbleColorsDark : chatBubbleColors;
+}

@@ -53,7 +53,7 @@ import {
   formatMediaDuration,
   mapApiMessage,
 } from '@/lib/chatMessageModel';
-import { CHAT_BACKGROUND, chatBubbleColors } from '@/lib/chatBubbleTheme';
+import { getChatBubbleColors, type ChatBubbleColors } from '@/lib/chatBubbleTheme';
 import { useAppUser } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchUserProfile, setBlockUser } from '@/services/users';
@@ -135,6 +135,8 @@ type ChatMessageBubbleProps = {
   onOpenImage: (uri: string) => void;
   messageStyles: ChatMessageStyles;
   colors: ThemeColors;
+  /** Scheme-aware thread palette (white thread in Light, black in Dark). */
+  palette: ChatBubbleColors;
 };
 
 function chatMessagePropsEqual(prev: ChatMessageBubbleProps, next: ChatMessageBubbleProps) {
@@ -160,7 +162,8 @@ function chatMessagePropsEqual(prev: ChatMessageBubbleProps, next: ChatMessageBu
     prev.onRetry === next.onRetry &&
     prev.onOpenImage === next.onOpenImage &&
     prev.messageStyles === next.messageStyles &&
-    prev.colors === next.colors
+    prev.colors === next.colors &&
+    prev.palette === next.palette
   );
 }
 
@@ -173,10 +176,10 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
   onOpenImage,
   messageStyles,
   colors,
+  palette,
 }: ChatMessageBubbleProps) {
   const isMe = item.senderId === myId;
   const [imageFailed, setImageFailed] = useState(false);
-  const palette = chatBubbleColors;
   const offer = parseOfferMessage(item.text);
   const timeLabel = new Date(item.createdAt).toLocaleTimeString('ar-SA', {
     hour: '2-digit',
@@ -302,7 +305,7 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
         ) : null}
         {uploading && (parts.image || parts.video || parts.voice) ? (
           <View style={messageStyles.uploadRow} accessibilityLiveRegion="polite">
-            <ActivityIndicator size="small" color={palette.accent} />
+            <ActivityIndicator size="small" color={palette.sentAccent} />
             <AppText variant="caption" style={{ color: palette.sentMeta }}>
               {typeof item.progress === 'number'
                 ? `جارٍ الرفع ${Math.round(item.progress * 100)}٪`
@@ -527,9 +530,15 @@ export default function ChatScreen() {
   }>();
   const router = useRouter();
   const { keyboardVisible, restingBottom } = useComposerKeyboardPad();
-  const { colors } = useTheme();
-  const styles = useThemedStyles(({ colors }) => createStyles(colors));
-  const messageStyles = useThemedStyles(({ colors }) => createMessageStyles(colors));
+  const { colors, scheme } = useTheme();
+  /** Light: white thread (unchanged). Dark: brand-black thread (#020202). */
+  const palette = getChatBubbleColors(scheme);
+  const styles = useThemedStyles(({ colors, scheme }) =>
+    createStyles(colors, getChatBubbleColors(scheme)),
+  );
+  const messageStyles = useThemedStyles(({ colors, scheme }) =>
+    createMessageStyles(colors, getChatBubbleColors(scheme)),
+  );
   const composerTextStyle = resolveAppTextStyle({ variant: 'body', color: 'textPrimary' });
   const { me } = useAppUser();
   const { accessToken } = useAuth();
@@ -1119,9 +1128,10 @@ export default function ChatScreen() {
           onOpenImage={openImage}
           messageStyles={messageStyles}
           colors={colors}
+          palette={palette}
         />
       ),
-    [MY_ID, colors, messageStyles, openImage, respondToOffer, retryMessage, styles],
+    [MY_ID, colors, messageStyles, openImage, palette, respondToOffer, retryMessage, styles],
   );
 
   /** «كتم المحادثة» — server-side, per participant (push only; messages still arrive). */
@@ -1221,7 +1231,7 @@ export default function ChatScreen() {
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
               messages.length === 0 && loadingMessages ? (
-                <ActivityIndicator style={styles.threadLoading} color={chatBubbleColors.accent} />
+                <ActivityIndicator style={styles.threadLoading} color={palette.accent} />
               ) : null
             }
           />
@@ -1377,7 +1387,7 @@ export default function ChatScreen() {
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, palette: ChatBubbleColors) {
   return StyleSheet.create({
   header: {
     flexDirection: 'row',
@@ -1416,7 +1426,7 @@ function createStyles(colors: ThemeColors) {
   threadPane: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: CHAT_BACKGROUND,
+    backgroundColor: palette.background,
   },
   threadLoading: { marginTop: spacing.xl },
   threadList: {
@@ -1431,8 +1441,8 @@ function createStyles(colors: ThemeColors) {
   // Quiet day separator (WhatsApp-style): small neutral pill, AA meta text.
   datePillWrap: { alignItems: 'center', marginVertical: spacing.sm },
   datePill: {
-    backgroundColor: chatBubbleColors.receivedBg,
-    color: chatBubbleColors.receivedMeta,
+    backgroundColor: palette.receivedBg,
+    color: palette.receivedMeta,
     overflow: 'hidden',
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -1449,7 +1459,7 @@ function createStyles(colors: ThemeColors) {
     backgroundColor: colors.bgSurface,
   },
   blockedText: { flex: 1 },
-  blockedAction: { color: chatBubbleColors.accent },
+  blockedAction: { color: palette.accent },
 
   attachSheet: {
     flexDirection: 'row',
@@ -1556,7 +1566,7 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function createMessageStyles(colors: ThemeColors) {
+function createMessageStyles(colors: ThemeColors, palette: ChatBubbleColors) {
   return StyleSheet.create({
   bubbleWrap: {
     flexDirection: 'row',
@@ -1577,10 +1587,10 @@ function createMessageStyles(colors: ThemeColors) {
     paddingBottom: 5,
   },
   bubbleMe: {
-    backgroundColor: chatBubbleColors.sentBg,
+    backgroundColor: palette.sentBg,
   },
   bubbleThem: {
-    backgroundColor: chatBubbleColors.receivedBg,
+    backgroundColor: palette.receivedBg,
   },
   // Sent bubbles sit at the inline start (right in Arabic); the "tail" corner
   // (last bubble of a group) uses logical start/end so RTL and LTR both point
@@ -1598,13 +1608,13 @@ function createMessageStyles(colors: ThemeColors) {
     paddingBottom: 3,
   },
   bubbleText: { lineHeight: 22 },
-  textMe: { color: chatBubbleColors.sentText },
-  textThem: { color: chatBubbleColors.receivedText },
+  textMe: { color: palette.sentText },
+  textThem: { color: palette.receivedText },
   mediaFallback: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: CHAT_BACKGROUND,
+    backgroundColor: palette.background,
   },
   uploadRow: {
     flexDirection: 'row',
@@ -1638,8 +1648,8 @@ function createMessageStyles(colors: ThemeColors) {
     marginTop: 2,
   },
   metaRowMedia: { paddingHorizontal: 6, paddingTop: 3, paddingBottom: 1 },
-  timeTextMe: { color: chatBubbleColors.sentMeta },
-  timeTextThem: { color: chatBubbleColors.receivedMeta },
+  timeTextMe: { color: palette.sentMeta },
+  timeTextThem: { color: palette.receivedMeta },
   offerCard: {
     maxWidth: '82%',
     borderRadius: 18,

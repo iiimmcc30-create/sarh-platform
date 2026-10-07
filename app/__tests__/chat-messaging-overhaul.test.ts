@@ -183,8 +183,9 @@ describe('chat screen wiring', () => {
     expect(chat).not.toContain('listingId');
   });
 
-  it('has a white thread background and no online-status line', () => {
-    expect(chat).toContain('backgroundColor: CHAT_BACKGROUND');
+  it('has a scheme-aware thread background (white Light, black Dark) and no online-status line', () => {
+    expect(chat).toContain('backgroundColor: palette.background');
+    expect(chat).toContain('getChatBubbleColors(scheme)');
     expect(chat).not.toContain('متصل الآن');
     expect(chat).not.toContain('onlineDot');
     expect(chat).not.toContain('LinearGradient');

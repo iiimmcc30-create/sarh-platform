@@ -41,28 +41,32 @@ export function VoiceMessageBubble({ uri, durationMs, isMe, palette }: Props) {
   const shownMs = playing || status.currentTime > 0 ? status.currentTime * 1000 : loadedSec * 1000;
   const textColor = isMe ? palette.sentText : palette.receivedText;
   const metaColor = isMe ? palette.sentMeta : palette.receivedMeta;
+  // Sent and received bubbles can differ in tone (white sent bubble in Dark).
+  const accent = isMe ? palette.sentAccent : palette.accent;
+  const onAccent = isMe ? palette.sentOnAccent : palette.onAccent;
+  const track = isMe ? palette.sentTrack : palette.track;
 
   return (
     <View style={styles.row} accessibilityLabel="رسالة صوتية">
       <Pressable
         onPress={() => (playing ? player.pause() : player.play())}
-        style={[styles.playBtn, { backgroundColor: palette.accent }]}
+        style={[styles.playBtn, { backgroundColor: accent }]}
         accessibilityRole="button"
         accessibilityLabel={playing ? 'إيقاف مؤقت' : 'تشغيل الرسالة الصوتية'}
         hitSlop={6}
       >
         {status.isBuffering && !status.isLoaded ? (
-          <ActivityIndicator size="small" color={palette.onAccent} />
+          <ActivityIndicator size="small" color={onAccent} />
         ) : (
-          <AppIcon name={playing ? 'pause' : 'play'} size={16} color={palette.onAccent} />
+          <AppIcon name={playing ? 'pause' : 'play'} size={16} color={onAccent} />
         )}
       </Pressable>
       <View style={styles.body}>
-        <View style={[styles.track, { backgroundColor: palette.track }]}>
+        <View style={[styles.track, { backgroundColor: track }]}>
           <View
             style={[
               styles.fill,
-              { width: `${Math.round(progress * 100)}%`, backgroundColor: palette.accent },
+              { width: `${Math.round(progress * 100)}%`, backgroundColor: accent },
             ]}
           />
         </View>

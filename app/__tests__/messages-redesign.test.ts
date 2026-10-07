@@ -77,12 +77,12 @@ describe('message thread filters', () => {
 });
 
 describe('chat thread background', () => {
-  it('uses a plain white thread pane (wallpaper no longer drawn in the chat)', () => {
+  it('uses a plain thread pane from the chat palette (wallpaper no longer drawn in the chat)', () => {
     const chat = src('app/chat.tsx');
     const wallpaper = src('components/feature/ChatThreadWallpaper.tsx');
     expect(chat).toContain('styles.threadPane');
     expect(chat).not.toContain('<ChatThreadWallpaper');
-    expect(chat).toContain('backgroundColor: CHAT_BACKGROUND');
+    expect(chat).toContain('backgroundColor: palette.background');
     const pane = chat.indexOf('style={styles.threadPane}');
     const listAt = chat.indexOf('style={styles.threadList}');
     expect(pane).toBeGreaterThan(-1);
