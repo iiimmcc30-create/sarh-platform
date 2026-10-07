@@ -37,6 +37,7 @@ import { collectListingMedia, listingVideoViewerIndex } from '@/lib/postMedia';
 import { pauseAllFeedPlayback } from '@/lib/feedVideoPlayback';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { ListingCommentsSection } from '@/components/feature/ListingCommentsSection';
+import { SimilarListingsSection } from '@/components/listing/SimilarListingsSection';
 import {
   SkeletonCircle,
   SkeletonImage,
@@ -844,6 +845,8 @@ export default function ListingDetailScreen() {
         ) : null}
 
         <ListingCommentsSection listingId={listing.id} layout="edge" />
+
+        <SimilarListingsSection listing={listing} />
       </ScreenBody>
 
       {!isOwner ? (
