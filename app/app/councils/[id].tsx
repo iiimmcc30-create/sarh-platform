@@ -20,6 +20,7 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { confirmDestructive, presentActionSheet, type ActionSheetItem } from '@/lib/actionSheet';
 import { isCouncilAudioAvailable } from '@/lib/councilsAgora';
+import { speakingUserIdsFor } from '@/lib/councilSpeaking';
 import { ensureMicPermission } from '@/lib/livePermissions';
 import { openUserProfile } from '@/lib/openUserProfile';
 import { safePush } from '@/lib/safeNavigate';
@@ -521,19 +522,10 @@ export default function CouncilRoomScreen() {
     }
   }, [onEnd, onLeaveStage, openBanned, router]);
 
-  const speakingUserIds = useMemo(() => {
-    const set = new Set<string>();
-    if (!state) return set;
-    for (const uid of audio.speakingUids) {
-      if (uid === 0) {
-        if (state.me.onStage) set.add(state.me.userId);
-        continue;
-      }
-      const s = state.speakers.find((sp) => sp.agoraUid === uid);
-      if (s) set.add(s.userId);
-    }
-    return set;
-  }, [audio.speakingUids, state]);
+  const speakingUserIds = useMemo(
+    () => (state ? speakingUserIdsFor(audio.speakingUids, state.speakers, state.me) : new Set<string>()),
+    [audio.speakingUids, state],
+  );
 
   // ─── Render ─────────────────────────────────────────────────────────────
 

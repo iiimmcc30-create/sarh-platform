@@ -7,6 +7,13 @@
 // demoted/muted/banned speaker cannot keep publishing by renewing.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCouncilAgoraModule } from '@/lib/councilsAgora';
+import {
+  COUNCIL_SPEAKING_HOLD_MS,
+  COUNCIL_VOLUME_INTERVAL_MS,
+  speakingFrom,
+  updateSpeaking,
+  type LastLoudMap,
+} from '@/lib/councilSpeaking';
 import { ensureMicPermission } from '@/lib/livePermissions';
 import {
   claimRtcEngine,
@@ -37,7 +44,6 @@ type Options = {
   onMicDenied?: () => void;
 };
 
-const SPEAKING_VOLUME = 30;
 const RENEW_MARGIN_S = 60;
 const AGORA_CONNECTED = 3;
 const AGORA_RECONNECTING = 4;
@@ -58,8 +64,36 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   const renewing = useRef<Promise<void> | null>(null);
   const restarting = useRef(false);
   const speakingKey = useRef('');
+  const lastLoud = useRef<LastLoudMap>({});
+  const decayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optsRef = useRef({ requestToken, onFatal, onMicDenied });
   optsRef.current = { requestToken, onFatal, onMicDenied };
+
+  const publishSpeaking = (uids: number[]) => {
+    const key = uids.join(',');
+    if (key === speakingKey.current) return;
+    speakingKey.current = key;
+    setSpeakingUids(uids);
+  };
+
+  const clearDecay = () => {
+    if (decayTimer.current) clearTimeout(decayTimer.current);
+    decayTimer.current = null;
+  };
+
+  /** Drops speakers whose hold ran out even if Agora stops sending callbacks. */
+  const scheduleDecay = () => {
+    clearDecay();
+    if (Object.keys(lastLoud.current).length === 0) return;
+    decayTimer.current = setTimeout(() => {
+      decayTimer.current = null;
+      const now = Date.now();
+      const next = updateSpeaking(lastLoud.current, [], now, mutedRef.current);
+      lastLoud.current = next.lastLoud;
+      publishSpeaking(next.speaking);
+      scheduleDecay();
+    }, COUNCIL_SPEAKING_HOLD_MS + 50);
+  };
 
   const clearRenew = () => {
     if (renewTimer.current) clearTimeout(renewTimer.current);
@@ -127,10 +161,12 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
 
   const teardown = useCallback(() => {
     clearRenew();
+    clearDecay();
     const engine = engineRef.current;
     engineRef.current = null;
     publisherRef.current = false;
     speakingKey.current = '';
+    lastLoud.current = {};
     setSpeakingUids([]);
     if (engine) {
       try {
@@ -216,15 +252,11 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
             void renew();
           },
           onAudioVolumeIndication(_c, speakers) {
-            const uids = (speakers ?? [])
-              .filter((s) => (s.volume ?? 0) >= SPEAKING_VOLUME && (s.uid !== 0 || !mutedRef.current))
-              .map((s) => s.uid ?? 0)
-              .sort((a, b) => a - b);
-            const key = uids.join(',');
-            if (key !== speakingKey.current) {
-              speakingKey.current = key;
-              setSpeakingUids(uids);
-            }
+            // Local (uid 0) and remote reports arrive in separate callbacks; merge them.
+            const next = updateSpeaking(lastLoud.current, speakers, Date.now(), mutedRef.current);
+            lastLoud.current = next.lastLoud;
+            publishSpeaking(next.speaking);
+            scheduleDecay();
           },
         };
         handlerRef.current = handler;
@@ -236,7 +268,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
           agora.AudioScenarioType.AudioScenarioChatroom,
         );
         engine.setDefaultAudioRouteToSpeakerphone(true);
-        engine.enableAudioVolumeIndication(400, 3, true);
+        engine.enableAudioVolumeIndication(COUNCIL_VOLUME_INTERVAL_MS, 3, true);
 
         const role = publisher
           ? agora.ClientRoleType.ClientRoleBroadcaster
@@ -286,6 +318,13 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;
     if (publisherRef.current) engineRef.current?.muteLocalAudioStream(muted);
+    if (muted && lastLoud.current[0] !== undefined) {
+      // Stop my own indicator right away instead of waiting for the hold to run out.
+      const rest: Record<number, number> = { ...lastLoud.current };
+      delete rest[0];
+      lastLoud.current = rest;
+      publishSpeaking(speakingFrom(rest, Date.now()));
+    }
   }, []);
 
   const stop = useCallback(() => {

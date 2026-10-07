@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { AppText, SarhAvatar } from '@/design-system/components';
@@ -23,7 +23,9 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
   const [ring] = useState(() => new Animated.Value(0));
-  const active = Boolean(speaker && speaking && !speaker.micMuted);
+  const [pulse] = useState(() => new Animated.Value(0));
+  // Muted (by me or a moderator) never animates, whatever the audio level says.
+  const active = Boolean(speaker && speaking && !speaker.micMuted && !speaker.mutedByModerator);
 
   useEffect(() => {
     Animated.timing(ring, {
@@ -32,6 +34,23 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
       useNativeDriver: true,
     }).start();
   }, [active, ring]);
+
+  // Speaking mic: gentle pulse while the speaker is talking, stopped otherwise.
+  useEffect(() => {
+    if (!active) {
+      pulse.stopAnimation();
+      pulse.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 340, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 340, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, pulse]);
 
   if (!speaker) {
     return (
@@ -65,6 +84,26 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
             style={styles.avatar}
           />
         </View>
+        {active ? (
+          <Animated.View
+            pointerEvents="none"
+            testID="council-speaking-mic"
+            style={[
+              styles.micBadge,
+              styles.speakingBadge,
+              {
+                opacity: ring,
+                transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) }],
+              },
+            ]}
+          >
+            <Animated.View
+              style={{ transform: [{ translateY: pulse.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }) }] }}
+            >
+              <AppIcon name="mic" size={11} color={colors.onElectric} />
+            </Animated.View>
+          </Animated.View>
+        ) : null}
         {muted ? (
           <View style={styles.micBadge}>
             <AppIcon name="mic-off" size={11} color={speaker.mutedByModerator ? colors.danger : colors.textSecondary} />
@@ -127,6 +166,12 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.borderMid,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    /** Accent fill (white in dark, black in light) with a page-coloured cut-out edge. */
+    speakingBadge: {
+      backgroundColor: colors.electric,
+      borderWidth: 1.5,
+      borderColor: colors.bgPrimary,
     },
     roleBadge: {
       position: 'absolute',
