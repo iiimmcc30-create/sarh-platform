@@ -412,6 +412,7 @@ export default function UserProfileScreen() {
     coverImage: profile.coverImage,
     verified: profile.verified,
     verifiedTier: profile.verifiedTier ?? null,
+    verifiedSince: profile.verifiedSince ?? null,
     isAI: profile.isAI,
     bio: profile.bio,
     country: profile.country,

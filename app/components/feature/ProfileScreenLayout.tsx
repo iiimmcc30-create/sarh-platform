@@ -3,7 +3,10 @@ import { Image, uriSource } from '@/components/ui/AppImage';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { VerifiedInfoSheet } from '@/components/ui/VerifiedInfoSheet';
+import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
 import { ProfileTabs } from '@/components/feature/ProfileTabs';
+import { ProfileStatsRow } from '@/components/feature/ProfileStatsRow';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { ProfileActionsSkeleton, ProfileHeaderSkeleton } from '@/components/ui/skeleton';
 import { useFocusEffect } from 'expo-router';
@@ -48,11 +51,11 @@ import {
   PROFILE_COVER_ICON_GLYPH,
   PROFILE_EDIT_LABEL,
   PROFILE_SHARE_LABEL,
-  PROFILE_STATS_HEIGHT,
   profileStatusBarStyle,
   shouldPinProfileTabs,
 } from '@/lib/profileHeader';
 import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
+import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
@@ -68,6 +71,8 @@ export type ProfileDisplayUser = {
   coverImage?: string;
   verified: boolean;
   verifiedTier?: string | null;
+  /** ISO approval date of the verification (API `verifiedSince`); null/absent hides the date. */
+  verifiedSince?: string | null;
   isAI?: boolean;
   bio?: string;
   country?: string;
@@ -94,7 +99,7 @@ type ProfileScreenLayoutProps = {
   onBack?: () => void;
   onShare?: () => void;
   onEditProfile?: () => void;
-  onEditAvatar?: () => void;
+  /** Story ring tap (opens stories). Without a ring, the avatar opens full screen. */
   onAvatarPress?: () => void;
   hasStoryRing?: boolean;
   onFollowersPress?: () => void;
@@ -149,7 +154,6 @@ export function ProfileScreenLayout({
   onBack,
   onShare,
   onEditProfile,
-  onEditAvatar,
   onAvatarPress,
   hasStoryRing = false,
   onFollowersPress,
@@ -217,6 +221,23 @@ export function ProfileScreenLayout({
     },
     [insets.top],
   );
+  /** Full-screen avatar / cover (shared in-app image viewer). */
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const openImage = useCallback((uri: string | null | undefined) => {
+    if (!uri) return;
+    setViewerUri(uri);
+    setViewerOpen(true);
+  }, []);
+  const avatarPress =
+    hasStoryRing && onAvatarPress ? onAvatarPress : user.avatar ? () => openImage(user.avatar) : undefined;
+  const coverPress = user.coverImage ? () => openImage(user.coverImage) : undefined;
+
+  /** Verified profiles: tapping the name / @handle / badge explains the badge. */
+  const [verifiedSheetOpen, setVerifiedSheetOpen] = useState(false);
+  const isVerified = !loading && shouldShowVerifiedBadge(user.verified);
+  const openVerifiedSheet = isVerified ? () => setVerifiedSheetOpen(true) : undefined;
+
   const statusBarStyle = profileStatusBarStyle({
     hasCoverImage: Boolean(user.coverImage),
     isDark,
@@ -310,21 +331,30 @@ export function ProfileScreenLayout({
               avatar overlaps its bottom edge. */}
           <View style={[styles.coverBand, { height: PROFILE_COVER_HEIGHT + insets.top }]} testID="profile-cover">
             {user.coverImage ? (
-              <Image
-                source={uriSource(user.coverImage)}
+              <Pressable
                 style={StyleSheet.absoluteFill}
-                contentFit="cover"
-                accessibilityLabel="غلاف الملف الشخصي"
-              />
+                onPress={coverPress}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="عرض غلاف الملف الشخصي"
+                testID="profile-cover-press"
+              >
+                <Image
+                  source={uriSource(user.coverImage)}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  accessibilityLabel="غلاف الملف الشخصي"
+                />
+              </Pressable>
             ) : (
               <View style={[StyleSheet.absoluteFill, styles.coverDefault]} />
             )}
           <Row
             align="center"
             justify="between"
+            pointerEvents="box-none"
             style={[styles.toolbar, inset, { paddingTop: spacing.xs + insets.top }]}
           >
-            <Row gap="xs" align="center" style={styles.toolbarSide}>
+            <Row gap="xs" align="center" pointerEvents="box-none" style={styles.toolbarSide}>
               {/* Back sits at the inline start (right in Arabic); the shared back button flips the chevron. */}
               {onBack ? (
                 <SarhBackButton
@@ -338,7 +368,7 @@ export function ProfileScreenLayout({
               ) : null}
             </Row>
 
-            <Row gap="xs" align="center" style={styles.toolbarSide}>
+            <Row gap="xs" align="center" pointerEvents="box-none" style={styles.toolbarSide}>
               {mode === 'own' && onSettings ? (
                 <SarhIconButton
                   icon="settings-outline"
@@ -374,8 +404,10 @@ export function ProfileScreenLayout({
               <Row align="end" justify="start" style={styles.avatarRow} testID="profile-avatar-row">
                 <Pressable
                   testID="profile-avatar"
-                  onPress={onAvatarPress}
-                  disabled={!onAvatarPress}
+                  onPress={avatarPress}
+                  disabled={!avatarPress}
+                  accessibilityRole={avatarPress ? 'imagebutton' : undefined}
+                  accessibilityLabel="الصورة الشخصية"
                   style={styles.avatarCol}
                 >
                   {hasStoryRing ? (
@@ -407,11 +439,6 @@ export function ProfileScreenLayout({
                       />
                     </View>
                   )}
-                  {mode === 'own' && onEditAvatar ? (
-                    <Pressable style={styles.cameraBtn} onPress={onEditAvatar} hitSlop={8}>
-                      <AppIcon name="camera-outline" size={14} color={themeColors.onElectric} />
-                    </Pressable>
-                  ) : null}
                 </Pressable>
               </Row>
 
@@ -424,18 +451,28 @@ export function ProfileScreenLayout({
                   style={styles.nameRow}
                   testID="profile-name-row"
                 >
-                  <Row gap="xs" align="center" style={styles.nameCluster}>
-                    <AppText
-                      variant="cardTitle"
-                      color="textPrimary"
-                      numberOfLines={2}
-                      style={styles.nameShell}
-                    >
-                      {displayName}
-                    </AppText>
-                    {user.verified ? <VerificationBadge size={18} tier={user.verifiedTier} /> : null}
-                    <FounderBadge username={user.username} verificationBadgeSize={18} />
-                  </Row>
+                  <Pressable
+                    testID="profile-name"
+                    onPress={openVerifiedSheet}
+                    disabled={!openVerifiedSheet}
+                    accessibilityRole={openVerifiedSheet ? 'button' : undefined}
+                    style={styles.nameCluster}
+                  >
+                    <Row gap="xs" align="center" style={styles.nameInner}>
+                      <AppText
+                        variant="cardTitle"
+                        color="textPrimary"
+                        numberOfLines={2}
+                        style={styles.nameShell}
+                      >
+                        {displayName}
+                      </AppText>
+                      {user.verified ? (
+                        <VerificationBadge size={PROFILE_NAME_BADGE_SIZE} tier={user.verifiedTier} />
+                      ) : null}
+                      <FounderBadge username={user.username} verificationBadgeSize={PROFILE_NAME_BADGE_SIZE} />
+                    </Row>
+                  </Pressable>
                   <Pressable
                     testID="profile-rating"
                     onPress={onRatePress}
@@ -474,72 +511,39 @@ export function ProfileScreenLayout({
                   </Pressable>
                 </Row>
 
-                <AppText
-                  variant="label"
-                  color="textSecondary"
-                  numberOfLines={1}
-                  style={styles.username}
-                  testID="profile-username"
+                <Pressable
+                  onPress={openVerifiedSheet}
+                  disabled={!openVerifiedSheet}
+                  style={styles.usernamePress}
+                  testID="profile-username-press"
                 >
-                  @{user.username}
-                </AppText>
+                  <AppText
+                    variant="label"
+                    color="textSecondary"
+                    numberOfLines={1}
+                    style={styles.username}
+                    testID="profile-username"
+                  >
+                    @{user.username}
+                  </AppText>
+                </Pressable>
               </Stack>
 
-              {/* Stats: one block the size of the edit pill (not its shape), at the inline start (right in Arabic). */}
-              <Row gap="none" align="center" style={styles.statsRow} testID="profile-stats-row">
-                <Row gap="none" align="stretch" style={styles.statsBlock} testID="profile-stats">
-                  {stats.map((stat) => {
-                    const body = (
-                      <Stack gap="none" align="center" style={styles.statItem}>
-                        <AppText
-                          variant="label"
-                          color="textPrimary"
-                          align="center"
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.8}
-                        >
-                          {stat.value}
-                        </AppText>
-                        <AppText
-                          variant="meta"
-                          color="textMuted"
-                          align="center"
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.85}
-                        >
-                          {stat.label}
-                        </AppText>
-                      </Stack>
-                    );
-
-                    return stat.onPress ? (
-                      <Pressable
-                        key={stat.key}
-                        style={styles.statPress}
-                        onPress={stat.onPress}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${stat.value} ${stat.label}`}
-                      >
-                        {body}
-                      </Pressable>
-                    ) : (
-                      <View key={stat.key} style={styles.statPress}>
-                        {body}
-                      </View>
-                    );
-                  })}
-                </Row>
-                {/* Mirrors the second pill slot so the block keeps the pill's width rule. */}
-                <View style={styles.statsSpacer} />
-              </Row>
-
+              {/* Bio under the @handle (clear 16pt gap): readable standard white / near-black, regular weight. */}
               {user.bio ? (
-                <AppText variant="body" color="textSecondary" numberOfLines={4} style={styles.bio}>
+                <AppText
+                  variant="body"
+                  color="textPrimary"
+                  numberOfLines={4}
+                  style={styles.bio}
+                  testID="profile-bio"
+                >
                   {user.bio}
                 </AppText>
               ) : null}
+
+              {/* Stats (X-style «677 المتابعون»): compact, 12pt above (bio/handle), no dividers. */}
+              <ProfileStatsRow stats={stats} style={styles.statsRow} />
             </Stack>
           )}
 
@@ -632,6 +636,16 @@ export function ProfileScreenLayout({
           }}
         />
       </ScreenBody>
+
+      <VerifiedInfoSheet
+        visible={verifiedSheetOpen}
+        onClose={() => setVerifiedSheetOpen(false)}
+        tier={user.verifiedTier}
+        verifiedSince={user.verifiedSince}
+      />
+      {viewerUri ? (
+        <ImageViewerModal visible={viewerOpen} images={[viewerUri]} onClose={() => setViewerOpen(false)} />
+      ) : null}
     </Screen>
   );
 }
@@ -639,6 +653,8 @@ export function ProfileScreenLayout({
 /** Profile cover band height and how much of the avatar rides over it. */
 export const PROFILE_COVER_HEIGHT = 112;
 export const PROFILE_AVATAR_COVER_OVERLAP = 44;
+/** Verified seal next to the 18px name (cardTitle). */
+export const PROFILE_NAME_BADGE_SIZE = 18;
 
 function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   /** Glass chrome (translucent fill + light white hairline) for controls over the cover. */
@@ -690,6 +706,10 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       flexShrink: 1,
       minWidth: 0,
     },
+    nameInner: {
+      flexShrink: 1,
+      minWidth: 0,
+    },
     nameShell: {
       flexShrink: 1,
       minWidth: 0,
@@ -704,40 +724,24 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       writingDirection: 'ltr',
       alignSelf: 'flex-start',
     },
+    usernamePress: {
+      alignSelf: 'flex-start',
+    },
     ratingRowPressed: {
       opacity: 0.75,
     },
     starsRow: {
       gap: 2,
     },
-    /** Same row geometry as the two pills: two equal slots split by the pill gap. */
+    /** X spacing: 8 (Stack gap) + 4 = 12pt between the bio (or @handle) and the stats. */
     statsRow: {
       width: '100%',
-      gap: PROFILE_ACTION_PILL_GAP,
       paddingTop: spacing.xs,
     },
-    /** Pill-sized block (44 high, one pill slot wide); plain: no background, border or radius. */
-    statsBlock: {
-      flexGrow: 1,
-      flexShrink: 1,
-      flexBasis: 0,
-      height: PROFILE_STATS_HEIGHT,
-    },
-    statsSpacer: {
-      flexGrow: 1,
-      flexShrink: 1,
-      flexBasis: 0,
-    },
-    statPress: {
-      flex: 1,
-      minWidth: 0,
-    },
-    statItem: {
-      flex: 1,
-      justifyContent: 'center',
-    },
+    /** Clear gap: 8 (Stack gap) + 8 = 16pt between the @handle and the bio. */
     bio: {
       lineHeight: 22,
+      paddingTop: spacing.sm,
     },
     avatarCol: {
       position: 'relative',
@@ -770,20 +774,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     avatarImg: {
       width: '100%',
       height: '100%',
-    },
-    /** Logical inset so the badge stays on the avatar's inner corner in both directions. */
-    cameraBtn: {
-      position: 'absolute',
-      bottom: 0,
-      end: 0,
-      width: 28,
-      height: 28,
-      borderRadius: 16,
-      backgroundColor: colors.electric,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 2,
-      borderColor: colors.bgDeep,
     },
     actionsRow: {
       paddingTop: spacing.md,

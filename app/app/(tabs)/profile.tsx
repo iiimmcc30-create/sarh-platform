@@ -154,6 +154,7 @@ export default function ProfileScreen() {
       coverImage: me.coverImage,
       verified: me.verified,
       verifiedTier: me.verifiedTier ?? null,
+      verifiedSince: me.verifiedSince ?? null,
       bio: me.bio,
       country: me.country,
       followersCount: me.followers,
@@ -356,7 +357,6 @@ export default function ProfileScreen() {
       onShare={handleShare}
       onMenu={() => void presentOwnProfileMenu(router, me.id)}
       onEditProfile={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}
-      onEditAvatar={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}
       onAvatarPress={() => {
         if (hasStories && myStoryGroup) {
           safePush(

@@ -28,6 +28,8 @@ export interface User {
   verified: boolean;
   /** Verification badge tier: "blue" | "gold" (null = legacy blue). */
   verifiedTier?: string | null;
+  /** ISO approval time of the account verification (API `verifiedSince`), when known. */
+  verifiedSince?: string | null;
   isAI?: boolean;
   followers: number;
   following: number;

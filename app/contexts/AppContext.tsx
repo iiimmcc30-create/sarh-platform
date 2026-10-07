@@ -249,6 +249,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       coverImage: u.coverImage || undefined,
       verified: u.verified ?? false,
       verifiedTier: typeof u.verifiedTier === 'string' ? u.verifiedTier : null,
+      verifiedSince: typeof u.verifiedSince === 'string' ? u.verifiedSince : null,
       isAI: u.isAI ?? false,
       followers: u.followersCount ?? u.followers ?? 0,
       following: u.followingCount ?? u.following ?? 0,

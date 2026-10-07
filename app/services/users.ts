@@ -17,6 +17,8 @@ export type PublicUserProfile = {
   bio?: string;
   verified: boolean;
   verifiedTier?: string | null;
+  /** ISO time the verification request was approved; null when unknown (e.g. subscription-granted). */
+  verifiedSince?: string | null;
   isAI?: boolean;
   country?: string;
   role?: string;

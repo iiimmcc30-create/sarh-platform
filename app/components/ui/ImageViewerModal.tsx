@@ -1,6 +1,7 @@
 /**
  * ImageViewerModal — Full-screen zoomable image viewer
- * Supports pinch-to-zoom, double-tap to zoom, pan, and swipe gallery.
+ * Supports pinch-to-zoom, double-tap to zoom, pan, swipe gallery, and a vertical
+ * swipe (when not zoomed) to dismiss.
  * Uses only React Native core APIs (no extra packages required).
  */
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -28,10 +29,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const MIN_SCALE = 1;
 const MAX_SCALE = 5;
+/** Vertical drag (unzoomed) past this distance or speed closes the viewer. */
+export const VIEWER_DISMISS_DISTANCE = 120;
+export const VIEWER_DISMISS_VELOCITY = 1.2;
 
 // ─── Single zoomable image ──────────────────────────────────────────────────
 
-function ZoomableImage({ uri }: { uri: string }) {
+function ZoomableImage({ uri, onDismiss }: { uri: string; onDismiss?: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -42,6 +46,10 @@ function ZoomableImage({ uri }: { uri: string }) {
   const initialDistance = useRef(0);
   const initialMidpoint = useRef({ x: 0, y: 0 });
   const lastTap = useRef(0);
+  /** Latest dismiss handler (the responder below is created once). */
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+  const dismissDrag = useRef(false);
 
   const resetZoom = useCallback((animated = true) => {
     const cfg = { useNativeDriver: true };
@@ -117,12 +125,33 @@ function ZoomableImage({ uri }: { uri: string }) {
           // Pan when zoomed
           translateX.setValue(lastTranslateX.current + gestureState.dx);
           translateY.setValue(lastTranslateY.current + gestureState.dy);
+        } else if (touches.length === 1 && onDismissRef.current) {
+          // Unzoomed vertical drag: the image follows the finger (swipe to dismiss).
+          if (
+            dismissDrag.current ||
+            (Math.abs(gestureState.dy) > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5)
+          ) {
+            dismissDrag.current = true;
+            translateY.setValue(gestureState.dy);
+          }
         }
       },
 
       onPanResponderRelease: (event, gestureState) => {
-        const touches = event.nativeEvent.touches;
         initialDistance.current = 0;
+
+        if (dismissDrag.current) {
+          dismissDrag.current = false;
+          if (
+            Math.abs(gestureState.dy) > VIEWER_DISMISS_DISTANCE ||
+            Math.abs(gestureState.vy) > VIEWER_DISMISS_VELOCITY
+          ) {
+            onDismissRef.current?.();
+          } else {
+            resetZoom();
+          }
+          return;
+        }
 
         scale.stopAnimation((currentScale) => {
           lastScale.current = currentScale;
@@ -269,7 +298,7 @@ export function ImageViewerModal({
             style={styles.scrollView}
           >
             {images.map((uri, idx) => (
-              <ZoomableImage key={`${uri}-${idx}`} uri={uri} />
+              <ZoomableImage key={`${uri}-${idx}`} uri={uri} onDismiss={requestClose} />
             ))}
           </Animated.ScrollView>
         </Animated.View>

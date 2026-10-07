@@ -63,6 +63,8 @@ describe('Profile header: avatar right, name under it, stars opposite', () => {
     expect(layout).toContain("title={isFollowing ? 'متابَع' : 'متابعة'}");
     expect(layout).toContain('title="مراسلة"');
     expect(layout).toContain('onPress={onRatePress}');
-    expect(layout).toContain('onPress={onEditAvatar}');
+    // Camera shortcut on the avatar removed: the avatar is changed from Edit profile.
+    expect(layout).not.toContain('onEditAvatar');
+    expect(layout).not.toContain('camera-outline');
   });
 });

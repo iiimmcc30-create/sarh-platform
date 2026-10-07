@@ -132,7 +132,7 @@ describe('Dark mode white accent', () => {
       'app/create/story.tsx',
       'app/listing/[id].tsx',
       'components/feature/LocationMapPreview.tsx',
-      'components/feature/ProfileScreenLayout.tsx',
+      // ProfileScreenLayout: no accent-filled icon since the avatar camera shortcut was removed.
       'app/auth/register.tsx',
       'app/auth/otp.tsx',
     ];
