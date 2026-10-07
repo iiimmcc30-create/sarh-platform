@@ -80,11 +80,7 @@ export function ListingCommentsSection({
               </Pressable>
             ) : null}
           </View>
-        ) : comments.length === 0 ? (
-          <View style={{ width: '100%' }}>
-            <AppText style={styles.empty}>لا توجد تعليقات بعد — كن أول من يعلّق</AppText>
-          </View>
-        ) : (
+        ) : comments.length === 0 ? null : (
           <View style={styles.list}>
             {comments.map((c, index) => (
               <View
@@ -207,13 +203,6 @@ function createStyles(colors: ThemeColors, layout: 'card' | 'edge') {
     skeletonName: {
       alignSelf: 'auto',
       width: 72,
-    },
-    empty: {
-      ...typography.feedBody,
-      color: colors.textMuted,
-      lineHeight: 22,
-      paddingVertical: spacing.sm,
-      ...getRtlText(),
     },
     list: {
       gap: isEdge ? 0 : spacing.sm,

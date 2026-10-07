@@ -207,42 +207,36 @@ export function ListingCommentsModal({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
             >
-              {comments.length === 0 ? (
-                <View style={{ width: '100%' }}>
-                  <AppText style={styles.empty}>لا توجد تعليقات بعد — كن أول من يعلّق</AppText>
-                </View>
-              ) : (
-                comments.map((c) => (
-                  <View key={c.id} style={styles.commentCard}>
-                    <View style={[styles.commentCardHeader, getRtlRow()]}>
-                      <Text style={styles.commentTime}>{c.createdAt}</Text>
-                      <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
-                        <VerifiedInlineName
-                          name={c.author.arabicName || c.author.displayName}
-                          verified={c.author.verified}
-                          tier={c.author.verifiedTier}
-                          username={c.author.username}
-                          nameStyle={styles.commentName}
+              {comments.map((c) => (
+                <View key={c.id} style={styles.commentCard}>
+                  <View style={[styles.commentCardHeader, getRtlRow()]}>
+                    <Text style={styles.commentTime}>{c.createdAt}</Text>
+                    <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
+                      <VerifiedInlineName
+                        name={c.author.arabicName || c.author.displayName}
+                        verified={c.author.verified}
+                        tier={c.author.verifiedTier}
+                        username={c.author.username}
+                        nameStyle={styles.commentName}
+                      />
+                      <UserProfileLink userId={c.author.id}>
+                        <Image
+                          source={uriSource(c.author.avatar)}
+                          style={styles.avatar}
+                          contentFit="cover"
                         />
-                        <UserProfileLink userId={c.author.id}>
-                          <Image
-                            source={uriSource(c.author.avatar)}
-                            style={styles.avatar}
-                            contentFit="cover"
-                          />
-                        </UserProfileLink>
-                      </CoverTrailRow>
-                    </View>
-                    <View style={{ width: '100%' }}>
-                      <AppText style={styles.commentText}>{c.content}</AppText>
-                    </View>
-                    <Pressable onPress={focusInput} style={[styles.replyBtn, getRtlRow()]}>
-                      <AppIcon name="chatbubble-outline" size={14} color={colors.electricBright} />
-                      <Text style={styles.replyBtnText}>رد</Text>
-                    </Pressable>
+                      </UserProfileLink>
+                    </CoverTrailRow>
                   </View>
-                ))
-              )}
+                  <View style={{ width: '100%' }}>
+                    <AppText style={styles.commentText}>{c.content}</AppText>
+                  </View>
+                  <Pressable onPress={focusInput} style={[styles.replyBtn, getRtlRow()]}>
+                    <AppIcon name="chatbubble-outline" size={14} color={colors.electricBright} />
+                    <Text style={styles.replyBtnText}>رد</Text>
+                  </Pressable>
+                </View>
+              ))}
             </ScrollView>
           )}
 
@@ -375,13 +369,6 @@ function createStyles(colors: ThemeColors) {
       padding: spacing.lg,
       gap: spacing.md,
       paddingBottom: spacing.xl,
-    },
-    empty: {
-      ...typography.feedBody,
-      color: colors.textMuted,
-      textAlign: 'center',
-      paddingVertical: spacing.xl,
-      lineHeight: 22,
     },
     commentCard: {
       gap: spacing.sm,

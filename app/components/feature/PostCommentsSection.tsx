@@ -330,9 +330,8 @@ export function PostCommentsList() {
     );
   }
 
-  if (comments.length === 0) {
-    return <AppText style={styles.empty}>لا توجد تعليقات بعد — كن أول من يعلّق</AppText>;
-  }
+  // No comments: render nothing (no empty-state copy, no gap).
+  if (comments.length === 0) return null;
 
   // Replies start right under the post's action-row hairline: no title, no spacer.
   return (
@@ -493,13 +492,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   /** Same surface as the post above (PostItem rowWrap): white in Light, page black in Dark. */
   const rowBg = scheme === 'light' ? colors.bgSurface : colors.bgDeep;
   return StyleSheet.create({
-    empty: {
-      ...typography.feedBody,
-      color: colors.textMuted,
-      lineHeight: 22,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.lg,
-    },
     errorBox: {
       alignItems: 'center',
       gap: spacing.sm,

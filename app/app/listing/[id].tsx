@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppText, SarhButton } from '@/design-system/components';
-import { BottomAction, Row, Screen, ScreenBody } from '@/design-system/layout';
+import { Row, Screen, ScreenBody } from '@/design-system/layout';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { sarhListingShareUrl } from '@/constants/sarhOfficial';
 import { sellerChatParams } from '@/lib/listingChatDraft';
@@ -551,7 +551,6 @@ export default function ListingDetailScreen() {
         gutter={false}
         width="full"
         padBottom="xl"
-        bottomInset={isOwner ? 'none' : 'action'}
       >
         <View style={styles.headerSection}>
           <View style={styles.titleBlock}>
@@ -811,6 +810,19 @@ export default function ListingDetailScreen() {
               ) : null}
             </Row>
           ) : null}
+          {/* «تواصل» sits in the content right under the price (no sticky bottom bar). */}
+          {!isOwner ? (
+            <SarhButton
+              title="تواصل"
+              variant="primary"
+              shape="pill"
+              leftIcon="chatbubbles"
+              onPress={() => setContactSheetVisible(true)}
+              fullWidth
+              style={styles.contactButton}
+              testID="listing-contact-button"
+            />
+          ) : null}
         </View>
 
         {isOwner ? (
@@ -848,18 +860,6 @@ export default function ListingDetailScreen() {
 
         <SimilarListingsSection listing={listing} />
       </ScreenBody>
-
-      {!isOwner ? (
-        <BottomAction>
-          <SarhButton
-            title="تواصل"
-            variant="primary"
-            leftIcon="chatbubbles"
-            onPress={() => setContactSheetVisible(true)}
-            fullWidth
-          />
-        </BottomAction>
-      ) : null}
 
       <ListingContactSheet
         visible={contactSheetVisible}
@@ -966,6 +966,9 @@ function createStyles(colors: ThemeColors) {
     },
     price: {
       color: colors.electricBright,
+    },
+    contactButton: {
+      marginTop: spacing.xs,
     },
     priceOnRequest: {
       color: colors.textBrandStrong,
