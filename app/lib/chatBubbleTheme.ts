@@ -3,9 +3,9 @@
  *
  * The thread background is explicitly #FFFFFF, so bubble colours use the
  * light-mode token set regardless of the app theme. The sent bubble uses the
- * Light brand tint (`lightActionMuted`, derived from primary #1C8354)
- * composited on white with the DS ink colour; controls use the Light pressed
- * primary. Received bubbles use the DS light field neutral.
+ * Light brand tint (`lightActionMuted`, the brand black #020202 at 14%) —
+ * a neutral grey on white — with the DS ink colour; controls use the Light
+ * pressed primary (black family, black & white identity). Received bubbles use the DS light field neutral.
  * Ratios are asserted in __tests__/chat-bubble-contrast.test.ts.
  */
 import { sarh } from '@/constants/sarhTokens';

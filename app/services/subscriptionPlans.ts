@@ -87,10 +87,18 @@ export function planIcon(slug: string): string {
   return PLAN_ICONS[normalizeSlug(slug)] ?? 'pricetag-outline';
 }
 
-export function planGradientColors(sortOrder: number): [string, string] {
-  return sortOrder > 0
-    ? [sarh.color.lightAction, sarh.color.lightActionPressed]
-    : ['#334155', '#1E293B'];
+/**
+ * Paid plan card fill. Light: brand black (black & white identity). Dark keeps
+ * the former green so the card never disappears into the #020202 page.
+ */
+export function planGradientColors(
+  sortOrder: number,
+  scheme: 'light' | 'dark' = 'light',
+): [string, string] {
+  if (sortOrder <= 0) return ['#334155', '#1E293B'];
+  return scheme === 'dark'
+    ? [sarh.color.statusGreen, sarh.color.statusGreenPressed]
+    : [sarh.color.lightAction, sarh.color.lightActionPressed];
 }
 
 export function planDisplayName(slug: string, fallback?: string): string {

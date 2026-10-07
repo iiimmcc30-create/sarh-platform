@@ -7,6 +7,7 @@
  *
  * Pure module (no React Native imports) so tests can read the exact values.
  */
+import { sarh } from '@/constants/sarhTokens';
 
 /** Icon glyph size inside every interaction button. */
 export const INTERACTION_ICON_SIZE = 18;
@@ -48,6 +49,15 @@ export const INTERACTION_BAR_PADDING_HORIZONTAL = 0;
 export const INTERACTION_LIKE_RED = '#F91880';
 export const INTERACTION_REPOST_GREEN = '#00BA7C';
 export const INTERACTION_BOOKMARK_BLUE = '#1D9BF0';
+
+/**
+ * Reposted state on theme surfaces: brand black in Light (black & white
+ * identity; still distinct from the grey idle glyph + solid when active),
+ * the X-style green in Dark. Dark media overlays keep the green constant.
+ */
+export function interactionRepostColor(scheme: 'light' | 'dark'): string {
+  return scheme === 'light' ? sarh.color.lightAction : INTERACTION_REPOST_GREEN;
+}
 
 /** The app-wide share glyph (Ionicons "share-social-outline" -> Lucide Share2). */
 export const SHARE_ICON = 'share-social-outline';

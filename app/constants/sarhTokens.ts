@@ -57,14 +57,22 @@ export const sarh = {
     warning: '#D4A017',
     success: '#24A86C',
     /**
-     * Light Mode brand primary — #1C8354 (rgb 28,131,84), taken from the
-     * reference image. White text on it measures 4.75:1 (WCAG AA).
-     * Pressed / muted shades are derived from it (same hue).
+     * Light Mode primary = the Sarh brand black (#020202, the app-icon black and
+     * the dark-mode CTA label), so the identity is black & white: light CTAs are
+     * black pills with white text (white on #020202 ≈ 20.6:1). Pressed reuses the
+     * existing raised dark surface; muted is the same black at low alpha.
      */
-    lightAction: '#1C8354',
-    lightActionPressed: '#176B44',
-    lightActionMuted: 'rgba(28, 131, 84, 0.14)',
-    lightSuccess: '#1C8354',
+    lightAction: '#020202',
+    lightActionPressed: '#16181C',
+    lightActionMuted: 'rgba(2, 2, 2, 0.14)',
+    lightSuccess: '#020202',
+    /**
+     * Former Light brand green (#1C8354 / #176B44). Kept ONLY for spots where
+     * black would lose its meaning (online presence dot) or sit on a dark
+     * surface (dark-mode plan card) — never for light-mode actions.
+     */
+    statusGreen: '#1C8354',
+    statusGreenPressed: '#176B44',
     /** Light Mode mirrors (for screens that read sarh.color directly) */
     lightBg: '#F8F9FA',
     lightSurface: '#FFFFFF',

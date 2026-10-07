@@ -12,7 +12,7 @@ import {
 import {
   INTERACTION_BOOKMARK_BLUE as BOOKMARK_BLUE,
   INTERACTION_LIKE_RED as LIKE_RED,
-  INTERACTION_REPOST_GREEN as REPOST_GREEN,
+  interactionRepostColor,
 } from '@/lib/interactionActions';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, uriSource } from '@/components/ui/AppImage';
@@ -266,7 +266,7 @@ function PostItemComponent({
       />
       <InteractionAction
         icon="repeat-2"
-        color={post.reposted ? REPOST_GREEN : colors.textSecondary}
+        color={post.reposted ? interactionRepostColor(scheme) : colors.textSecondary}
         count={post.reposts}
         formatCount={formatCount}
         countStyle={styles.actionCount}

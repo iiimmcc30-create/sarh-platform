@@ -145,7 +145,7 @@ export function ProfileScreenLayout({
   onAdsNearEnd,
   loading = false,
 }: ProfileScreenLayoutProps) {
-  const { colors: themeColors } = useTheme();
+  const { colors: themeColors, scheme } = useTheme();
   const { gutter } = useLayout();
   const { onChromeScroll } = useAppChromeScroll();
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
@@ -399,7 +399,12 @@ export function ProfileScreenLayout({
               <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} style={styles.avatarCol}>
                 {hasStoryRing ? (
                   <LinearGradient
-                    colors={[themeColors.electricBright, themeColors.cyan, '#34D399']}
+                    colors={[
+                      themeColors.electricBright,
+                      themeColors.cyan,
+                      // Light: all-black ring (black & white identity); Dark keeps its mint tail.
+                      scheme === 'light' ? themeColors.glow : '#34D399',
+                    ]}
                     style={styles.avatarRing}
                     start={{ x: 0, y: 1 }}
                     end={{ x: 1, y: 0 }}

@@ -11,10 +11,10 @@ export const pp = {
   textSecondary: ds.light.textSecondary,
   textMuted: ds.light.textMuted,
   border: ds.light.stroke,
-  borderSoft: 'rgba(28, 131, 84, 0.12)',
+  borderSoft: sarh.color.lightActionMuted,
   chipInactiveBg: ds.light.chip,
-  /** ~10% brand tint on white (derived from the Light primary #1C8354). */
-  verifiedBg: '#E8F3EE',
+  /** Neutral chip on white (Light primary is black now, so no green tint). */
+  verifiedBg: ds.light.chip,
   verifiedText: ds.light.primary,
   space: ds.space,
   radius: {

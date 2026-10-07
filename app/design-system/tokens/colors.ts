@@ -44,6 +44,8 @@ export type DesignSystemFunctionalValues = {
   primaryMuted: string;
   onPrimary: string;
   onPrimaryInverse: string;
+  /** Online presence dot (avatar). Stays green in Light, where `success` is black. */
+  presence: string;
 };
 
 /**
@@ -73,6 +75,7 @@ export const functional: DesignSystemFunctionalValues = {
   primaryMuted: sarh.color.actionMuted,
   onPrimary: sarh.color.fab,
   onPrimaryInverse: sarh.color.fabIcon,
+  presence: sarh.color.success,
 };
 
 /** Keep DS primitives on the same palette `theme.ts` just applied. */

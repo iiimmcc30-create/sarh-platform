@@ -23,6 +23,8 @@ import { VideoSourceType } from '@/lib/agora';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useLiveSocket } from '@/hooks/useLiveSocket';
 import { colors, radius, spacing, typography, type ThemeColors } from '@/constants/theme';
+import { sarh } from '@/constants/sarhTokens';
+import { useTheme } from '@/hooks/useTheme';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_BASE } from '@/services/api';
@@ -63,6 +65,9 @@ interface LiveComment {
 
 export default function WatchScreen() {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
+  const { scheme } = useTheme();
+  // Spinners sit on a dimmed video thumbnail: Light's brand black would vanish there.
+  const overlayAccent = scheme === 'light' ? sarh.color.text : colors.electricBright;
   const router  = useRouter();
   const { id }  = useLocalSearchParams<{ id: string }>();
   const { accessToken, user } = useAuth();
@@ -184,7 +189,7 @@ export default function WatchScreen() {
           <Image source={{ uri: stream.thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
         )}
         <View style={styles.loadingDim} />
-        <ActivityIndicator size="large" color={colors.electricBright} />
+        <ActivityIndicator size="large" color={overlayAccent} />
         <Text style={styles.loadingText}>جارٍ الانضمام إلى البث...</Text>
       </View>
     );
@@ -205,7 +210,7 @@ export default function WatchScreen() {
             <Image source={{ uri: stream.thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
           )}
           <View style={styles.loadingDim} />
-          <ActivityIndicator color={colors.electricBright} />
+          <ActivityIndicator color={overlayAccent} />
           <Text style={styles.loadingText}>في انتظار المضيف...</Text>
         </View>
       )}
@@ -366,7 +371,8 @@ function createStyles(colors: ThemeColors) {
     padding: spacing.sm, marginBottom: 6, alignSelf: 'flex-start',
   },
   offerBubble:  { backgroundColor: 'rgba(200,40,40,0.7)', borderWidth: 1, borderColor: colors.liveRed },
-  bubbleUser:   { ...typography.badge, color: colors.textBrandStrong, marginBottom: 2 },
+  // Light text on the dark comment bubble in both schemes (same value Dark had).
+  bubbleUser:   { ...typography.badge, color: sarh.color.text, marginBottom: 2 },
   offerAmt:     { ...typography.value, color: '#FFD700' },
   bubbleText:   { ...typography.secondary, color: '#fff' },
 

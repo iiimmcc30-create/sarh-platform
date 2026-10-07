@@ -23,10 +23,10 @@ describe('theme runtime Light ↔ Dark sync', () => {
     expect(resolveSarhCardStyle('default', 'none').backgroundColor).toBe('#FFFFFF');
     expect(resolveAppTextStyle({ color: 'textPrimary' }).color).toBe('#101820');
     expect(functional.onPrimaryInverse).toBe('#F8F9FA');
-    expect(resolveSarhButtonColors('primary', 'default').backgroundColor).toBe('#1C8354');
+    expect(resolveSarhButtonColors('primary', 'default').backgroundColor).toBe('#020202');
     expect(resolveSarhButtonColors('primary', 'default').contentColor).toBe('#FFFFFF');
-    expect(colors.primary).toBe('#1C8354');
-    expect(colors.success).toBe('#1C8354');
+    expect(colors.primary).toBe('#020202');
+    expect(colors.success).toBe('#020202');
 
     applyThemeScheme('dark');
     expect(colors.background).toBe('#020202');

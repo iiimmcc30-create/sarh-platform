@@ -17,17 +17,17 @@ describe('Primary CTA button tokens', () => {
     applyThemeScheme('dark');
   });
 
-  it('keeps brand green on colors.primary and success in both schemes', () => {
+  it('Light uses the brand black on colors.primary and success; Dark keeps its green', () => {
     applyThemeScheme('light');
-    expect(colors.primary).toBe('#1C8354');
-    expect(colors.success).toBe('#1C8354');
+    expect(colors.primary).toBe('#020202');
+    expect(colors.success).toBe('#020202');
     applyThemeScheme('dark');
     expect(colors.primary).toBe('#24A86C');
     expect(colors.success).toBe('#24A86C');
     expect(colors.primary).not.toBe(resolveSarhButtonColors('primary', 'default').backgroundColor);
   });
 
-  it('uses white primary buttons in Dark and green in Light', () => {
+  it('uses white primary buttons in Dark and black in Light', () => {
     applyThemeScheme('dark');
     const dark = resolveSarhButtonColors('primary', 'default');
     expect(dark.backgroundColor).toBe(functional.onPrimary);
@@ -74,7 +74,7 @@ describe('Primary CTA button tokens', () => {
       borderColor: colors.borderStrong,
       contentColor: colors.textPrimary,
     });
-    expect(resolveButtonToneForScheme('light', 'primary', 'disabled').backgroundColor).toBe('#1C8354');
+    expect(resolveButtonToneForScheme('light', 'primary', 'disabled').backgroundColor).toBe('#020202');
   });
 
   it('shares one metric scale for every SarhButton size', () => {

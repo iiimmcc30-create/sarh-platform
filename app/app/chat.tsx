@@ -1650,7 +1650,8 @@ function createMessageStyles(colors: ThemeColors) {
     gap: 4,
   },
   offerCardMe: {
-    borderColor: 'rgba(28, 131, 84, 0.35)',
+    // Brand accent at 35% (black in Light, green in Dark).
+    borderColor: `${colors.electric}59`,
   },
   offerAmount: {
     color: colors.electricBright,

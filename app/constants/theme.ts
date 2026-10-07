@@ -1,4 +1,4 @@
-// SAFAT — Logo-aligned brand theme (forest green · white · black)
+// SAFAT — Logo-aligned brand theme (black · white; dark mode keeps its green accents)
 // Supports dark + light palettes; apply via bootstrap before app modules load.
 // Phase-1 foundation tokens: `@/design-system`. This module remains the live theme.
 
@@ -33,7 +33,7 @@ export type ThemeColors = {
   textSecondary: string;
   textMuted: string;
   textSubtle: string;
-  /** Accent text — white in dark mode, brand green in light */
+  /** Accent text — white in dark mode, brand black in light */
   textBrand: string;
   textBrandStrong: string;
   textBrandSoft: string;
@@ -136,10 +136,10 @@ const lightColors: BaseThemeColors = {
   bgOverlay: 'rgba(16, 24, 32, 0.45)',
   royal: LIGHT_CHIP,
   royalDeep: LIGHT_FIELD,
-  /** Light brand primary #1C8354 (reference image) and its pressed shade. */
+  /** Light primary = Sarh brand black (#020202): black & white identity. */
   electric: sarh.color.lightAction,
   electricBright: sarh.color.lightAction,
-  glow: sarh.color.lightActionPressed,
+  glow: sarh.color.lightAction,
   cyan: sarh.color.lightAction,
   silver: '#65727D',
   silverBright: '#101820',
@@ -304,6 +304,8 @@ export function applyThemeScheme(scheme: ColorScheme) {
       primaryMuted: scheme === 'dark' ? sarh.color.actionMuted : sarh.color.lightActionMuted,
       onPrimary: sarh.color.fab,
       onPrimaryInverse: live.bgDeep,
+      // Online presence dot keeps a green in both schemes (black would read as "nothing").
+      presence: scheme === 'dark' ? sarh.color.success : sarh.color.statusGreen,
     },
   );
   applyButtonTokens(scheme);

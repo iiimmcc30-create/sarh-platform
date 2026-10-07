@@ -2,10 +2,10 @@ import { StyleSheet, View } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { interactionRepostColor } from '@/lib/interactionActions';
 import { getRtlRow } from '@/lib/rtl';
-
-const REPOST_GREEN = '#00BA7C';
 
 type ProfileRepostAttributionProps = {
   name: string;
@@ -13,9 +13,10 @@ type ProfileRepostAttributionProps = {
 
 export function ProfileRepostAttribution({ name }: ProfileRepostAttributionProps) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
+  const { scheme } = useTheme();
   return (
     <View style={[styles.row, getRtlRow()]}>
-      <AppIcon name="repeat-2" size={14} color={REPOST_GREEN} />
+      <AppIcon name="repeat-2" size={14} color={interactionRepostColor(scheme)} />
       <AppText style={styles.text} numberOfLines={1}>
         {name} أعاد النشر
       </AppText>

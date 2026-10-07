@@ -18,11 +18,17 @@ import { sarh } from '@/constants/sarhTokens';
 import { rtlForwardIcon } from '@/lib/rtl';
 import type { EditorialStory } from '@/services/editorialStories';
 import { AppText } from '@/components/ui/AppText';
+import { useTheme } from '@/hooks/useTheme';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SNIPPET_LEN = 160;
-/** Link on the dark story overlay — dark-surface brand accent (AA on dark). */
+/**
+ * «more» link on the always-dark story overlay. Dark scheme keeps the brand
+ * green; Light (black & white identity) uses the light text on the dark overlay,
+ * since brand black would be unreadable there.
+ */
 const BRAND_GREEN = sarh.color.action;
+const LIGHT_SCHEME_LINK = sarh.color.primaryText;
 
 type Props = {
   stories: EditorialStory[];
@@ -32,6 +38,7 @@ type Props = {
 
 export function EditorialStoryViewer({ stories, startIndex, onClose }: Props) {
   const insets = useSafeAreaInsets();
+  const { scheme } = useTheme();
   const [index, setIndex] = useState(startIndex);
   const [expanded, setExpanded] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -219,7 +226,7 @@ export function EditorialStoryViewer({ stories, startIndex, onClose }: Props) {
               hitSlop={8}
               style={styles.moreBtn}
             >
-              <Text style={styles.moreText}>
+              <Text style={[styles.moreText, scheme === 'light' && styles.moreTextLight]}>
                 {expanded ? 'عرض أقل' : 'عرض المزيد'}
               </Text>
             </Pressable>
@@ -314,5 +321,8 @@ const styles = StyleSheet.create({
     color: BRAND_GREEN,
     textDecorationLine: 'underline',
     writingDirection: 'rtl',
-      },
+  },
+  moreTextLight: {
+    color: LIGHT_SCHEME_LINK,
+  },
 });

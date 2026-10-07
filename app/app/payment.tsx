@@ -118,8 +118,8 @@ function createVirtualCardStyles(colors: ThemeColors) {
 }
 
 export default function PaymentScreen() {
-  const { colors, gradients } = useTheme();
-  const styles = useThemedStyles(({ colors: c, scheme }) => createStyles(c, scheme));
+  const { colors, gradients, scheme } = useTheme();
+  const styles = useThemedStyles(({ colors: c, scheme: s }) => createStyles(c, s));
   const router = useRouter();
   const { planId, cycle } = useLocalSearchParams<{ planId: string; cycle: 'monthly' | 'yearly' }>();
   const { accessToken } = useAuth();
@@ -130,7 +130,7 @@ export default function PaymentScreen() {
   const defaultPaidSlug = plans.find((p) => p.monthlyPrice > 0)?.slug ?? paidFallback;
   const slug = normalizeSlug(planId ?? defaultPaidSlug);
   const plan = getPlanBySlug(slug);
-  const [planColor, planColorEnd] = planGradientColors(plan.sortOrder);
+  const [planColor, planColorEnd] = planGradientColors(plan.sortOrder, scheme);
   const billingCycle = cycle ?? 'monthly';
   const amount = billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
 

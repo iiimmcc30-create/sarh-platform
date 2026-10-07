@@ -1,6 +1,6 @@
 import { StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import { Image, uriSource } from '@/components/ui/AppImage';
-import { colors, radius, space } from '../tokens';
+import { colors, functional, radius, space } from '../tokens';
 import { AppText } from './AppText';
 import { AVATAR_SIZE, avatarInitials, type SarhAvatarSize } from './resolvers';
 
@@ -73,7 +73,7 @@ export function SarhAvatar({
             width: space[8],
             height: space[8],
             borderRadius: radius[999],
-            backgroundColor: colors.success,
+            backgroundColor: functional.presence,
             borderWidth: 1,
             borderColor: colors.background,
           }}
