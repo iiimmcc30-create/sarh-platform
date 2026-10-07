@@ -24,7 +24,7 @@ describe('support flow sheet', () => {
   it('opens the help center as a large bottom sheet, not a card hub', () => {
     expect(hub).toContain('SupportFlowSheet');
     expect(hub).not.toContain('SettingsMenuScreen');
-    expect(sheet).toContain('animationType="slide"');
+    expect(sheet).toContain("<SheetModal");
     expect(sheet).toContain('مركز المساعدة');
     expect(sheet).toContain('كيف يمكننا مساعدتك؟');
     expect(sheet).toContain('بلاغاتي');

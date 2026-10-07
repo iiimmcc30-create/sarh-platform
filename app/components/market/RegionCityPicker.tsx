@@ -11,7 +11,6 @@ import { searchSaudiRegions } from '@/lib/saudiRegionSearch';
 import { getRtlRow } from '@/lib/rtl';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +20,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SheetModal } from '@/components/ui/SheetModal';
 
 type Props = {
   visible: boolean;
@@ -88,239 +88,228 @@ export function RegionCityPicker({ visible, selection, onClose, onSelect }: Prop
     : 'المدن الرئيسية';
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="إغلاق" />
-        <View
-          style={[
-            styles.sheet,
-            { maxHeight: sheetMaxHeight, paddingBottom: Math.max(insets.bottom, spacing.md) },
-          ]}
-        >
-          <View style={styles.handle} />
+    <SheetModal visible={visible} onClose={onClose} backdropColor="rgba(0,0,0,0.55)">
+      <View
+        style={[
+          styles.sheet,
+          { maxHeight: sheetMaxHeight, paddingBottom: Math.max(insets.bottom, spacing.md) },
+        ]}
+      >
+        <View style={styles.handle} />
 
-          <View style={[styles.header, getRtlRow()]}>
-            <View style={styles.headerTextShell}>
-              <Text style={styles.title}>اختر المنطقة</Text>
-              <Text style={styles.subtitle}>اختر مدينة أو منطقة</Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={10}
-              style={styles.closeBtn}
-              accessibilityRole="button"
-              accessibilityLabel="إغلاق"
-            >
-              <AppIcon name="close" size={18} color={colors.textSecondary} />
-            </Pressable>
+        <View style={[styles.header, getRtlRow()]}>
+          <View style={styles.headerTextShell}>
+            <Text style={styles.title}>اختر المنطقة</Text>
+            <Text style={styles.subtitle}>اختر مدينة أو منطقة</Text>
           </View>
-
-          <View style={[styles.searchWrap, getRtlRow()]}>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="ابحث عن مدينة أو منطقة"
-              placeholderTextColor={colors.textMuted}
-              style={styles.searchInput}
-              autoCorrect={false}
-            />
-            <AppIcon name="search" size={18} color={colors.textMuted} />
-          </View>
-
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scroll}
+          <Pressable
+            onPress={onClose}
+            hitSlop={10}
+            style={styles.closeBtn}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
           >
-            {searching ? (
-              <View style={styles.searchList}>
-                {hits.length === 0 ? (
-                  <Text style={styles.empty}>لا توجد نتائج</Text>
-                ) : (
-                  hits.map((hit) => {
-                    if (hit.kind === 'region') {
-                      const active = draft.type === 'region' && draft.region.id === hit.region.id;
-                      return (
-                        <Pressable
-                          key={`r-${hit.region.id}`}
-                          style={[styles.searchRow, active && styles.chipActive]}
-                          onPress={() => pickRegion(hit.region)}
-                        >
-                          <Text style={[styles.searchRowTitle, active && styles.chipTextActive]}>
-                            {hit.region.nameAr}
-                          </Text>
-                          <Text style={styles.searchRowSub}>كل مدن المنطقة</Text>
-                        </Pressable>
-                      );
-                    }
-                    const active = citySelected(hit.city);
+            <AppIcon name="close" size={18} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+
+        <View style={[styles.searchWrap, getRtlRow()]}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="ابحث عن مدينة أو منطقة"
+            placeholderTextColor={colors.textMuted}
+            style={styles.searchInput}
+            autoCorrect={false}
+          />
+          <AppIcon name="search" size={18} color={colors.textMuted} />
+        </View>
+
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+        >
+          {searching ? (
+            <View style={styles.searchList}>
+              {hits.length === 0 ? (
+                <Text style={styles.empty}>لا توجد نتائج</Text>
+              ) : (
+                hits.map((hit) => {
+                  if (hit.kind === 'region') {
+                    const active = draft.type === 'region' && draft.region.id === hit.region.id;
                     return (
                       <Pressable
-                        key={`c-${hit.city.id}`}
+                        key={`r-${hit.region.id}`}
                         style={[styles.searchRow, active && styles.chipActive]}
-                        onPress={() => pickCity(hit.region, hit.city)}
+                        onPress={() => pickRegion(hit.region)}
                       >
                         <Text style={[styles.searchRowTitle, active && styles.chipTextActive]}>
-                          {hit.city.nameAr}
+                          {hit.region.nameAr}
                         </Text>
-                        <Text style={styles.searchRowSub}>{hit.region.nameAr}</Text>
+                        <Text style={styles.searchRowSub}>كل مدن المنطقة</Text>
                       </Pressable>
                     );
-                  })
-                )}
+                  }
+                  const active = citySelected(hit.city);
+                  return (
+                    <Pressable
+                      key={`c-${hit.city.id}`}
+                      style={[styles.searchRow, active && styles.chipActive]}
+                      onPress={() => pickCity(hit.region, hit.city)}
+                    >
+                      <Text style={[styles.searchRowTitle, active && styles.chipTextActive]}>
+                        {hit.city.nameAr}
+                      </Text>
+                      <Text style={styles.searchRowSub}>{hit.region.nameAr}</Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          ) : (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>المناطق الإدارية</Text>
               </View>
-            ) : (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>المناطق الإدارية</Text>
-                </View>
-                <View style={styles.regionGrid}>
-                  {SAUDI_REGIONS.map((region) => {
-                    const active = regionSelected(region);
+              <View style={styles.regionGrid}>
+                {SAUDI_REGIONS.map((region) => {
+                  const active = regionSelected(region);
+                  return (
+                    <Pressable
+                      key={region.id}
+                      style={[styles.regionChip, active && styles.chipActive]}
+                      onPress={() => pickRegion(region)}
+                    >
+                      <Text
+                        numberOfLines={2}
+                        style={[styles.regionChipText, active && styles.chipTextActive]}
+                      >
+                        {region.nameAr}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{citiesSectionTitle}</Text>
+              </View>
+
+              {focusedRegion ? (
+                <View style={styles.cityWrap}>
+                  <Pressable
+                    style={[
+                      styles.cityChip,
+                      styles.cityChipFlex,
+                      draft.type === 'region' &&
+                        draft.region.id === focusedRegion.id &&
+                        styles.chipActive,
+                    ]}
+                    onPress={() => pickRegion(focusedRegion)}
+                  >
+                    <Text
+                      style={[
+                        styles.cityChipText,
+                        draft.type === 'region' &&
+                          draft.region.id === focusedRegion.id &&
+                          styles.chipTextActive,
+                      ]}
+                    >
+                      كل مدن المنطقة
+                    </Text>
+                  </Pressable>
+                  {focusedRegion.cities.map((city) => {
+                    const active = citySelected(city);
                     return (
                       <Pressable
-                        key={region.id}
-                        style={[styles.regionChip, active && styles.chipActive]}
-                        onPress={() => pickRegion(region)}
+                        key={city.id}
+                        style={[styles.cityChip, styles.cityChipFlex, active && styles.chipActive]}
+                        onPress={() => pickCity(focusedRegion, city)}
                       >
-                        <Text
-                          numberOfLines={2}
-                          style={[styles.regionChipText, active && styles.chipTextActive]}
-                        >
-                          {region.nameAr}
+                        <Text style={[styles.cityChipText, active && styles.chipTextActive]}>
+                          {city.nameAr}
                         </Text>
                       </Pressable>
                     );
                   })}
                 </View>
-
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>{citiesSectionTitle}</Text>
-                </View>
-
-                {focusedRegion ? (
-                  <View style={styles.cityWrap}>
-                    <Pressable
-                      style={[
-                        styles.cityChip,
-                        styles.cityChipFlex,
-                        draft.type === 'region' &&
-                          draft.region.id === focusedRegion.id &&
-                          styles.chipActive,
-                      ]}
-                      onPress={() => pickRegion(focusedRegion)}
-                    >
-                      <Text
-                        style={[
-                          styles.cityChipText,
-                          draft.type === 'region' &&
-                            draft.region.id === focusedRegion.id &&
-                            styles.chipTextActive,
-                        ]}
-                      >
-                        كل مدن المنطقة
-                      </Text>
-                    </Pressable>
-                    {focusedRegion.cities.map((city) => {
-                      const active = citySelected(city);
-                      return (
-                        <Pressable
-                          key={city.id}
-                          style={[styles.cityChip, styles.cityChipFlex, active && styles.chipActive]}
-                          onPress={() => pickCity(focusedRegion, city)}
-                        >
-                          <Text style={[styles.cityChipText, active && styles.chipTextActive]}>
-                            {city.nameAr}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={[styles.cityRow, getRtlRow()]}
-                  >
-                    {mainCities.map(({ region, city }) => {
-                      const active = citySelected(city);
-                      return (
-                        <Pressable
-                          key={city.id}
-                          style={[styles.cityChip, active && styles.chipActive]}
-                          onPress={() => pickCity(region, city)}
-                        >
-                          <Text style={[styles.cityChipText, active && styles.chipTextActive]}>
-                            {city.nameAr}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-
-                <Pressable
-                  style={[
-                    styles.allChip,
-                    draft.type === 'all' && styles.chipActive,
-                    getRtlRow(),
-                  ]}
-                  onPress={() => setDraft({ type: 'all' })}
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={[styles.cityRow, getRtlRow()]}
                 >
-                  <AppIcon
-                    name="map-marker-outline"
-                    size={15}
-                    color={
-                      draft.type === 'all' ? colors.electricBright : colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.allChipText,
-                      draft.type === 'all' && styles.chipTextActive,
-                    ]}
-                  >
-                    {ALL_REGIONS_LABEL}
-                  </Text>
-                </Pressable>
-              </>
-            )}
-          </ScrollView>
+                  {mainCities.map(({ region, city }) => {
+                    const active = citySelected(city);
+                    return (
+                      <Pressable
+                        key={city.id}
+                        style={[styles.cityChip, active && styles.chipActive]}
+                        onPress={() => pickCity(region, city)}
+                      >
+                        <Text style={[styles.cityChipText, active && styles.chipTextActive]}>
+                          {city.nameAr}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
 
-          <View style={[styles.footer, getRtlRow()]}>
-            <Pressable
-              style={styles.applyBtn}
-              onPress={apply}
-              accessibilityRole="button"
-              accessibilityLabel="تطبيق"
-            >
-              <Text style={styles.applyText}>تطبيق</Text>
-            </Pressable>
-            <Pressable
-              style={styles.resetBtn}
-              onPress={reset}
-              accessibilityRole="button"
-              accessibilityLabel="إعادة تعيين"
-            >
-              <Text style={styles.resetText}>إعادة تعيين</Text>
-            </Pressable>
-          </View>
+              <Pressable
+                style={[
+                  styles.allChip,
+                  draft.type === 'all' && styles.chipActive,
+                  getRtlRow(),
+                ]}
+                onPress={() => setDraft({ type: 'all' })}
+              >
+                <AppIcon
+                  name="map-marker-outline"
+                  size={15}
+                  color={
+                    draft.type === 'all' ? colors.electricBright : colors.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.allChipText,
+                    draft.type === 'all' && styles.chipTextActive,
+                  ]}
+                >
+                  {ALL_REGIONS_LABEL}
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </ScrollView>
+
+        <View style={[styles.footer, getRtlRow()]}>
+          <Pressable
+            style={styles.applyBtn}
+            onPress={apply}
+            accessibilityRole="button"
+            accessibilityLabel="تطبيق"
+          >
+            <Text style={styles.applyText}>تطبيق</Text>
+          </Pressable>
+          <Pressable
+            style={styles.resetBtn}
+            onPress={reset}
+            accessibilityRole="button"
+            accessibilityLabel="إعادة تعيين"
+          >
+            <Text style={styles.resetText}>إعادة تعيين</Text>
+          </Pressable>
         </View>
       </View>
-    </Modal>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    overlay: {
-      flex: 1,
-      justifyContent: 'flex-end',
-      backgroundColor: 'rgba(0,0,0,0.55)',
-    },
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-    },
     sheet: {
       backgroundColor: colors.bgElevated || colors.bgDeep,
       borderTopLeftRadius: 22,

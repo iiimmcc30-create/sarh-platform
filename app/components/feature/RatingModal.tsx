@@ -4,7 +4,6 @@
 // update immediately on submit.
 import { useEffect, useState } from 'react';
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { SheetModal } from '@/components/ui/SheetModal';
 
 interface RatingModalProps {
   visible: boolean;
@@ -55,69 +55,62 @@ export function RatingModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.handle} />
+    <SheetModal visible={visible} onClose={onClose} backdropColor="rgba(0,0,0,0.5)">
+      <View style={styles.sheet}>
+        <View style={styles.handle} />
 
-          <Text style={styles.title}>
-            {myRating ? 'تعديل تقييمك' : 'تقييم الحساب'}
-          </Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {targetName}
-          </Text>
+        <Text style={styles.title}>
+          {myRating ? 'تعديل تقييمك' : 'تقييم الحساب'}
+        </Text>
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {targetName}
+        </Text>
 
-          {currentCount > 0 ? (
-            <View style={styles.currentRow}>
-              <AppIcon name="star" size={14} color={colors.gold} />
-              <Text style={styles.currentText}>
-                {currentRating?.toFixed(1)} · {currentCount.toLocaleString('ar-SA')} تقييم
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.currentText}>لا توجد تقييمات بعد — كن أول من يقيّم</Text>
-          )}
-
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setSelected(n)} hitSlop={8}>
-                <AppIcon
-                  name={n <= selected ? 'star' : 'star-outline'}
-                  size={36}
-                  color={n <= selected ? colors.gold : colors.textSubtle}
-                />
-              </Pressable>
-            ))}
+        {currentCount > 0 ? (
+          <View style={styles.currentRow}>
+            <AppIcon name="star" size={14} color={colors.gold} />
+            <Text style={styles.currentText}>
+              {currentRating?.toFixed(1)} · {currentCount.toLocaleString('ar-SA')} تقييم
+            </Text>
           </View>
+        ) : (
+          <Text style={styles.currentText}>لا توجد تقييمات بعد — كن أول من يقيّم</Text>
+        )}
 
-          <Text style={styles.starLabel}>
-            {selected > 0 ? STAR_LABELS[selected - 1] : 'اختر تقييمك'}
-          </Text>
+        <View style={styles.starsRow}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Pressable key={n} onPress={() => setSelected(n)} hitSlop={8}>
+              <AppIcon
+                name={n <= selected ? 'star' : 'star-outline'}
+                size={36}
+                color={n <= selected ? colors.gold : colors.textSubtle}
+              />
+            </Pressable>
+          ))}
+        </View>
 
-          <SarhButton
-            title={myRating ? 'تحديث التقييم' : 'إرسال التقييم'}
-            fullWidth
-            loading={submitting}
-            disabled={selected < 1}
-            onPress={handleSubmit}
-          />
+        <Text style={styles.starLabel}>
+          {selected > 0 ? STAR_LABELS[selected - 1] : 'اختر تقييمك'}
+        </Text>
 
-          <Pressable style={styles.cancelBtn} onPress={onClose}>
-            <Text style={styles.cancelText}>إلغاء</Text>
-          </Pressable>
+        <SarhButton
+          title={myRating ? 'تحديث التقييم' : 'إرسال التقييم'}
+          fullWidth
+          loading={submitting}
+          disabled={selected < 1}
+          onPress={handleSubmit}
+        />
+
+        <Pressable style={styles.cancelBtn} onPress={onClose}>
+          <Text style={styles.cancelText}>إلغاء</Text>
         </Pressable>
-      </Pressable>
-    </Modal>
+      </View>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'flex-end',
-    },
     sheet: {
       backgroundColor: colors.bgSurface,
       borderTopLeftRadius: radius.xxl,

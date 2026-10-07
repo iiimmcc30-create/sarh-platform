@@ -10,12 +10,12 @@ import {
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
 
 type PromotionStatsSheetProps = {
   visible: boolean;
@@ -55,60 +55,53 @@ export function PromotionStatsSheet({
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={[styles.sheet, getRtlDirection()]} onPress={(e) => e.stopPropagation()}>
-          <View style={[styles.header, getRtlRow()]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.title, getRtlText()]}>إحصائيات التعزيز</Text>
-              {listingTitle ? (
-                <Text style={[styles.subtitle, getRtlText()]} numberOfLines={1}>
-                  {listingTitle}
-                </Text>
-              ) : null}
-            </View>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <AppIcon name="close" size={22} color={styles.muted.color} />
-            </Pressable>
+    <SheetModal visible={visible} onClose={onClose}>
+      <View style={[styles.sheet, getRtlDirection()]}>
+        <View style={[styles.header, getRtlRow()]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, getRtlText()]}>إحصائيات التعزيز</Text>
+            {listingTitle ? (
+              <Text style={[styles.subtitle, getRtlText()]} numberOfLines={1}>
+                {listingTitle}
+              </Text>
+            ) : null}
           </View>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <AppIcon name="close" size={22} color={styles.muted.color} />
+          </Pressable>
+        </View>
 
-          {loading ? (
-            <ActivityIndicator style={{ marginVertical: spacing.xl }} />
-          ) : (
-            <>
-              <View style={styles.remainingCard}>
-                <Text style={styles.remainingLabel}>المدة المتبقية</Text>
-                <Text style={styles.remainingValue}>
-                  {stats?.isPromoted
-                    ? formatRemainingMs(stats.remainingMs)
-                    : 'لا يوجد تعزيز نشط'}
-                </Text>
-              </View>
+        {loading ? (
+          <ActivityIndicator style={{ marginVertical: spacing.xl }} />
+        ) : (
+          <>
+            <View style={styles.remainingCard}>
+              <Text style={styles.remainingLabel}>المدة المتبقية</Text>
+              <Text style={styles.remainingValue}>
+                {stats?.isPromoted
+                  ? formatRemainingMs(stats.remainingMs)
+                  : 'لا يوجد تعزيز نشط'}
+              </Text>
+            </View>
 
-              <View style={styles.grid}>
-                {rows.map((row) => (
-                  <View key={row.key} style={styles.statCard}>
-                    <AppIcon name={row.icon} size={20} color="#7C3AED" />
-                    <Text style={styles.statValue}>{row.value}</Text>
-                    <Text style={[styles.statLabel, getRtlText()]}>{row.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+            <View style={styles.grid}>
+              {rows.map((row) => (
+                <View key={row.key} style={styles.statCard}>
+                  <AppIcon name={row.icon} size={20} color="#7C3AED" />
+                  <Text style={styles.statValue}>{row.value}</Text>
+                  <Text style={[styles.statLabel, getRtlText()]}>{row.label}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+      </View>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: colors.bgOverlay,
-      justifyContent: 'flex-end',
-    },
     sheet: {
       backgroundColor: colors.bgElevated,
       borderTopLeftRadius: radius.xxl,

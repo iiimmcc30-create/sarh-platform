@@ -5,7 +5,6 @@ import { getRtlRow } from '@/lib/rtl';
 import type { MarketCategory } from '@/services/categories';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SheetModal } from '@/components/ui/SheetModal';
 
 export type CategorySelection = {
   parentId: string | null;
@@ -128,134 +128,123 @@ export function MarketCategoryPicker({
   };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="إغلاق" />
-        <View
-          style={[
-            styles.sheet,
-            { maxHeight: sheetMaxHeight, paddingBottom: Math.max(insets.bottom, spacing.md) },
-          ]}
+    <SheetModal visible={visible} onClose={onClose} backdropColor="rgba(0,0,0,0.55)">
+      <View
+        style={[
+          styles.sheet,
+          { maxHeight: sheetMaxHeight, paddingBottom: Math.max(insets.bottom, spacing.md) },
+        ]}
+      >
+        <View style={styles.handle} />
+
+        <View style={[styles.header, getRtlRow()]}>
+          <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button">
+            <Text style={styles.closeText}>إغلاق</Text>
+          </Pressable>
+          <Text style={styles.title}>التصنيف</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.handle} />
+          {parents.length === 0 ? (
+            <Text style={styles.empty}>لا توجد تصنيفات</Text>
+          ) : (
+            parents.map((parent) => {
+              const subs = (parent.children ?? []).filter((c) => c.isActive !== false);
+              const expanded = expandedIds.has(parent.id);
+              const parentAllChecked =
+                draft.parentId === parent.id && draft.subId === null;
 
-          <View style={[styles.header, getRtlRow()]}>
-            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button">
-              <Text style={styles.closeText}>إغلاق</Text>
-            </Pressable>
-            <Text style={styles.title}>التصنيف</Text>
-            <View style={styles.headerSpacer} />
-          </View>
+              return (
+                <View key={parent.id} style={styles.section}>
+                  <Pressable
+                    style={[styles.sectionHeader, getRtlRow()]}
+                    onPress={() => {
+                      if (subs.length > 0) toggleExpanded(parent.id);
+                      else selectParentOnly(parent.id);
+                    }}
+                    accessibilityRole="button"
+                  >
+                    {subs.length > 0 ? (
+                      <AppIcon
+                        name={expanded ? 'angle-up' : 'angle-down'}
+                        size={16}
+                        color={colors.textMuted}
+                      />
+                    ) : (
+                      <View style={styles.headerSpacer} />
+                    )}
+                    <Text style={styles.sectionTitle} numberOfLines={2}>
+                      {parent.nameAr}
+                    </Text>
+                    {subs.length === 0 ? (
+                      <Checkbox checked={parentAllChecked} colors={colors} />
+                    ) : (
+                      <View style={styles.headerSpacer} />
+                    )}
+                  </Pressable>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-          >
-            {parents.length === 0 ? (
-              <Text style={styles.empty}>لا توجد تصنيفات</Text>
-            ) : (
-              parents.map((parent) => {
-                const subs = (parent.children ?? []).filter((c) => c.isActive !== false);
-                const expanded = expandedIds.has(parent.id);
-                const parentAllChecked =
-                  draft.parentId === parent.id && draft.subId === null;
-
-                return (
-                  <View key={parent.id} style={styles.section}>
-                    <Pressable
-                      style={[styles.sectionHeader, getRtlRow()]}
-                      onPress={() => {
-                        if (subs.length > 0) toggleExpanded(parent.id);
-                        else selectParentOnly(parent.id);
-                      }}
-                      accessibilityRole="button"
-                    >
-                      {subs.length > 0 ? (
-                        <AppIcon
-                          name={expanded ? 'angle-up' : 'angle-down'}
-                          size={16}
-                          color={colors.textMuted}
-                        />
-                      ) : (
-                        <View style={styles.headerSpacer} />
-                      )}
-                      <Text style={styles.sectionTitle} numberOfLines={2}>
-                        {parent.nameAr}
-                      </Text>
-                      {subs.length === 0 ? (
+                  {expanded && subs.length > 0 ? (
+                    <View style={styles.subList}>
+                      <Pressable
+                        style={[styles.subRow, getRtlRow()]}
+                        onPress={() => selectParentOnly(parent.id)}
+                      >
                         <Checkbox checked={parentAllChecked} colors={colors} />
-                      ) : (
-                        <View style={styles.headerSpacer} />
-                      )}
-                    </Pressable>
-
-                    {expanded && subs.length > 0 ? (
-                      <View style={styles.subList}>
-                        <Pressable
-                          style={[styles.subRow, getRtlRow()]}
-                          onPress={() => selectParentOnly(parent.id)}
+                        <Text
+                          style={[
+                            styles.subLabel,
+                            parentAllChecked && styles.subLabelActive,
+                          ]}
                         >
-                          <Checkbox checked={parentAllChecked} colors={colors} />
-                          <Text
-                            style={[
-                              styles.subLabel,
-                              parentAllChecked && styles.subLabelActive,
-                            ]}
+                          الكل
+                        </Text>
+                      </Pressable>
+                      {subs.map((sub) => {
+                        const checked =
+                          draft.parentId === parent.id && draft.subId === sub.id;
+                        return (
+                          <Pressable
+                            key={sub.id}
+                            style={[styles.subRow, getRtlRow()]}
+                            onPress={() => selectSub(parent.id, sub.id)}
                           >
-                            الكل
-                          </Text>
-                        </Pressable>
-                        {subs.map((sub) => {
-                          const checked =
-                            draft.parentId === parent.id && draft.subId === sub.id;
-                          return (
-                            <Pressable
-                              key={sub.id}
-                              style={[styles.subRow, getRtlRow()]}
-                              onPress={() => selectSub(parent.id, sub.id)}
-                            >
-                              <Checkbox checked={checked} colors={colors} />
-                              <Text style={[styles.subLabel, checked && styles.subLabelActive]}>
-                                {sub.nameAr}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    ) : null}
+                            <Checkbox checked={checked} colors={colors} />
+                            <Text style={[styles.subLabel, checked && styles.subLabelActive]}>
+                              {sub.nameAr}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
 
-                    <View style={styles.sectionDivider} />
-                  </View>
-                );
-              })
-            )}
-          </ScrollView>
+                  <View style={styles.sectionDivider} />
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
 
-          <View style={[styles.footer, getRtlRow()]}>
-            <Pressable style={styles.applyBtn} onPress={apply} accessibilityLabel="تطبيق">
-              <Text style={styles.applyText}>تطبيق</Text>
-            </Pressable>
-            <Pressable style={styles.resetBtn} onPress={reset} accessibilityLabel="إعادة تعيين">
-              <Text style={styles.resetText}>إعادة تعيين</Text>
-            </Pressable>
-          </View>
+        <View style={[styles.footer, getRtlRow()]}>
+          <Pressable style={styles.applyBtn} onPress={apply} accessibilityLabel="تطبيق">
+            <Text style={styles.applyText}>تطبيق</Text>
+          </Pressable>
+          <Pressable style={styles.resetBtn} onPress={reset} accessibilityLabel="إعادة تعيين">
+            <Text style={styles.resetText}>إعادة تعيين</Text>
+          </Pressable>
         </View>
       </View>
-    </Modal>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    overlay: {
-      flex: 1,
-      justifyContent: 'flex-end',
-      backgroundColor: 'rgba(0,0,0,0.55)',
-    },
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-    },
     sheet: {
       backgroundColor: colors.bgElevated || colors.bgDeep,
       borderTopLeftRadius: 22,

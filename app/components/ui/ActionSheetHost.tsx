@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -9,7 +8,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
-import { motion } from '@/design-system';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
@@ -29,113 +28,103 @@ export function ActionSheetHost() {
 
   useEffect(() => subscribeActionSheet(() => setTick((n) => n + 1)), []);
 
-  const state = getActionSheetState();
-  const visible = !!state;
+  const live = getActionSheetState();
+  // Keep the last request on screen while the sheet slides away.
+  const lastRef = useRef(live);
+  if (live) lastRef.current = live;
+  const state = live ?? lastRef.current;
+  const visible = !!live;
   void tick;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={() => closeActionSheet(null)}
-    >
-      <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => closeActionSheet(null)} />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+    <SheetModal visible={visible} onClose={() => closeActionSheet(null)}>
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+        <LinearGradient
+          colors={gradients.card}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sheetInner}
+        >
           <LinearGradient
-            colors={gradients.card}
+            colors={gradients.rim}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.sheetInner}
-          >
-            <LinearGradient
-              colors={gradients.rim}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.rim}
-            />
+            end={{ x: 1, y: 0 }}
+            style={styles.rim}
+          />
 
-            <View style={styles.handle} />
+          <View style={styles.handle} />
 
-            {state?.title ? (
-              <View style={styles.header}>
-                <Text style={styles.title}>{state.title}</Text>
-                {state.message ? <Text style={styles.message}>{state.message}</Text> : null}
-              </View>
-            ) : null}
-
-            <View style={styles.list}>
-              {(state?.items ?? []).map((item) => (
-                <Pressable
-                  key={item.key}
-                  style={({ pressed }) => [
-                    styles.item,
-                    getRtlRow(),
-                    item.destructive && styles.itemDanger,
-                    item.cancel && styles.itemCancel,
-                    pressed && styles.itemPressed,
-                  ]}
-                  onPress={() => closeActionSheet(item.cancel ? null : item.key)}
-                >
-                  {item.icon ? (
-                    <View
-                      style={[
-                        styles.itemIconWrap,
-                        item.destructive && styles.itemIconWrapDanger,
-                        item.cancel && styles.itemIconWrapMuted,
-                      ]}
-                    >
-                      <AppIcon
-                        name={item.icon}
-                        size={18}
-                        color={
-                          item.destructive
-                            ? colors.rose
-                            : item.cancel
-                              ? colors.textMuted
-                              : colors.textPrimary
-                        }
-                      />
-                    </View>
-                  ) : null}
-
-                  <View style={styles.itemTextWrap}>
-                    <Text
-                      style={[
-                        styles.itemText,
-                        item.destructive && styles.itemTextDanger,
-                        item.cancel && styles.itemTextCancel,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                    {item.subtitle ? (
-                      <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
-                    ) : null}
-                  </View>
-
-                  {!item.cancel ? (
-                    <AppIcon name={rtlForwardIcon()} size={16} color={colors.textSubtle} />
-                  ) : null}
-                </Pressable>
-              ))}
+          {state?.title ? (
+            <View style={styles.header}>
+              <Text style={styles.title}>{state.title}</Text>
+              {state.message ? <Text style={styles.message}>{state.message}</Text> : null}
             </View>
-          </LinearGradient>
-        </View>
+          ) : null}
+
+          <View style={styles.list}>
+            {(state?.items ?? []).map((item) => (
+              <Pressable
+                key={item.key}
+                style={({ pressed }) => [
+                  styles.item,
+                  getRtlRow(),
+                  item.destructive && styles.itemDanger,
+                  item.cancel && styles.itemCancel,
+                  pressed && styles.itemPressed,
+                ]}
+                onPress={() => closeActionSheet(item.cancel ? null : item.key)}
+              >
+                {item.icon ? (
+                  <View
+                    style={[
+                      styles.itemIconWrap,
+                      item.destructive && styles.itemIconWrapDanger,
+                      item.cancel && styles.itemIconWrapMuted,
+                    ]}
+                  >
+                    <AppIcon
+                      name={item.icon}
+                      size={18}
+                      color={
+                        item.destructive
+                          ? colors.rose
+                          : item.cancel
+                            ? colors.textMuted
+                            : colors.textPrimary
+                      }
+                    />
+                  </View>
+                ) : null}
+
+                <View style={styles.itemTextWrap}>
+                  <Text
+                    style={[
+                      styles.itemText,
+                      item.destructive && styles.itemTextDanger,
+                      item.cancel && styles.itemTextCancel,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.subtitle ? (
+                    <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
+                  ) : null}
+                </View>
+
+                {!item.cancel ? (
+                  <AppIcon name={rtlForwardIcon()} size={16} color={colors.textSubtle} />
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+        </LinearGradient>
       </View>
-    </Modal>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: colors.bgOverlay,
-      justifyContent: 'flex-end',
-    },
     sheet: {
       borderTopLeftRadius: radius.xxl,
       borderTopRightRadius: radius.xxl,
@@ -199,9 +188,9 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'center',
       marginTop: spacing.xs,
     },
+    /** iOS row highlight — no shrink. */
     itemPressed: {
-      opacity: motion.press.opacity,
-      transform: [{ scale: motion.press.scale }],
+      opacity: 0.6,
     },
     itemIconWrap: {
       width: 38,

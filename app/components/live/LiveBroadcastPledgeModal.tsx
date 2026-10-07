@@ -1,7 +1,6 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { getRtlText } from '@/lib/rtl';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { colors, radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { SheetModal } from '@/components/ui/SheetModal';
 
 type Props = {
   visible: boolean;
@@ -37,78 +37,79 @@ export function LiveBroadcastPledgeModal({
 }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <View style={styles.header}>
-            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
-              <AppIcon name="close" size={20} color="#fff" />
-            </Pressable>
-            <View style={styles.headerText}>
-              <Text style={styles.title}>📜 تعهد البث المباشر</Text>
-              <Text style={styles.subtitle}>اقرأ الشروط ووافق قبل بدء البث</Text>
-            </View>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>📋 شروط البث على سرح</Text>
-              {LIVE_RULES.map((item, i) => (
-                <Text key={i} style={styles.ruleItem}>
-                  {i + 1}. {item}
-                </Text>
-              ))}
-            </View>
-
-            <View style={[styles.card, styles.oathCard]}>
-              <Text style={styles.cardTitleBlue}>🤲 القسم بالله</Text>
-              <Text style={styles.oath}>
-                "أقسم بالله العظيم أن محتوى هذا البث صحيح، وأن ما أعرضه مطابق للحقيقة،
-                وأتعهد بالالتزام بسياسات منصة سرح أثناء البث المباشر."
-              </Text>
-            </View>
-
-            <Pressable
-              onPress={onToggleCheck}
-              style={[styles.checkboxRow, checked && styles.checkboxRowActive]}
-            >
-              <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-                {checked ? <Text style={styles.checkmark}>✓</Text> : null}
-              </View>
-              <Text style={styles.checkboxText}>
-                أقر بأنني قرأت شروط البث المباشر، وأتعهد بالالتزام بها، وأقسم بالله على
-                صحة ما سأعرضه أثناء البث.
-              </Text>
-            </Pressable>
-            <View style={{ height: spacing.md }} />
-          </ScrollView>
-
-          <View style={styles.footer}>
-            <Pressable
-              style={[styles.confirmBtn, (!checked || confirming) && styles.confirmBtnDisabled]}
-              onPress={onConfirm}
-              disabled={!checked || confirming}
-            >
-              <Text style={[styles.confirmText, (!checked || confirming) && styles.confirmTextMuted]}>
-                {confirming ? 'جاري بدء البث...' : 'أوافق وأبدأ البث 🔴'}
-              </Text>
-            </Pressable>
-            <Pressable style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelText}>إلغاء</Text>
-            </Pressable>
+    <SheetModal
+      visible={visible}
+      onClose={onClose}
+      backdropColor="rgba(6,9,26,0.85)"
+      containerStyle={styles.container}
+    >
+      <View style={styles.sheet}>
+        <View style={styles.header}>
+          <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+            <AppIcon name="close" size={20} color="#fff" />
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text style={styles.title}>📜 تعهد البث المباشر</Text>
+            <Text style={styles.subtitle}>اقرأ الشروط ووافق قبل بدء البث</Text>
           </View>
         </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>📋 شروط البث على سرح</Text>
+            {LIVE_RULES.map((item, i) => (
+              <Text key={i} style={styles.ruleItem}>
+                {i + 1}. {item}
+              </Text>
+            ))}
+          </View>
+
+          <View style={[styles.card, styles.oathCard]}>
+            <Text style={styles.cardTitleBlue}>🤲 القسم بالله</Text>
+            <Text style={styles.oath}>
+              "أقسم بالله العظيم أن محتوى هذا البث صحيح، وأن ما أعرضه مطابق للحقيقة،
+              وأتعهد بالالتزام بسياسات منصة سرح أثناء البث المباشر."
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={onToggleCheck}
+            style={[styles.checkboxRow, checked && styles.checkboxRowActive]}
+          >
+            <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+              {checked ? <Text style={styles.checkmark}>✓</Text> : null}
+            </View>
+            <Text style={styles.checkboxText}>
+              أقر بأنني قرأت شروط البث المباشر، وأتعهد بالالتزام بها، وأقسم بالله على
+              صحة ما سأعرضه أثناء البث.
+            </Text>
+          </Pressable>
+          <View style={{ height: spacing.md }} />
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <Pressable
+            style={[styles.confirmBtn, (!checked || confirming) && styles.confirmBtnDisabled]}
+            onPress={onConfirm}
+            disabled={!checked || confirming}
+          >
+            <Text style={[styles.confirmText, (!checked || confirming) && styles.confirmTextMuted]}>
+              {confirming ? 'جاري بدء البث...' : 'أوافق وأبدأ البث 🔴'}
+            </Text>
+          </Pressable>
+          <Pressable style={styles.cancelBtn} onPress={onClose}>
+            <Text style={styles.cancelText}>إلغاء</Text>
+          </Pressable>
+        </View>
       </View>
-    </Modal>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(6,9,26,0.85)',
-    justifyContent: 'flex-end',
+  container: {
+    maxHeight: '88%',
   },
   sheet: {
     backgroundColor: colors.bgDeep,
@@ -116,7 +117,7 @@ function createStyles(colors: ThemeColors) {
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: colors.borderMid,
-    maxHeight: '88%',
+    flexShrink: 1,
   },
   header: {
     flexDirection: 'row',

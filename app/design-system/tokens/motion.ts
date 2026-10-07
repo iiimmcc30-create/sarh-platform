@@ -39,7 +39,26 @@ export const spring = {
     tension: 80,
     friction: 6,
   },
+  /** iOS page / sheet settle — near-critically damped, no visible bounce. */
+  ios: {
+    stiffness: 320,
+    damping: 34,
+    mass: 1,
+  },
+  /** Press-in: quick, no bounce (Animated.spring speed/bounciness). */
+  pressIn: {
+    speed: 50,
+    bounciness: 0,
+  },
+  /** Release: settles back with a hint of spring. */
+  pressOut: {
+    speed: 20,
+    bounciness: 4,
+  },
 } as const;
+
+/** iOS-like ease (fast start, long soft settle) — sheet dismiss / backdrop. */
+export const iosEaseBezier = [0.32, 0.72, 0, 1] as const;
 
 export const opacity = {
   disabled: 0.45,

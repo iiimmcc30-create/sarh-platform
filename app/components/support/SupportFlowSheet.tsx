@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,6 +26,7 @@ import {
   type SupportFlowChoice,
 } from '@/lib/supportFlow';
 import { SUPPORT_CUSTOMER_SERVICE } from '@/constants/supportIdentity';
+import { SheetModal } from '@/components/ui/SheetModal';
 
 type FlowStep = 'welcome' | 'describe' | 'sending' | 'handoff';
 
@@ -118,154 +117,141 @@ export function SupportFlowSheet({
   const describePrompt = 'اشرح لنا المشكلة';
 
   return (
-    <Modal
+    <SheetModal
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
+      onClose={onClose}
+      keyboardAvoiding
+      containerStyle={styles.sheetWrap}
     >
-      <View style={styles.root}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="إغلاق" />
-        <KeyboardAvoidingView
-          style={styles.sheetWrap}
-          behavior="padding"
-        >
-          <SarhSurface
-            tone="background"
-            style={[
-              styles.sheet,
-              {
-                paddingTop: spacing.md,
-                paddingBottom: Math.max(insets.bottom, spacing.lg),
-              },
-            ]}
+      <SarhSurface
+        tone="background"
+        style={[
+          styles.sheet,
+          {
+            paddingTop: spacing.md,
+            paddingBottom: Math.max(insets.bottom, spacing.lg),
+          },
+        ]}
+      >
+        <View style={styles.handle} />
+        <View style={[styles.header, getRtlRow()]}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
+            style={styles.closeBtn}
           >
-            <View style={styles.handle} />
-            <View style={[styles.header, getRtlRow()]}>
-              <Pressable
-                onPress={onClose}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="إغلاق"
-                style={styles.closeBtn}
-              >
-                <AppIcon name="close" size={22} color={colors.textPrimary} />
-              </Pressable>
-              <AppText variant="heading3" style={styles.headerTitle}>
-                مركز المساعدة
-              </AppText>
-              <View style={styles.headerSpacer} />
-            </View>
+            <AppIcon name="close" size={22} color={colors.textPrimary} />
+          </Pressable>
+          <AppText variant="heading3" style={styles.headerTitle}>
+            مركز المساعدة
+          </AppText>
+          <View style={styles.headerSpacer} />
+        </View>
 
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.body}
-              showsVerticalScrollIndicator={false}
-            >
-              {step === 'welcome' ? (
-                <>
-                  <View style={[styles.intro, getRtlRow()]}>
-                    <SarhAvatar
-                      source={SUPPORT_CUSTOMER_SERVICE.avatarSource}
-                      name={SUPPORT_CUSTOMER_SERVICE.assistantName}
-                      size="lg"
-                      accessibilityLabel={SUPPORT_CUSTOMER_SERVICE.assistantName}
-                    />
-                    <View style={styles.introCopy}>
-                      <AppText variant="body" color="textSecondary">
-                        {hello}
-                      </AppText>
-                      <AppText variant="heading2">كيف يمكننا مساعدتك؟</AppText>
-                    </View>
-                  </View>
-                  {SUPPORT_FLOW_CHOICES.map((item) => (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => pickChoice(item)}
-                      style={({ pressed }) => [styles.optionRow, pressed && styles.pressed]}
-                      accessibilityRole="button"
-                      accessibilityLabel={item.label}
-                    >
-                      <AppText variant="body">{item.label}</AppText>
-                    </Pressable>
-                  ))}
-                  <SarhDivider style={styles.footerRule} />
-                  <Pressable
-                    onPress={() => {
-                      onClose();
-                      router.push('/support/tickets' as never);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="بلاغاتي"
-                  >
-                    <AppText variant="label" color="primary" align="center">
-                      بلاغاتي
-                    </AppText>
-                  </Pressable>
-                </>
-              ) : null}
-
-              {step === 'describe' || step === 'sending' ? (
-                <>
-                  <AppText variant="heading3">{describePrompt}</AppText>
-                  {choice ? (
-                    <AppText variant="caption" color="textMuted">
-                      {choice.label}
-                    </AppText>
-                  ) : null}
-                  <SarhInput
-                    label="تفاصيل المشكلة"
-                    value={description}
-                    onChangeText={(t) => {
-                      setDescription(t);
-                      if (submitError) setSubmitError(null);
-                    }}
-                    multiline
-                    numberOfLines={6}
-                    style={styles.textArea}
-                    errorText={submitError ?? undefined}
-                  />
-                  <SarhButton
-                    title="إرسال الطلب"
-                    fullWidth
-                    loading={step === 'sending'}
-                    disabled={step === 'sending' || !isSupportDescriptionValid(description)}
-                    onPress={() => void submit()}
-                  />
-                  <Pressable onPress={goBackStep} disabled={step === 'sending'}>
-                    <AppText variant="caption" color="primary" align="center">
-                      رجوع
-                    </AppText>
-                  </Pressable>
-                </>
-              ) : null}
-
-              {step === 'handoff' ? (
-                <View style={styles.handoff}>
-                  <ActivityIndicator color={colors.electric} />
-                  <AppText variant="heading3" align="center">
-                    تم استلام تفاصيل طلبك
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
+        >
+          {step === 'welcome' ? (
+            <>
+              <View style={[styles.intro, getRtlRow()]}>
+                <SarhAvatar
+                  source={SUPPORT_CUSTOMER_SERVICE.avatarSource}
+                  name={SUPPORT_CUSTOMER_SERVICE.assistantName}
+                  size="lg"
+                  accessibilityLabel={SUPPORT_CUSTOMER_SERVICE.assistantName}
+                />
+                <View style={styles.introCopy}>
+                  <AppText variant="body" color="textSecondary">
+                    {hello}
                   </AppText>
-                  <AppText variant="body" color="textSecondary" align="center">
-                    سننقلك الآن إلى فريق الدعم لمتابعة المشكلة.
-                  </AppText>
+                  <AppText variant="heading2">كيف يمكننا مساعدتك؟</AppText>
                 </View>
+              </View>
+              {SUPPORT_FLOW_CHOICES.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => pickChoice(item)}
+                  style={({ pressed }) => [styles.optionRow, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                >
+                  <AppText variant="body">{item.label}</AppText>
+                </Pressable>
+              ))}
+              <SarhDivider style={styles.footerRule} />
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  router.push('/support/tickets' as never);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="بلاغاتي"
+              >
+                <AppText variant="label" color="primary" align="center">
+                  بلاغاتي
+                </AppText>
+              </Pressable>
+            </>
+          ) : null}
+
+          {step === 'describe' || step === 'sending' ? (
+            <>
+              <AppText variant="heading3">{describePrompt}</AppText>
+              {choice ? (
+                <AppText variant="caption" color="textMuted">
+                  {choice.label}
+                </AppText>
               ) : null}
-            </ScrollView>
-          </SarhSurface>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+              <SarhInput
+                label="تفاصيل المشكلة"
+                value={description}
+                onChangeText={(t) => {
+                  setDescription(t);
+                  if (submitError) setSubmitError(null);
+                }}
+                multiline
+                numberOfLines={6}
+                style={styles.textArea}
+                errorText={submitError ?? undefined}
+              />
+              <SarhButton
+                title="إرسال الطلب"
+                fullWidth
+                loading={step === 'sending'}
+                disabled={step === 'sending' || !isSupportDescriptionValid(description)}
+                onPress={() => void submit()}
+              />
+              <Pressable onPress={goBackStep} disabled={step === 'sending'}>
+                <AppText variant="caption" color="primary" align="center">
+                  رجوع
+                </AppText>
+              </Pressable>
+            </>
+          ) : null}
+
+          {step === 'handoff' ? (
+            <View style={styles.handoff}>
+              <ActivityIndicator color={colors.electric} />
+              <AppText variant="heading3" align="center">
+                تم استلام تفاصيل طلبك
+              </AppText>
+              <AppText variant="body" color="textSecondary" align="center">
+                سننقلك الآن إلى فريق الدعم لمتابعة المشكلة.
+              </AppText>
+            </View>
+          ) : null}
+        </ScrollView>
+      </SarhSurface>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    root: { flex: 1, justifyContent: 'flex-end' },
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: colors.bgOverlay,
-    },
     sheetWrap: { maxHeight: '92%' },
     sheet: {
       borderTopLeftRadius: radius.xl,

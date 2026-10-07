@@ -4,8 +4,9 @@ import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow } from '@/lib/rtl';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SheetModal } from '@/components/ui/SheetModal';
 
 type ListingContactSheetProps = {
   visible: boolean;
@@ -17,8 +18,8 @@ type ListingContactSheetProps = {
 };
 
 /**
- * Bottom sheet for listing contact — reuses the same RN Modal + sheet pattern
- * as RatingModal / ListingFeePaymentSheet (no new modal system).
+ * Bottom sheet for listing contact — uses the shared iOS-style SheetModal
+ * (slide up, drag down to dismiss).
  */
 export function ListingContactSheet({
   visible,
@@ -33,96 +34,88 @@ export function ListingContactSheet({
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="إغلاق" />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-          <View style={styles.handle} />
+    <SheetModal visible={visible} onClose={onClose}>
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+        <View style={styles.handle} />
 
-          <View style={[styles.header, getRtlRow()]}>
-            <Pressable
-              onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="إغلاق"
-            >
-              <AppIcon name="close" size={20} color={colors.textMuted} />
-            </Pressable>
-            <AppText variant="heading3" style={styles.title} numberOfLines={1}>
-              تواصل مع المعلن
-            </AppText>
-            <View style={styles.headerSpacer} />
-          </View>
+        <View style={[styles.header, getRtlRow()]}>
+          <Pressable
+            onPress={onClose}
+            style={styles.closeBtn}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
+          >
+            <AppIcon name="close" size={20} color={colors.textMuted} />
+          </Pressable>
+          <AppText variant="heading3" style={styles.title} numberOfLines={1}>
+            تواصل مع المعلن
+          </AppText>
+          <View style={styles.headerSpacer} />
+        </View>
 
-          <View style={styles.actions}>
-            {allowMessage ? (
-            <Pressable
-              onPress={() => {
-                onClose();
-                onMessage();
-              }}
-              style={({ pressed }) => [styles.actionBtn, pressed && styles.actionPressed]}
-              accessibilityRole="button"
-              accessibilityLabel="مراسلة"
-            >
-              <View style={[styles.actionInner, getRtlRow()]}>
-                <View style={styles.iconWrap}>
-                  <AppIcon name="chatbubbles-outline" size={22} color={colors.electricBright} />
-                </View>
-                <AppText variant="label" style={styles.actionLabel}>
-                  مراسلة
-                </AppText>
+        <View style={styles.actions}>
+          {allowMessage ? (
+          <Pressable
+            onPress={() => {
+              onClose();
+              onMessage();
+            }}
+            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="مراسلة"
+          >
+            <View style={[styles.actionInner, getRtlRow()]}>
+              <View style={styles.iconWrap}>
+                <AppIcon name="chatbubbles-outline" size={22} color={colors.electricBright} />
               </View>
-            </Pressable>
-            ) : null}
+              <AppText variant="label" style={styles.actionLabel}>
+                مراسلة
+              </AppText>
+            </View>
+          </Pressable>
+          ) : null}
 
-            <Pressable
-              onPress={() => {
-                if (!canCall) return;
-                onClose();
-                onCall();
-              }}
-              disabled={!canCall}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                !canCall && styles.actionDisabled,
-                pressed && canCall && styles.actionPressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="اتصل"
-              accessibilityState={{ disabled: !canCall }}
-            >
-              <View style={[styles.actionInner, getRtlRow()]}>
-                <View style={styles.iconWrap}>
-                  <AppIcon
-                    name="call-outline"
-                    size={22}
-                    color={canCall ? colors.electricBright : colors.textMuted}
-                  />
-                </View>
-                <AppText
-                  variant="label"
-                  style={[styles.actionLabel, !canCall && styles.actionLabelDisabled]}
-                >
-                  اتصل
-                </AppText>
+          <Pressable
+            onPress={() => {
+              if (!canCall) return;
+              onClose();
+              onCall();
+            }}
+            disabled={!canCall}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              !canCall && styles.actionDisabled,
+              pressed && canCall && styles.actionPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="اتصل"
+            accessibilityState={{ disabled: !canCall }}
+          >
+            <View style={[styles.actionInner, getRtlRow()]}>
+              <View style={styles.iconWrap}>
+                <AppIcon
+                  name="call-outline"
+                  size={22}
+                  color={canCall ? colors.electricBright : colors.textMuted}
+                />
               </View>
-            </Pressable>
-          </View>
+              <AppText
+                variant="label"
+                style={[styles.actionLabel, !canCall && styles.actionLabelDisabled]}
+              >
+                اتصل
+              </AppText>
+            </View>
+          </Pressable>
         </View>
       </View>
-    </Modal>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: colors.bgOverlay,
-      justifyContent: 'flex-end',
-    },
     sheet: {
       backgroundColor: colors.bgSurface,
       borderTopLeftRadius: radius.xxl,

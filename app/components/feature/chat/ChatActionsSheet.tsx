@@ -4,7 +4,7 @@
  */
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/design-system/components';
-import { radius, space } from '@/design-system';
+import { radius, space, spring } from '@/design-system';
 import { useTheme } from '@/hooks/useTheme';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -63,12 +63,16 @@ export function ChatActionsSheet({
 
   useEffect(() => {
     if (!mounted) return;
-    Animated.timing(progress, {
-      toValue: visible ? 1 : 0,
-      duration: visible ? 240 : 180,
-      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
+    // Open: iOS spring; close: quick ease-in.
+    (visible
+      ? Animated.spring(progress, { toValue: 1, ...spring.ios, useNativeDriver: true })
+      : Animated.timing(progress, {
+          toValue: 0,
+          duration: 180,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        })
+    ).start(({ finished }) => {
       if (!finished || visible) return;
       setMounted(false);
       // A follow-up modal (block confirmation) opens only once this one is gone.

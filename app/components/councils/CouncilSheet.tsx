@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { AppText } from '@/design-system/components';
 import { Row } from '@/design-system/layout';
@@ -34,44 +35,40 @@ export function CouncilSheet({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={dismissible ? onClose : undefined}>
-        <Pressable
-          style={[styles.sheet, getRtlDirection(), { paddingBottom: spacing.lg + insets.bottom }]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <View style={styles.grabber} />
-          <Row gap="md" align="center">
-            <View style={{ flex: 1 }}>
-              <AppText variant="heading3" color="textPrimary">
-                {title}
+    <SheetModal visible={visible} onClose={onClose} dismissible={dismissible} containerStyle={styles.container}>
+      <View style={[styles.sheet, getRtlDirection(), { paddingBottom: spacing.lg + insets.bottom }]}>
+        <View style={styles.grabber} />
+        <Row gap="md" align="center">
+          <View style={{ flex: 1 }}>
+            <AppText variant="heading3" color="textPrimary">
+              {title}
+            </AppText>
+            {subtitle ? (
+              <AppText variant="caption" color="textMuted">
+                {subtitle}
               </AppText>
-              {subtitle ? (
-                <AppText variant="caption" color="textMuted">
-                  {subtitle}
-                </AppText>
-              ) : null}
-            </View>
-            {dismissible ? (
-              <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="إغلاق">
-                <AppIcon name="close" size={22} color={colors.textMuted} />
-              </Pressable>
             ) : null}
-          </Row>
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
-            {children}
-          </ScrollView>
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </Pressable>
-      </Pressable>
-    </Modal>
+          </View>
+          {dismissible ? (
+            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="إغلاق">
+              <AppIcon name="close" size={22} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
+        </Row>
+        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
+          {children}
+        </ScrollView>
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
+      </View>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: colors.bgOverlay, justifyContent: 'flex-end' },
+    container: { maxHeight: '85%' },
     sheet: {
+      flexShrink: 1,
       backgroundColor: colors.bgElevated,
       borderTopLeftRadius: radius.xxl,
       borderTopRightRadius: radius.xxl,
@@ -80,7 +77,6 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
       gap: spacing.md,
-      maxHeight: '85%',
     },
     grabber: {
       alignSelf: 'center',

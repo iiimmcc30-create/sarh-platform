@@ -8,7 +8,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { AppText, SarhInput } from '@/design-system/components';
-import { radius, space, typography as ds } from '@/design-system';
+import { radius, space, spring, typography as ds } from '@/design-system';
 import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
 import { useTheme } from '@/hooks/useTheme';
 import {
@@ -77,12 +77,16 @@ export function NewMessageSheet({ visible, onClose, onSelect }: Props) {
 
   useEffect(() => {
     if (!mounted) return;
-    Animated.timing(progress, {
-      toValue: visible ? 1 : 0,
-      duration: visible ? 260 : 200,
-      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
+    // Open: iOS spring; close: quick ease-in.
+    (visible
+      ? Animated.spring(progress, { toValue: 1, ...spring.ios, useNativeDriver: true })
+      : Animated.timing(progress, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        })
+    ).start(({ finished }) => {
       if (finished && !visible) setMounted(false);
     });
   }, [mounted, progress, visible]);
