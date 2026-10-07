@@ -6,6 +6,14 @@ type AuthCopy = {
   startCta: string;
   haveAccount: string;
   loginTitle: string;
+  /** Login hero headline (no brand wordmark — the logo carries the identity). */
+  loginHeadline: string;
+  loginSubtitle: string;
+  noAccount: string;
+  legalPrefix: string;
+  legalTerms: string;
+  legalAnd: string;
+  legalPrivacy: string;
   phoneLabel: string;
   phonePlaceholder: string;
   passwordLabel: string;
@@ -54,6 +62,13 @@ const ar: AuthCopy = {
   startCta: 'ابدأ الآن',
   haveAccount: 'لدي حساب بالفعل',
   loginTitle: 'تسجيل الدخول',
+  loginHeadline: 'أهلاً بعودتك',
+  loginSubtitle: 'سجّل الدخول برقم جوالك وكلمة المرور',
+  noAccount: 'ليس لديك حساب؟',
+  legalPrefix: 'بتسجيل الدخول، أنت توافق على ',
+  legalTerms: 'الشروط والأحكام',
+  legalAnd: ' و',
+  legalPrivacy: 'سياسة الخصوصية',
   phoneLabel: 'رقم الجوال',
   phonePlaceholder: '05xxxxxxxx',
   passwordLabel: 'كلمة المرور',
@@ -102,6 +117,13 @@ const en: AuthCopy = {
   startCta: 'Get started',
   haveAccount: 'I already have an account',
   loginTitle: 'Sign in',
+  loginHeadline: 'Welcome back',
+  loginSubtitle: 'Sign in with your mobile number and password',
+  noAccount: "Don't have an account?",
+  legalPrefix: 'By signing in, you agree to the ',
+  legalTerms: 'Terms of Use',
+  legalAnd: ' and ',
+  legalPrivacy: 'Privacy Policy',
   phoneLabel: 'Mobile number',
   phonePlaceholder: '05xxxxxxxx',
   passwordLabel: 'Password',
