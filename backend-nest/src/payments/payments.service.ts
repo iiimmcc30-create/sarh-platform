@@ -46,6 +46,7 @@ import {
   parsePositiveMoneyAmount,
 } from '../listings/listing-fee';
 import { Sentry } from '../shared/lib/sentry';
+import { niFixedSecretMatches } from '../integrations/utils/ni-webhook-header.util';
 
 function buildNIOrderReference(userId: string): string {
   const ts = Date.now().toString(36).toUpperCase();
@@ -94,6 +95,8 @@ function sleep(ms: number): Promise<void> {
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000; // every 5 min
 const STALE_AFTER_MINUTES = 10; // payments older than 10 min
+/** Auto-sync ignores pending payments older than this (abandoned checkouts). */
+const AUTO_SYNC_MAX_AGE_DAYS = 7;
 /** Crash window: pending row exists but checkout URL was never written. */
 const STALE_PENDING_WITHOUT_CHECKOUT_MS = 2 * 60 * 1000;
 
@@ -795,9 +798,22 @@ export class PaymentsService
   verifyWebhookSignature(
     rawBody: string,
     signature: string | undefined,
+    fixedHeaderValue?: string,
   ): { ok: true } | { ok: false; status: number; error: string } {
     const webhookSecret = process.env.NI_WEBHOOK_SECRET;
 
+    // N-Genius portal static header (see ni-webhook-header.util). Value never logged.
+    if (webhookSecret && fixedHeaderValue) {
+      if (niFixedSecretMatches(fixedHeaderValue, webhookSecret)) {
+        return { ok: true };
+      }
+      if (!signature) {
+        this.logger.warn({}, 'Invalid NI webhook secret header');
+        return { ok: false, status: 401, error: 'invalid_signature' };
+      }
+    }
+
+    // Fallback: HMAC-SHA256 of raw body in x-signature / x-ni-signature.
     if (webhookSecret && signature) {
       if (!verifyNISignature(rawBody, signature, webhookSecret)) {
         this.logger.warn(
@@ -1129,18 +1145,31 @@ export class PaymentsService
    */
   private async runAutoSync() {
     try {
-      const stalePending =
-        await this.repo.findStalePendingPayments(STALE_AFTER_MINUTES);
-      if (!stalePending.length) return;
+      const stalePending = await this.repo.findStalePendingPayments(
+        STALE_AFTER_MINUTES,
+        AUTO_SYNC_MAX_AGE_DAYS,
+      );
+      // Rows without an NI order UUID were never created in N-Genius — nothing to poll.
+      const pollable = stalePending.filter(
+        (p) =>
+          (p.transactionId &&
+            !String(p.transactionId).startsWith('DEV-') &&
+            isNiOrderUuid(String(p.transactionId))) ||
+          (p.orderId && isNiOrderUuid(String(p.orderId))),
+      );
+      if (!pollable.length) return;
 
       this.logger.info(
-        { count: stalePending.length },
+        {
+          count: pollable.length,
+          skippedNoNiRef: stalePending.length - pollable.length,
+        },
         'Payment auto-sync: checking stale payments',
       );
 
       await Promise.allSettled(
-        stalePending.map((p) =>
-          this.syncPaymentByOrderRef(p.id, p.orderId ?? ''),
+        pollable.map((p) =>
+          this.syncPaymentByOrderRef(p.id, p.orderId ?? '', { auto: true }),
         ),
       );
     } catch (err) {
@@ -1188,7 +1217,12 @@ export class PaymentsService
   /**
    * Core sync logic: query NI → update DB → send notifications.
    */
-  private async syncPaymentByOrderRef(paymentId: string, orderRef: string) {
+  private async syncPaymentByOrderRef(
+    paymentId: string,
+    orderRef: string,
+    options?: { auto?: boolean },
+  ) {
+    const auto = options?.auto === true;
     if (isNiSandboxMockMode()) {
       return { paymentId, status: 'pending', synced: false, devMode: true };
     }
@@ -1224,7 +1258,12 @@ export class PaymentsService
         };
       }
 
-      const { order, state } = await fetchNiOrderResolved(niRef, this.niLog);
+      // Auto-sync: one fetch per payment per run (the next run polls again).
+      const { order, state } = await fetchNiOrderResolved(
+        niRef,
+        this.niLog,
+        auto ? { maxAttempts: 1 } : undefined,
+      );
       const outcome = classifyNiOrderState(state);
       const paymentStates = extractNiPaymentStates(order);
       const niTxId = String(order.reference ?? order.transactionId ?? niRef);
@@ -1431,6 +1470,24 @@ export class PaymentsService
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      if (
+        auto &&
+        err instanceof NiGatewayError &&
+        err.phase === 'fetch_order' &&
+        err.httpStatus === 404
+      ) {
+        this.logger.warn(
+          { err: message, paymentId, orderRef },
+          'NI auto-sync: order not found (404) — skipped',
+        );
+        return {
+          paymentId,
+          status: 'pending',
+          outcome: 'processing',
+          synced: false,
+          messageAr: niOrderStateLabelAr('processing'),
+        };
+      }
       this.logger.error(
         { err: message, paymentId, orderRef },
         'NI sync API error',

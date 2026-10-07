@@ -665,15 +665,20 @@ export class PaymentsRepository {
   /**
    * Returns pending payments that:
    *  - were created more than `olderThanMinutes` ago
+   *  - (optional) were created within the last `maxAgeDays` days
    *  - already have a transactionId / orderId (i.e. NI knows about them)
    * These are candidates for status polling.
    */
-  findStalePendingPayments(olderThanMinutes = 10) {
+  findStalePendingPayments(olderThanMinutes = 10, maxAgeDays?: number) {
     const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
+    const createdAt: { lt: Date; gte?: Date } = { lt: cutoff };
+    if (maxAgeDays != null && maxAgeDays > 0) {
+      createdAt.gte = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000);
+    }
     return this.prisma.payment.findMany({
       where: {
         status: 'pending',
-        createdAt: { lt: cutoff },
+        createdAt,
       },
       select: {
         id: true,

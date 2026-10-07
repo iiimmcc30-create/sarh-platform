@@ -60,6 +60,7 @@ describe('PaymentsController webhook compatibility route', () => {
     expect(verifySignature).toHaveBeenCalledWith(
       '{"eventName":"ORDER.PAID"}',
       'sig-from-ni',
+      undefined,
     );
     expect(handleRaw).toHaveBeenCalledWith('{"eventName":"ORDER.PAID"}');
     expect(processWebhook).not.toHaveBeenCalled();
@@ -78,7 +79,33 @@ describe('PaymentsController webhook compatibility route', () => {
       'x-ni-signature-value',
     );
 
-    expect(verifySignature).toHaveBeenCalledWith('{}', 'x-signature-value');
+    expect(verifySignature).toHaveBeenCalledWith(
+      '{}',
+      'x-signature-value',
+      undefined,
+    );
+  });
+
+  it('passes the fixed secret header (x-sarh-webhook-secret) to verification', async () => {
+    verifySignature.mockReturnValue({ ok: true });
+    handleRaw.mockResolvedValue({ status: 200, body: { received: true } });
+
+    await controller.webhook(
+      {
+        rawBody: '{}',
+        headers: { 'x-sarh-webhook-secret': 'fixed-value' },
+      } as never,
+      res as never,
+      undefined,
+      undefined,
+    );
+
+    expect(verifySignature).toHaveBeenCalledWith(
+      '{}',
+      undefined,
+      'fixed-value',
+    );
+    expect(handleRaw).toHaveBeenCalledWith('{}');
   });
 
   it('returns 401 for an invalid signature', async () => {

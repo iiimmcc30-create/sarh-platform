@@ -20,8 +20,13 @@ export class NiWebhookService {
   verifySignature(
     rawBody: string,
     signature: string | undefined,
+    fixedHeaderValue?: string,
   ): { ok: true } | { ok: false; status: number; error: string } {
-    return this.payments.verifyWebhookSignature(rawBody, signature);
+    return this.payments.verifyWebhookSignature(
+      rawBody,
+      signature,
+      fixedHeaderValue,
+    );
   }
 
   async handleRaw(rawBody: string): Promise<{

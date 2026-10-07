@@ -81,7 +81,16 @@ POST /api/payments/webhook
    - Events: `ORDER.FAILED`, `ORDER.REVERSED`, `ORDER.CANCELLED` or states `FAILED`, `REVERSED`, `CANCELLED`.
    - `markPaymentFailedById()` + failure notifications.
 
-### HMAC verification (`verifyNISignature`)
+### Webhook authentication
+
+N-Genius does **not** sign webhook payloads. In the N-Genius portal (Settings → Integrations → Webhooks) set:
+
+- **Header Key:** `x-sarh-webhook-secret` (override with optional env `NI_WEBHOOK_HEADER`)
+- **Header Value:** the value of `NI_WEBHOOK_SECRET`.
+
+The API compares that header with `NI_WEBHOOK_SECRET` using `crypto.timingSafeEqual` (length-checked); header values are never logged. Missing/invalid → `401`. The HMAC path below is kept as a fallback.
+
+### HMAC verification fallback (`verifyNISignature`)
 
 ```typescript
 crypto.createHmac('sha256', NI_WEBHOOK_SECRET).update(body).digest('hex')

@@ -2,6 +2,7 @@ import { Controller, Headers, HttpCode, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Public, RawBody } from '../../common/decorators/auth.decorators';
+import { readNiWebhookFixedHeader } from '../utils/ni-webhook-header.util';
 import { NiWebhookService } from '../services/ni-webhook.service';
 
 type RequestWithRawBody = Request & { rawBody?: string };
@@ -13,7 +14,9 @@ export class IntegrationsWebhookController {
 
   /**
    * Network International webhook (same contract as POST /api/payments/webhook).
-   * Signature: HMAC-SHA256 of raw body using NI_WEBHOOK_SECRET.
+   * Auth: static header (NI_WEBHOOK_HEADER, default x-sarh-webhook-secret) equal to
+   * NI_WEBHOOK_SECRET — configured in the N-Genius portal. Fallback: HMAC-SHA256 of the
+   * raw body in x-signature / x-ni-signature.
    */
   @RawBody()
   @Public()
@@ -22,7 +25,7 @@ export class IntegrationsWebhookController {
   @ApiOperation({
     summary: 'Network International webhook',
     description:
-      'Verifies x-signature / x-ni-signature, de-duplicates events, then updates Payment + IntegrationOrder. Does not accept Sarh internal order numbers as NI UUIDs.',
+      'Verifies the static secret header (NI_WEBHOOK_HEADER, default x-sarh-webhook-secret) or HMAC x-signature / x-ni-signature, de-duplicates events, then updates Payment + IntegrationOrder. Does not accept Sarh internal order numbers as NI UUIDs.',
   })
   async niWebhook(
     @Req() req: RequestWithRawBody,
@@ -32,7 +35,11 @@ export class IntegrationsWebhookController {
   ) {
     const rawBody = req.rawBody ?? '';
     const signature = xSignature ?? xNiSignature;
-    const verified = this.webhooks.verifySignature(rawBody, signature);
+    const verified = this.webhooks.verifySignature(
+      rawBody,
+      signature,
+      readNiWebhookFixedHeader(req),
+    );
     if (!verified.ok) {
       return res.status(verified.status).json({ error: verified.error });
     }

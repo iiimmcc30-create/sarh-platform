@@ -19,6 +19,7 @@ import {
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { successResponse } from '../common/utils/response.util';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
+import { readNiWebhookFixedHeader } from '../integrations/utils/ni-webhook-header.util';
 import { NiWebhookService } from '../integrations/services/ni-webhook.service';
 import { InitiatePaymentDto } from './dto/payments.dto';
 import { PaymentsService } from './payments.service';
@@ -81,7 +82,11 @@ export class PaymentsController {
     const rawBody = req.rawBody ?? '';
     const signature = xSignature ?? xNiSignature;
 
-    const verified = this.niWebhooks.verifySignature(rawBody, signature);
+    const verified = this.niWebhooks.verifySignature(
+      rawBody,
+      signature,
+      readNiWebhookFixedHeader(req),
+    );
     if (!verified.ok) {
       return res.status(verified.status).json({ error: verified.error });
     }
