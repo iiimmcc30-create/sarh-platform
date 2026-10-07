@@ -5,13 +5,20 @@
  * the same layout as the real bar: equal main slots + a compact bookmark/share group.
  */
 import { StyleSheet, View } from 'react-native';
-import { POST_ITEM_LAYOUT as P } from '@/components/feature/postItemLayout';
+import {
+  POST_DETAIL_BODY_FONT_SIZE,
+  POST_DETAIL_BODY_LINE_HEIGHT,
+  POST_ITEM_LAYOUT as P,
+} from '@/components/feature/postItemLayout';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
   INTERACTION_BAR_STYLE,
   INTERACTION_BUTTON_STYLE,
   INTERACTION_COMPACT_BUTTON_STYLE,
+  INTERACTION_DETAIL_BAR_STYLE,
+  INTERACTION_DETAIL_BUTTON_STYLE,
+  INTERACTION_DETAIL_ICON_SIZE,
   INTERACTION_ICON_SIZE,
   INTERACTION_TRAILING_GROUP_STYLE,
 } from '@/lib/interactionActions';
@@ -23,7 +30,7 @@ import { skeletonTextBarHeight } from './skeletonTokens';
 const MEDIA_RATIO = 16 / 11;
 const MEDIA_RADIUS = 12;
 const MEDIA_MAX_HEIGHT = 340;
-/** Main slots: comment, repost, like, views (detail hides views). Then bookmark + share. */
+/** Feed/profile main slots: comment, repost, like, views. Then bookmark + share. */
 const FEED_MAIN_ACTIONS = 4;
 const TRAILING_ACTIONS = 2;
 
@@ -46,6 +53,24 @@ function ActionsSkeleton({ main, styles }: { main: number; styles: ReturnType<ty
   );
 }
 
+/** Post page row: reply, repost, like, bookmark, share spread edge to edge. */
+const DETAIL_ACTIONS = 5;
+
+/** = PostItem detail action row: five natural-width slots between two hairlines. */
+function DetailActionsSkeleton({ styles }: { styles: ReturnType<typeof createStyles> }) {
+  return (
+    <View style={styles.detailActionsWrap}>
+      <View style={[styles.detailActions, getRtlRow()]}>
+        {Array.from({ length: DETAIL_ACTIONS }, (_, i) => (
+          <View key={i} style={[styles.detailActionSlot, getRtlRow()]}>
+            <SkeletonCircle size={INTERACTION_DETAIL_ICON_SIZE} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 type Props = {
   withMedia?: boolean;
   bodyLines?: number;
@@ -55,8 +80,8 @@ type Props = {
 
 /**
  * = PostItem `variant="detail"`: padded header (avatar, name + handle), three
- * body lines (marginTop 12), meta line and the five-slot action bar
- * (detail hides the views action).
+ * larger body lines (marginTop 12), meta line and the X-style detail action row
+ * (five spread slots between hairlines; views live in the meta line).
  */
 export function PostDetailSkeleton() {
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
@@ -75,19 +100,19 @@ export function PostDetailSkeleton() {
           </View>
         </View>
         <SkeletonText
-          fontSize={typography.body.fontSize}
-          lineHeight={24}
+          fontSize={POST_DETAIL_BODY_FONT_SIZE}
+          lineHeight={POST_DETAIL_BODY_LINE_HEIGHT}
           lines={3}
           widths={['100%', '94%', '62%']}
           style={styles.detailBody}
         />
         <SkeletonText
-          fontSize={typography.caption.fontSize}
-          lineHeight={typography.caption.lineHeight}
-          widths={['46%']}
-          style={styles.detailBody}
+          fontSize={typography.secondary.fontSize}
+          lineHeight={typography.secondary.lineHeight}
+          widths={['52%']}
+          style={styles.detailMeta}
         />
-        <ActionsSkeleton main={FEED_MAIN_ACTIONS - 1} styles={styles} />
+        <DetailActionsSkeleton styles={styles} />
       </SkeletonPulse>
     </View>
   );
@@ -154,6 +179,22 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     detailBody: {
       marginTop: 12,
+    },
+    detailMeta: {
+      marginTop: 14,
+    },
+    // = PostItem detailActions + InteractionBar variant="detail"
+    detailActionsWrap: {
+      marginTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    detailActions: {
+      ...INTERACTION_DETAIL_BAR_STYLE,
+    },
+    detailActionSlot: {
+      ...INTERACTION_DETAIL_BUTTON_STYLE,
     },
     metaLine: {
       alignItems: 'center',

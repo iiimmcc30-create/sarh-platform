@@ -74,7 +74,7 @@ describe('Posts feed — X-style structure', () => {
     expect(comments).not.toContain('RtlTextShell');
     expect(comments).not.toContain("textAlign: 'right'");
     expect(comments).toContain('ellipsis-vertical');
-    expect(comments).toContain('اكتب تعليقاً');
+    expect(comments).toContain('انشر ردك');
     expect(comments).toContain('PostCommentsComposer');
     expect(comments).toContain('deletePostComment');
   });

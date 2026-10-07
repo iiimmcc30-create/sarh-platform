@@ -69,13 +69,14 @@ describe('X-style action row: 4 equal main actions + compact bookmark/share grou
     },
   );
 
-  it('PostCardSkeleton mirrors the same row (main slots + compact group)', () => {
+  it('PostCardSkeleton mirrors the same row (main slots + compact group); detail uses the detail row', () => {
     const sk = src('components/ui/skeleton/PostCardSkeleton.tsx');
     expect(sk).toContain('...INTERACTION_BUTTON_STYLE');
     expect(sk).toContain('...INTERACTION_COMPACT_BUTTON_STYLE');
     expect(sk).toContain('...INTERACTION_TRAILING_GROUP_STYLE');
     expect(sk).toContain('<ActionsSkeleton main={FEED_MAIN_ACTIONS} styles={styles} />');
-    expect(sk).toContain('<ActionsSkeleton main={FEED_MAIN_ACTIONS - 1} styles={styles} />');
+    expect(sk).not.toContain('<ActionsSkeleton main={FEED_MAIN_ACTIONS - 1} styles={styles} />');
+    expect(sk).toContain('<DetailActionsSkeleton styles={styles} />');
   });
 });
 

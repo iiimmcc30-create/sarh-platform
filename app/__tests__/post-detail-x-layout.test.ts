@@ -131,12 +131,19 @@ describe('post detail header, text, media and meta', () => {
   });
 });
 
-describe('replies: «الردود» header + feed-style rows', () => {
-  it('plain header (no sort chevron: comments have no sort options)', () => {
-    expect(comments).toContain('testID="post-replies-header"');
-    expect(comments).toContain('الردود');
-    expect(comments).not.toContain('chevron-down');
-    expect(style(comments, 'repliesHeaderText')).toContain("resolveAppFontFace('700')");
+describe('replies: start right under the post + feed-style rows', () => {
+  it('no «الردود» title and no spacer between the action row and the first reply', () => {
+    expect(comments).not.toContain('الردود');
+    expect(comments).not.toContain('repliesHeader');
+    expect(comments).toContain('<View testID="post-replies">');
+    // Single hairline: the post's action-row bottom border; the detail wrapper adds none.
+    expect(style(postItem, 'detailWrap')).toContain('borderBottomWidth: 0');
+    expect(style(postItem, 'detailActions')).toContain('borderBottomWidth: StyleSheet.hairlineWidth');
+    expect(style(postItem, 'detailPad')).not.toContain('paddingBottom');
+    expect(style(postItem, 'detailPad')).not.toContain('marginBottom');
+    expect(style(comments, 'commentWrap')).not.toContain('borderTopWidth');
+    expect(style(comments, 'commentWrap')).not.toContain('marginTop');
+    expect(screen).toContain('<PostCommentsList />');
   });
 
   it('reply rows use the feed row metrics (avatar, gap, one-line meta)', () => {
@@ -163,8 +170,74 @@ describe('replies: «الردود» header + feed-style rows', () => {
     expect(comments).toContain('canDeleteComment(c.author.id, postOwnerId, user, me)');
     expect(comments).toContain('styles.commentHighlight');
     expect(comments).toContain('إعادة المحاولة');
-    expect(comments).toContain('اكتب تعليقاً');
     expect(comments).toContain('accessibilityLabel="إرسال التعليق"');
-    expect(style(comments, 'sendBtn')).toContain('backgroundColor: colors.electric');
+    expect(comments).toContain('onPress={() => void handleSend()}');
+    expect(comments).toContain('ref={setInputRef}');
+    expect(comments).toContain('editable={isAuthenticated && !sending && !loadError}');
+    expect(comments).toContain("'سجّل الدخول للتعليق'");
+    expect(screen).toContain('<ComposerKeyboardView');
+    expect(screen).toContain('restingBottom');
+  });
+});
+
+describe('reply composer: X reply bar', () => {
+  const composer = between(comments, 'export function PostCommentsComposer()', '\n}\n');
+
+  it('avatar at the inline start, pill input «انشر ردك», primary «رد» pill at the end', () => {
+    const avatar = composer.indexOf('styles.composerAvatar');
+    const input = composer.indexOf('styles.inputPill');
+    const send = composer.indexOf('styles.sendBtn,');
+    expect(avatar).toBeGreaterThan(-1);
+    expect(input).toBeGreaterThan(avatar);
+    expect(send).toBeGreaterThan(input);
+    expect(composer).toContain("placeholder={isAuthenticated ? 'انشر ردك' : 'سجّل الدخول للتعليق'}");
+    expect(composer).toContain('<AppText style={styles.sendBtnText}>رد</AppText>');
+    expect(composer).not.toContain('name="send"');
+  });
+
+  it('bar = page background + top hairline; pill input without border; primary pill send', () => {
+    const bar = style(comments, 'composer');
+    expect(bar).toContain('backgroundColor: rowBg');
+    expect(bar).toContain('borderTopWidth: StyleSheet.hairlineWidth');
+    expect(style(comments, 'composerAvatar')).toContain('width: 32');
+    const pill = style(comments, 'inputPill');
+    expect(pill).toContain('borderRadius: radius.pill');
+    expect(pill).toContain('backgroundColor: colors.bgField');
+    expect(pill).not.toContain('borderWidth');
+    const btn = style(comments, 'sendBtn');
+    expect(btn).toContain('backgroundColor: colors.electric');
+    expect(btn).toContain('borderRadius: radius.pill');
+    expect(style(comments, 'sendBtnText')).toContain('color: colors.onElectric');
+    // Empty / sending / signed out: disabled and low contrast.
+    expect(composer).toContain('const disabled = !text.trim() || sending || !isAuthenticated || !!loadError;');
+    expect(composer).toContain('disabled && styles.sendBtnDisabled');
+    expect(style(comments, 'sendBtnDisabled')).toMatch(/opacity: 0\.[0-4]/);
+  });
+});
+
+describe('handles read «@username» (LTR) and the detail skeleton matches the detail row', () => {
+  it('detail, feed and reply handles are LTR inside the RTL row', () => {
+    expect(style(postItem, 'handle')).toContain("writingDirection: 'ltr'");
+    expect(style(postItem, 'handle')).toContain("alignSelf: 'flex-start'");
+    expect(style(postItem, 'feedHandle')).toContain("writingDirection: 'ltr'");
+    expect(style(comments, 'commentHandle')).toContain("writingDirection: 'ltr'");
+    // «@» is part of the text itself, never a separate mirrored node.
+    expect(postItem).toContain("const handle = post.author.username ? `@${post.author.username}` : '';");
+    expect(comments).toContain('@{c.author.username}');
+  });
+
+  it('PostDetailSkeleton draws the five-slot detail row between hairlines', () => {
+    const sk = src('components/ui/skeleton/PostCardSkeleton.tsx');
+    const detail = between(sk, 'export function PostDetailSkeleton()', 'export function PostCardSkeleton(');
+    expect(detail).toContain('<DetailActionsSkeleton styles={styles} />');
+    expect(detail).not.toContain('<ActionsSkeleton');
+    expect(detail).toContain('fontSize={POST_DETAIL_BODY_FONT_SIZE}');
+    expect(sk).toContain('const DETAIL_ACTIONS = 5;');
+    expect(sk).toContain('<SkeletonCircle size={INTERACTION_DETAIL_ICON_SIZE} />');
+    expect(sk).toContain('...INTERACTION_DETAIL_BAR_STYLE');
+    expect(sk).toContain('...INTERACTION_DETAIL_BUTTON_STYLE');
+    const wrap = style(sk, 'detailActionsWrap');
+    expect(wrap).toContain('borderTopWidth: StyleSheet.hairlineWidth');
+    expect(wrap).toContain('borderBottomWidth: StyleSheet.hairlineWidth');
   });
 });

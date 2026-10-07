@@ -30,7 +30,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { spacing, typography, type ThemeColors } from '@/constants/theme';
+import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { resolveAppFontFace } from '@/constants/fonts';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
@@ -315,50 +315,28 @@ export function PostCommentsList() {
     return [focused, ...comments.filter((c) => c.id !== highlightCommentId)];
   }, [comments, highlightCommentId]);
 
-  // «الردود» header (X post page). Plain label: comments have no sort options.
-  const header = (
-    <View style={[styles.repliesHeader, getRtlRow()]} testID="post-replies-header">
-      <AppText style={styles.repliesHeaderText} accessibilityRole="header">
-        الردود
-      </AppText>
-    </View>
-  );
-
   if (loading && comments.length === 0) {
-    return (
-      <View>
-        {header}
-        <CommentsSkeleton />
-      </View>
-    );
+    return <CommentsSkeleton />;
   }
 
   if (loadError && comments.length === 0) {
     return (
-      <View>
-        {header}
-        <View style={styles.errorBox}>
-          <AppText style={styles.errorText}>{loadError}</AppText>
-          <Pressable onPress={() => void loadComments()} style={styles.retryBtn}>
-            <AppText style={styles.retryText}>إعادة المحاولة</AppText>
-          </Pressable>
-        </View>
+      <View style={styles.errorBox}>
+        <AppText style={styles.errorText}>{loadError}</AppText>
+        <Pressable onPress={() => void loadComments()} style={styles.retryBtn}>
+          <AppText style={styles.retryText}>إعادة المحاولة</AppText>
+        </Pressable>
       </View>
     );
   }
 
   if (comments.length === 0) {
-    return (
-      <View>
-        {header}
-        <AppText style={styles.empty}>لا توجد تعليقات بعد — كن أول من يعلّق</AppText>
-      </View>
-    );
+    return <AppText style={styles.empty}>لا توجد تعليقات بعد — كن أول من يعلّق</AppText>;
   }
 
+  // Replies start right under the post's action-row hairline: no title, no spacer.
   return (
-    <View>
-      {header}
+    <View testID="post-replies">
       {orderedComments.map((c) => (
         <View
           key={c.id}
@@ -456,31 +434,39 @@ export function PostCommentsComposer() {
 
   const disabled = !text.trim() || sending || !isAuthenticated || !!loadError;
 
+  // X reply bar: avatar at the inline start, pill input, primary «رد» pill at the end.
   return (
-    <View style={[styles.composer, getRtlRow()]}>
+    <View style={[styles.composer, getRtlRow()]} testID="post-reply-composer">
       <Image source={uriSource(composerAvatar)} style={styles.composerAvatar} contentFit="cover" />
-      <TextInput
-        ref={setInputRef}
-        style={styles.input}
-        placeholder={isAuthenticated ? 'اكتب تعليقاً...' : 'سجّل الدخول للتعليق'}
-        placeholderTextColor={colors.textSubtle}
-        value={text}
-        onChangeText={setText}
-        editable={isAuthenticated && !sending && !loadError}
-        multiline
-        maxLength={500}
-      />
+      <View style={styles.inputPill}>
+        <TextInput
+          ref={setInputRef}
+          style={styles.input}
+          placeholder={isAuthenticated ? 'انشر ردك' : 'سجّل الدخول للتعليق'}
+          placeholderTextColor={colors.textMuted}
+          value={text}
+          onChangeText={setText}
+          editable={isAuthenticated && !sending && !loadError}
+          multiline
+          maxLength={500}
+        />
+      </View>
       <Pressable
-        style={[styles.sendBtn, disabled && styles.sendBtnDisabled]}
+        style={({ pressed }) => [
+          styles.sendBtn,
+          disabled && styles.sendBtnDisabled,
+          pressed && !disabled ? styles.sendBtnPressed : null,
+        ]}
         onPress={() => void handleSend()}
         disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel="إرسال التعليق"
+        accessibilityState={{ disabled, busy: sending }}
       >
         {sending ? (
           <ActivityIndicator size="small" color={colors.onElectric} />
         ) : (
-          <AppIcon name="send" size={16} color={colors.onElectric} />
+          <AppText style={styles.sendBtnText}>رد</AppText>
         )}
       </Pressable>
     </View>
@@ -532,19 +518,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     retryText: {
       ...typography.feedTitle,
       color: colors.electricBright,
-    },
-    repliesHeader: {
-      alignItems: 'center',
-      paddingHorizontal: spacing.md,
-      paddingVertical: 12,
-      backgroundColor: rowBg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderStrong,
-    },
-    repliesHeaderText: {
-      ...typography.cardHeading,
-      ...resolveAppFontFace('700'),
-      color: colors.textPrimary,
     },
     commentWrap: {
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -609,6 +582,8 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       color: colors.textSecondary,
       flexShrink: POST_HANDLE_FLEX_SHRINK,
       minWidth: POST_HANDLE_MIN_WIDTH,
+      /** «@username» is Latin: LTR so «@» leads, as in the feed and profile header. */
+      writingDirection: 'ltr',
     },
     metaDot: {
       ...typography.caption,
@@ -635,41 +610,62 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    /** Page background + one top hairline (X reply bar). */
     composer: {
-      alignItems: 'flex-end',
+      alignItems: 'center',
       gap: spacing.sm,
       paddingHorizontal: spacing.md,
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.borderHairline,
-      backgroundColor: colors.bgDeep,
+      borderTopColor: colors.borderStrong,
+      backgroundColor: rowBg,
     },
     composerAvatar: {
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: colors.bgSurface,
+      backgroundColor: colors.bgField,
+    },
+    /** Fully rounded field well, no border. */
+    inputPill: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 40,
+      justifyContent: 'center',
+      borderRadius: radius.pill,
+      backgroundColor: colors.bgField,
+      paddingHorizontal: 16,
     },
     input: {
-      flex: 1,
-      minHeight: 40,
       maxHeight: 100,
       paddingHorizontal: 0,
-      paddingVertical: 10,
-      ...typography.feedBody,
+      paddingVertical: 9,
+      ...typography.secondary,
+      ...resolveAppFontFace('400'),
       color: colors.textPrimary,
     },
+    /** Primary pill: black/white text in Light, white/black text in Dark. */
     sendBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      minWidth: 52,
+      height: 34,
+      paddingHorizontal: 16,
+      borderRadius: radius.pill,
       backgroundColor: colors.electric,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    sendBtnText: {
+      ...typography.secondary,
+      ...resolveAppFontFace('700'),
+      color: colors.onElectric,
+    },
+    sendBtnPressed: {
+      opacity: 0.85,
+    },
+    /** Empty / sending / signed out: low-contrast pill. */
     sendBtnDisabled: {
-      opacity: 0.45,
+      opacity: 0.35,
     },
   });
 }

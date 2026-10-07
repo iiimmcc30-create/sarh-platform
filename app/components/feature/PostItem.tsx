@@ -667,6 +667,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       flexShrink: 1,
       minWidth: 0,
     },
+    /** «@username» is Latin: LTR inside the RTL row so «@» leads (same as the profile header). */
     feedHandle: {
       ...typography.caption,
       ...resolveAppFontFace('400'),
@@ -675,6 +676,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       color: colors.textSecondary,
       flexShrink: POST_HANDLE_FLEX_SHRINK,
       minWidth: POST_HANDLE_MIN_WIDTH,
+      writingDirection: 'ltr',
     },
     feedTime: {
       ...typography.caption,
@@ -684,11 +686,14 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       color: colors.textSecondary,
       flexShrink: 0,
     },
+    /** Detail header «@username»: LTR, hugging the inline start (right in Arabic) like the profile header. */
     handle: {
       ...typography.caption,
       ...resolveAppFontFace('400'),
       color: colors.textMuted,
       flexShrink: 1,
+      writingDirection: 'ltr',
+      alignSelf: 'flex-start',
     },
     ratingMini: {
       alignItems: 'center',
