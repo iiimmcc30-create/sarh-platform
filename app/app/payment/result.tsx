@@ -36,7 +36,7 @@ const CONTEXT_COPY: Record<PaymentContext, ContextCopy> = {
     pendingSubtitle:
       'العملية قيد المعالجة في N-Genius. اضغط «إعادة التحقق» إذا لم يُحدَّث الحساب بعد.',
     primaryLabel: 'الملف الشخصي',
-    secondaryLabel: 'خدمات الترويج',
+    secondaryLabel: 'خدمات التعزيز',
   },
   listing_fee: {
     successTitle: 'تم الدفع بنجاح',
@@ -51,11 +51,11 @@ const CONTEXT_COPY: Record<PaymentContext, ContextCopy> = {
     primaryLabel: 'عرض الإعلان',
   },
   promotion: {
-    successTitle: 'تم تفعيل الترويج!',
+    successTitle: 'تم تفعيل التعزيز!',
     successSubtitle: 'تم تأكيد الدفع من N-Genius.',
-    pendingSubtitle: 'العملية قيد المعالجة. اضغط «إعادة التحقق» إذا لم يُفعَّل الترويج.',
+    pendingSubtitle: 'العملية قيد المعالجة. اضغط «إعادة التحقق» إذا لم يُفعَّل التعزيز.',
     primaryLabel: 'عرض الإعلان',
-    secondaryLabel: 'خدمات الترويج',
+    secondaryLabel: 'خدمات التعزيز',
   },
   boost: {
     successTitle: 'تم تفعيل الترقية!',
@@ -68,7 +68,7 @@ const CONTEXT_COPY: Record<PaymentContext, ContextCopy> = {
     successSubtitle: 'تم تأكيد عملية الدفع من N-Genius.',
     pendingSubtitle: 'العملية قيد المعالجة. اضغط «إعادة التحقق» إذا لم يُحدَّث الحساب.',
     primaryLabel: 'الملف الشخصي',
-    secondaryLabel: 'خدمات الترويج',
+    secondaryLabel: 'خدمات التعزيز',
   },
 };
 

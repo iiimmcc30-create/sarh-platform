@@ -34,7 +34,7 @@ export const FALLBACK_PROMOTION_PLANS: PromotionPlanOption[] = promotionPlansFro
 export const PROMOTION_META = {
   icon: 'rocket-outline',
   emoji: '🚀',
-  title: 'روّج إعلانك',
+  title: 'عزّز إعلانك',
   desc: 'زد وصول إعلانك ليظهر في أماكن متعددة داخل التطبيق ويحقق مشاهدات أكثر.',
   accent: 'promotion' as const,
 };
@@ -88,15 +88,15 @@ export function formatRemainingMs(ms: number): string {
 }
 
 export function promotionSuccessMessage(expiresAt?: string): string {
-  if (!expiresAt) return 'تم تفعيل ترويج إعلانك بنجاح.';
+  if (!expiresAt) return 'تم تفعيل تعزيز إعلانك بنجاح.';
   try {
     const label = new Date(expiresAt).toLocaleDateString('ar-SA', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
-    return `تم تفعيل ترويج إعلانك بنجاح حتى ${label}.`;
+    return `تم تفعيل تعزيز إعلانك بنجاح حتى ${label}.`;
   } catch {
-    return 'تم تفعيل ترويج إعلانك بنجاح.';
+    return 'تم تفعيل تعزيز إعلانك بنجاح.';
   }
 }

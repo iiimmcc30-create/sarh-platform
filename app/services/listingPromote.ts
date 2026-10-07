@@ -157,7 +157,7 @@ export function validatePromoteForm(
   _amount: number,
   durationHours: number,
 ): string | null {
-  if (!goal) return 'اختر هدف الترويج';
+  if (!goal) return 'اختر هدف التعزيز';
   const option = lookupPromoteCatalogOption(goal, { durationHours });
   if (!option) return 'اختر مدة صالحة من الكتالوج';
   return null;

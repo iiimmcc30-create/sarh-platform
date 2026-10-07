@@ -41,7 +41,7 @@ export const BOOST_TYPE_META: Record<
   promotion: {
     icon: 'rocket-outline',
     emoji: '🚀',
-    title: 'روّج إعلانك',
+    title: 'عزّز إعلانك',
     desc: 'زد وصول إعلانك ليظهر في أماكن متعددة داخل التطبيق ويحقق مشاهدات أكثر.',
     accent: 'promotion',
   },
@@ -105,8 +105,8 @@ export function boostSuccessMessage(boostType: string, expiresAt?: string): stri
   const expiry = expiresAt ? formatBoostExpiry(expiresAt) : '';
   if (boostType === 'promotion') {
     return expiry
-      ? `تم تفعيل ترويج إعلانك بنجاح حتى ${expiry}.`
-      : 'تم تفعيل ترويج إعلانك بنجاح.';
+      ? `تم تفعيل تعزيز إعلانك بنجاح حتى ${expiry}.`
+      : 'تم تفعيل تعزيز إعلانك بنجاح.';
   }
   if (boostType === 'both') {
     return expiry

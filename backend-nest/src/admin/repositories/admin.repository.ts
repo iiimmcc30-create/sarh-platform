@@ -973,7 +973,7 @@ export class AdminRepository {
       {
         key: 'features.paidPromotionEnabled',
         value: true,
-        labelAr: 'ترويج الإعلان (الظهور المدفوع)',
+        labelAr: 'تعزيز الإعلان (الظهور المدفوع)',
         category: 'paid_services',
       },
       {
@@ -1010,7 +1010,7 @@ export class AdminRepository {
       {
         key: 'pricing.promotion.per24h',
         value: 10,
-        labelAr: 'ترويج الظهور — الحد الأدنى للميزانية كل 24 ساعة (ر.س)',
+        labelAr: 'تعزيز الظهور — الحد الأدنى للميزانية كل 24 ساعة (ر.س)',
         category: 'pricing',
       },
       // Reach estimate factors for visibility promotion

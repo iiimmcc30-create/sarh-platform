@@ -48,7 +48,7 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(panel).not.toContain('قطاع الأخبار');
     expect(panel).not.toContain("route: '/news'");
     expect(panel).toContain("{ key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },");
-    expect(panel).toContain("label: 'الترويج'");
+    expect(panel).toContain("label: 'التعزيز'");
     expect(panel).toContain('مركز المعلومات');
     expect(panel).toContain("route: '/settings/info'");
     expect(panel).toContain("route: '/support'");
@@ -70,7 +70,7 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     const profileAt = panel.indexOf("label: 'الملف الشخصي'");
     const createAt = panel.indexOf("label: 'إضافة عرض'");
     const verificationAt = panel.indexOf("label: 'Verification'");
-    const promoteAt = panel.indexOf("label: 'الترويج'");
+    const promoteAt = panel.indexOf("label: 'التعزيز'");
     const infoAt = panel.indexOf("label: 'مركز المعلومات'");
     const settingsAt = panel.indexOf("label: 'الإعدادات والخصوصية'");
     const helpAt = panel.indexOf("label: 'مركز المساعدة'");

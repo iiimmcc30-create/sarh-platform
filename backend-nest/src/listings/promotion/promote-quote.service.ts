@@ -75,7 +75,7 @@ export class PromoteQuoteService {
       durationHours: input.durationHours,
     });
     if (!priced || priced.goal === 'both') {
-      throwApi(400, 'invalid_duration', 'مدة أو هدف الترويج غير صالح');
+      throwApi(400, 'invalid_duration', 'مدة أو هدف التعزيز غير صالح');
     }
 
     const amount = priced.amount;

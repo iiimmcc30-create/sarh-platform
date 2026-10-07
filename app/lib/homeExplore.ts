@@ -54,7 +54,7 @@ const CATALOG: Record<
   },
   promote: {
     titleAr: 'تعزيز سرح',
-    descriptionAr: 'روّج إعلانك وزد ظهوره',
+    descriptionAr: 'عزّز إعلانك وزد ظهوره',
     icon: 'megaphone-outline',
     route: '/promote',
     requiresPaidServices: true,

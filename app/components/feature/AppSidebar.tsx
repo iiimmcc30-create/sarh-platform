@@ -30,7 +30,7 @@ const PRIMARY_ITEMS: NavItem[] = [
   { key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },
   { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
   { key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },
-  { key: 'promote', icon: 'megaphone-outline', label: 'الترويج', route: '/promote' },
+  { key: 'promote', icon: 'megaphone-outline', label: 'التعزيز', route: '/promote' },
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [

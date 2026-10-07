@@ -69,7 +69,7 @@ export class PaidServicesService {
   async assertPromotionEnabled() {
     const flags = await this.getFlags();
     if (!flags.promotionEnabled) {
-      throwApi(403, 'service_disabled', 'خدمة ترويج الإعلان غير مفعّلة حالياً');
+      throwApi(403, 'service_disabled', 'خدمة تعزيز الإعلان غير مفعّلة حالياً');
     }
   }
 

@@ -51,7 +51,7 @@ type Notice = { tone: 'error' | 'info'; text: string };
 type LoadState = 'loading' | 'ready' | 'error';
 type Styles = ReturnType<typeof createStyles>;
 
-const TITLE = 'روّج إعلانك';
+const TITLE = 'عزّز إعلانك';
 const SUBTITLE = 'اختر طريقة لإبراز إعلانك. الدفع مرة واحدة بدون تجديد تلقائي.';
 
 function firstSelection(goal: PromotionGoal | null): Selection | null {
@@ -302,13 +302,13 @@ export default function ListingPromoteScreen() {
               <Row gap="sm" align="start" style={styles.noticeInfo}>
                 <AppIcon name="information-outline" size={18} color={colors.textMuted} />
                 <AppText variant="caption" color="textMuted" style={styles.fill}>
-                  خدمات الترويج غير مفعّلة حالياً. تواصل مع الإدارة إن لزم.
+                  خدمات التعزيز غير مفعّلة حالياً. تواصل مع الإدارة إن لزم.
                 </AppText>
               </Row>
             ) : null}
 
             {enabledServices.length > 0 ? (
-              <Section title="اختر نوع الترويج" gap="md">
+              <Section title="اختر نوع التعزيز" gap="md">
                 {enabledServices.map((svc) => (
                   <ServiceBlock
                     key={svc.goal}
@@ -414,7 +414,7 @@ const ListingPreview = memo(function ListingPreview({ listing, active, styles, c
   const statusParts = [
     active.featured ? 'مميّز' : null,
     active.pinned ? 'مثبّت' : null,
-    active.visibility ? 'مروّج' : null,
+    active.visibility ? 'معزّز' : null,
   ].filter(Boolean);
 
   return (
@@ -451,7 +451,7 @@ const ListingPreview = memo(function ListingPreview({ listing, active, styles, c
           </Row>
         ) : null}
         <AppText variant="caption" color="textMuted" numberOfLines={1}>
-          {statusParts.length ? `مفعّل الآن: ${statusParts.join('، ')}` : 'غير مروّج حالياً'}
+          {statusParts.length ? `مفعّل الآن: ${statusParts.join('، ')}` : 'غير معزّز حالياً'}
         </AppText>
       </Stack>
     </Row>

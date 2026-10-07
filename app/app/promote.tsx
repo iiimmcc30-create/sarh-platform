@@ -112,7 +112,7 @@ export default function PromoteHubScreen() {
               <View style={styles.heroIconWrap}>
                 <AppIcon name="rocket-outline" size={28} color={colors.electric} />
               </View>
-              <AppText variant="heading3" color="textPrimary" align="center">اختر إعلاناً لبدء الترويج</AppText>
+              <AppText variant="heading3" color="textPrimary" align="center">اختر إعلاناً لبدء التعزيز</AppText>
               <AppText variant="caption" color="textMuted" align="center" style={styles.heroSub}>
                 زِد ظهور إعلانك، ثبّته في الأعلى، أو أضف نجمة مميزة — كل خيار له تأثير مختلف
               </AppText>
@@ -126,7 +126,7 @@ export default function PromoteHubScreen() {
                   <AppIcon name="megaphone-outline" size={36} color={colors.textMuted} />
                 </View>
                 <AppText variant="label" color="textPrimary" align="center">لا توجد إعلانات بعد</AppText>
-                <AppText variant="caption" color="textMuted" align="center" style={styles.emptySub}>انشر إعلاناً في السوق ثم عد لترويجه ورفع مشاهداته</AppText>
+                <AppText variant="caption" color="textMuted" align="center" style={styles.emptySub}>انشر إعلاناً في السوق ثم عد لتعزيزه ورفع مشاهداته</AppText>
                 <SarhButton
                   title="إنشاء إعلان"
                   onPress={() => void navigateToCreateListing()}
@@ -170,7 +170,7 @@ export default function PromoteHubScreen() {
                               setStatsListingId(listing.id);
                             }}
                             hitSlop={8}
-                            accessibilityLabel="إحصائيات الترويج"
+                            accessibilityLabel="إحصائيات التعزيز"
                           >
                             <AppIcon name="stats-chart-outline" size={16} color="#7C3AED" />
                           </Pressable>
@@ -195,7 +195,7 @@ export default function PromoteHubScreen() {
                               </AppText>
                             ) : null}
                             {isListingPromotedActive(listing) ? (
-                              <AppText variant="micro" style={styles.reachText}>ترويج نشط — زيادة ظهور</AppText>
+                              <AppText variant="micro" style={styles.reachText}>تعزيز نشط — زيادة ظهور</AppText>
                             ) : null}
                           </View>
 

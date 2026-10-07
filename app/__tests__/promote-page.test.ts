@@ -93,7 +93,7 @@ describe('promote page helpers', () => {
 
 describe('promote page screen', () => {
   it('uses the new header copy', () => {
-    expect(screen).toContain('روّج إعلانك');
+    expect(screen).toContain('عزّز إعلانك');
   });
 
   it('shows a skeleton while loading and an error state with retry', () => {

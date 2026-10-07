@@ -45,7 +45,7 @@ export function PromotionStatsSheet({
   const rows = [
     { key: 'impressions', label: 'مرات الظهور', value: stats?.impressions ?? 0, icon: 'eye-outline' },
     { key: 'clicks', label: 'النقرات', value: stats?.clicks ?? 0, icon: 'hand-left-outline' },
-    { key: 'views', label: 'زيارات الترويج', value: stats?.promotedViews ?? 0, icon: 'trending-up-outline' },
+    { key: 'views', label: 'زيارات التعزيز', value: stats?.promotedViews ?? 0, icon: 'trending-up-outline' },
     {
       key: 'increase',
       label: 'زيادة المشاهدات',
@@ -60,7 +60,7 @@ export function PromotionStatsSheet({
         <Pressable style={[styles.sheet, getRtlDirection()]} onPress={(e) => e.stopPropagation()}>
           <View style={[styles.header, getRtlRow()]}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, getRtlText()]}>إحصائيات الترويج</Text>
+              <Text style={[styles.title, getRtlText()]}>إحصائيات التعزيز</Text>
               {listingTitle ? (
                 <Text style={[styles.subtitle, getRtlText()]} numberOfLines={1}>
                   {listingTitle}
@@ -81,7 +81,7 @@ export function PromotionStatsSheet({
                 <Text style={styles.remainingValue}>
                   {stats?.isPromoted
                     ? formatRemainingMs(stats.remainingMs)
-                    : 'لا يوجد ترويج نشط'}
+                    : 'لا يوجد تعزيز نشط'}
                 </Text>
               </View>
 

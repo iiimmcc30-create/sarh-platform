@@ -45,7 +45,7 @@ export const PROMOTE_SERVICE_COPY: readonly PromoteServiceCopy[] = [
   {
     goal: 'visibility',
     icon: 'rocket-outline',
-    title: 'ترويج الإعلان',
+    title: 'تعزيز الإعلان',
     desc: 'ظهور أوسع لإعلانك',
     outcome: 'قوة ظهور أعلى في الخوارزمية بدون تغيير شكله',
   },

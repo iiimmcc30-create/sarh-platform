@@ -14,7 +14,7 @@ export const PROMOTION_TIERS: Record<PromotionTierKey, PromotionTierConfig> = {
   standard: {
     key: 'standard',
     weight: 100,
-    labelAr: 'ترويج',
+    labelAr: 'تعزيز',
     descriptionAr:
       'زد وصول إعلانك ليظهر في أماكن متعددة داخل التطبيق ويحقق مشاهدات أكثر.',
   },

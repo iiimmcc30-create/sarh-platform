@@ -28,7 +28,7 @@ export const PAID_SERVICE_SETTING_DEFAULTS = [
   {
     key: PAID_SERVICE_SETTING_KEYS.promotion,
     value: true,
-    labelAr: 'ترويج الإعلان (الظهور المدفوع)',
+    labelAr: 'تعزيز الإعلان (الظهور المدفوع)',
     category: 'paid_services',
   },
   {

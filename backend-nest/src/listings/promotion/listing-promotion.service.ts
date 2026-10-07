@@ -165,7 +165,7 @@ export class ListingPromotionService {
       durationDays: options.durationDays,
     });
     if (!priced) {
-      throwApi(400, 'invalid_duration', 'مدة الترويج غير صالحة');
+      throwApi(400, 'invalid_duration', 'مدة التعزيز غير صالحة');
     }
 
     const durationHours = priced.durationHours;
@@ -178,7 +178,7 @@ export class ListingPromotionService {
 
     const currency = 'SAR';
     const orderRef = buildOrderRef(user.userId);
-    const descriptionAr = `ترويج إعلان: ${listing.arabicTitle} — ${durationHours} ساعة (${amount} ر.س)`;
+    const descriptionAr = `تعزيز إعلان: ${listing.arabicTitle} — ${durationHours} ساعة (${amount} ر.س)`;
 
     const prismaMethod = [
       'mada',
@@ -356,8 +356,8 @@ export class ListingPromotionService {
     await this.notifications.notifyUser({
       userId: promotion.userId,
       type: 'system',
-      titleAr: '🚀 تم تفعيل ترويج إعلانك',
-      bodyAr: `إعلانك "${promotion.listing?.arabicTitle ?? ''}" أصبح مروجاً حتى ${expires.toLocaleDateString('ar-SA')}.`,
+      titleAr: '🚀 تم تفعيل تعزيز إعلانك',
+      bodyAr: `إعلانك "${promotion.listing?.arabicTitle ?? ''}" أصبح معززاً حتى ${expires.toLocaleDateString('ar-SA')}.`,
       data: { promotionId, listingId: promotion.listingId },
     });
 
@@ -381,7 +381,7 @@ export class ListingPromotionService {
     const promotion = await this.prisma.listingPromotion.findFirst({
       where: { id: promotionId, userId: user.userId },
     });
-    if (!promotion) throwApi(404, 'not_found', 'الترويج غير موجود');
+    if (!promotion) throwApi(404, 'not_found', 'التعزيز غير موجود');
     if (promotion.status === 'paid') return { promotionId, status: 'paid' };
 
     await this.prisma.payment.updateMany({
