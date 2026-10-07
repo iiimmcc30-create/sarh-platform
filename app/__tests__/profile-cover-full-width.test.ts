@@ -17,7 +17,9 @@ describe('Profile cover: full screen width', () => {
   it('profile cover band runs edge to edge (no gutter, no side margin, square corners)', () => {
     // Cover lives in a gutter-less body, outside the inset identity block.
     expect(layout).toContain('gutter={false}');
-    const coverIdx = layout.indexOf('<View style={styles.coverBand} testID="profile-cover">');
+    const coverIdx = layout.indexOf(
+      '<View style={[styles.coverBand, { height: PROFILE_COVER_HEIGHT + insets.top }]} testID="profile-cover">',
+    );
     expect(coverIdx).toBeGreaterThan(-1);
     const band = styleBlock(layout, 'coverBand');
     expect(band).toContain("width: '100%'");
@@ -36,9 +38,9 @@ describe('Profile cover: full screen width', () => {
     expect(src('app/users/[id].tsx')).toContain('<ProfileScreenLayout');
   });
 
-  it('cover toolbar buttons keep their size and stay inside the gutter', () => {
-    expect(layout).toContain('<Row align="center" justify="between" style={[styles.toolbar, inset]}>');
-    expect(layout).toContain("chrome={user.coverImage ? 'glass' : 'ghost'}");
+  it('cover toolbar buttons stay inside the gutter and below the top inset', () => {
+    expect(layout).toContain('style={[styles.toolbar, inset, { paddingTop: spacing.xs + insets.top }]}');
+    expect(layout).not.toContain("chrome={user.coverImage ? 'glass' : 'ghost'}");
   });
 });
 

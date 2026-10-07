@@ -12,6 +12,8 @@ import {
 export type SarhBackButtonProps = {
   onPress?: () => void;
   size?: SarhIconButtonSize;
+  /** Glyph size override (defaults to the size token). */
+  iconSize?: number;
   chrome?: SarhIconButtonChrome;
   color?: string;
   accessibilityLabel?: string;
@@ -26,6 +28,7 @@ export type SarhBackButtonProps = {
 export function SarhBackButton({
   onPress,
   size = 'md',
+  iconSize,
   chrome = 'ghost',
   color,
   accessibilityLabel = 'رجوع',
@@ -60,7 +63,7 @@ export function SarhBackButton({
         return (
           <AppIcon
             name={rtlBackIcon()}
-            size={metrics.icon}
+            size={iconSize ?? metrics.icon}
             color={color ?? palette.contentColor}
             strokeWidth={2.5}
           />

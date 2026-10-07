@@ -68,16 +68,16 @@ describe('profile header', () => {
     }
   });
 
-  it('replaces the pencil with a circular outline Back button', () => {
+  it('replaces the pencil with a circular glass Back button', () => {
     expect(layout).not.toContain('icon="pencil"');
     expect(layout).not.toMatch(/pencil/);
     expect(layout).toContain('<SarhBackButton');
-    expect(layout).toContain('style={styles.backCircle}');
-    const back = layout.slice(layout.indexOf('backCircle: {'), layout.indexOf('},', layout.indexOf('backCircle: {')));
-    expect(back).toContain('borderWidth: 1');
+    expect(layout).toContain('style={styles.coverIcon}');
+    const back = layout.slice(layout.indexOf('coverIcon: {'), layout.indexOf('},', layout.indexOf('coverIcon: {')));
+    expect(back).toContain('borderWidth: StyleSheet.hairlineWidth');
     expect(back).not.toMatch(/shadow|elevation|gradient/i);
-    // Back keeps its 40pt circle; only the Share / Edit pills grew slightly (40 → 44).
-    expect(PROFILE_BACK_BUTTON_SIZE).toBe(40);
+    // Cover controls are one size step smaller glass circles (40 → 36).
+    expect(PROFILE_BACK_BUTTON_SIZE).toBe(36);
   });
 
   it('uses X-style outline pill tokens', () => {
@@ -156,7 +156,9 @@ describe('profile header', () => {
       expect(visitorBlock).not.toContain('onEditProfile');
       // Restored exactly as before b2a9b78: gap sm, original flex style.
       expect(visitorBlock).toContain('<Row gap="sm" align="center" style={[styles.actionsRow, inset]}>');
-      expect(visitorBlock.match(/style=\{styles\.actionBtnFlex\}/g)).toHaveLength(2);
+      // Same flex style; outline (secondary) pills add only the quick-access border colour.
+      expect(visitorBlock).toContain('style={[styles.actionBtnFlex, styles.pillBorder]}');
+      expect(visitorBlock).toContain('style={[styles.actionBtnFlex, isFollowing ? styles.pillBorder : null]}');
       // Share and Edit pills appear exactly once in the whole layout (own row only).
       expect(layout.match(/title=\{PROFILE_SHARE_LABEL\}/g)).toHaveLength(1);
       expect(layout.match(/title=\{PROFILE_EDIT_LABEL\}/g)).toHaveLength(1);

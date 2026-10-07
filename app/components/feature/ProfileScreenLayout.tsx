@@ -6,15 +6,28 @@ import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { ProfileTabs } from '@/components/feature/ProfileTabs';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { ProfileActionsSkeleton, ProfileHeaderSkeleton } from '@/components/ui/skeleton';
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { Animated, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Animated,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ds } from '@/constants/designSystem';
 import {
   AppText,
   SarhBackButton,
   SarhButton,
   SarhIconButton,
-  resolveSarhButtonColorsForScheme,
+  resolveSarhIconButtonColors,
 } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { duration } from '@/design-system/tokens';
@@ -31,12 +44,16 @@ import {
   PROFILE_ACTION_PILL_PADDING_H,
   PROFILE_ACTION_PILL_SHAPE,
   PROFILE_ACTION_PILL_VARIANT,
-  PROFILE_BACK_BUTTON_SIZE,
   PROFILE_BACK_LABEL,
+  PROFILE_COVER_ICON_BUTTON_SIZE,
+  PROFILE_COVER_ICON_GLYPH,
   PROFILE_EDIT_LABEL,
   PROFILE_SHARE_LABEL,
   PROFILE_STATS_HEIGHT,
+  profileStatusBarStyle,
+  shouldPinProfileTabs,
 } from '@/lib/profileHeader';
+import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
 
 export type { ProfileTabKey };
@@ -146,8 +163,9 @@ export function ProfileScreenLayout({
   onAdsNearEnd,
   loading = false,
 }: ProfileScreenLayoutProps) {
-  const { colors: themeColors, scheme } = useTheme();
+  const { colors: themeColors, scheme, isDark } = useTheme();
   const { gutter } = useLayout();
+  const insets = useSafeAreaInsets();
   const { onChromeScroll } = useAppChromeScroll();
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
   const { width: windowWidth } = useWindowDimensions();
@@ -167,6 +185,43 @@ export function ProfileScreenLayout({
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerTranslate = useRef(new Animated.Value(12)).current;
   const isOwnProfile = mode === 'own';
+
+  /**
+   * Full-bleed cover (X-style): the screen ignores the top safe-area edge so the cover
+   * runs behind the status bar; the toolbar and every text block still respect
+   * `insets.top`. The status-bar style is owned here only while this screen is focused.
+   */
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
+  const [tabsPinned, setTabsPinned] = useState(false);
+  const tabsPinnedRef = useRef(false);
+  const tabsTopRef = useRef<number | null>(null);
+  const onTabsLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      // Natural offset, without the pinned spacer (which shifts the strip up by the inset).
+      tabsTopRef.current = event.nativeEvent.layout.y + (tabsPinnedRef.current ? insets.top : 0);
+    },
+    [insets.top],
+  );
+  const updateTabsPinned = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const next = shouldPinProfileTabs(event.nativeEvent.contentOffset.y, tabsTopRef.current, insets.top);
+      if (next === tabsPinnedRef.current) return;
+      tabsPinnedRef.current = next;
+      setTabsPinned(next);
+    },
+    [insets.top],
+  );
+  const statusBarStyle = profileStatusBarStyle({
+    hasCoverImage: Boolean(user.coverImage),
+    isDark,
+    tabsPinned,
+  });
 
   useEffect(() => {
     Animated.parallel([
@@ -226,7 +281,8 @@ export function ProfileScreenLayout({
   const inset = { paddingHorizontal: gutter };
 
   return (
-    <Screen edges={['top']} pattern={false}>
+    <Screen edges={[]} pattern={false}>
+      {focused ? <StatusBar style={statusBarStyle} /> : null}
       <ScreenBody
         gutter={false}
         stickyHeaderIndices={[1]}
@@ -234,6 +290,7 @@ export function ProfileScreenLayout({
         padBottom="md"
         onScroll={(event) => {
           onChromeScroll(event);
+          updateTabsPinned(event);
           if (activeTab !== 'ads' || !onAdsNearEnd) return;
           if (isSellerListNearEnd(event.nativeEvent)) onAdsNearEnd();
         }}
@@ -243,18 +300,16 @@ export function ProfileScreenLayout({
               refreshing={refreshing}
               onRefresh={onRefresh}
               tintColor={themeColors.electricBright}
+              progressViewOffset={insets.top}
             />
           ) : undefined
         }
       >
-        <Animated.View
-          style={{
-            opacity: headerOpacity,
-            transform: [{ translateY: headerTranslate }],
-          }}
-        >
-          {/* Profile cover across the top; the toolbar sits on it and the avatar overlaps its bottom edge. */}
-          <View style={styles.coverBand} testID="profile-cover">
+        <Animated.View style={{ opacity: headerOpacity }}>
+          {/* Profile cover across the top, full bleed behind the status bar (no translate, so
+              no gap ever opens above it); the toolbar sits on it below the top inset and the
+              avatar overlaps its bottom edge. */}
+          <View style={[styles.coverBand, { height: PROFILE_COVER_HEIGHT + insets.top }]} testID="profile-cover">
             {user.coverImage ? (
               <Image
                 source={uriSource(user.coverImage)}
@@ -265,16 +320,21 @@ export function ProfileScreenLayout({
             ) : (
               <View style={[StyleSheet.absoluteFill, styles.coverDefault]} />
             )}
-          <Row align="center" justify="between" style={[styles.toolbar, inset]}>
+          <Row
+            align="center"
+            justify="between"
+            style={[styles.toolbar, inset, { paddingTop: spacing.xs + insets.top }]}
+          >
             <Row gap="xs" align="center" style={styles.toolbarSide}>
               {/* Back sits at the inline start (right in Arabic); the shared back button flips the chevron. */}
               {onBack ? (
                 <SarhBackButton
                   size="sm"
+                  chrome="glass"
+                  iconSize={PROFILE_COVER_ICON_GLYPH}
                   onPress={onBack}
-                  color={themeColors.textPrimary}
                   accessibilityLabel={PROFILE_BACK_LABEL}
-                  style={styles.backCircle}
+                  style={styles.coverIcon}
                 />
               ) : null}
             </Row>
@@ -283,8 +343,10 @@ export function ProfileScreenLayout({
               {mode === 'own' && onSettings ? (
                 <SarhIconButton
                   icon="settings-outline"
-                  chrome="ghost"
+                  chrome="glass"
                   size="sm"
+                  iconSize={PROFILE_COVER_ICON_GLYPH}
+                  style={styles.coverIcon}
                   onPress={onSettings}
                   accessibilityLabel="إعدادات الحساب"
                 />
@@ -292,8 +354,10 @@ export function ProfileScreenLayout({
               {onMenu ? (
                 <SarhIconButton
                   icon="menu-dots"
-                  chrome={user.coverImage ? 'glass' : 'ghost'}
+                  chrome="glass"
                   size="sm"
+                  iconSize={PROFILE_COVER_ICON_GLYPH}
+                  style={styles.coverIcon}
                   onPress={onMenu}
                   accessibilityLabel="المزيد"
                 />
@@ -302,6 +366,7 @@ export function ProfileScreenLayout({
           </Row>
           </View>
 
+          <Animated.View style={{ transform: [{ translateY: headerTranslate }] }}>
           {loading ? (
             <ProfileHeaderSkeleton style={inset} />
           ) : (
@@ -488,7 +553,7 @@ export function ProfileScreenLayout({
                   variant={PROFILE_ACTION_PILL_VARIANT}
                   shape={PROFILE_ACTION_PILL_SHAPE}
                   onPress={onShare}
-                  style={styles.pill}
+                  style={[styles.pill, styles.pillBorder]}
                 />
               ) : null}
               {onEditProfile ? (
@@ -497,7 +562,7 @@ export function ProfileScreenLayout({
                   variant={PROFILE_ACTION_PILL_VARIANT}
                   shape={PROFILE_ACTION_PILL_SHAPE}
                   onPress={onEditProfile}
-                  style={styles.pill}
+                  style={[styles.pill, styles.pillBorder]}
                 />
               ) : null}
             </Row>
@@ -515,7 +580,7 @@ export function ProfileScreenLayout({
                   shape="pill"
                   leftIcon="chatbubble-outline"
                   onPress={onMessage}
-                  style={styles.actionBtnFlex}
+                  style={[styles.actionBtnFlex, styles.pillBorder]}
                 />
               ) : null}
               {onFollow ? (
@@ -526,14 +591,22 @@ export function ProfileScreenLayout({
                   leftIcon={isFollowing ? 'checkmark-circle-outline' : 'person-add-outline'}
                   onPress={onFollow}
                   loading={followLoading}
-                  style={styles.actionBtnFlex}
+                  style={[styles.actionBtnFlex, isFollowing ? styles.pillBorder : null]}
                 />
               ) : null}
             </Row>
           ) : null}
+          </Animated.View>
         </Animated.View>
 
-        <View style={styles.tabsBar}>
+        <View
+          onLayout={onTabsLayout}
+          style={[
+            styles.tabsBar,
+            // Pinned: a top-inset spacer on the same surface keeps the tabs below the status bar.
+            tabsPinned ? { marginTop: spacing.md - insets.top, paddingTop: insets.top } : null,
+          ]}
+        >
           <ProfileTabs
             isOwnProfile={isOwnProfile}
             activeTab={activeTab}
@@ -569,8 +642,8 @@ export const PROFILE_COVER_HEIGHT = 112;
 export const PROFILE_AVATAR_COVER_OVERLAP = 44;
 
 function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
-  /** Same border/background as the DS secondary (outline) button used by the pills. */
-  const outline = resolveSarhButtonColorsForScheme(scheme, PROFILE_ACTION_PILL_VARIANT, 'default');
+  /** Glass chrome (translucent fill + light white hairline) for controls over the cover. */
+  const glass = resolveSarhIconButtonColors('default', 'glass');
   return StyleSheet.create({
     toolbar: {
       paddingTop: spacing.xs,
@@ -595,13 +668,15 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     toolbarSide: {
       minWidth: ds.iconBtn.md,
     },
-    backCircle: {
-      width: PROFILE_BACK_BUTTON_SIZE,
-      height: PROFILE_BACK_BUTTON_SIZE,
-      borderRadius: PROFILE_BACK_BUTTON_SIZE / 2,
-      borderWidth: 1,
-      borderColor: outline.borderColor,
-      backgroundColor: outline.backgroundColor,
+    /** Back / more / settings on the cover: round glass, one step smaller (fill comes from the glass chrome). */
+    coverIcon: {
+      width: PROFILE_COVER_ICON_BUTTON_SIZE,
+      height: PROFILE_COVER_ICON_BUTTON_SIZE,
+      minWidth: PROFILE_COVER_ICON_BUTTON_SIZE,
+      minHeight: PROFILE_COVER_ICON_BUTTON_SIZE,
+      borderRadius: PROFILE_COVER_ICON_BUTTON_SIZE / 2,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: glass.borderColor,
     },
     /** Avatar sits alone at the inline start; the row only reserves its visible lower part. */
     avatarRow: {
@@ -721,6 +796,10 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     actionBtnFlex: {
       flexGrow: 1,
       flexShrink: 0,
+    },
+    /** Outline pills on the profile: the softer quick-access hairline (colour only). */
+    pillBorder: {
+      borderColor: quickAccessBorderColor(scheme),
     },
     /** Equal-width outline pill (radius = height / 2 via shape="pill"). */
     pill: {

@@ -15,6 +15,8 @@ export type SarhIconButtonProps = {
   children?: ReactNode;
   onPress?: () => void;
   size?: SarhIconButtonSize;
+  /** Glyph size override (defaults to the size token). */
+  iconSize?: number;
   chrome?: SarhIconButtonChrome;
   disabled?: boolean;
   selected?: boolean;
@@ -31,6 +33,7 @@ export function SarhIconButton({
   children,
   onPress,
   size = 'md',
+  iconSize,
   chrome = 'solid',
   disabled = false,
   selected = false,
@@ -93,7 +96,7 @@ export function SarhIconButton({
         );
         if (children) return children;
         if (typeof icon === 'string') {
-          return <AppIcon name={icon} size={metrics.icon} color={palette.contentColor} />;
+          return <AppIcon name={icon} size={iconSize ?? metrics.icon} color={palette.contentColor} />;
         }
         return icon ?? null;
       }}
