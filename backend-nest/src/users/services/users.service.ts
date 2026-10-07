@@ -21,6 +21,7 @@ import {
   cooldownPayload,
   planProfileIdentityUpdate,
 } from '../lib/profile-change-cooldown';
+import { resolveVerifiedSince } from '../lib/verified-since';
 
 const MIN_RATING = 1;
 const MAX_RATING = 5;
@@ -654,6 +655,7 @@ export class UsersService {
       bio: user.bio,
       verified: user.verified,
       verifiedTier: user.verifiedTier ?? null,
+      verifiedSince: resolveVerifiedSince(user.verified, user.accountVerificationRequest),
       isAI: user.isAI ?? false,
       country: user.country,
       role: user.role,

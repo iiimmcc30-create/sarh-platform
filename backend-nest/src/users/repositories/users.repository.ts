@@ -21,6 +21,8 @@ const listUserSelect = {
 
 const profileSelect = {
   id: true,
+  /** Read-only: approval time of the account verification request ("verified since"). */
+  accountVerificationRequest: { select: { status: true, reviewedAt: true } },
   username: true,
   displayName: true,
   arabicName: true,
