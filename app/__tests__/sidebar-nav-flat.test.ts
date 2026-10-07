@@ -86,7 +86,10 @@ describe('Sidebar + bottom nav + profile/settings flatten', () => {
     expect(infoAt).toBeGreaterThan(promoteAt);
     expect(settingsAt).toBeGreaterThan(infoAt);
     expect(helpAt).toBeGreaterThan(settingsAt);
-    expect(panel).toContain('variant="bodySmall"');
+    // Section text one step smaller: secondary bodySmall (14) → caption (12), primary 20 → 18.
+    expect(panel).toContain('variant="caption"');
+    expect(panel).not.toContain('variant="bodySmall"');
+    expect(panel).toMatch(/rowLabel: \{\s*\.\.\.typography\.sectionHeading,\s*fontSize: typography\.cardHeadingLarge\.fontSize,\s*lineHeight: typography\.cardHeadingLarge\.lineHeight,/);
     expect(panel).toContain('color="textSecondary"');
     expect(panel).toContain('size={20}');
     expect(panel).toContain('size={24}');

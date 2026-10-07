@@ -142,7 +142,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             accessibilityLabel={item.label}
           >
             <AppIcon name={item.icon} size={20} color={colors.textPrimary} />
-            <DsText variant="bodySmall" color="textSecondary" style={styles.secondaryLabel}>
+            <DsText variant="caption" color="textSecondary" style={styles.secondaryLabel}>
               {item.label}
             </DsText>
           </Pressable>
@@ -227,8 +227,11 @@ function createStyles(colors: ThemeColors) {
       minHeight: 56,
       paddingVertical: 12,
     },
+    /** One step under sectionHeading (20 → 18), same bold face. */
     rowLabel: {
       ...typography.sectionHeading,
+      fontSize: typography.cardHeadingLarge.fontSize,
+      lineHeight: typography.cardHeadingLarge.lineHeight,
       color: colors.textPrimary,
       flex: 1,
     },
