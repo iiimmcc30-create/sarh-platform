@@ -1,16 +1,16 @@
 import { Image } from '@/components/ui/AppImage';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { motion, radius, space } from '@/design-system';
-import { AppText, resolveSarhButtonColorsForScheme } from '@/design-system/components';
+import { AppText } from '@/design-system/components';
 import { Row } from '@/design-system/layout';
 import { useLayout } from '@/hooks/useLayout';
 import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
-  HOME_QUICK_ACCESS_CHIP_VARIANT,
   HOME_QUICK_ACCESS_ITEMS,
   resolveQuickAccessTileMetrics,
 } from '@/lib/homeQuickAccess';
+import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
 import { safePush } from '@/lib/safeNavigate';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -29,12 +29,10 @@ export function HomeQuickAccess() {
   // Same DS variant as the profile Share / Edit pills (SarhButton "secondary"):
   // dark pill + white label/icon + very subtle border in dark, light surface in light.
   const { scheme } = useTheme();
-  const chip = resolveSarhButtonColorsForScheme(scheme, HOME_QUICK_ACCESS_CHIP_VARIANT, 'default');
-  const chipPressed = resolveSarhButtonColorsForScheme(
-    scheme,
-    HOME_QUICK_ACCESS_CHIP_VARIANT,
-    'pressed',
-  );
+  // Bg + content from the secondary variant; border = the shared softer hairline
+  // (same as the market filter chips).
+  const chip = resolveQuickAccessSurface(scheme);
+  const chipPressed = resolveQuickAccessSurface(scheme, true);
   const styles = useThemedStyles(() => createStyles());
 
   return (

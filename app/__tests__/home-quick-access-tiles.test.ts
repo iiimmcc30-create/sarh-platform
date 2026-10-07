@@ -140,8 +140,10 @@ describe('Home quick access: chips share the profile Share / Edit pill variant',
   it('uses the same DS secondary button variant as the profile pills', () => {
     expect(catalog).toContain("export const HOME_QUICK_ACCESS_CHIP_VARIANT = 'secondary' as const;");
     expect(profileHeader).toContain("export const PROFILE_ACTION_PILL_VARIANT = 'secondary' as const;");
-    expect(quick).toContain('resolveSarhButtonColorsForScheme(scheme, HOME_QUICK_ACCESS_CHIP_VARIANT, \'default\')');
-    expect(quick).toMatch(/resolveSarhButtonColorsForScheme\(\s*scheme,\s*HOME_QUICK_ACCESS_CHIP_VARIANT,\s*'pressed',?\s*\)/);
+    // Resolved through the shared quick-access surface (secondary bg/content + softer border).
+    expect(src('lib/quickAccessSurface.ts')).toContain('HOME_QUICK_ACCESS_CHIP_VARIANT');
+    expect(quick).toContain('const chip = resolveQuickAccessSurface(scheme);');
+    expect(quick).toContain('const chipPressed = resolveQuickAccessSurface(scheme, true);');
     expect(quick).toContain('backgroundColor: (pressed ? chipPressed : chip).backgroundColor');
     expect(quick).toContain('borderColor: (pressed ? chipPressed : chip).borderColor');
   });

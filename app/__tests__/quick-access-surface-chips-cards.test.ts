@@ -18,33 +18,42 @@ const card = src('components/feature/ListingCard.tsx');
 describe('quick-access surface: filter chips + listing cards match the Home quick-access chips', () => {
   afterAll(() => applyThemeScheme('dark'));
 
-  it.each(['light', 'dark'] as const)('resolves the exact quick-access chip colours in %s', (scheme) => {
+  it.each(['light', 'dark'] as const)('uses the secondary bg/content with the softer border in %s', (scheme) => {
     applyThemeScheme(scheme);
     const chip = resolveSarhButtonColorsForScheme(scheme, HOME_QUICK_ACCESS_CHIP_VARIANT, 'default');
     const pressed = resolveSarhButtonColorsForScheme(scheme, HOME_QUICK_ACCESS_CHIP_VARIANT, 'pressed');
-    expect(resolveQuickAccessSurface(scheme)).toEqual(chip);
-    expect(resolveQuickAccessSurface(scheme, true)).toEqual(pressed);
+    const soft = scheme === 'dark' ? '#2F3336' : '#E6E8EB';
+    expect(resolveQuickAccessSurface(scheme)).toEqual({ ...chip, borderColor: soft });
+    expect(resolveQuickAccessSurface(scheme, true)).toEqual({ ...pressed, borderColor: soft });
   });
 
-  it('dark quick-access surface is the black pill with the subtle slate border', () => {
+  it('profile Share / Edit pills keep the stronger secondary border (not softened)', () => {
+    applyThemeScheme('dark');
+    expect(resolveSarhButtonColorsForScheme('dark', 'secondary', 'default').borderColor).toBe('#536471');
+    applyThemeScheme('light');
+    expect(resolveSarhButtonColorsForScheme('light', 'secondary', 'default').borderColor).toBe('#DDE1E6');
+  });
+
+  it('dark quick-access surface is the black pill with the soft hairline border', () => {
     applyThemeScheme('dark');
     expect(resolveQuickAccessSurface('dark')).toEqual({
       backgroundColor: '#020202',
-      borderColor: '#536471',
+      borderColor: '#2F3336',
       contentColor: '#E7E9EA',
     });
   });
 
-  it('light quick-access surface is white with the strong light border', () => {
+  it('light quick-access surface is white with the soft light border', () => {
     applyThemeScheme('light');
     const surface = resolveQuickAccessSurface('light');
     expect(surface.backgroundColor).toBe('#FFFFFF');
-    expect(surface.borderColor).toBe('#DDE1E6');
+    expect(surface.borderColor).toBe('#E6E8EB');
   });
 
   it('Home quick access still uses the same SarhButton variant', () => {
     expect(HOME_QUICK_ACCESS_CHIP_VARIANT).toBe('secondary');
-    expect(quick).toContain('HOME_QUICK_ACCESS_CHIP_VARIANT');
+    expect(quick).toContain('resolveQuickAccessSurface(scheme)');
+    expect(quick).toContain('borderColor: (pressed ? chipPressed : chip).borderColor');
   });
 
   it('shared filter chips (SarhChip filter) read idle bg / border / label / icon from quick access', () => {
@@ -77,7 +86,7 @@ describe('quick-access surface: filter chips + listing cards match the Home quic
     expect(card).toMatch(/listRow: \{[^}]*backgroundColor: quickAccess\.backgroundColor,/);
     expect(card).toMatch(/listRowChrome: \{[^}]*borderColor: colors\.borderHairline,/);
     expect(card).toMatch(/harajCard: \{[^}]*backgroundColor: quickAccess\.backgroundColor,[^}]*borderColor: colors\.borderHairline,/);
-    // Softer than the quick-access chip border (#536471 in dark).
+    // Card keeps the theme hairline token directly.
     expect(card).not.toContain('quickAccess.borderColor');
     expect(card).not.toContain("backgroundColor: _scheme === 'light' ? '#FFFFFF' : colors.bgSurface");
   });
