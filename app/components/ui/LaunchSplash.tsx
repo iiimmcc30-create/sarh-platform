@@ -1,11 +1,13 @@
 import { sarh } from '@/constants/sarhTokens';
 import { fontFamily } from '@/design-system/tokens/typography';
 import {
+  launchSplashChannels,
+  launchSplashDrawEdges,
   launchSplashFallbackMs,
   LAUNCH_LOGO_START_SCALE,
   LAUNCH_SPLASH_TIMING,
-  SARH_LOGO_PATH_LENGTHS,
   launchSplashLayout,
+  mapTimelineRange,
   shouldExitLaunchSplash,
 } from '@/lib/launchSplash';
 import { markPerf } from '@/lib/perfDev';
@@ -30,8 +32,6 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-
 /**
  * Always the app-icon look, in Light and Dark alike: reference black surface with the
  * white waves and white names. Matches the native splash (app.json, #020202). No gradient.
@@ -40,6 +40,7 @@ const SPLASH_BG = sarh.color.darkBackground;
 const SPLASH_INK = SARH_LOGO_INK_DARK;
 /** Outline width while drawing (viewBox units of the 611×417 mark). */
 const DRAW_STROKE = 5;
+const viewBox = `0 0 ${SARH_LOGO_MARK_VIEWBOX_WIDTH} ${SARH_LOGO_MARK_VIEWBOX_HEIGHT}`;
 
 type LaunchSplashProps = {
   /** Fonts loaded (or boot timed out) — safe to hide the native splash. */
@@ -49,7 +50,6 @@ type LaunchSplashProps = {
 };
 
 const easeOut = Easing.out(Easing.cubic);
-const easeInOut = Easing.inOut(Easing.cubic);
 
 /**
  * In-app launch splash. Sits above the navigator so routing (auth, onboarding,
@@ -57,7 +57,12 @@ const easeInOut = Easing.inOut(Easing.cubic);
  * only fades away once the animation finished and boot is ready.
  *
  * Hand-off: the native splash (plain #020202 in both schemes) stays until this overlay's
- * first layout (same black), then `SplashScreen.hideAsync()` — no flash.
+ * first layout (same black, nothing drawn yet), then `SplashScreen.hideAsync()` — no flash.
+ *
+ * Smoothness: the intro is ONE native-driven timeline (see `launchSplashChannels`). Only
+ * transform/opacity are animated — the outline is revealed by a sliding clip window
+ * instead of a JS-driven `strokeDashoffset` — so the logo never stalls while the JS
+ * thread mounts the app underneath (auth restore, routing, first screen).
  */
 export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady }: LaunchSplashProps) {
   const { width, height } = useWindowDimensions();
@@ -73,11 +78,8 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
   const startedRef = useRef(false);
 
   const [values] = useState(() => ({
-    draw: SARH_LOGO_PATH_LENGTHS.map((len) => new Animated.Value(len)),
-    fill: new Animated.Value(0),
-    settle: new Animated.Value(0),
-    title: new Animated.Value(0),
-    subtitle: new Animated.Value(0),
+    /** Whole intro: 0 → 1 on the UI thread. */
+    timeline: new Animated.Value(0),
     exit: new Animated.Value(1),
   }));
 
@@ -99,63 +101,13 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
     startedRef.current = true;
     setStarted(true);
 
-    const t = LAUNCH_SPLASH_TIMING;
-    const intro = reduceMotion
-      ? Animated.sequence([
-          Animated.parallel([
-            Animated.timing(values.title, { toValue: 1, duration: t.reducedTextDuration, useNativeDriver: true }),
-            Animated.timing(values.subtitle, { toValue: 1, duration: t.reducedTextDuration, useNativeDriver: true }),
-          ]),
-          Animated.delay(t.reducedHold),
-        ])
-      : Animated.sequence([
-          Animated.parallel([
-            ...values.draw.map((v, i) =>
-              Animated.timing(v, {
-                toValue: 0,
-                delay: t.draw[i][0],
-                duration: t.draw[i][1],
-                easing: easeInOut,
-                useNativeDriver: false,
-              }),
-            ),
-            Animated.timing(values.fill, {
-              toValue: 1,
-              delay: t.fillDelay,
-              duration: t.fillDuration,
-              easing: easeOut,
-              useNativeDriver: false,
-            }),
-            Animated.timing(values.settle, {
-              toValue: 1,
-              delay: t.settleDelay,
-              duration: t.settleDuration,
-              easing: easeOut,
-              useNativeDriver: true,
-            }),
-            Animated.timing(values.title, {
-              toValue: 1,
-              delay: t.titleDelay,
-              duration: t.textDuration,
-              easing: easeOut,
-              useNativeDriver: true,
-            }),
-            Animated.timing(values.subtitle, {
-              toValue: 1,
-              delay: t.subtitleDelay,
-              duration: t.textDuration,
-              easing: easeOut,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.delay(t.holdAfter),
-        ]);
-
-    if (reduceMotion) {
-      values.draw.forEach((v) => v.setValue(0));
-      values.fill.setValue(1);
-      values.settle.setValue(1);
-    }
+    // One linear native timeline; every channel is a (sampled-easing) interpolation of it.
+    const intro = Animated.timing(values.timeline, {
+      toValue: 1,
+      duration: launchSplashChannels(reduceMotion).totalMs,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
 
     // Exit waits for the intro's own completion callback (finished=true) — never a
     // parallel timer. The fallback below only covers an interrupted animation.
@@ -195,24 +147,42 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
     });
   }, [animationDone, bootReady, exiting, values]);
 
+  // Interpolations are built once per layout / motion mode (stable native nodes).
+  const anim = useMemo(() => {
+    const ch = launchSplashChannels(Boolean(reduceMotion));
+    const tl = values.timeline;
+    const W = layout.logoWidth;
+    // Before settling, the hidden text still reserves its space (no layout jump);
+    // the mark is shifted down so it starts optically centred, then rises into place.
+    const textBlock = layout.logoGap + layout.titleLineHeight + layout.textGap + layout.subtitleLineHeight;
+    const textRise = (range: typeof ch.title) => ({
+      opacity: tl.interpolate({ ...range, extrapolate: 'clamp' }),
+      transform: [{ translateY: tl.interpolate({ ...mapTimelineRange(range, 8, 0), extrapolate: 'clamp' }) }],
+    });
+    return {
+      logoTransform: [
+        { translateY: tl.interpolate({ ...mapTimelineRange(ch.settle, textBlock / 2, 0), extrapolate: 'clamp' }) },
+        { scale: tl.interpolate({ ...mapTimelineRange(ch.settle, LAUNCH_LOGO_START_SCALE, 1), extrapolate: 'clamp' }) },
+      ],
+      fillOpacity: tl.interpolate({ ...ch.fill, extrapolate: 'clamp' }),
+      strokeOpacity: tl.interpolate({ ...mapTimelineRange(ch.fill, 1, 0), extrapolate: 'clamp' }),
+      // Left → right reveal per wave: the clip window slides right while its content
+      // slides left by the same amount, so the outline stays put and appears progressively.
+      wipes: ch.draw.map((range, i) => {
+        const [from, to] = launchSplashDrawEdges(i, W, SARH_LOGO_MARK_VIEWBOX_WIDTH);
+        return {
+          window: tl.interpolate({ ...mapTimelineRange(range, from - W, to - W), extrapolate: 'clamp' }),
+          content: tl.interpolate({ ...mapTimelineRange(range, W - from, W - to), extrapolate: 'clamp' }),
+        };
+      }),
+      titleStyle: textRise(ch.title),
+      subtitleStyle: textRise(ch.subtitle),
+    };
+  }, [layout, reduceMotion, values]);
+
   if (gone) return null;
 
-  // Before settling, the hidden text still reserves its space (no layout jump);
-  // the mark is shifted down so it starts optically centred, then rises into place.
-  const textBlock = layout.logoGap + layout.titleLineHeight + layout.textGap + layout.subtitleLineHeight;
-  const logoTransform = [
-    {
-      translateY: values.settle.interpolate({ inputRange: [0, 1], outputRange: [textBlock / 2, 0] }),
-    },
-    {
-      scale: values.settle.interpolate({ inputRange: [0, 1], outputRange: [LAUNCH_LOGO_START_SCALE, 1] }),
-    },
-  ];
-  const textRise = (v: Animated.Value) => ({
-    opacity: v,
-    transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
-  });
-  const strokeOpacity = values.fill.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const { logoTransform, strokeOpacity, fillOpacity, wipes, titleStyle, subtitleStyle } = anim;
 
   return (
     <Animated.View
@@ -227,30 +197,46 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
       <StatusBar style="light" />
       <View style={styles.group}>
         <Animated.View style={{ width: layout.logoWidth, height: layout.logoHeight, transform: logoTransform }}>
-          <Svg
-            width={layout.logoWidth}
-            height={layout.logoHeight}
-            viewBox={`0 0 ${SARH_LOGO_MARK_VIEWBOX_WIDTH} ${SARH_LOGO_MARK_VIEWBOX_HEIGHT}`}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {SARH_LOGO_MARK_PATHS.map((d, i) => {
-              return (
-                <AnimatedPath
-                  key={i}
-                  d={d}
-                  fill={SPLASH_INK}
-                  fillOpacity={values.fill}
-                  stroke={SPLASH_INK}
-                  strokeOpacity={strokeOpacity}
-                  strokeWidth={DRAW_STROKE}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  strokeDasharray={[SARH_LOGO_PATH_LENGTHS[i], SARH_LOGO_PATH_LENGTHS[i]]}
-                  strokeDashoffset={values.draw[i]}
-                />
-              );
-            })}
-          </Svg>
+          {/* Outline, drawn in wave by wave (native clip window per wave). */}
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: strokeOpacity }]}>
+            {SARH_LOGO_MARK_PATHS.map((d, i) => (
+              <Animated.View
+                key={i}
+                style={[styles.wipeWindow, { transform: [{ translateX: wipes[i].window }] }]}
+              >
+                <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX: wipes[i].content }] }]}>
+                  <Svg
+                    width={layout.logoWidth}
+                    height={layout.logoHeight}
+                    viewBox={viewBox}
+                    preserveAspectRatio="xMidYMid meet"
+                  >
+                    <Path
+                      d={d}
+                      fill="none"
+                      stroke={SPLASH_INK}
+                      strokeWidth={DRAW_STROKE}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                </Animated.View>
+              </Animated.View>
+            ))}
+          </Animated.View>
+          {/* Solid mark fades in as the outline completes. */}
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: fillOpacity }]}>
+            <Svg
+              width={layout.logoWidth}
+              height={layout.logoHeight}
+              viewBox={viewBox}
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {SARH_LOGO_MARK_PATHS.map((d, i) => (
+                <Path key={i} d={d} fill={SPLASH_INK} />
+              ))}
+            </Svg>
+          </Animated.View>
         </Animated.View>
 
         {/* Fixed-height, full-width box: space is reserved from the first frame (no
@@ -270,7 +256,7 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
                 style={[
                   styles.title,
                   { fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
-                  textRise(values.title),
+                  titleStyle,
                 ]}
               >
                 سرح
@@ -286,7 +272,7 @@ export const LaunchSplash = memo(function LaunchSplash({ nativeReady, bootReady 
                     lineHeight: layout.subtitleLineHeight,
                     letterSpacing: layout.subtitleSize * 0.08,
                   },
-                  textRise(values.subtitle),
+                  subtitleStyle,
                 ]}
               >
                 Sarh
@@ -311,6 +297,11 @@ const styles = StyleSheet.create({
   group: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /** Clip window of one wave's outline (logo box only — the text box never clips). */
+  wipeWindow: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
   },
   title: {
     alignSelf: 'stretch',

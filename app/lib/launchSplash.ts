@@ -6,6 +6,15 @@
 /** Path lengths (viewBox units) of `SARH_LOGO_MARK_PATHS`: bottom wave, top wave. */
 export const SARH_LOGO_PATH_LENGTHS = [1496, 1149] as const;
 
+/** Horizontal extent [minX, maxX] (viewBox units) of each wave: bottom, top. */
+export const SARH_LOGO_PATH_X_EXTENTS = [
+  [8, 603.2],
+  [32.9, 474.5],
+] as const;
+
+/** Viewbox units added on both sides of a wave so the outline stroke is never cut. */
+export const SARH_LOGO_DRAW_PAD = 6;
+
 /** Calm launch timeline (ms). Total before the exit fade ≈ 2.5 s. */
 export const LAUNCH_SPLASH_TIMING = {
   /** Per-path stroke draw: [delay, duration] for bottom wave, top wave. */
@@ -98,4 +107,136 @@ export function launchSplashLayout(
 /** Exit only after the animation finished AND boot (fonts/auth/onboarding or timeout) is ready. */
 export function shouldExitLaunchSplash(input: { animationDone: boolean; bootReady: boolean }): boolean {
   return input.animationDone && input.bootReady;
+}
+
+/*
+ * Native-driven timeline.
+ *
+ * The whole intro runs from ONE Animated.Value (0 → 1, linear, useNativeDriver: true).
+ * Every channel below is an interpolation of it, so the logo keeps drawing on the UI
+ * thread while the JS thread is busy mounting the app (auth restore, routing, first
+ * screen). Native interpolation has no `easing`, so curves are sampled into points,
+ * and there are no `delay`s (those are JS timers).
+ */
+
+export type EasingFn = (t: number) => number;
+
+export const easeOutCubic: EasingFn = (t) => 1 - Math.pow(1 - t, 3);
+export const easeInOutCubic: EasingFn = (t) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+export type TimelineRange = { inputRange: number[]; outputRange: number[] };
+
+/** Points per eased segment — smooth at 60/120 Hz, still tiny for the native node. */
+export const TIMELINE_SAMPLES = 16;
+
+/**
+ * One sub-animation on the shared 0→1 timeline: holds `from` until `startMs`, eases to
+ * `to` over `durationMs`, then holds `to`. Input range is strictly increasing.
+ */
+export function timelineSegment(input: {
+  startMs: number;
+  durationMs: number;
+  totalMs: number;
+  from?: number;
+  to?: number;
+  easing?: EasingFn;
+  samples?: number;
+}): TimelineRange {
+  const { startMs, durationMs, totalMs, from = 0, to = 1, easing = (t) => t } = input;
+  const samples = Math.max(1, Math.round(input.samples ?? TIMELINE_SAMPLES));
+  const total = Math.max(1, totalMs);
+  const s = Math.min(Math.max(startMs / total, 0), 1);
+  const e = Math.min(Math.max((startMs + Math.max(0, durationMs)) / total, s), 1);
+  if (e <= s) {
+    // Instant (or empty) segment: already at its end value.
+    return { inputRange: [0, 1], outputRange: [to, to] };
+  }
+  const inputRange: number[] = [];
+  const outputRange: number[] = [];
+  if (s > 0) {
+    inputRange.push(0);
+    outputRange.push(from);
+  }
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    inputRange.push(s + (e - s) * t);
+    outputRange.push(from + (to - from) * easing(t));
+  }
+  if (e < 1) {
+    inputRange.push(1);
+    outputRange.push(to);
+  }
+  return { inputRange, outputRange };
+}
+
+/** Re-maps a 0→1 channel onto real units (px, scale…) without another node. */
+export function mapTimelineRange(range: TimelineRange, from: number, to: number): TimelineRange {
+  return {
+    inputRange: range.inputRange,
+    outputRange: range.outputRange.map((v) => from + (to - from) * v),
+  };
+}
+
+export type LaunchSplashChannels = {
+  totalMs: number;
+  /** Per wave (bottom, top): 0 = hidden, 1 = outline fully drawn. */
+  draw: TimelineRange[];
+  /** Fill fades in while the outline fades out. */
+  fill: TimelineRange;
+  /** Large → final size / position. */
+  settle: TimelineRange;
+  title: TimelineRange;
+  subtitle: TimelineRange;
+};
+
+/** All channels of the intro as 0→1 ranges on the shared timeline. */
+export function launchSplashChannels(reduceMotion: boolean): LaunchSplashChannels {
+  const t = LAUNCH_SPLASH_TIMING;
+  const totalMs = launchSplashTotalMs(reduceMotion);
+  const done: TimelineRange = { inputRange: [0, 1], outputRange: [1, 1] };
+  if (reduceMotion) {
+    const text = timelineSegment({ startMs: 0, durationMs: t.reducedTextDuration, totalMs });
+    return {
+      totalMs,
+      draw: SARH_LOGO_PATH_LENGTHS.map(() => done),
+      fill: done,
+      settle: done,
+      title: text,
+      subtitle: text,
+    };
+  }
+  return {
+    totalMs,
+    draw: t.draw.map(([startMs, durationMs]) =>
+      timelineSegment({ startMs, durationMs, totalMs, easing: easeInOutCubic }),
+    ),
+    fill: timelineSegment({ startMs: t.fillDelay, durationMs: t.fillDuration, totalMs, easing: easeOutCubic }),
+    settle: timelineSegment({
+      startMs: t.settleDelay,
+      durationMs: t.settleDuration,
+      totalMs,
+      easing: easeOutCubic,
+    }),
+    title: timelineSegment({ startMs: t.titleDelay, durationMs: t.textDuration, totalMs, easing: easeOutCubic }),
+    subtitle: timelineSegment({
+      startMs: t.subtitleDelay,
+      durationMs: t.textDuration,
+      totalMs,
+      easing: easeOutCubic,
+    }),
+  };
+}
+
+/**
+ * Left → right reveal edge (layout px inside the logo box) for wave `index`: from just
+ * before the wave starts to just after it ends. Same direction the old stroke draw began.
+ */
+export function launchSplashDrawEdges(index: number, logoWidth: number, viewBoxWidth: number): [number, number] {
+  const k = logoWidth / Math.max(1, viewBoxWidth);
+  const [minX, maxX] = SARH_LOGO_PATH_X_EXTENTS[index] ?? [0, viewBoxWidth];
+  return [
+    Math.max(0, (minX - SARH_LOGO_DRAW_PAD) * k),
+    Math.min(logoWidth, (maxX + SARH_LOGO_DRAW_PAD) * k),
+  ];
 }
