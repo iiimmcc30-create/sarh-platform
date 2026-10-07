@@ -304,10 +304,62 @@ export function ProfileScreenLayout({
           {loading ? (
             <ProfileHeaderSkeleton style={inset} />
           ) : (
-            <Row gap="md" align="start" style={inset}>
-              <Stack gap="sm" fill>
-                <Stack gap="xs">
-                  <Row gap="xs" align="center" style={styles.nameRow}>
+            <Stack gap="sm" style={inset}>
+              {/* Avatar at the inline start (right in Arabic), overlapping the cover's bottom edge. */}
+              <Row align="end" justify="start" style={styles.avatarRow} testID="profile-avatar-row">
+                <Pressable
+                  testID="profile-avatar"
+                  onPress={onAvatarPress}
+                  disabled={!onAvatarPress}
+                  style={styles.avatarCol}
+                >
+                  {hasStoryRing ? (
+                    <LinearGradient
+                      colors={[
+                        themeColors.electricBright,
+                        themeColors.cyan,
+                        // Light: all-black ring (black & white identity); Dark keeps its mint tail.
+                        scheme === 'light' ? themeColors.glow : '#34D399',
+                      ]}
+                      style={styles.avatarRing}
+                      start={{ x: 0, y: 1 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <View style={styles.avatarClip}>
+                        <Image
+                          source={uriSource(user.avatar)}
+                          style={styles.avatarImg}
+                          contentFit="cover"
+                        />
+                      </View>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.avatarPlain}>
+                      <Image
+                        source={uriSource(user.avatar)}
+                        style={styles.avatarImg}
+                        contentFit="cover"
+                      />
+                    </View>
+                  )}
+                  {mode === 'own' && onEditAvatar ? (
+                    <Pressable style={styles.cameraBtn} onPress={onEditAvatar} hitSlop={8}>
+                      <AppIcon name="camera-outline" size={14} color="#fff" />
+                    </Pressable>
+                  ) : null}
+                </Pressable>
+              </Row>
+
+              {/* Name directly under the avatar; rating stars on the opposite side (left in Arabic). */}
+              <Stack gap="none">
+                <Row
+                  gap="sm"
+                  align="center"
+                  justify="between"
+                  style={styles.nameRow}
+                  testID="profile-name-row"
+                >
+                  <Row gap="xs" align="center" style={styles.nameCluster}>
                     <AppText
                       variant="cardTitle"
                       color="textPrimary"
@@ -319,12 +371,8 @@ export function ProfileScreenLayout({
                     {user.verified ? <VerificationBadge size={18} tier={user.verifiedTier} /> : null}
                     <FounderBadge username={user.username} verificationBadgeSize={18} />
                   </Row>
-
-                  <AppText variant="caption" color="textMuted" numberOfLines={1}>
-                    @{user.username}
-                  </AppText>
-
                   <Pressable
+                    testID="profile-rating"
                     onPress={onRatePress}
                     disabled={!onRatePress}
                     style={({ pressed }) => [
@@ -359,80 +407,53 @@ export function ProfileScreenLayout({
                       ) : null}
                     </Row>
                   </Pressable>
-                </Stack>
-
-                <Row gap="none" align="stretch" style={styles.statsRow}>
-                  {stats.map((stat, index) => {
-                    const body = (
-                      <Stack gap="xs" align="center" style={styles.statItem}>
-                        <AppText variant="cardTitle" color="textPrimary" align="center">
-                          {stat.value}
-                        </AppText>
-                        <AppText variant="caption" color="textMuted" align="center">
-                          {stat.label}
-                        </AppText>
-                      </Stack>
-                    );
-
-                    return (
-                      <Row key={stat.key} gap="none" align="stretch" fill>
-                        {index > 0 ? <View style={styles.statDivider} /> : null}
-                        {stat.onPress ? (
-                          <Pressable style={styles.statPress} onPress={stat.onPress}>
-                            {body}
-                          </Pressable>
-                        ) : (
-                          body
-                        )}
-                      </Row>
-                    );
-                  })}
                 </Row>
 
-                {user.bio ? (
-                  <AppText variant="body" color="textSecondary" numberOfLines={4} style={styles.bio}>
-                    {user.bio}
-                  </AppText>
-                ) : null}
+                <AppText
+                  variant="label"
+                  color="textSecondary"
+                  numberOfLines={1}
+                  style={styles.username}
+                  testID="profile-username"
+                >
+                  @{user.username}
+                </AppText>
               </Stack>
 
-              <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} style={styles.avatarCol}>
-                {hasStoryRing ? (
-                  <LinearGradient
-                    colors={[
-                      themeColors.electricBright,
-                      themeColors.cyan,
-                      // Light: all-black ring (black & white identity); Dark keeps its mint tail.
-                      scheme === 'light' ? themeColors.glow : '#34D399',
-                    ]}
-                    style={styles.avatarRing}
-                    start={{ x: 0, y: 1 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <View style={styles.avatarClip}>
-                      <Image
-                        source={uriSource(user.avatar)}
-                        style={styles.avatarImg}
-                        contentFit="cover"
-                      />
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.avatarPlain}>
-                    <Image
-                      source={uriSource(user.avatar)}
-                      style={styles.avatarImg}
-                      contentFit="cover"
-                    />
-                  </View>
-                )}
-                {mode === 'own' && onEditAvatar ? (
-                  <Pressable style={styles.cameraBtn} onPress={onEditAvatar} hitSlop={8}>
-                    <AppIcon name="camera-outline" size={14} color="#fff" />
-                  </Pressable>
-                ) : null}
-              </Pressable>
-            </Row>
+              <Row gap="none" align="stretch" style={styles.statsRow}>
+                {stats.map((stat, index) => {
+                  const body = (
+                    <Stack gap="xs" align="center" style={styles.statItem}>
+                      <AppText variant="cardTitle" color="textPrimary" align="center">
+                        {stat.value}
+                      </AppText>
+                      <AppText variant="caption" color="textMuted" align="center">
+                        {stat.label}
+                      </AppText>
+                    </Stack>
+                  );
+
+                  return (
+                    <Row key={stat.key} gap="none" align="stretch" fill>
+                      {index > 0 ? <View style={styles.statDivider} /> : null}
+                      {stat.onPress ? (
+                        <Pressable style={styles.statPress} onPress={stat.onPress}>
+                          {body}
+                        </Pressable>
+                      ) : (
+                        body
+                      )}
+                    </Row>
+                  );
+                })}
+              </Row>
+
+              {user.bio ? (
+                <AppText variant="body" color="textSecondary" numberOfLines={4} style={styles.bio}>
+                  {user.bio}
+                </AppText>
+              ) : null}
+            </Stack>
           )}
 
           {/* My Profile only: equal outline pills above the tabs (Share + Edit Profile). */}
@@ -559,16 +580,31 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       borderColor: outline.borderColor,
       backgroundColor: outline.backgroundColor,
     },
+    /** Avatar sits alone at the inline start; the row only reserves its visible lower part. */
+    avatarRow: {
+      width: '100%',
+    },
     nameRow: {
       flexWrap: 'nowrap',
+      width: '100%',
       maxWidth: '100%',
+    },
+    nameCluster: {
+      flexShrink: 1,
+      minWidth: 0,
     },
     nameShell: {
       flexShrink: 1,
       minWidth: 0,
     },
+    /** Stars hold the inline end of the name row (left in Arabic) and never shrink. */
     ratingRow: {
       paddingVertical: 2,
+      flexShrink: 0,
+    },
+    /** Larger than the old 12px caption (15/500 label) on the stronger secondary token; still under the 18px name. */
+    username: {
+      writingDirection: 'ltr',
       alignSelf: 'flex-start',
     },
     ratingRowPressed: {
