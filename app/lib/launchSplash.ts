@@ -15,30 +15,33 @@ export const SARH_LOGO_PATH_X_EXTENTS = [
 /** Viewbox units added on both sides of a wave so the outline stroke is never cut. */
 export const SARH_LOGO_DRAW_PAD = 6;
 
-/** Calm launch timeline (ms). Total before the exit fade ≈ 2.5 s. */
+/**
+ * Quick launch timeline (ms), iOS-style: intro ≈ 1.36 s + 0.24 s exit ≈ 1.6 s in total.
+ * Logo only; the title/subtitle slots stay on the timeline as no-op channels.
+ */
 export const LAUNCH_SPLASH_TIMING = {
   /** Per-path stroke draw: [delay, duration] for bottom wave, top wave. */
   draw: [
-    [0, 820],
-    [100, 800],
+    [0, 560],
+    [70, 540],
   ] as const,
   /** Fill fades in as the outline completes. */
-  fillDelay: 700,
-  fillDuration: 340,
+  fillDelay: 470,
+  fillDuration: 260,
   /** Large → final size. */
-  settleDelay: 960,
-  settleDuration: 480,
-  /** «سرح» then «Sarh» (opacity + small rise only — no width mask). */
-  titleDelay: 1220,
-  subtitleDelay: 1360,
-  textDuration: 420,
-  /** Full mark + both words stay fully visible before leaving. */
-  holdAfter: 700,
+  settleDelay: 600,
+  settleDuration: 400,
+  /** Legacy text slots (logo only now) — kept so the timeline shape stays stable. */
+  titleDelay: 760,
+  subtitleDelay: 840,
+  textDuration: 300,
+  /** Settled mark stays fully visible briefly before leaving. */
+  holdAfter: 220,
   /** Exit cross-fade to the routed screen. */
-  exitDuration: 320,
-  /** Reduce motion: no drawing / scaling, quick text fade only. */
-  reducedTextDuration: 280,
-  reducedHold: 700,
+  exitDuration: 240,
+  /** Reduce motion: no drawing / scaling, quick fade only. */
+  reducedTextDuration: 240,
+  reducedHold: 500,
   /** Extra margin on top of the intro before the safety fallback may end it. */
   fallbackMargin: 1500,
 } as const;

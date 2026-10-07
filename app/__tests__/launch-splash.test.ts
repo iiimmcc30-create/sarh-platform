@@ -23,12 +23,12 @@ const src = (p: string) => readFileSync(path.join(root, p), 'utf8');
 const ASPECT = 611 / 417;
 
 describe('launch splash timing', () => {
-  it('keeps the intro calm (~1.8–2.6 s) and short with reduce motion', () => {
+  it('keeps the whole launch quick (~1.6 s incl. exit) and shorter with reduce motion', () => {
     const total = launchSplashTotalMs(false);
-    expect(total).toBeGreaterThanOrEqual(1800);
-    expect(total).toBeLessThanOrEqual(2600);
-    expect(launchSplashTotalMs(true)).toBeLessThan(1200);
-    expect(LAUNCH_SPLASH_TIMING.exitDuration).toBeLessThanOrEqual(400);
+    expect(total).toBeGreaterThanOrEqual(1200);
+    expect(total + LAUNCH_SPLASH_TIMING.exitDuration).toBeLessThanOrEqual(1650);
+    expect(launchSplashTotalMs(true)).toBeLessThan(900);
+    expect(LAUNCH_SPLASH_TIMING.exitDuration).toBeLessThanOrEqual(260);
   });
 
   it('draws first, then settles, then shows text', () => {
@@ -41,11 +41,13 @@ describe('launch splash timing', () => {
     expect(LAUNCH_SPLASH_TIMING.draw).toHaveLength(SARH_LOGO_PATH_LENGTHS.length);
   });
 
-  it('keeps both words fully visible for 600–800 ms before the exit fade', () => {
+  it('holds the settled mark briefly (150–400 ms) before the exit fade', () => {
     const hold = launchSplashTotalMs(false) - launchSplashTextCompleteMs();
-    expect(hold).toBeGreaterThanOrEqual(600);
-    expect(hold).toBeLessThanOrEqual(800);
-    expect(LAUNCH_SPLASH_TIMING.reducedHold).toBeGreaterThanOrEqual(600);
+    expect(hold).toBeGreaterThanOrEqual(150);
+    expect(hold).toBeLessThanOrEqual(400);
+    const t = LAUNCH_SPLASH_TIMING;
+    expect(launchSplashTotalMs(false) - (t.settleDelay + t.settleDuration)).toBeGreaterThanOrEqual(250);
+    expect(LAUNCH_SPLASH_TIMING.reducedHold).toBeGreaterThanOrEqual(400);
   });
 
   it('safety fallback is always longer than intro + hold', () => {
