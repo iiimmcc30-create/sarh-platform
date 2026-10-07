@@ -144,6 +144,11 @@ export function formatPostCardTimestampAr(
 
 /** Real view count from API — never a placeholder. */
 export function formatViewsLabelAr(views: number): string {
-  const n = toArabicDigits(views);
-  return views === 1 ? `${n} مشاهدة` : `${n} مشاهدات`;
+  const { count, label } = formatViewsPartsAr(views);
+  return `${count} ${label}`;
+}
+
+/** Post detail meta (X-style): bold number + muted word, e.g. «٨٣١» «مشاهدات». */
+export function formatViewsPartsAr(views: number): { count: string; label: string } {
+  return { count: toArabicDigits(views), label: views === 1 ? 'مشاهدة' : 'مشاهدات' };
 }

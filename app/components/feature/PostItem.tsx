@@ -31,7 +31,7 @@ import {
   formatPostCardTimestampAr,
   formatPostClockAr,
   formatPostDateShortAr,
-  formatViewsLabelAr,
+  formatViewsPartsAr,
 } from '@/lib/formatRelativeTime';
 import { Post } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
@@ -42,6 +42,9 @@ import { requireAuth } from '@/lib/postInteractions';
 import { fetchUserProfile, setFollowUser } from '@/services/users';
 import {
   POST_HANDLE_FLEX_SHRINK,
+  POST_DETAIL_BODY_FONT_SIZE,
+  POST_DETAIL_BODY_LINE_HEIGHT,
+  POST_DETAIL_MEDIA_RADIUS,
   POST_HANDLE_MIN_WIDTH,
   POST_ITEM_LAYOUT,
   POST_META_FONT_SIZE,
@@ -168,8 +171,8 @@ function PostItemComponent({
   const authorRating =
     typeof post.author.rating === 'number' ? post.author.rating.toFixed(1) : null;
   const handle = post.author.username ? `@${post.author.username}` : '';
-  const viewsLabel =
-    typeof post.views === 'number' ? formatViewsLabelAr(post.views) : null;
+  const viewsParts =
+    typeof post.views === 'number' ? formatViewsPartsAr(post.views) : null;
 
   useEffect(() => {
     if (!showFollow) return;
@@ -308,9 +311,53 @@ function PostItemComponent({
     </InteractionBar>
   );
 
+  // Post page (X layout): reply, repost, like, bookmark, share spread edge to edge
+  // between two hairlines. Views live in the meta line above, so no views slot.
+  const detailActions = (
+    <InteractionBar variant="detail">
+      <InteractionAction
+        icon="chatbubble-ellipses-outline"
+        color={colors.textSecondary}
+        count={post.comments}
+        formatCount={formatCount}
+        countStyle={styles.actionCount}
+        onPress={onComment}
+        label="تعليق"
+      />
+      <InteractionAction
+        icon="repeat-2"
+        color={post.reposted ? interactionRepostColor(scheme) : colors.textSecondary}
+        count={post.reposts}
+        formatCount={formatCount}
+        countStyle={styles.actionCount}
+        onPress={onRepost ?? (() => {})}
+        label="إعادة نشر"
+      />
+      <InteractionAction
+        icon={post.liked ? 'heart' : 'heart-outline'}
+        color={post.liked ? LIKE_RED : colors.textSecondary}
+        count={post.likes}
+        formatCount={formatCount}
+        countStyle={styles.actionCount}
+        filled={!!post.liked}
+        onPress={onLike}
+        label="إعجاب"
+        pending={likePending}
+      />
+      <InteractionAction
+        icon={post.bookmarked ? 'bookmark' : 'bookmark-outline'}
+        color={post.bookmarked ? BOOKMARK_BLUE : colors.textSecondary}
+        filled={!!post.bookmarked}
+        onPress={onBookmark ?? (() => {})}
+        label="حفظ"
+      />
+      <ShareAction color={colors.textSecondary} onPress={onShare} />
+    </InteractionBar>
+  );
+
   if (variant === 'detail') {
     return (
-      <View style={styles.rowWrap}>
+      <View style={[styles.rowWrap, styles.detailWrap]} testID="post-detail">
         <View style={styles.detailPad}>
           <View style={[styles.detailHeader, getRtlRow()]}>
             <UserProfileLink userId={post.author.id}>
@@ -337,6 +384,7 @@ function PostItemComponent({
               ) : null}
             </UserProfileLink>
             {showFollow ? (
+              // Primary pill (black in Light, white in Dark); bordered once followed.
               <Pressable
                 onPress={() => void onFollow()}
                 disabled={followBusy || following === null}
@@ -347,6 +395,7 @@ function PostItemComponent({
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={following ? 'متابَع' : 'متابعة'}
+                testID="post-detail-follow"
               >
                 <AppText style={[styles.followBtnText, following ? styles.followBtnTextActive : null]}>
                   {following ? 'متابَع' : 'متابعة'}
@@ -365,25 +414,25 @@ function PostItemComponent({
           </View>
 
           {bodyText ? <PostBody text={bodyText} style={styles.detailBody} /> : null}
-        </View>
 
-        {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
-          <View style={styles.detailMedia}>{gallery}</View>
-        ) : null}
+          {images.length > 0 || post.video || (post.media && post.media.length > 0) ? (
+            <View style={styles.detailMedia}>{gallery}</View>
+          ) : null}
 
-        <View style={styles.detailPad}>
-          <View style={[styles.detailMeta, getRtlRow()]}>
-            {clock ? <AppText style={styles.metaMuted}>{clock}</AppText> : null}
-            {clock && dateLabel ? <AppText style={styles.metaDot}>·</AppText> : null}
-            {dateLabel ? <AppText style={styles.metaMuted}>{dateLabel}</AppText> : null}
-            {viewsLabel ? (
+          <View style={[styles.detailMeta, getRtlRow()]} testID="post-detail-meta">
+            {clock ? <AppText style={styles.detailMetaText}>{clock}</AppText> : null}
+            {clock && dateLabel ? <AppText style={styles.detailMetaText}>•</AppText> : null}
+            {dateLabel ? <AppText style={styles.detailMetaText}>{dateLabel}</AppText> : null}
+            {viewsParts ? (
               <>
-                <AppText style={styles.metaDot}>·</AppText>
-                <AppText style={styles.viewsMeta}>{viewsLabel}</AppText>
+                <AppText style={styles.detailMetaText}>•</AppText>
+                <AppText style={styles.detailMetaText}>
+                  <AppText style={styles.viewsCount}>{viewsParts.count}</AppText> {viewsParts.label}
+                </AppText>
               </>
             ) : null}
           </View>
-          {actions}
+          <View style={styles.detailActions}>{detailActions}</View>
         </View>
       </View>
     );
@@ -655,22 +704,10 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       ...resolveAppFontFace('400'),
       color: colors.textSecondary,
     },
-    metaMuted: {
-      ...typography.caption,
-      ...resolveAppFontFace('400'),
-      color: colors.textMuted,
-      flexShrink: 0,
-    },
     metaDot: {
       ...typography.caption,
       ...resolveAppFontFace('400'),
       color: colors.textSubtle,
-      flexShrink: 0,
-    },
-    viewsMeta: {
-      ...typography.caption,
-      ...resolveAppFontFace('400'),
-      color: colors.textSecondary,
       flexShrink: 0,
     },
     menuBtn: {
@@ -683,13 +720,17 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     menuBtnPressed: {
       opacity: 0.55,
     },
+    /** The action row's bottom hairline closes the post; no second divider. */
+    detailWrap: {
+      borderBottomWidth: 0,
+    },
     detailPad: {
       paddingHorizontal: spacing.md,
       paddingTop: spacing.md,
     },
     detailHeader: {
-      alignItems: 'flex-start',
-      gap: 12,
+      alignItems: 'center',
+      gap: 10,
     },
     detailIdentity: {
       flex: 1,
@@ -700,39 +741,64 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       flexWrap: 'wrap',
       gap: 4,
     },
+    /** Follow pill (X post page): filled theme primary, bordered once followed. */
     followBtn: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.textPrimary,
+      borderWidth: 1,
+      borderColor: colors.electric,
+      backgroundColor: colors.electric,
       borderRadius: radius.pill,
-      paddingHorizontal: 12,
-      paddingVertical: 5,
-      minHeight: 28,
+      paddingHorizontal: 16,
+      minHeight: 32,
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
     },
     followBtnActive: {
-      borderColor: colors.borderSoft,
-      backgroundColor: colors.bgSurface,
+      borderColor: colors.borderStrong,
+      backgroundColor: 'transparent',
     },
     followBtnText: {
-      ...typography.caption,
-      ...resolveAppFontFace('600'),
-      color: colors.textPrimary,
+      ...typography.secondary,
+      ...resolveAppFontFace('700'),
+      color: colors.onElectric,
     },
     followBtnTextActive: {
-      color: colors.textSecondary,
+      color: colors.textPrimary,
     },
+    /** Post page text: one step above the feed body (X post page). */
     detailBody: {
       ...typography.body,
       ...resolveAppFontFace('400'),
       color: colors.textPrimary,
+      fontSize: POST_DETAIL_BODY_FONT_SIZE,
+      lineHeight: POST_DETAIL_BODY_LINE_HEIGHT,
       marginTop: 12,
-      lineHeight: 24,
     },
+    /** Media as a rounded card inside the post column (gallery measures its own width). */
     detailMedia: {
       width: '100%',
       marginTop: 12,
+      borderRadius: POST_DETAIL_MEDIA_RADIUS,
+      overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    detailMetaText: {
+      ...typography.secondary,
+      ...resolveAppFontFace('400'),
+      color: colors.textSecondary,
+      flexShrink: 0,
+    },
+    viewsCount: {
+      ...resolveAppFontFace('700'),
+      color: colors.textPrimary,
+    },
+    /** Hairline above and below the action row, like the X post page. */
+    detailActions: {
+      marginTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
     },
     body: {
       ...typography.body,
@@ -759,7 +825,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       alignItems: 'center',
       flexWrap: 'wrap',
       gap: 6,
-      marginTop: 12,
+      marginTop: 14,
     },
     /** Font face only - size, color and spacing come from the shared interaction tokens. */
     actionCount: {

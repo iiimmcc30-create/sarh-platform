@@ -149,6 +149,56 @@ export const INTERACTION_TRAILING_GROUP_STYLE: InteractionTrailingGroupStyle = {
   flexShrink: 0,
 };
 
+/**
+ * Post detail action row (X post page): reply, repost, like, bookmark, share spread
+ * edge to edge of the post column with a hairline above and below. Larger outline
+ * icons and counts than the feed; every button keeps its natural width so the first
+ * and last icons sit exactly on the column edges (space-between).
+ */
+export const INTERACTION_DETAIL_ICON_SIZE = 22;
+export const INTERACTION_DETAIL_COUNT_FONT_SIZE = 13;
+export const INTERACTION_DETAIL_COUNT_LINE_HEIGHT = 18;
+export const INTERACTION_DETAIL_ICON_COUNT_GAP = 6;
+/** Row height between the two hairlines. */
+export const INTERACTION_DETAIL_BAR_HEIGHT = 48;
+/** Neighbours are far apart on the detail row, so a wider slop is safe. */
+export const INTERACTION_DETAIL_HIT_SLOP = { top: 6, bottom: 6, left: 12, right: 12 } as const;
+
+export type InteractionDetailBarStyle = {
+  justifyContent: typeof INTERACTION_BAR_JUSTIFY;
+  alignItems: typeof INTERACTION_BAR_ALIGN;
+  height: number;
+  paddingHorizontal: number;
+};
+
+export const INTERACTION_DETAIL_BAR_STYLE: InteractionDetailBarStyle = {
+  justifyContent: INTERACTION_BAR_JUSTIFY,
+  alignItems: INTERACTION_BAR_ALIGN,
+  height: INTERACTION_DETAIL_BAR_HEIGHT,
+  paddingHorizontal: INTERACTION_BAR_PADDING_HORIZONTAL,
+};
+
+export type InteractionDetailButtonStyle = {
+  flexDirection: 'row';
+  alignItems: 'center';
+  gap: number;
+  flexGrow: number;
+  flexShrink: number;
+  height: number;
+  minWidth: number;
+};
+
+/** Natural-width button (icon + count), never stretched; height fills the row. */
+export const INTERACTION_DETAIL_BUTTON_STYLE: InteractionDetailButtonStyle = {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: INTERACTION_DETAIL_ICON_COUNT_GAP,
+  flexGrow: 0,
+  flexShrink: 0,
+  height: INTERACTION_DETAIL_BAR_HEIGHT,
+  minWidth: INTERACTION_DETAIL_ICON_SIZE,
+};
+
 /** Effective tappable size along one axis (visible box + hit slop on both sides). */
 export function interactionHitArea(): number {
   return INTERACTION_TOUCH_MIN + INTERACTION_HIT_SLOP * 2;

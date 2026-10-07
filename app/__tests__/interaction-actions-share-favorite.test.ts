@@ -135,8 +135,12 @@ describe('shared InteractionActions component', () => {
   const comp = src('components/ui/InteractionActions.tsx');
 
   it('takes every size and spacing from the shared tokens', () => {
-    expect(comp).toContain('hitSlop={compact ? INTERACTION_COMPACT_HIT_SLOP : INTERACTION_HIT_SLOP}');
-    expect(comp).toContain('size={INTERACTION_ICON_SIZE}');
+    expect(comp).toContain('hitSlop={hitSlop}');
+    expect(comp).toContain('? INTERACTION_COMPACT_HIT_SLOP');
+    expect(comp).toContain('? INTERACTION_DETAIL_HIT_SLOP');
+    expect(comp).toContain(': INTERACTION_HIT_SLOP;');
+    expect(comp).toContain('const iconSize = detail ? INTERACTION_DETAIL_ICON_SIZE : INTERACTION_ICON_SIZE;');
+    expect(comp).toContain('size={iconSize}');
     expect(comp).toContain('...INTERACTION_BUTTON_STYLE');
     expect(comp).toContain('...INTERACTION_BAR_STYLE');
     expect(comp).toContain('fontSize: INTERACTION_COUNT_FONT_SIZE');
@@ -157,7 +161,7 @@ describe('shared InteractionActions component', () => {
     expect(comp).toContain('Animated.sequence(');
     expect(comp).toContain('useNativeDriver: true');
     expect(comp).toContain('onPress={handlePress}');
-    expect(comp).toContain('<Animated.View style={[styles.icon, { transform: [{ scale }] }]}>{iconNode}</Animated.View>');
+    expect(comp).toContain('<Animated.View style={[iconBoxStyle, { transform: [{ scale }] }]}>{iconNode}</Animated.View>');
     expect(comp).not.toContain('onPressIn=');
     expect(comp).not.toContain('Animated.spring');
     expect(comp).not.toContain('bounciness');
@@ -232,7 +236,9 @@ describe('Feed bar uses the exact same shared bar', () => {
     expect(bar).toContain('pending={likePending}');
     expect(bar).toContain('readOnly');
     expect(bar).toContain('formatCount={formatCount}');
-    expect(post.match(/\{actions\}/g)?.length).toBe(3);
+    // Feed + profile rows render {actions}; the post page renders {detailActions}.
+    expect(post.match(/\{actions\}/g)?.length).toBe(2);
+    expect(post.match(/\{detailActions\}/g)?.length).toBe(1);
   });
 });
 

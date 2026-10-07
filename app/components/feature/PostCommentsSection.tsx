@@ -4,6 +4,14 @@ import { AppText } from '@/components/ui/AppText';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { InteractionAction } from '@/components/ui/InteractionActions';
+import {
+  POST_HANDLE_FLEX_SHRINK,
+  POST_HANDLE_MIN_WIDTH,
+  POST_ITEM_LAYOUT,
+  POST_META_FONT_SIZE,
+  POST_META_LINE_HEIGHT,
+} from '@/components/feature/postItemLayout';
 import {
   createContext,
   useCallback,
@@ -23,6 +31,7 @@ import {
   View,
 } from 'react-native';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
+import { resolveAppFontFace } from '@/constants/fonts';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,6 +74,8 @@ type CommentsApi = {
   loadComments: () => Promise<void>;
   handleSend: () => Promise<void>;
   handleDelete: (commentId: string) => Promise<void>;
+  /** Reply to a comment: focus the composer with «@username » in front. */
+  startReply: (username: string) => void;
   postOwnerId?: string;
   highlightCommentId?: string;
   isAuthenticated: boolean;
@@ -223,6 +234,19 @@ export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostComme
       }
     }, [isAuthenticated, text, sending, onSubmitComment, postId, onCommentAdded, loadComments]);
 
+    const startReply = useCallback(
+      (username: string) => {
+        if (!isAuthenticated) {
+          void alertMessage('تسجيل الدخول', 'يجب تسجيل الدخول لإضافة تعليق', 'log-in-outline');
+          return;
+        }
+        const mention = username ? `@${username} ` : '';
+        if (mention) setText((prev) => (prev.startsWith(mention) ? prev : `${mention}${prev}`));
+        inputRef?.focus();
+      },
+      [isAuthenticated, inputRef],
+    );
+
     const api = useMemo<CommentsApi>(
       () => ({
         comments,
@@ -236,6 +260,7 @@ export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostComme
         loadComments,
         handleSend,
         handleDelete,
+        startReply,
         postOwnerId,
         highlightCommentId,
         isAuthenticated,
@@ -258,6 +283,7 @@ export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostComme
         me,
         handleSend,
         handleDelete,
+        startReply,
       ],
     );
 
@@ -267,13 +293,14 @@ export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostComme
 
 export function PostCommentsList() {
   const { colors } = useTheme();
-  const styles = useThemedStyles(({ colors: c }) => createStyles(c));
+  const styles = useThemedStyles(({ colors: c, scheme }) => createStyles(c, scheme));
   const {
     comments,
     loading,
     loadError,
     loadComments,
     handleDelete,
+    startReply,
     deletingId,
     postOwnerId,
     highlightCommentId,
@@ -288,27 +315,50 @@ export function PostCommentsList() {
     return [focused, ...comments.filter((c) => c.id !== highlightCommentId)];
   }, [comments, highlightCommentId]);
 
+  // «الردود» header (X post page). Plain label: comments have no sort options.
+  const header = (
+    <View style={[styles.repliesHeader, getRtlRow()]} testID="post-replies-header">
+      <AppText style={styles.repliesHeaderText} accessibilityRole="header">
+        الردود
+      </AppText>
+    </View>
+  );
+
   if (loading && comments.length === 0) {
-    return <CommentsSkeleton />;
+    return (
+      <View>
+        {header}
+        <CommentsSkeleton />
+      </View>
+    );
   }
 
   if (loadError && comments.length === 0) {
     return (
-      <View style={styles.errorBox}>
-        <AppText style={styles.errorText}>{loadError}</AppText>
-        <Pressable onPress={() => void loadComments()} style={styles.retryBtn}>
-          <AppText style={styles.retryText}>إعادة المحاولة</AppText>
-        </Pressable>
+      <View>
+        {header}
+        <View style={styles.errorBox}>
+          <AppText style={styles.errorText}>{loadError}</AppText>
+          <Pressable onPress={() => void loadComments()} style={styles.retryBtn}>
+            <AppText style={styles.retryText}>إعادة المحاولة</AppText>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   if (comments.length === 0) {
-    return <AppText style={styles.empty}>لا توجد تعليقات بعد — كن أول من يعلّق</AppText>;
+    return (
+      <View>
+        {header}
+        <AppText style={styles.empty}>لا توجد تعليقات بعد — كن أول من يعلّق</AppText>
+      </View>
+    );
   }
 
   return (
     <View>
+      {header}
       {orderedComments.map((c) => (
         <View
           key={c.id}
@@ -317,6 +367,7 @@ export function PostCommentsList() {
             highlightCommentId === c.id ? styles.commentHighlight : null,
           ]}
         >
+          {/* Same row as a feed post: avatar, one-line name · @handle · time, ⋮, text, actions. */}
           <View style={[styles.commentRow, getRtlRow()]}>
             <UserProfileLink userId={c.author.id}>
               <Image source={uriSource(c.author.avatar)} style={styles.avatar} contentFit="cover" />
@@ -328,10 +379,10 @@ export function PostCommentsList() {
                     <AppText style={styles.commentName} numberOfLines={1}>
                       {c.author.arabicName || c.author.displayName}
                     </AppText>
-                    {c.author.verified ? <VerificationBadge size={13} tier={c.author.verifiedTier} /> : null}
-                    <FounderBadge username={c.author.username} verificationBadgeSize={13} />
+                    {c.author.verified ? <VerificationBadge size={14} tier={c.author.verifiedTier} /> : null}
+                    <FounderBadge username={c.author.username} verificationBadgeSize={14} />
                     {c.author.username ? (
-                      <AppText style={styles.commentHandle} numberOfLines={1}>
+                      <AppText style={styles.commentHandle} numberOfLines={1} ellipsizeMode="tail">
                         @{c.author.username}
                       </AppText>
                     ) : null}
@@ -353,12 +404,23 @@ export function PostCommentsList() {
                     {deletingId === c.id ? (
                       <ActivityIndicator size="small" color={colors.textMuted} />
                     ) : (
-                      <AppIcon name="ellipsis-vertical" size={16} color={colors.textMuted} />
+                      <AppIcon name="ellipsis-vertical" size={18} color={colors.textMuted} />
                     )}
                   </Pressable>
                 ) : null}
               </View>
               <AppText style={styles.commentText}>{c.content}</AppText>
+              {/* Feed-size reply action (comments have no likes/reposts/bookmarks). */}
+              <View style={[styles.commentActions, getRtlRow()]}>
+                <View style={[styles.commentActionSlot, getRtlRow()]}>
+                  <InteractionAction
+                    icon="chatbubble-ellipses-outline"
+                    color={colors.textSecondary}
+                    onPress={() => startReply(c.author.username)}
+                    label={`رد على ${c.author.arabicName || c.author.displayName || c.author.username}`}
+                  />
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -380,7 +442,7 @@ export function CommentsSkeleton({ count = 3 }: { count?: number }) {
 
 export function PostCommentsComposer() {
   const { colors } = useTheme();
-  const styles = useThemedStyles(({ colors: c }) => createStyles(c));
+  const styles = useThemedStyles(({ colors: c, scheme }) => createStyles(c, scheme));
   const {
     text,
     setText,
@@ -441,7 +503,9 @@ export const PostCommentsSection = forwardRef<PostCommentsSectionRef, PostCommen
   },
 );
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
+  /** Same surface as the post above (PostItem rowWrap): white in Light, page black in Dark. */
+  const rowBg = scheme === 'light' ? colors.bgSurface : colors.bgDeep;
   return StyleSheet.create({
     empty: {
       ...typography.feedBody,
@@ -469,30 +533,49 @@ function createStyles(colors: ThemeColors) {
       ...typography.feedTitle,
       color: colors.electricBright,
     },
+    repliesHeader: {
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingVertical: 12,
+      backgroundColor: rowBg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderStrong,
+    },
+    repliesHeaderText: {
+      ...typography.cardHeading,
+      ...resolveAppFontFace('700'),
+      color: colors.textPrimary,
+    },
     commentWrap: {
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
-      backgroundColor: colors.bgDeep,
+      borderBottomColor: colors.borderStrong,
+      backgroundColor: rowBg,
     },
     commentHighlight: {
       backgroundColor: colors.bgElevated,
     },
     commentRow: {
       alignItems: 'flex-start',
-      gap: 12,
+      gap: POST_ITEM_LAYOUT.rowGap,
       paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.xs,
     },
     avatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: POST_ITEM_LAYOUT.avatar,
+      height: POST_ITEM_LAYOUT.avatar,
+      borderRadius: POST_ITEM_LAYOUT.avatar / 2,
       backgroundColor: colors.bgSurface,
     },
     commentMain: {
       flex: 1,
       minWidth: 0,
-      gap: 4,
+    },
+    commentActions: {
+      marginTop: 2,
+    },
+    commentActionSlot: {
+      width: 56,
     },
     commentHeader: {
       alignItems: 'flex-start',
@@ -503,21 +586,29 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       minWidth: 0,
     },
+    /** One line like the feed header: the handle shrinks to «@…» first. */
     nameTimeRow: {
       alignItems: 'center',
-      flexWrap: 'wrap',
+      flexWrap: 'nowrap',
       gap: 4,
       minWidth: 0,
+      maxWidth: '100%',
     },
     commentName: {
-      ...typography.feedTitle,
+      ...typography.cardHeading,
+      ...resolveAppFontFace('600'),
       color: colors.textPrimary,
       flexShrink: 1,
+      minWidth: 0,
     },
     commentHandle: {
       ...typography.caption,
-      color: colors.textMuted,
-      flexShrink: 1,
+      ...resolveAppFontFace('400'),
+      fontSize: POST_META_FONT_SIZE,
+      lineHeight: POST_META_LINE_HEIGHT,
+      color: colors.textSecondary,
+      flexShrink: POST_HANDLE_FLEX_SHRINK,
+      minWidth: POST_HANDLE_MIN_WIDTH,
     },
     metaDot: {
       ...typography.caption,
@@ -526,17 +617,21 @@ function createStyles(colors: ThemeColors) {
     },
     commentTime: {
       ...typography.caption,
-      color: colors.textMuted,
+      ...resolveAppFontFace('400'),
+      fontSize: POST_META_FONT_SIZE,
+      lineHeight: POST_META_LINE_HEIGHT,
+      color: colors.textSecondary,
       flexShrink: 0,
     },
     commentText: {
-      ...typography.feedBody,
+      ...typography.body,
+      ...resolveAppFontFace('400'),
       color: colors.textPrimary,
-      lineHeight: 22,
+      marginTop: POST_ITEM_LAYOUT.bodyMarginTop,
     },
     moreBtn: {
-      width: 28,
-      height: 28,
+      width: POST_ITEM_LAYOUT.menuButton,
+      height: POST_ITEM_LAYOUT.menuButton,
       alignItems: 'center',
       justifyContent: 'center',
     },

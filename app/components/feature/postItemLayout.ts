@@ -26,3 +26,8 @@ export const POST_META_LINE_HEIGHT = 18;
 export const POST_HANDLE_MIN_WIDTH = 22;
 /** The handle absorbs (almost) all overflow before the name gives up any width. */
 export const POST_HANDLE_FLEX_SHRINK = 1000;
+
+/** Post detail page (X post page): larger body text and a rounded media card. */
+export const POST_DETAIL_BODY_FONT_SIZE = 18;
+export const POST_DETAIL_BODY_LINE_HEIGHT = 28;
+export const POST_DETAIL_MEDIA_RADIUS = 16;

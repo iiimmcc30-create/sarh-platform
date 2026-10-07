@@ -1,19 +1,20 @@
 /**
- * Skeleton of one PostCommentsSection comment row: 36px avatar at the inline
- * start, name/handle/time line (feedTitle 16/24), one or two comment lines
- * (feedBody 14 / 22), same paddings, gap and bottom hairline.
+ * Skeleton of one PostCommentsSection reply row (feed-row metrics): 40px avatar at
+ * the inline start, name/handle/time line (16/24), one or two body lines (16/24),
+ * same paddings, gap, surface and bottom hairline.
  */
 import { StyleSheet, View } from 'react-native';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRtlRow } from '@/lib/rtl';
+import { POST_ITEM_LAYOUT } from '@/components/feature/postItemLayout';
 import { SkeletonBox, SkeletonCircle, SkeletonPulse, SkeletonText } from './SkeletonPrimitives';
 import { skeletonTextBarHeight } from './skeletonTokens';
 
-export const COMMENT_AVATAR = 36;
+export const COMMENT_AVATAR = POST_ITEM_LAYOUT.avatar;
 
 export function CommentRowSkeleton({ lines = 1 }: { lines?: number }) {
-  const styles = useThemedStyles(({ colors }) => createStyles(colors));
+  const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
   const nameBar = skeletonTextBarHeight(typography.feedTitle.fontSize, typography.feedTitle.lineHeight);
   const metaBar = skeletonTextBarHeight(typography.caption.fontSize, typography.caption.lineHeight);
   return (
@@ -26,8 +27,8 @@ export function CommentRowSkeleton({ lines = 1 }: { lines?: number }) {
             <SkeletonBox width="18%" height={metaBar} />
           </View>
           <SkeletonText
-            fontSize={typography.feedBody.fontSize}
-            lineHeight={22}
+            fontSize={typography.body.fontSize}
+            lineHeight={typography.body.lineHeight}
             lines={lines}
             widths={lines > 1 ? ['96%', '54%'] : ['72%']}
           />
@@ -37,16 +38,16 @@ export function CommentRowSkeleton({ lines = 1 }: { lines?: number }) {
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   return StyleSheet.create({
     wrap: {
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
-      backgroundColor: colors.bgDeep,
+      borderBottomColor: colors.borderStrong,
+      backgroundColor: scheme === 'light' ? colors.bgSurface : colors.bgDeep,
     },
     row: {
       alignItems: 'flex-start',
-      gap: 12,
+      gap: POST_ITEM_LAYOUT.rowGap,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
     },

@@ -26,7 +26,8 @@ describe('interaction buttons: uniform, fixed size (Feed + Media Viewer)', () =>
 
   it('icon box is the same for outline and filled icons', () => {
     expect(comp).toContain('width: INTERACTION_ICON_SIZE,\n    height: INTERACTION_ICON_SIZE,');
-    expect(comp.match(/size=\{INTERACTION_ICON_SIZE\}/g)?.length).toBe(1);
+    expect(comp.match(/size=\{iconSize\}/g)?.length).toBe(1);
+    expect(comp).toContain('const iconSize = detail ? INTERACTION_DETAIL_ICON_SIZE : INTERACTION_ICON_SIZE;');
     expect(comp).toContain("variant={filled ? 'sr' : 'rr'}");
     expect(INTERACTION_ICON_SIZE).toBe(18);
   });

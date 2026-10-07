@@ -42,7 +42,7 @@ describe('Posts feed — X-style structure', () => {
     expect(postItem).not.toContain('row-reverse');
     expect(postItem).not.toContain('RtlTextShell');
     expect(postItem).toContain('ellipsis-vertical');
-    expect(postItem).toContain('formatViewsLabelAr');
+    expect(postItem).toContain('formatViewsPartsAr');
     expect(postItem).toContain('formatPostCardTimestampAr');
     expect(postItem).toContain("from '@/components/ui/AppText'");
     expect(postItem).toContain('formatCount(post.views ?? 0)');

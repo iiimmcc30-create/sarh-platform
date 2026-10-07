@@ -46,7 +46,7 @@ describe('X-style action row: 4 equal main actions + compact bookmark/share grou
     expect(comp).toContain('export function InteractionTrailingGroup');
     expect(comp).toContain('<CompactContext.Provider value>');
     expect(comp).toContain('const countNode = !compact && shouldShowInteractionCount(count)');
-    expect(comp).toContain('const boxStyle = compact ? styles.compact : styles.button;');
+    expect(comp).toContain('const boxStyle = compact ? styles.compact : detail ? styles.detailButton : styles.button;');
   });
 
   it.each(['components/feature/PostItem.tsx', 'components/ui/MediaViewerModal.tsx'])(

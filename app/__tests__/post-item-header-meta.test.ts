@@ -48,9 +48,9 @@ describe('feed post header: name whole, handle shrinks, clearer meta', () => {
     expect(meta).toContain('<View style={[styles.feedNameRow, getRtlRow()]}>');
   });
 
-  it('keeps the detail header styles untouched', () => {
+  it('keeps the detail header styles (meta line is the X-style detailMetaText)', () => {
     expect(style('handle')).toContain('color: colors.textMuted');
-    expect(style('metaMuted')).toContain('color: colors.textMuted');
+    expect(style('detailMetaText')).toContain('color: colors.textSecondary');
     expect(style('nameRow')).toContain("flexWrap: 'wrap'");
   });
 
