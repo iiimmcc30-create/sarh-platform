@@ -6,6 +6,8 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { CouncilArrivalChip } from '@/components/councils/CouncilArrivalChip';
 import { CouncilInviteSheet } from '@/components/councils/CouncilInviteSheet';
 import { CouncilMicButton } from '@/components/councils/CouncilMicButton';
 import { CouncilNotice } from '@/components/councils/CouncilNotice';
@@ -24,6 +26,8 @@ import { confirmDestructive, presentActionSheet, type ActionSheetItem } from '@/
 import { isCouncilAudioAvailable } from '@/lib/councilsAgora';
 import { openUserProfile } from '@/lib/openUserProfile';
 import { safePush } from '@/lib/safeNavigate';
+import { subscriberTierOf } from '@/lib/subscriberTier';
+import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { showToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/services/media';
 import {
@@ -301,6 +305,7 @@ export default function CouncilRoomScreen() {
   const header = (
     <CouncilRoomHeader
       title={state?.council.name ?? 'المجلس'}
+      hostTier={subscriberTierOf(state?.council.owner)}
       onMinimize={minimize}
       onLeave={state && !blocked ? () => void onLeave() : undefined}
       onMore={state && !blocked ? () => void openMenu() : undefined}
@@ -363,6 +368,7 @@ export default function CouncilRoomScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       {header}
+      <CouncilArrivalChip arrival={session.arrival} />
       <ScreenBody gap="xl" padTop="sm" bottomInset="action" contentContainerStyle={styles.bodyContent}>
         <Stack gap="sm">
           <Row gap="sm" align="center">
@@ -393,9 +399,12 @@ export default function CouncilRoomScreen() {
               name={councilUserName(council.owner)}
               size="xs"
             />
-            <AppText variant="caption" color="textMuted" numberOfLines={1}>
+            <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.ownerName}>
               {councilUserName(council.owner)}
             </AppText>
+            {shouldShowVerifiedBadge(council.owner.verified) ? (
+              <VerificationBadge size={13} tier={council.owner.verifiedTier} />
+            ) : null}
           </Row>
         </Stack>
 
@@ -568,6 +577,7 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.borderSoft,
     },
     liveDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.success },
+    ownerName: { flexShrink: 1 },
     notice: {
       padding: spacing.md,
       borderRadius: radius.lg,

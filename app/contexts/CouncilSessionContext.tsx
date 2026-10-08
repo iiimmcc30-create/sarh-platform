@@ -40,6 +40,7 @@ import {
 } from '@/lib/councilSession';
 import { speakingUserIdsFor, withMyMicState } from '@/lib/councilSpeaking';
 import { ensureMicPermission } from '@/lib/livePermissions';
+import { createArrivalGate, isPremiumTier, subscriberTierOf, type SubscriberTier } from '@/lib/subscriberTier';
 import { showToast } from '@/lib/toast';
 import {
   COUNCIL_BANNED_TEXT,
@@ -55,9 +56,13 @@ import {
   setCouncilMic,
   type CouncilSpeaker,
   type CouncilState,
+  type CouncilUser,
 } from '@/services/councils';
 
 export type CouncilOpenResult = 'joined' | 'rules' | 'blocked' | 'error';
+
+/** Latest Gold / Blue+ entrance shown as a short chip in the room (key changes per event). */
+export type CouncilArrival = { key: string; at: number; user: CouncilUser; tier: 'gold' | 'blue_plus' };
 
 type CouncilAudio = ReturnType<typeof useCouncilAudio>;
 
@@ -88,6 +93,8 @@ export type CouncilSessionValue = {
   leave: () => Promise<void>;
   /** Room screen focus — the mini player hides while the room is on screen. */
   setRoomFocused: (focused: boolean) => void;
+  /** Subscriber entrance chip («انضم فلان ✦»); null when none / older server. */
+  arrival: CouncilArrival | null;
 };
 
 const CouncilSessionContext = createContext<CouncilSessionValue | null>(null);
@@ -126,6 +133,8 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [agoraError, setAgoraError] = useState<string | null>(null);
   const [roomFocused, setRoomFocusedState] = useState(false);
+  const [arrival, setArrival] = useState<CouncilArrival | null>(null);
+  const [arrivalGate] = useState(() => ({ allow: createArrivalGate() }));
 
   const idRef = useRef<string | null>(null);
   const codeRef = useRef<string | null>(null);
@@ -173,6 +182,7 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
     setBlockedState(null);
     setLoadError(null);
     setAgoraError(null);
+    setArrival(null);
     setBusy(null);
   }, []);
 
@@ -523,6 +533,13 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
         void refresh();
       },
       onRequests: (p) => setState((prev) => (prev ? { ...prev, pendingRequests: p.pending } : prev)),
+      onArrival: (p) => {
+        const tier: SubscriberTier | null = subscriberTierOf(p.user);
+        if (!isPremiumTier(tier) || p.user.id === stateRef.current?.me.userId) return;
+        const now = Date.now();
+        if (!arrivalGate.allow(p.user.id, now)) return;
+        setArrival({ key: `${p.user.id}:${now}`, at: now, user: p.user, tier });
+      },
       onEnded: () => setBlocked('ended'),
       onUpdated: () => void refresh(),
       onError: (p) => {
@@ -566,6 +583,7 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       toggleMic,
       leave,
       setRoomFocused,
+      arrival,
     }),
     [
       councilId,
@@ -589,6 +607,7 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       toggleMic,
       leave,
       setRoomFocused,
+      arrival,
     ],
   );
 

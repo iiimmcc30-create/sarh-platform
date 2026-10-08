@@ -45,6 +45,11 @@ export type ThemeColors = {
   textBrandAlt: string;
   textBrandSuccess: string;
   gold: string;
+  /** Subscriber tier accents (match the verified seal): Gold #C9A227, Blue / Blue+ #1D9BF0. */
+  tierGold: string;
+  tierGoldSoft: string;
+  tierBlue: string;
+  tierBlueSoft: string;
   emerald: string;
   rose: string;
   amber: string;
@@ -86,6 +91,11 @@ export type ThemeGradients = {
 
 const sharedAccents = {
   gold: '#F5C56A',
+  /** Solid tier accents only (thin rings, hairlines, tag text) — never gradients or glow. */
+  tierGold: '#C9A227',
+  tierGoldSoft: 'rgba(201, 162, 39, 0.12)',
+  tierBlue: '#1D9BF0',
+  tierBlueSoft: 'rgba(29, 155, 240, 0.12)',
   /** Brand green alias — per scheme (overridden in the light palette below). */
   emerald: sarh.color.action,
   /** @deprecated Former theme.danger — keep for decorative rose accents only. */

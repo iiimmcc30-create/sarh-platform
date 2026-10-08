@@ -9,6 +9,7 @@ import {
   type CouncilMemberRole,
   type CouncilRequest,
   type CouncilSpeaker,
+  type CouncilUser,
 } from '@/services/councils';
 
 export type CouncilSocketHandlers = {
@@ -27,6 +28,8 @@ export type CouncilSocketHandlers = {
   onKicked?: (p: { reason: 'removed' | 'banned' }) => void;
   onRequestResult?: (p: { requestId: string; status: 'ACCEPTED' | 'REJECTED' | string }) => void;
   onRequests?: (p: { pending: CouncilRequest[] }) => void;
+  /** A Gold / Blue+ subscriber entered the room (server-throttled; older servers never send it). */
+  onArrival?: (p: { user: CouncilUser }) => void;
   onEnded?: () => void;
   onUpdated?: () => void;
   onError?: (p: { code: string }) => void;
@@ -72,6 +75,9 @@ export function useCouncilSocket({ councilId, accessToken, enabled, handlers }: 
       h().onRequestResult?.(p),
     );
     on<{ pending: CouncilRequest[] }>('council:requests', (p) => h().onRequests?.(p));
+    on<{ user?: CouncilUser }>('council:arrival', (p) => {
+      if (p?.user?.id) h().onArrival?.({ user: p.user });
+    });
     on('council:ended', () => h().onEnded?.());
     on('council:updated', () => h().onUpdated?.());
     on<{ code: string }>('council:error', (p) => h().onError?.(p));

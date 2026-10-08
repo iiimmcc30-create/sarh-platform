@@ -5,6 +5,8 @@ import { AppText, SarhAvatar } from '@/design-system/components';
 import { Row } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { CouncilTierTag } from './CouncilTierTag';
+import { subscriberTierOf } from '@/lib/subscriberTier';
 import { resolveMediaUrl } from '@/services/media';
 import {
   councilListenersLabel,
@@ -21,10 +23,16 @@ const AVATAR_OVERLAP = 10;
 export function CouncilCard({ council, onPress }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
+  const hostTier = subscriberTierOf(council.owner);
   return (
     <Pressable
+      testID={hostTier === 'gold' ? 'council-card-gold' : undefined}
       onPress={() => onPress(council)}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        hostTier === 'gold' && { borderColor: colors.tierGold },
+        pressed && styles.pressed,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`مجلس ${council.name}`}
     >
@@ -41,6 +49,7 @@ export function CouncilCard({ council, onPress }: Props) {
             </AppText>
           </Row>
         ) : null}
+        <CouncilTierTag tier={hostTier} />
         <View style={{ flex: 1 }} />
         <AppText variant="caption" color="textMuted">
           {councilListenersLabel(council.listenerCount)}

@@ -20,6 +20,7 @@ import {
   councilFabAnchor,
 } from '@/lib/councilSession';
 import { isAppRtl } from '@/lib/rtl';
+import { sortCouncilsByHostTier } from '@/lib/subscriberTier';
 import { safePush } from '@/lib/safeNavigate';
 import {
   COUNCIL_WEB_TEXT,
@@ -161,7 +162,7 @@ export default function CouncilsScreen() {
           <>
             {section('مجلسك', mine ? [mine] : [])}
             {section('دعوات خاصة', privateList)}
-            {section('مجالس مباشرة', publicList)}
+            {section('مجالس مباشرة', sortCouncilsByHostTier(publicList))}
             {hasMore ? (
               <SarhButton title="عرض المزيد" variant="ghost" shape="pill" loading={loadingMore} onPress={() => void loadMore()} />
             ) : null}

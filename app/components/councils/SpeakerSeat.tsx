@@ -1,15 +1,21 @@
 import { memo, useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { AppText, SarhAvatar } from '@/design-system/components';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { subscriberTierOf, tierColorKeys } from '@/lib/subscriberTier';
+import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { resolveMediaUrl } from '@/services/media';
 import { councilUserName, type CouncilSpeaker } from '@/services/councils';
 
 /** Seat avatar — sized so four seats fill a phone row (≈ 83pt each at 390pt wide). */
 const AVATAR = 64;
+/** Subscriber tier ring: thin solid line hugging the avatar (inside the speaking ring). */
+const TIER_RING = AVATAR + 4;
+const SEAT_BADGE = 12;
 
 type Props = {
   speaker: CouncilSpeaker | null;
@@ -67,6 +73,8 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
 
   const name = councilUserName(speaker.user);
   const muted = speaker.micMuted || speaker.mutedByModerator;
+  const tier = subscriberTierOf(speaker.user);
+  const verified = shouldShowVerifiedBadge(speaker.user.verified);
   return (
     <Pressable
       style={styles.seat}
@@ -76,6 +84,13 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
     >
       <View style={styles.avatarWrap}>
         <Animated.View pointerEvents="none" style={[styles.ring, { opacity: ring }]} />
+        {tier ? (
+          <View
+            pointerEvents="none"
+            testID={`council-tier-ring-${tier}`}
+            style={[styles.tierRing, { borderColor: colors[tierColorKeys(tier).line] }, !speaker.online && styles.offline]}
+          />
+        ) : null}
         <View style={[styles.avatarClip, !speaker.online && styles.offline]}>
           <SarhAvatar
             uri={speaker.user.avatar ? resolveMediaUrl(speaker.user.avatar) : null}
@@ -119,9 +134,18 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
           </View>
         ) : null}
       </View>
-      <AppText variant="micro" color={isMe ? 'textPrimary' : 'textSecondary'} align="center" numberOfLines={1}>
-        {isMe ? 'أنت' : name}
-      </AppText>
+      <View style={styles.nameRow}>
+        <AppText
+          variant="micro"
+          color={isMe ? 'textPrimary' : 'textSecondary'}
+          align="center"
+          numberOfLines={1}
+          style={styles.name}
+        >
+          {isMe ? 'أنت' : name}
+        </AppText>
+        {verified ? <VerificationBadge size={SEAT_BADGE} tier={speaker.user.verifiedTier} /> : null}
+      </View>
     </Pressable>
   );
 }
@@ -140,7 +164,23 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 2,
       borderColor: colors.electric,
     },
+    tierRing: {
+      position: 'absolute',
+      width: TIER_RING,
+      height: TIER_RING,
+      borderRadius: radius.pill,
+      borderWidth: 1.5,
+    },
     avatarClip: { width: AVATAR, height: AVATAR, borderRadius: radius.pill, overflow: 'hidden' },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      maxWidth: '100%',
+      minWidth: 0,
+    },
+    name: { flexShrink: 1 },
     avatar: { width: AVATAR, height: AVATAR },
     offline: { opacity: 0.45 },
     emptyCircle: {

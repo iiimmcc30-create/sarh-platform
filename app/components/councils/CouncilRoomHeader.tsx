@@ -9,6 +9,7 @@ import { useLayout } from '@/hooks/useLayout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow } from '@/lib/rtl';
+import { GOLD_COUNCIL_TAG, type SubscriberTier } from '@/lib/subscriberTier';
 
 /** Both sides share one width so the title stays centred. */
 const SIDE = controls.iconButton * 2 + spacing.lg;
@@ -18,14 +19,20 @@ type Props = {
   onMinimize: () => void;
   onLeave?: () => void;
   onMore?: () => void;
+  /** Host subscriber tier — Gold adds a quiet gold accent under the title. */
+  hostTier?: SubscriberTier | null;
 };
 
-export function CouncilRoomHeader({ title, onMinimize, onLeave, onMore }: Props) {
+export function CouncilRoomHeader({ title, onMinimize, onLeave, onMore, hostTier }: Props) {
+  const gold = hostTier === 'gold';
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
   const { gutter } = useLayout();
   return (
-    <View style={[styles.container, getRtlRow(), { paddingHorizontal: gutter }]}>
+    <View
+      style={[styles.container, getRtlRow(), { paddingHorizontal: gutter }, gold && styles.goldContainer]}
+      testID={gold ? 'council-header-gold' : undefined}
+    >
       <View style={[styles.side, getRtlRow()]}>
         <Pressable
           testID="council-minimize"
@@ -39,10 +46,19 @@ export function CouncilRoomHeader({ title, onMinimize, onLeave, onMore }: Props)
         </Pressable>
       </View>
 
-      <View style={styles.titleWrap}>
+      <View style={[styles.titleWrap, gold && styles.titleWrapGold]}>
         <AppText variant="heading2" color="textPrimary" align="center" numberOfLines={1} style={styles.title}>
           {title}
         </AppText>
+        {gold ? (
+          <View style={[styles.goldMark, getRtlRow()]} accessibilityLabel={GOLD_COUNCIL_TAG}>
+            <View style={[styles.goldRule, { backgroundColor: colors.tierGold }]} />
+            <AppText variant="micro" style={{ color: colors.tierGold }} numberOfLines={1}>
+              ✦ {GOLD_COUNCIL_TAG}
+            </AppText>
+            <View style={[styles.goldRule, { backgroundColor: colors.tierGold }]} />
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.side, styles.trailing, getRtlRow()]}>
@@ -83,10 +99,19 @@ function createStyles(colors: ThemeColors) {
       minHeight: layout.headerHeight,
       backgroundColor: colors.screenRoot,
     },
+    /** Gold host: hairline gold base line, a little more air around the title. */
+    goldContainer: {
+      paddingVertical: spacing.xs,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.tierGold,
+    },
     side: { width: SIDE, alignItems: 'center' },
     trailing: { justifyContent: 'flex-end', gap: spacing.sm },
     titleWrap: { flex: 1, minWidth: 0, alignItems: 'center' },
+    titleWrapGold: { gap: 2 },
     title: { width: '100%', textAlign: 'center', writingDirection: 'rtl' },
+    goldMark: { alignItems: 'center', gap: spacing.xs },
+    goldRule: { width: 14, height: StyleSheet.hairlineWidth * 2 },
     iconBtn: {
       width: controls.iconButton,
       height: controls.iconButton,
