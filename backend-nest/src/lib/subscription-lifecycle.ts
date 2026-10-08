@@ -30,7 +30,26 @@ export type SubscriptionRow = {
   planId: string;
   renewDate: Date;
   autoRenew: boolean;
+  /** Subscription.status column ("trial" while a free trial runs). */
+  status?: string | null;
 };
+
+/**
+ * Free trial: one week of Blue+ once per account, ever. It is stored like a
+ * paid period (planId = Blue+ slug, renewDate = trial end) with
+ * `autoRenew = false` (no grace, no renewal reminders, never a charge) and
+ * `status = "trial"`. A real payment sets `status = "active"`.
+ */
+export const TRIAL_DAYS = 7;
+export const TRIAL_STATUS = 'trial';
+
+/** True while the row is a running (not yet downgraded) free trial. */
+export function isTrialRow(sub: {
+  planId: string;
+  status?: string | null;
+}): boolean {
+  return sub.status === TRIAL_STATUS && isPaidPlan(sub.planId);
+}
 
 export function isPaidPlan(planId: string): boolean {
   return normalizePlanSlug(planId) !== FREE_PLAN_SLUG;
@@ -111,6 +130,9 @@ export function shouldBlockSubscriptionPayment(
   now: Date = new Date(),
 ): boolean {
   if (!isPaidPlan(sub.planId)) return false;
+  // A free trial never blocks a real subscription (the paid period starts
+  // where the trial ends, so no trial day is lost).
+  if (sub.status === TRIAL_STATUS) return false;
   if (isUpgrade(sub.planId, targetPlanId, tierOf)) return false;
   if (sub.renewDate > now) return true;
   return false;

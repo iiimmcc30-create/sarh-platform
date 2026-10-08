@@ -78,7 +78,11 @@ export type VerificationStatus = {
     planId: string;
     renewDate: string | null;
     autoRenew: boolean;
+    /** True while the current period is the free Blue+ trial (no payment). */
+    isTrial?: boolean;
   };
+  /** One-week free Blue+ trial (absent on older API builds). */
+  trial?: FreeTrialStatus;
   badge: {
     visible: boolean;
     tier: VerificationTierId | null;
@@ -87,6 +91,50 @@ export type VerificationStatus = {
   };
   billing: { cycle: 'monthly'; automaticCharge: boolean; renewal: string };
 };
+
+/**
+ * Free Blue+ trial: one week, once per account that never subscribed. No
+ * card, no payment, no renewal: it simply ends and the account goes back to
+ * the free plan. Start: POST /api/subscriptions/trial.
+ */
+export type FreeTrialStatus = {
+  tier: 'blue_plus';
+  planSlug: string;
+  durationDays: number;
+  /** Can start the trial now. */
+  eligible: boolean;
+  /** The trial is running now. */
+  active: boolean;
+  /** The account already used its one trial. */
+  used: boolean;
+  startedAt: string | null;
+  endsAt: string | null;
+  daysLeft: number;
+};
+
+/** "تنتهي خلال 3 أيام" (Arabic plural rules for small counts). */
+export function trialEndsInLabelAr(daysLeft: number): string {
+  if (daysLeft <= 1) return 'تنتهي خلال يوم';
+  if (daysLeft === 2) return 'تنتهي خلال يومين';
+  if (daysLeft <= 10) return `تنتهي خلال ${daysLeft} أيام`;
+  return `تنتهي خلال ${daysLeft} يوماً`;
+}
+
+/** Status line while the trial runs: "تجربة مجانية — تنتهي خلال X أيام". */
+export function trialStatusLabelAr(trial: Pick<FreeTrialStatus, 'daysLeft'>): string {
+  return `تجربة مجانية — ${trialEndsInLabelAr(trial.daysLeft)}`;
+}
+
+/** Share of the trial already used (0..1), for the progress track. */
+export function trialElapsedRatio(
+  trial: Pick<FreeTrialStatus, 'startedAt' | 'endsAt'>,
+  now: number = Date.now(),
+): number {
+  const start = trial.startedAt ? new Date(trial.startedAt).getTime() : NaN;
+  const end = trial.endsAt ? new Date(trial.endsAt).getTime() : NaN;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return Math.min(1, Math.max(0, (now - start) / (end - start)));
+}
 
 /** Only Gold is gold; Blue, Blue+ (and legacy) are blue. */
 export function badgeColorOf(tier: unknown): 'blue' | 'gold' {
@@ -259,6 +307,41 @@ export async function cancelVerificationSubscription(): Promise<{ ok: boolean; e
       return { ok: false, error: json.messageAr ?? json.message ?? 'تعذّر إلغاء التجديد' };
     }
     return { ok: true };
+  } catch {
+    return { ok: false, error: 'تعذّر الاتصال بالخادم' };
+  }
+}
+
+/** Trial eligibility / state (signed-in users only). */
+export async function fetchFreeTrial(): Promise<FreeTrialStatus | null> {
+  try {
+    const res = await authFetch(`${API_BASE}/api/subscriptions/trial`);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) return null;
+    return json.data as FreeTrialStatus;
+  } catch {
+    return null;
+  }
+}
+
+/** Starts the one-week free Blue+ trial. No card and no payment. */
+export async function startFreeTrial(): Promise<{
+  ok: boolean;
+  trial?: FreeTrialStatus;
+  error?: string;
+  code?: string;
+}> {
+  try {
+    const res = await authFetch(`${API_BASE}/api/subscriptions/trial`, { method: 'POST' });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) {
+      return {
+        ok: false,
+        error: json.messageAr ?? json.message ?? 'تعذّر بدء التجربة المجانية',
+        code: typeof json.error === 'string' ? json.error : undefined,
+      };
+    }
+    return { ok: true, trial: json.data?.trial as FreeTrialStatus | undefined };
   } catch {
     return { ok: false, error: 'تعذّر الاتصال بالخادم' };
   }

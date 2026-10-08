@@ -346,6 +346,11 @@ export function handleNotificationNavigation(
       return true;
 
     case 'subscription_renew':
+      // Verification plans / free trial notifications open the plans sheet.
+      if (stringField(data, 'screen') === 'verification') {
+        safePush('/verification' as never, undefined, ctx.router);
+        return true;
+      }
       safePush('/subscription' as never, undefined, ctx.router);
       return true;
 

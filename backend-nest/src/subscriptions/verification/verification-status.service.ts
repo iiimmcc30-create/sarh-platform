@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPermissions } from '../../plans/plan.types';
 import { PlanPermissionService } from '../../plans/plan-permission.service';
@@ -6,6 +6,10 @@ import { getSubscriptionStatus } from '../../lib/subscription-lifecycle';
 import { SubscriptionsRepository } from '../repositories/subscriptions.repository';
 import { VerificationBadgeService } from './verification-badge.service';
 import { GoldDocumentGateService } from './gold-document-gate.service';
+import {
+  buildTrialInfo,
+  SubscriptionTrialService,
+} from '../services/subscription-trial.service';
 import {
   BADGE_COLOR_FOR_TIER,
   VERIFICATION_PLAN_SLUGS,
@@ -69,6 +73,7 @@ export class VerificationStatusService {
     private readonly permissions: PlanPermissionService,
     private readonly badge: VerificationBadgeService,
     private readonly goldGate: GoldDocumentGateService,
+    @Optional() private readonly trial?: SubscriptionTrialService,
   ) {}
 
   async getPlans() {
@@ -109,42 +114,63 @@ export class VerificationStatusService {
   }
 
   async getForUser(userId: string) {
+    // An ended free trial goes back to the free plan on read (paid
+    // subscriptions keep their expired / grace states as before).
+    await this.trial?.expireIfEnded(userId);
+
+    const subscriptionSelect = {
+      id: true,
+      planId: true,
+      renewDate: true,
+      autoRenew: true,
+      status: true,
+      trialStartedAt: true,
+      trialEndsAt: true,
+    } as const;
     let subscription = await this.prisma.subscription.findUnique({
       where: { userId },
-      select: { id: true, planId: true, renewDate: true, autoRenew: true },
+      select: subscriptionSelect,
     });
     if (!subscription) {
       await this.subscriptionsRepo.upsertFree(userId);
       subscription = await this.prisma.subscription.findUnique({
         where: { userId },
-        select: { id: true, planId: true, renewDate: true, autoRenew: true },
+        select: subscriptionSelect,
       });
     }
 
     const badge = await this.badge.sync(userId);
 
-    const [request, lastPayment, plans, goldDocument] = await Promise.all([
-      this.prisma.accountVerificationRequest.findUnique({
-        where: { userId },
-        select: {
-          status: true,
-          requestedTier: true,
-          approvedTier: true,
-          reviewReason: true,
-          submittedAt: true,
-          reviewedAt: true,
-        },
-      }),
-      // Read-only lookup of the last paid subscription payment so an expired
-      // badge subscription (already downgraded to free) is reported as expired.
-      this.prisma.payment.findFirst({
-        where: { userId, referenceType: 'subscription', status: 'paid' },
-        orderBy: { createdAt: 'desc' },
-        select: { metadata: true },
-      }),
-      this.getPlans(),
-      this.goldGate.check(userId),
-    ]);
+    const [request, lastPayment, plans, goldDocument, paidCount] =
+      await Promise.all([
+        this.prisma.accountVerificationRequest.findUnique({
+          where: { userId },
+          select: {
+            status: true,
+            requestedTier: true,
+            approvedTier: true,
+            reviewReason: true,
+            submittedAt: true,
+            reviewedAt: true,
+          },
+        }),
+        // Read-only lookup of the last paid subscription payment so an expired
+        // badge subscription (already downgraded to free) is reported as expired.
+        this.prisma.payment.findFirst({
+          where: { userId, referenceType: 'subscription', status: 'paid' },
+          orderBy: { createdAt: 'desc' },
+          select: { metadata: true },
+        }),
+        this.getPlans(),
+        this.goldGate.check(userId),
+        this.prisma.payment.count({
+          where: {
+            userId,
+            referenceType: 'subscription',
+            status: { in: ['paid', 'refunded'] },
+          },
+        }),
+      ]);
 
     const meta = (lastPayment?.metadata ?? {}) as Record<string, unknown>;
     const lastPlan =
@@ -155,6 +181,8 @@ export class VerificationStatusService {
     });
 
     const approvedTier = effectiveApprovedTier(request);
+    const trialInfo = buildTrialInfo(subscription, paidCount > 0);
+    const trialPlan = plans.find((p) => p.slug === trialInfo.planSlug);
 
     return {
       plans,
@@ -184,6 +212,17 @@ export class VerificationStatusService {
         planId: subscription?.planId ?? 'free',
         renewDate: subscription?.renewDate ?? null,
         autoRenew: subscription?.autoRenew ?? false,
+        /** True while the current period is the free trial (no payment). */
+        isTrial: trialInfo.active,
+      },
+      /**
+       * One-week free Blue+ trial (one per account, ever). Start it with
+       * POST /subscriptions/trial. Eligible only while the Blue+ plan is on
+       * sale (so the user can subscribe when the trial ends).
+       */
+      trial: {
+        ...trialInfo,
+        eligible: trialInfo.eligible && !!trialPlan?.available,
       },
       badge: {
         visible: badge?.verified ?? false,

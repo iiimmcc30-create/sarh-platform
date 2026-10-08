@@ -21,6 +21,8 @@ export class PaymentsRepository {
         planAudience: true,
         renewDate: true,
         autoRenew: true,
+        // Read-only: lets a running free trial be upgraded to a paid plan.
+        status: true,
       },
     });
   }

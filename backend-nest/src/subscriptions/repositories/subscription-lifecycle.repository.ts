@@ -5,6 +5,10 @@ import { PlanPermissionService } from '../../plans/plan-permission.service';
 import { PlanResolverService } from '../../plans/plan-resolver.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { isVerificationPlanSlug } from '../verification/verification-tiers';
+import { TRIAL_STATUS } from '../../lib/subscription-lifecycle';
+
+export type TrialActivationResult =
+  { ok: true } | { ok: false; reason: 'plan_unavailable' | 'not_eligible' };
 
 const SUBSCRIPTION_SELECT = {
   id: true,
@@ -22,6 +26,8 @@ const SUBSCRIPTION_SELECT = {
   dailyAdsUsed: true,
   dailyAdsWindowStart: true,
   autoRenew: true,
+  trialStartedAt: true,
+  trialEndsAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -69,6 +75,99 @@ export class SubscriptionLifecycleRepository {
         autoRenew: true,
       },
       select: SUBSCRIPTION_SELECT,
+    });
+  }
+
+  /** Running free trials whose end falls within the next `hours` hours. */
+  findTrialsEndingWithin(hours: number, now: Date) {
+    const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
+    return this.prisma.subscription.findMany({
+      take: 500,
+      where: {
+        planId: { not: 'free' },
+        status: TRIAL_STATUS,
+        renewDate: { gt: now, lte: end },
+      },
+      select: SUBSCRIPTION_SELECT,
+    });
+  }
+
+  /** Subscription payments that went through (paid, or paid then refunded). */
+  countPaidSubscriptionPayments(userId: string) {
+    return this.prisma.payment.count({
+      where: {
+        userId,
+        referenceType: 'subscription',
+        status: { in: ['paid', 'refunded'] },
+      },
+    });
+  }
+
+  /**
+   * Starts the free trial in ONE conditional write, so two concurrent taps
+   * (or devices) can never both succeed: the row must still be on the free
+   * plan, never have had a trial and never have been downgraded from a paid
+   * plan. The account must also have no successful subscription payment.
+   * The trial is stored like a paid period of the plan (same columns the
+   * payment activation sets), with autoRenew = false (no grace, no renewal
+   * reminders, never a charge) and status = "trial".
+   */
+  activateTrialTx(params: {
+    userId: string;
+    planSlug: string;
+    audience: PlanAudience;
+    startedAt: Date;
+    endsAt: Date;
+  }): Promise<TrialActivationResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const plan = await tx.plan.findFirst({
+        where: {
+          slug: normalizePlanSlug(params.planSlug),
+          audience: params.audience,
+          isActive: true,
+          // Only a plan that is on sale (so the user can subscribe after).
+          monthlyPrice: { gt: 0 },
+        },
+        select: { id: true },
+      });
+      if (!plan) return { ok: false, reason: 'plan_unavailable' };
+
+      const paid = await tx.payment.count({
+        where: {
+          userId: params.userId,
+          referenceType: 'subscription',
+          status: { in: ['paid', 'refunded'] },
+        },
+      });
+      if (paid > 0) return { ok: false, reason: 'not_eligible' };
+
+      const updated = await tx.subscription.updateMany({
+        where: {
+          userId: params.userId,
+          planId: 'free',
+          trialStartedAt: null,
+          NOT: { status: 'downgraded' },
+        },
+        data: {
+          planId: normalizePlanSlug(params.planSlug),
+          planAudience: params.audience,
+          planDbId: plan.id,
+          renewDate: params.endsAt,
+          autoRenew: false,
+          status: TRIAL_STATUS,
+          trialStartedAt: params.startedAt,
+          trialEndsAt: params.endsAt,
+          listingsUsed: 0,
+          liveMinutesUsed: 0,
+          featuredAdsUsed: 0,
+          pinnedAdsUsed: 0,
+          dailyAdsUsed: 0,
+          dailyAdsWindowStart: null,
+        },
+      });
+      return updated.count === 1
+        ? { ok: true }
+        : { ok: false, reason: 'not_eligible' };
     });
   }
 

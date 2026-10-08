@@ -387,6 +387,13 @@ model Subscription {
   dailyAdsUsed        Int          @default(0)
   dailyAdsWindowStart DateTime?
   autoRenew           Boolean      @default(true)
+  /// Free Blue+ trial (one per account, ever). Set once when the user starts
+  /// the trial and never cleared, so the account can never start another one.
+  /// While the trial runs `status` is "trial" (a payment sets it back to
+  /// "active").
+  trialStartedAt      DateTime?
+  /// End of the free trial (equals `renewDate` of the trial period).
+  trialEndsAt         DateTime?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   payments            Payment[]

@@ -1,6 +1,7 @@
 import {
   getSubscriptionStatus,
   isPaidPlan,
+  isTrialRow,
   type SubscriptionRow,
 } from '../../lib/subscription-lifecycle';
 import {
@@ -28,6 +29,8 @@ export const ADMIN_MEMBERSHIP_SELECT = {
       status: true,
       renewDate: true,
       autoRenew: true,
+      trialStartedAt: true,
+      trialEndsAt: true,
       createdAt: true,
       plan: { select: { name: true, monthlyPrice: true, currency: true } },
     },
@@ -51,6 +54,8 @@ type MembershipSource = {
     | (SubscriptionRow & {
         status?: string | null;
         createdAt?: Date | null;
+        trialStartedAt?: Date | null;
+        trialEndsAt?: Date | null;
         plan?: {
           name: string;
           monthlyPrice: number;
@@ -106,6 +111,11 @@ export type AdminMembership = {
     renewDate: Date | null;
     /** Renewal intent flag (manual renewal; never an automatic charge). */
     renewalIntent: boolean;
+    /** Where the current period comes from: free trial, payment, or none. */
+    source: 'trial' | 'paid' | null;
+    /** When the account used its one free trial (null = never). */
+    trialStartedAt: Date | null;
+    trialEndsAt: Date | null;
   };
 };
 
@@ -163,6 +173,9 @@ export function buildAdminMembership(
       renewDate:
         paid || mapped.state === 'expired' ? (sub?.renewDate ?? null) : null,
       renewalIntent: paid ? !!sub?.autoRenew : false,
+      source: sub && paid ? (isTrialRow(sub) ? 'trial' : 'paid') : null,
+      trialStartedAt: sub?.trialStartedAt ?? null,
+      trialEndsAt: sub?.trialEndsAt ?? null,
     },
   };
 }

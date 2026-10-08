@@ -7,6 +7,7 @@ import { SubscriptionLifecycleRepository } from './repositories/subscription-lif
 import { SubscriptionCacheService } from './services/subscription-cache.service';
 import { SubscriptionLifecycleService } from './services/subscription-lifecycle.service';
 import { SubscriptionEntitlementService } from './services/subscription-entitlement.service';
+import { SubscriptionTrialService } from './services/subscription-trial.service';
 import { VerificationBadgeService } from './verification/verification-badge.service';
 import { VerificationStatusService } from './verification/verification-status.service';
 import { GoldDocumentGateService } from './verification/gold-document-gate.service';
@@ -26,6 +27,7 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     SubscriptionCacheService,
     SubscriptionLifecycleService,
     SubscriptionEntitlementService,
+    SubscriptionTrialService,
     VerificationBadgeService,
     VerificationStatusService,
     GoldDocumentGateService,
@@ -35,6 +37,7 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     SubscriptionCacheService,
     SubscriptionLifecycleService,
     SubscriptionEntitlementService,
+    SubscriptionTrialService,
     SubscriptionLifecycleRepository,
     VerificationBadgeService,
     GoldDocumentGateService,

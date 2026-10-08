@@ -6,6 +6,7 @@ import {
   badgeColor,
   planLabel,
   planPriceLabel,
+  subscriptionStatus,
   tierLabel,
 } from '@/lib/membership';
 
@@ -59,3 +60,25 @@ describe('admin membership: Blue / Blue+ / Gold', () => {
     expect(page).toContain("COMMERCIAL_REGISTER: 'السجل التجاري'");
   });
 });
+
+describe('admin membership: free Blue+ trial', () => {
+  it('labels a running trial as a free trial (no payment)', () => {
+    const m = membership('blue_plus', 59);
+    m.subscription.source = 'trial';
+    m.subscription.state = 'canceled';
+    expect(subscriptionStatus(m)).toEqual({ label: 'تجربة مجانية (بدون دفع)', tone: 'info' });
+    m.subscription.source = 'paid';
+    m.subscription.state = 'active';
+    expect(subscriptionStatus(m).label).not.toContain('تجربة');
+  });
+
+  it('user page shows whether the account used its trial', () => {
+    const page = readFileSync(
+      path.join(__dirname, '..', 'src/app/(dashboard)/users/[id]/page.tsx'),
+      'utf8',
+    );
+    expect(page).toContain('التجربة المجانية: ');
+    expect(page).toContain('membership.subscription.trialStartedAt');
+  });
+});
+

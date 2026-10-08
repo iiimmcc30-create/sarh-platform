@@ -7,6 +7,7 @@ import {
   getSubscriptionStatus,
   hasPaidAccess,
   isPaidPlan,
+  isTrialRow,
   RENEWAL_DAY_REMINDER,
   RENEWAL_REMINDER_DAYS,
   shouldBlockSubscriptionPayment,
@@ -48,6 +49,9 @@ export type SubscriptionView = {
   effectivePlanId: string;
   effectivePlanSlug: string;
   previousPlanId?: string;
+  /** True while this period is the free Blue+ trial (no payment). */
+  isTrial: boolean;
+  trialEndsAt: Date | null;
   usageCounters?: {
     listingsUsed: number;
     liveMinutesUsed: number;
@@ -98,6 +102,8 @@ export class SubscriptionLifecycleService {
       status,
       effectivePlanId: effectivePlanSlug,
       effectivePlanSlug,
+      isTrial: isTrialRow(row),
+      trialEndsAt: row.trialEndsAt ?? null,
       ...(previousPlanId ? { previousPlanId } : {}),
     };
   }
@@ -174,6 +180,8 @@ export class SubscriptionLifecycleService {
       status,
       effectivePlanId: effectivePlanSlug,
       effectivePlanSlug,
+      isTrial: isTrialRow(row),
+      trialEndsAt: row.trialEndsAt ?? null,
       autoRenew: row.autoRenew,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -209,6 +217,7 @@ export class SubscriptionLifecycleService {
       row.planId,
       row.planAudience,
       'expiration',
+      { trial: isTrialRow(row) },
     );
     return true;
   }
@@ -218,6 +227,7 @@ export class SubscriptionLifecycleService {
     previousPlanId: string,
     audience: PlanAudience,
     reason: 'expiration' | 'refund' | 'manual',
+    options?: { trial?: boolean },
   ): Promise<void> {
     if (!isPaidPlan(previousPlanId)) return;
 
@@ -225,6 +235,24 @@ export class SubscriptionLifecycleService {
     await this.cache.invalidate(userId);
     // Verification badge ends with its subscription (legacy badges are kept).
     await this.verificationBadge?.syncQuietly(userId);
+
+    if (options?.trial && reason === 'expiration') {
+      await this.notifications.notifyUser({
+        userId,
+        type: 'subscription_renew',
+        titleAr: 'انتهت تجربتك المجانية',
+        bodyAr:
+          'انتهت تجربة Blue+ المجانية. اشترك الآن لتستمر شارتك الزرقاء وأولوية الظهور والإعلانات الإضافية.',
+        data: {
+          reason: 'trial_ended',
+          previousPlanId,
+          screen: 'verification',
+          tier: 'blue_plus',
+        },
+      });
+      this.logger.info({ userId, previousPlanId }, 'Free trial ended');
+      return;
+    }
 
     const titleAr =
       reason === 'refund' ? 'تم استرداد مبلغ الاشتراك' : 'انتهى اشتراكك';
@@ -248,7 +276,12 @@ export class SubscriptionLifecycleService {
   }
 
   shouldBlockPayment(
-    sub: { planId: string; renewDate: Date; autoRenew: boolean },
+    sub: {
+      planId: string;
+      renewDate: Date;
+      autoRenew: boolean;
+      status?: string | null;
+    },
     targetPlanId: string,
     audience: PlanAudience,
   ): boolean {
@@ -261,6 +294,10 @@ export class SubscriptionLifecycleService {
     const row = await this.repo.findByUserId(userId);
     if (!row) return null;
     if (!isPaidPlan(row.planId)) {
+      return this.enrichSubscription(row);
+    }
+    // A free trial never renews: nothing to cancel.
+    if (isTrialRow(row)) {
       return this.enrichSubscription(row);
     }
     if (!hasPaidAccess(row)) {
@@ -354,6 +391,52 @@ export class SubscriptionLifecycleService {
         sent++;
       }
     }
+    try {
+      sent += await this.processTrialReminders(now);
+    } catch (err) {
+      // Never let the trial reminder break the paid renewal reminders.
+      this.logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        'Trial reminder batch failed',
+      );
+    }
+    return sent;
+  }
+
+  /**
+   * Free trial: one reminder in the trial's last 24 hours ("one day left").
+   * Runs inside the existing daily `reminders` job (no queue change); the
+   * job runs once a day, so exactly one run falls in that 24h window. Each
+   * trial is reminded once (cache key dedupe).
+   */
+  async processTrialReminders(now: Date = new Date()): Promise<number> {
+    let sent = 0;
+    const rows = await this.repo.findTrialsEndingWithin(24, now);
+    for (const row of rows) {
+      if (!isTrialRow(row)) continue;
+      const shouldSend = await this.cache.markReminderSent(
+        row.userId,
+        'trial_d1',
+        8 * 24 * 60 * 60,
+      );
+      if (!shouldSend) continue;
+      await this.notifications.notifyUser({
+        userId: row.userId,
+        type: 'subscription_renew',
+        titleAr: 'باقي يوم على نهاية تجربتك المجانية',
+        bodyAr:
+          'تنتهي تجربة Blue+ المجانية خلال يوم. اشترك الآن لتحتفظ بالشارة الزرقاء والمزايا بدون انقطاع.',
+        data: {
+          reason: 'trial_ending',
+          planId: row.planId,
+          renewDate: row.renewDate.toISOString(),
+          daysLeft: '1',
+          screen: 'verification',
+          tier: 'blue_plus',
+        },
+      });
+      sent++;
+    }
     return sent;
   }
 
@@ -368,6 +451,7 @@ export class SubscriptionLifecycleService {
           row.planId,
           row.planAudience,
           'expiration',
+          { trial: isTrialRow(row) },
         );
         count++;
         continue;

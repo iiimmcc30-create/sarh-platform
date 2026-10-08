@@ -4,11 +4,12 @@ import { AppText } from '@/components/ui/AppText';
 import { AppScrollView } from '@/components/ui/AppScrollView';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { AppText as DsText, SarhDivider } from '@/design-system/components';
-import { spacing, typography, type ThemeColors } from '@/constants/theme';
+import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppUser } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFreeTrialEligibility } from '@/hooks/useFreeTrialEligibility';
 import { getRtlRow } from '@/lib/rtl';
 import { closeThen, closeThenPush } from '@/lib/safeNavigate';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
@@ -49,6 +50,8 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
   const { isAuthenticated } = useAuth();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const isDark = preference !== 'light';
+  // Quiet hint on the subscriptions entry for accounts that can try Blue+ free.
+  const trialEligible = useFreeTrialEligibility();
 
   const displayName = isAuthenticated
     ? me.arabicName || me.displayName || me.username || 'حسابي'
@@ -124,10 +127,21 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             }
             style={({ pressed }) => [styles.row, getRtlRow(), pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel={item.label}
+            accessibilityLabel={
+              item.key === 'verification' && trialEligible
+                ? `${item.label} — أسبوع مجاني`
+                : item.label
+            }
           >
             <AppIcon name={item.icon} size={24} color={colors.textPrimary} />
             <AppText style={styles.rowLabel}>{item.label}</AppText>
+            {item.key === 'verification' && trialEligible ? (
+              <View style={styles.trialChip}>
+                <DsText variant="caption" style={styles.trialChipText}>
+                  أسبوع مجاني
+                </DsText>
+              </View>
+            ) : null}
           </Pressable>
         ))}
 
@@ -237,6 +251,18 @@ function createStyles(colors: ThemeColors) {
     },
     secondaryLabel: {
       flex: 1,
+    },
+    /** Small outlined hint (no fill, no shadow) next to Verification. */
+    trialChip: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.textMuted,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    trialChipText: {
+      color: colors.textPrimary,
+      fontWeight: '600',
     },
     footer: {
       paddingHorizontal: spacing.lg,

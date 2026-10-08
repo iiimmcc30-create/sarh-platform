@@ -101,6 +101,12 @@ export default function UserDetailPage() {
                 <span className="text-slate-500">تاريخ التجديد / الانتهاء: </span>
                 {formatDate(membership.subscription.renewDate)}
               </p>
+              <p>
+                <span className="text-slate-500">التجربة المجانية: </span>
+                {membership.subscription.trialStartedAt
+                  ? `استُخدمت (${formatDate(membership.subscription.trialStartedAt)} – ${formatDate(membership.subscription.trialEndsAt)})`
+                  : 'لم تُستخدم'}
+              </p>
               <p className="text-xs text-slate-500 sm:col-span-2">
                 التجديد يدوي شهرياً (دفعة جديدة)، ولا يوجد خصم تلقائي من البطاقة. تظهر الشارة فقط عند قبول التوثيق
                 ووجود اشتراك فعّال.

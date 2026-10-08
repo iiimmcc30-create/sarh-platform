@@ -4,7 +4,8 @@
 // feature list, the monthly plan, a pill CTA and fine print. The page is
 // ALWAYS dark (black) in light and dark mode. Prices come from the plans API
 // only; renewal is manual (no auto-charge). Gold needs a document before
-// payment (the API enforces it too).
+// payment (the API enforces it too). Accounts that never subscribed can start
+// a one-week free Blue+ trial here (no card, no payment, ends by itself).
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -23,6 +24,7 @@ import { useTabLayouts } from '@/hooks/useTabLayouts';
 import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
 import { getRtlDirection, getRtlRow } from '@/lib/rtl';
 import { VERIFIED_BADGE_COLORS } from '@/lib/verifiedBadge';
+import { invalidateFreeTrialEligibility } from '@/hooks/useFreeTrialEligibility';
 import { launchPaymentCheckout } from '@/services/payments';
 import {
   VERIFICATION_STATE_LABEL_AR,
@@ -36,8 +38,11 @@ import {
   fetchVerificationStatus,
   formatArabicDate,
   initiateVerificationSubscription,
+  startFreeTrial,
   subscriptionStateLabelAr,
   tierRank,
+  trialElapsedRatio,
+  trialStatusLabelAr,
   type VerificationPlan,
   type VerificationStatus,
   type VerificationTierId,
@@ -141,6 +146,85 @@ function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefine
   ];
 }
 
+/**
+ * Free-trial card: the offer (eligible) or the running trial with a thin
+ * progress track. Flat dark surface, hairline border, no shadow/gradient.
+ */
+function TrialCard({
+  mode,
+  durationDays,
+  daysLeftLabel,
+  endsOn,
+  elapsed,
+}: {
+  mode: 'offer' | 'active';
+  durationDays: number;
+  daysLeftLabel: string;
+  endsOn: string;
+  elapsed: number;
+}) {
+  const [appear] = useState(() => new Animated.Value(0));
+  const [fill] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.timing(appear, { toValue: 1, duration: duration.ui, useNativeDriver: true }).start();
+  }, [appear]);
+  useEffect(() => {
+    Animated.timing(fill, { toValue: elapsed, duration: duration.ui * 2, useNativeDriver: false }).start();
+  }, [fill, elapsed]);
+
+  const lines =
+    mode === 'offer'
+      ? ['بدون بطاقة وبدون أي دفع', `تنتهي تلقائياً بعد ${durationDays} أيام، بلا تجديد`, 'مرة واحدة لكل حساب']
+      : [];
+
+  return (
+    <Animated.View
+      style={[
+        styles.trialCard,
+        getRtlDirection(),
+        {
+          opacity: appear,
+          transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+        },
+      ]}
+      accessibilityRole="summary"
+    >
+      <View style={[styles.trialHead, getRtlRow()]}>
+        <View style={styles.trialIcon}>
+          <AppIcon name={mode === 'offer' ? 'gift-outline' : 'time-outline'} size={18} color={D.text} />
+        </View>
+        <Stack gap="none" style={styles.featureText}>
+          <AppText variant="label" style={[styles.text, styles.trialTitle]}>
+            {mode === 'offer' ? `أسبوع مجاني من ${ltr('Blue+')}` : daysLeftLabel}
+          </AppText>
+          <AppText variant="caption" style={styles.secondary}>
+            {mode === 'offer' ? 'جرّب كل المزايا قبل أن تدفع' : `تنتهي في ${endsOn}`}
+          </AppText>
+        </Stack>
+      </View>
+      {mode === 'offer' ? (
+        <View style={styles.trialLines}>
+          {lines.map((line) => (
+            <View key={line} style={[styles.trialLine, getRtlRow()]}>
+              <AppIcon name="checkmark" size={16} color={VERIFIED_BADGE_COLORS.blue} />
+              <AppText variant="caption" style={[styles.text, styles.featureText]}>{line}</AppText>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.trialTrack} accessibilityLabel={daysLeftLabel}>
+          <Animated.View
+            style={[
+              styles.trialFill,
+              { width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+            ]}
+          />
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
 export default function VerificationScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
@@ -174,7 +258,11 @@ export default function VerificationScreen() {
     }, [load, isDark]),
   );
 
-  const tier: VerificationTierId = selected ?? status?.subscription.tier ?? 'blue';
+  const trial = isAuthenticated ? status?.trial : undefined;
+  const trialEligible = !!trial?.eligible;
+  const trialActive = !!trial?.active || !!status?.subscription.isTrial;
+  const tier: VerificationTierId =
+    selected ?? status?.subscription.tier ?? (trialEligible ? 'blue_plus' : 'blue');
   const tierIndex = TIERS.indexOf(tier);
   const planOf = (t: VerificationTierId) => plans.find((p) => p.tier === t);
   const plan = planOf(tier);
@@ -182,11 +270,16 @@ export default function VerificationScreen() {
   const color = badgeColorOf(tier);
   const sub = status?.subscription;
   const verification = status?.verification;
-  const subActive = !!sub && (sub.state === 'active' || sub.state === 'canceled');
+  // A running free trial is not a paid period: every plan stays purchasable
+  // (the paid month starts where the trial ends).
+  const subActive = !!sub && !trialActive && (sub.state === 'active' || sub.state === 'canceled');
   const subscribedHere = subActive && sub?.tier === tier;
   const subscribedHigher = subActive && tierRank(sub?.tier) > tierIndex;
   const subscribedLower = subActive && !!sub?.tier && tierRank(sub.tier) < tierIndex;
-  const renewing = !!sub && sub.tier === tier && (sub.state === 'grace_period' || sub.state === 'expired');
+  const renewing =
+    !!sub && !trialActive && sub.tier === tier && (sub.state === 'grace_period' || sub.state === 'expired');
+  const trialTab = tier === 'blue_plus';
+  const trialDaysLabel = trial ? trialStatusLabelAr(trial) : '';
   const price = priceAmount(plan);
 
   // Tabs: one sliding underline (existing SwipeTabIndicator pattern).
@@ -251,6 +344,31 @@ export default function VerificationScreen() {
     void load();
   };
 
+  /** One tap, no card: Blue+ for a week (the API checks eligibility). */
+  const startTrial = async () => {
+    if (!isAuthenticated || !accessToken) {
+      router.push('/auth/phone');
+      return;
+    }
+    setBusy(true);
+    const res = await startFreeTrial();
+    setBusy(false);
+    invalidateFreeTrialEligibility();
+    if (!res.ok) {
+      void alertMessage('تعذّر بدء التجربة', res.error);
+      void load();
+      return;
+    }
+    const until = formatArabicDate(res.trial?.endsAt);
+    void alertMessage(
+      'بدأت تجربتك المجانية',
+      until
+        ? `مزايا ${ltr('Blue+')} والشارة الزرقاء فعّالة الآن حتى ${until}. لن نخصم أي مبلغ.`
+        : `مزايا ${ltr('Blue+')} والشارة الزرقاء فعّالة الآن. لن نخصم أي مبلغ.`,
+    );
+    void load();
+  };
+
   const cancelRenewal = async () => {
     const until = formatArabicDate(sub?.renewDate);
     const ok = await confirmDestructive(
@@ -273,6 +391,20 @@ export default function VerificationScreen() {
     if (!isAuthenticated) {
       return { title: 'سجّل الدخول للاشتراك', onPress: () => router.push('/auth/phone'), disabled: false };
     }
+    if (trialEligible && trialTab) {
+      return {
+        title: `جرّب ${ltr('Blue+')} مجانًا لمدة أسبوع`,
+        onPress: () => void startTrial(),
+        disabled: false,
+      };
+    }
+    if (trialActive && trialTab && plan?.available) {
+      return {
+        title: `اشترك في ${ltr('Blue+')} للاستمرار`,
+        onPress: () => void subscribe(),
+        disabled: false,
+      };
+    }
     if (subscribedHere) return { title: 'مشترك', onPress: none, disabled: true };
     if (subscribedHigher && sub?.tier) {
       return { title: `مشترك في ${ltr(VERIFICATION_TIER_COPY[sub.tier].label)}`, onPress: none, disabled: true };
@@ -289,6 +421,12 @@ export default function VerificationScreen() {
   })();
 
   const ctaNote = (() => {
+    if (trialEligible && trialTab) {
+      return `مجاناً لمدة ${trial?.durationDays ?? 7} أيام بدون بطاقة ولا أي خصم، وتعود للباقة المجانية تلقائياً بعد انتهائها.`;
+    }
+    if (trialActive && trialTab) {
+      return 'يبدأ اشتراكك المدفوع بعد نهاية التجربة، فلا تخسر أي يوم منها.';
+    }
     if (subscribedHere && sub?.state === 'active') {
       return `اشتراكك فعّال حتى ${formatArabicDate(sub.renewDate)}. جدّد بدفعة جديدة عند موعد التجديد.`;
     }
@@ -429,6 +567,38 @@ export default function VerificationScreen() {
           </View>
         ) : null}
 
+        {/* Free trial: the offer on the Blue+ tab, or the running trial */}
+        {trialActive && trial ? (
+          <TrialCard
+            mode="active"
+            durationDays={trial.durationDays}
+            daysLeftLabel={trialDaysLabel}
+            endsOn={formatArabicDate(trial.endsAt ?? sub?.renewDate)}
+            elapsed={trialElapsedRatio(trial)}
+          />
+        ) : trialEligible && trial && trialTab ? (
+          <TrialCard
+            mode="offer"
+            durationDays={trial.durationDays}
+            daysLeftLabel=""
+            endsOn=""
+            elapsed={0}
+          />
+        ) : trialEligible ? (
+          <Pressable
+            onPress={() => setSelected('blue_plus')}
+            accessibilityRole="button"
+            accessibilityLabel={`جرّب ${ltr('Blue+')} مجانًا لمدة أسبوع`}
+            style={({ pressed }) => [styles.trialHint, getRtlRow(), pressed && styles.pressed]}
+          >
+            <AppIcon name="gift-outline" size={16} color={D.text} />
+            <AppText variant="caption" style={[styles.text, styles.featureText]}>
+              {`جرّب ${ltr('Blue+')} مجانًا لمدة أسبوع`}
+            </AppText>
+            <AppIcon name="chevron-back" size={16} color={D.textSecondary} />
+          </Pressable>
+        ) : null}
+
         {/* Compact status (signed-in) */}
         {isAuthenticated && status ? (
           <View style={styles.status}>
@@ -436,7 +606,7 @@ export default function VerificationScreen() {
               <AppText variant="caption" style={styles.secondary}>الاشتراك</AppText>
               <AppText variant="caption" style={[styles.text, styles.statusValue]}>
                 {sub?.tier ? `${ltr(VERIFICATION_TIER_COPY[sub.tier].label)} · ` : ''}
-                {sub ? subscriptionStateLabelAr(sub) : 'غير مشترك'}
+                {trialActive && trial ? trialDaysLabel : sub ? subscriptionStateLabelAr(sub) : 'غير مشترك'}
               </AppText>
             </View>
             <View style={[styles.statusRow, getRtlRow()]}>
@@ -492,6 +662,18 @@ export default function VerificationScreen() {
         <AppText variant="caption" align="center" style={[styles.secondary, styles.ctaNote]}>
           {ctaNote}
         </AppText>
+        {trialEligible && trialTab && plan?.available ? (
+          <Pressable
+            onPress={() => void subscribe()}
+            disabled={busy}
+            accessibilityRole="button"
+            style={styles.cancel}
+          >
+            <AppText variant="caption" align="center" style={styles.text}>
+              أو اشترك الآن مباشرة
+            </AppText>
+          </Pressable>
+        ) : null}
         {subscribedHere && sub?.state === 'active' ? (
           <Pressable
             onPress={() => void cancelRenewal()}
@@ -508,7 +690,8 @@ export default function VerificationScreen() {
           بالاشتراك، فإنك توافق على شروط الاستخدام في سرح. الاشتراك شهري ويُجدَّد يدوياً فقط: لا نحفظ
           بطاقتك ولا نخصم أي مبلغ تلقائياً. نذكّرك قبل موعد التجديد بـ 7 أيام و3 أيام ويوم واحد وفي يوم
           التجديد، ولديك مهلة 3 أيام بعده قبل إيقاف المزايا والشارة. يمكنك إلغاء الاشتراك في أي وقت وتبقى
-          المزايا حتى نهاية الفترة المدفوعة. {ltr('Blue')} و{ltr('Blue+')} بشارة زرقاء ولا تحتاجان أي مستند أو
+          المزايا حتى نهاية الفترة المدفوعة. التجربة المجانية لـ {ltr('Blue+')} أسبوع واحد ومرة واحدة لكل حساب
+          لم يسبق له الاشتراك، بدون بطاقة ولا أي خصم، وتنتهي وحدها. {ltr('Blue')} و{ltr('Blue+')} بشارة زرقاء ولا تحتاجان أي مستند أو
           تحقق هوية. {ltr('Gold')} يتطلب إرفاق السجل التجاري قبل الدفع، وتظهر الشارة الذهبية بعد قبول توثيق
           التاجر.
         </AppText>
@@ -590,6 +773,45 @@ const styles = StyleSheet.create({
   ctaTextDisabled: { color: D.ctaDisabledText },
   ctaNote: { marginTop: spacing.sm },
   cancel: { marginTop: spacing.sm, paddingVertical: spacing.xs },
+  trialCard: {
+    marginTop: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: D.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: D.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  trialHead: { alignItems: 'center', gap: spacing.md },
+  trialIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: D.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trialTitle: { fontWeight: '700' },
+  trialLines: { gap: spacing.xs },
+  trialLine: { alignItems: 'center', gap: spacing.sm, minHeight: 22 },
+  trialTrack: {
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: D.border,
+    overflow: 'hidden',
+  },
+  trialFill: { height: 4, borderRadius: radius.pill, backgroundColor: VERIFIED_BADGE_COLORS.blue },
+  trialHint: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: D.border,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
   finePrint: {
     marginTop: spacing.xl,
     lineHeight: 18,

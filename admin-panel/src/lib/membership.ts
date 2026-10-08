@@ -37,6 +37,11 @@ export type AdminMembership = {
     startedAt: string | null;
     renewDate: string | null;
     renewalIntent: boolean;
+    /** Where the current period comes from (older API builds: undefined). */
+    source?: 'trial' | 'paid' | null;
+    /** When the account used its one free Blue+ trial (null = never). */
+    trialStartedAt?: string | null;
+    trialEndsAt?: string | null;
   };
 };
 
@@ -101,6 +106,7 @@ const STATE_TONE: Record<AdminMembership['subscription']['state'], Tone> = {
 export function subscriptionStatus(m: AdminMembership | undefined): { label: string; tone: Tone } {
   if (!m) return { label: '—', tone: 'default' };
   const s = m.subscription;
+  if (s.source === 'trial') return { label: 'تجربة مجانية (بدون دفع)', tone: 'info' };
   if (s.tier || s.state !== 'none') return { label: STATE_LABEL[s.state], tone: STATE_TONE[s.state] };
   const label = LIFECYCLE_LABEL[s.lifecycle] ?? s.lifecycle;
   return { label, tone: s.lifecycle === 'active' ? 'success' : s.lifecycle === 'free' ? 'default' : 'warning' };
