@@ -78,6 +78,7 @@ export class UsersService {
     }
 
     let isFollowing = false;
+    let followsYou = false;
     let myRating: number | null = null;
     let isBlocked = false;
     if (viewer?.userId && viewer.userId !== id) {
@@ -88,11 +89,13 @@ export class UsersService {
       }
       isBlocked = !!blockedByViewer;
 
-      const [follow, review] = await Promise.all([
+      const [follow, followedBy, review] = await Promise.all([
         this.repo.findFollow(viewer.userId, id),
+        this.repo.findFollow(id, viewer.userId),
         this.repo.findUserRating(id, viewer.userId),
       ]);
       isFollowing = !!follow;
+      followsYou = !!followedBy;
       myRating = review?.rating ?? null;
       // «مين شاف ملفي»: blocked pairs never get here (403 above / isBlocked).
       if (!blockedByViewer) {
@@ -103,6 +106,7 @@ export class UsersService {
           viewerId: viewer.userId,
           profileUserId: id,
           isFollowing,
+          followsYou,
           followRecordId: follow?.id ?? null,
         },
         'Profile follow state resolved from database',
@@ -122,6 +126,7 @@ export class UsersService {
     return {
       ...base,
       isFollowing,
+      followsYou,
       myRating,
       isBlocked,
       ...(viewer?.userId === id ? await this.ownProfileExtras(id) : {}),

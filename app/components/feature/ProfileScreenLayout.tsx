@@ -50,11 +50,13 @@ import {
   PROFILE_BACK_LABEL,
   PROFILE_COVER_ICON_BUTTON_SIZE,
   PROFILE_COVER_ICON_GLYPH,
+  PROFILE_COVER_NAV_GLYPH,
   PROFILE_EDIT_LABEL,
   PROFILE_SHARE_LABEL,
   profileStatusBarStyle,
   shouldPinProfileTabs,
 } from '@/lib/profileHeader';
+import { profileSinceLabel } from '@/lib/accountAge';
 import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
 import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
@@ -84,6 +86,8 @@ export type ProfileDisplayUser = {
   postsCount: number;
   rating?: number | null;
   reviewCount?: number;
+  /** Account createdAt from the profile API. Drives «منذ …» under the stars. */
+  createdAt?: string | null;
 };
 
 type ProfileScreenLayoutProps = {
@@ -112,6 +116,8 @@ type ProfileScreenLayoutProps = {
   onRatePress?: () => void;
   followLoading?: boolean;
   isFollowing?: boolean;
+  /** True only when the API says this profile follows the viewer. */
+  followsYou?: boolean;
   initialTab?: ProfileTabKey;
   onAdsNearEnd?: () => void;
   /**
@@ -166,6 +172,7 @@ export function ProfileScreenLayout({
   onRatePress,
   followLoading = false,
   isFollowing = false,
+  followsYou = false,
   initialTab = 'posts',
   onAdsNearEnd,
   loading = false,
@@ -273,6 +280,10 @@ export function ProfileScreenLayout({
   const hasRating = user.rating != null && (user.reviewCount ?? 0) > 0;
   const ratingLabel = hasRating ? user.rating!.toFixed(1) : null;
   const filledStars = hasRating ? Math.round(user.rating!) : 0;
+  const sinceLabel = profileSinceLabel({
+    createdAt: user.createdAt,
+    verifiedSince: user.verifiedSince,
+  });
 
   const stats = useMemo(
     () => [
@@ -365,7 +376,7 @@ export function ProfileScreenLayout({
                 <SarhBackButton
                   size="sm"
                   chrome="glass"
-                  iconSize={PROFILE_COVER_ICON_GLYPH}
+                  iconSize={PROFILE_COVER_NAV_GLYPH}
                   onPress={onBack}
                   accessibilityLabel={PROFILE_BACK_LABEL}
                   style={styles.coverIcon}
@@ -390,7 +401,7 @@ export function ProfileScreenLayout({
                   icon="menu-dots"
                   chrome="glass"
                   size="sm"
-                  iconSize={PROFILE_COVER_ICON_GLYPH}
+                  iconSize={PROFILE_COVER_NAV_GLYPH}
                   style={styles.coverIcon}
                   onPress={onMenu}
                   accessibilityLabel="المزيد"
@@ -439,7 +450,7 @@ export function ProfileScreenLayout({
               </Row>
 
               {/* Name directly under the avatar; rating stars on the opposite side (left in Arabic). */}
-              <Stack gap="none">
+              <Stack gap="none" style={styles.nameBlock}>
                 <Row
                   gap="sm"
                   align="center"
@@ -478,32 +489,39 @@ export function ProfileScreenLayout({
                       pressed && onRatePress ? styles.ratingRowPressed : null,
                     ]}
                   >
-                    <Row gap="xs" align="center">
-                      <Row gap="none" align="center" style={styles.starsRow}>
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <AppIcon
-                            key={n}
-                            name={hasRating && n <= filledStars ? 'star' : 'star-outline'}
-                            size={11}
-                            color={
-                              hasRating && n <= filledStars
-                                ? themeColors.gold
-                                : themeColors.textSubtle
-                            }
-                          />
-                        ))}
+                    <Stack gap="none" style={styles.ratingCol}>
+                      <Row gap="xs" align="center">
+                        <Row gap="none" align="center" style={styles.starsRow}>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <AppIcon
+                              key={n}
+                              name={hasRating && n <= filledStars ? 'star' : 'star-outline'}
+                              size={14}
+                              color={
+                                hasRating && n <= filledStars
+                                  ? themeColors.gold
+                                  : themeColors.textSecondary
+                              }
+                            />
+                          ))}
+                        </Row>
+                        {ratingLabel ? (
+                          <AppText variant="caption" color="textPrimary">
+                            {ratingLabel}
+                          </AppText>
+                        ) : null}
+                        {(user.reviewCount ?? 0) > 0 ? (
+                          <AppText variant="caption" color="textSecondary">
+                            ({user.reviewCount})
+                          </AppText>
+                        ) : null}
                       </Row>
-                      {ratingLabel ? (
-                        <AppText variant="caption" color="textPrimary">
-                          {ratingLabel}
+                      {sinceLabel ? (
+                        <AppText variant="caption" color="textSecondary" style={styles.sinceLabel} testID="profile-since">
+                          {sinceLabel}
                         </AppText>
                       ) : null}
-                      {(user.reviewCount ?? 0) > 0 ? (
-                        <AppText variant="caption" color="textMuted">
-                          ({user.reviewCount})
-                        </AppText>
-                      ) : null}
-                    </Row>
+                    </Stack>
                   </Pressable>
                 </Row>
 
@@ -524,6 +542,11 @@ export function ProfileScreenLayout({
                       @{user.username}
                     </AppText>
                   </Pressable>
+                  {mode === 'visitor' && followsYou ? (
+                    <AppText variant="caption" color="textSecondary" style={styles.followsYou} testID="profile-follows-you">
+                      يتابعك
+                    </AppText>
+                  ) : null}
                   {/* «بائع ذهبي»: quiet gold caption beside the handle (Gold sellers only). */}
                   <GoldSellerLabel user={user} />
                 </Row>
@@ -580,17 +603,16 @@ export function ProfileScreenLayout({
             <Row gap="sm" align="center" style={[styles.actionsRow, inset]}>
               {onMessage ? (
                 <SarhButton
-                  title="مراسلة"
+                  title="رسالة"
                   variant="secondary"
                   shape="pill"
-                  leftIcon="chatbubble-outline"
                   onPress={onMessage}
                   style={[styles.actionBtnFlex, styles.pillBorder]}
                 />
               ) : null}
               {onFollow ? (
                 <SarhButton
-                  title={isFollowing ? 'متابَع' : 'متابعة'}
+                  title={isFollowing ? 'متابَع' : followsYou ? 'رد المتابعة' : 'متابعة'}
                   variant={isFollowing ? 'secondary' : 'primary'}
                   shape="pill"
                   leftIcon={isFollowing ? 'checkmark-circle-outline' : 'person-add-outline'}
@@ -609,9 +631,60 @@ export function ProfileScreenLayout({
           style={[
             styles.tabsBar,
             // Pinned: a top-inset spacer on the same surface keeps the tabs below the status bar.
-            tabsPinned ? { marginTop: spacing.md - insets.top, paddingTop: insets.top } : null,
+            tabsPinned ? { marginTop: spacing.md - insets.top } : null,
           ]}
         >
+          {tabsPinned ? (
+            <Row
+              align="center"
+              gap="sm"
+              style={[styles.compactBar, inset, { paddingTop: insets.top }]}
+              testID="profile-compact-bar"
+            >
+              {onBack ? (
+                <SarhBackButton
+                  size="sm"
+                  chrome="glass"
+                  iconSize={PROFILE_COVER_NAV_GLYPH}
+                  onPress={onBack}
+                  accessibilityLabel={PROFILE_BACK_LABEL}
+                  style={styles.coverIcon}
+                />
+              ) : (
+                <View style={styles.compactSide} />
+              )}
+              <Stack gap="none" style={styles.compactTitle}>
+                <AppText variant="label" color="textPrimary" numberOfLines={1}>
+                  {displayName}
+                </AppText>
+                <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                  {formatStatCount(user.postsCount)} من المنشورات
+                </AppText>
+              </Stack>
+              {mode === 'own' && onSettings ? (
+                <SarhIconButton
+                  icon="settings-outline"
+                  chrome="glass"
+                  size="sm"
+                  iconSize={PROFILE_COVER_ICON_GLYPH}
+                  style={styles.coverIcon}
+                  onPress={onSettings}
+                  accessibilityLabel="إعدادات الحساب"
+                />
+              ) : null}
+              {onMenu ? (
+                <SarhIconButton
+                  icon="menu-dots"
+                  chrome="glass"
+                  size="sm"
+                  iconSize={PROFILE_COVER_NAV_GLYPH}
+                  style={styles.coverIcon}
+                  onPress={onMenu}
+                  accessibilityLabel="المزيد"
+                />
+              ) : null}
+            </Row>
+          ) : null}
           <ProfileTabs
             isOwnProfile={isOwnProfile}
             activeTab={activeTab}
@@ -624,7 +697,7 @@ export function ProfileScreenLayout({
           pager={tabPager}
           fit="content"
           keepMounted
-          pageStyle={[styles.postsFeed, inset]}
+          pageStyle={styles.postsFeed}
           renderPage={(page) => {
             const key = profileTabs[page]?.key;
             return key === 'posts'
@@ -717,6 +790,10 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       flexShrink: 1,
       minWidth: 0,
     },
+    /** Clearer than the stack gap alone: avatar to name. */
+    nameBlock: {
+      marginTop: spacing.sm,
+    },
     /** Stars hold the inline end of the name row (left in Arabic) and never shrink. */
     ratingRow: {
       paddingVertical: 2,
@@ -733,13 +810,38 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     ratingRowPressed: {
       opacity: 0.75,
     },
+    ratingCol: {
+      alignItems: 'flex-end',
+    },
+    sinceLabel: {
+      marginTop: 2,
+    },
+    followsYou: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      flexShrink: 0,
+    },
+    compactBar: {
+      minHeight: 44,
+      paddingBottom: spacing.xs,
+    },
+    compactTitle: {
+      flex: 1,
+      minWidth: 0,
+    },
+    compactSide: {
+      width: PROFILE_COVER_ICON_BUTTON_SIZE,
+    },
     starsRow: {
       gap: 2,
     },
-    /** X spacing: 8 (Stack gap) + 4 = 12pt between the bio (or @handle) and the stats. */
+    /** 8 (Stack gap) + 12 = 20pt between the bio and the stats. */
     statsRow: {
       width: '100%',
-      paddingTop: spacing.xs,
+      paddingTop: spacing.md,
     },
     /** Clear gap: 8 (Stack gap) + 8 = 16pt between the @handle and the bio. */
     bio: {

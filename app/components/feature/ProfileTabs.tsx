@@ -1,9 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -17,7 +18,8 @@ import { spacing, type ThemeColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRtlRow, isAppRtl } from '@/lib/rtl';
-import { HEADER_TAB_INDICATOR_THICKNESS } from '@/lib/tabPager';
+import { isHorizontalPagerRtl } from '@/lib/mediaViewerPaging';
+import { HEADER_TAB_INDICATOR_THICKNESS, resolveTabPagerMode, revealTabOffset } from '@/lib/tabPager';
 import {
   type ProfileTabDef,
   type ProfileTabKey,
@@ -76,12 +78,14 @@ export const ProfileTabs = memo(function ProfileTabs({
   const rtl = isAppRtl();
 
   const { width: windowWidth } = useWindowDimensions();
-  const [barWidth, setBarWidth] = useState(0);
-  const rowWidth = barWidth > 0 ? barWidth : windowWidth;
-  const onBarLayout = useCallback((event: LayoutChangeEvent) => {
+  const [viewport, setViewport] = useState(0);
+  const rowWidth = viewport > 0 ? viewport : windowWidth;
+  const onViewport = useCallback((event: LayoutChangeEvent) => {
     const w = event.nativeEvent.layout.width;
-    setBarWidth((prev) => (Math.abs(prev - w) < 0.5 ? prev : w));
+    setViewport((prev) => (Math.abs(prev - w) < 0.5 ? prev : w));
   }, []);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffset = useRef(0);
 
   /** Bold label widths, measured once off-flow (font load / font scale only). */
   const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
@@ -140,9 +144,45 @@ export const ProfileTabs = memo(function ProfileTabs({
   }, [drive, items, track]);
 
   const slotWidths = track?.widthsAt[Math.min(activeIndex, count - 1)];
+  const pagerMode = resolveTabPagerMode(isHorizontalPagerRtl(), Platform.OS);
 
+  useEffect(() => {
+    if (!track || !(viewport > 0)) return;
+    const widths = track.widthsAt[Math.min(activeIndex, count - 1)];
+    if (!widths) return;
+    let start = 0;
+    for (let i = 0; i < activeIndex; i += 1) start += widths[i] ?? 0;
+    const tabW = widths[activeIndex] ?? 0;
+    const tabX = rtl ? track.contentWidth - start - tabW : start;
+    const next = revealTabOffset({
+      tabX,
+      tabWidth: tabW,
+      contentWidth: track.contentWidth,
+      viewportWidth: viewport,
+      currentOffset: scrollOffset.current,
+      mode: pagerMode,
+      margin: spacing.md,
+    });
+    if (Math.abs(next - scrollOffset.current) < 1) return;
+    scrollOffset.current = next;
+    scrollRef.current?.scrollTo({ x: next, y: 0, animated: true });
+  }, [activeIndex, count, pagerMode, rtl, track, viewport]);
+
+  const trackWidth = track?.contentWidth;
   return (
-    <View style={styles.bar} onLayout={onBarLayout}>
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      onLayout={onViewport}
+      scrollEventThrottle={16}
+      onScroll={(event) => {
+        scrollOffset.current = event.nativeEvent.contentOffset.x;
+      }}
+      style={styles.scroll}
+      contentContainerStyle={trackWidth ? { width: trackWidth } : undefined}
+    >
+    <View style={[styles.bar, trackWidth ? { width: trackWidth } : null]}>
       {/* Touch slots (accessibility + hit areas): one layout pass per selection. */}
       <View style={[styles.row, getRtlRow()]}>
         {items.map((tab, i) => (
@@ -234,15 +274,19 @@ export const ProfileTabs = memo(function ProfileTabs({
         ))}
       </View>
     </View>
+    </ScrollView>
   );
 });
 
 function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   return StyleSheet.create({
-    bar: {
-      backgroundColor: 'transparent',
+    scroll: {
+      flexGrow: 0,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.borderHairline,
+    },
+    bar: {
+      backgroundColor: 'transparent',
     },
     row: {
       alignItems: 'stretch',
@@ -318,7 +362,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       width: INDICATOR_BASE_WIDTH,
       height: HEADER_TAB_INDICATOR_THICKNESS,
       borderRadius: 1,
-      backgroundColor: colors.electric,
+      backgroundColor: scheme === 'dark' ? colors.textPrimary : colors.electric,
     },
   });
 }

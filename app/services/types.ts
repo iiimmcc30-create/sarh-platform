@@ -30,6 +30,8 @@ export interface User {
   verifiedTier?: string | null;
   /** ISO approval time of the account verification (API `verifiedSince`), when known. */
   verifiedSince?: string | null;
+  /** ISO account creation time, when the session payload includes it. */
+  createdAt?: string | null;
   isAI?: boolean;
   followers: number;
   following: number;

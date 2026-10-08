@@ -36,6 +36,10 @@ export type PublicUserProfile = {
   listingsCount: number;
   postsCount: number;
   isFollowing: boolean;
+  /** True when this profile follows the signed-in viewer. Absent on older payloads. */
+  followsYou?: boolean;
+  /** ISO account creation time, when the profile payload includes it. */
+  createdAt?: string | null;
   isBlocked?: boolean;
   allowPrivateMessages?: boolean;
   showFollowingList?: boolean;

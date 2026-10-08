@@ -164,6 +164,7 @@ export default function ProfileScreen() {
       verified: me.verified,
       verifiedTier: me.verifiedTier ?? null,
       verifiedSince: me.verifiedSince ?? null,
+      createdAt: me.createdAt ?? null,
       bio: me.bio,
       links: me.links,
       country: me.country,

@@ -414,6 +414,7 @@ export default function UserProfileScreen() {
     verified: profile.verified,
     verifiedTier: profile.verifiedTier ?? null,
     verifiedSince: profile.verifiedSince ?? null,
+    createdAt: profile.createdAt ?? null,
     isAI: profile.isAI,
     bio: profile.bio,
     links: parseProfileLinks(profile.links),
@@ -460,7 +461,7 @@ export default function UserProfileScreen() {
       );
       return;
     }
-    setProfile((prev) => (prev ? { ...prev, isBlocked: result.blocked, isFollowing: false } : prev));
+    setProfile((prev) => (prev ? { ...prev, isBlocked: result.blocked, isFollowing: false, followsYou: false } : prev));
     if (result.blocked) {
       void showToast('تم حظر الحساب', 'success');
       router.back();
@@ -524,6 +525,7 @@ export default function UserProfileScreen() {
         }}
         followLoading={followLoading}
         isFollowing={profile.isFollowing}
+        followsYou={profile.followsYou === true}
         postsContent={renderPosts()}
         adsContent={renderAds()}
         repliesContent={renderReplies()}

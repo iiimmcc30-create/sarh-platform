@@ -60,8 +60,8 @@ describe('Profile header: avatar right, name under it, stars opposite', () => {
     expect(layout).toContain('{user.bio ? (');
     expect(layout).toContain('title={PROFILE_SHARE_LABEL}');
     expect(layout).toContain('title={PROFILE_EDIT_LABEL}');
-    expect(layout).toContain("title={isFollowing ? 'متابَع' : 'متابعة'}");
-    expect(layout).toContain('title="مراسلة"');
+    expect(layout).toContain("title={isFollowing ? 'متابَع' : followsYou ? 'رد المتابعة' : 'متابعة'}");
+    expect(layout).toContain('title="رسالة"');
     expect(layout).toContain('onPress={onRatePress}');
     // Camera shortcut on the avatar removed: the avatar is changed from Edit profile.
     expect(layout).not.toContain('onEditAvatar');

@@ -51,7 +51,7 @@ describe('profile cover: full bleed behind the status bar (X-style)', () => {
     expect(shouldPinProfileTabs(900, null, 47)).toBe(false);
     expect(shouldPinProfileTabs(900, 400, 0)).toBe(false);
     expect(layout).toContain('onLayout={onTabsLayout}');
-    expect(layout).toContain('tabsPinned ? { marginTop: spacing.md - insets.top, paddingTop: insets.top } : null');
+    expect(layout).toContain('tabsPinned ? { marginTop: spacing.md - insets.top } : null');
     expect(layout).toContain('updateTabsPinned(event);');
   });
 });
@@ -61,9 +61,11 @@ describe('profile cover controls: glass, one step smaller', () => {
     expect(PROFILE_COVER_ICON_BUTTON_SIZE).toBe(36);
     expect(PROFILE_COVER_ICON_GLYPH).toBe(18);
     expect(PROFILE_COVER_ICON_HIT_AREA).toBeGreaterThanOrEqual(44);
-    expect(layout.match(/chrome="glass"/g)).toHaveLength(3);
-    expect(layout.match(/iconSize=\{PROFILE_COVER_ICON_GLYPH\}/g)).toHaveLength(3);
-    expect(layout.match(/style=\{styles\.coverIcon\}/g)).toHaveLength(3);
+    expect(layout.match(/chrome="glass"/g)).toHaveLength(6);
+    expect(layout.match(/iconSize=\{PROFILE_COVER_ICON_GLYPH\}/g)).toHaveLength(2);
+    expect(layout.match(/iconSize=\{PROFILE_COVER_NAV_GLYPH\}/g)).toHaveLength(4);
+    expect(layout).toContain('testID="profile-compact-bar"');
+    expect(layout.match(/style=\{styles\.coverIcon\}/g)).toHaveLength(6);
     const block = layout.slice(layout.indexOf('    coverIcon: {'), layout.indexOf('\n    },', layout.indexOf('    coverIcon: {')));
     expect(block).toContain('borderRadius: PROFILE_COVER_ICON_BUTTON_SIZE / 2');
     expect(block).toContain('minWidth: PROFILE_COVER_ICON_BUTTON_SIZE');

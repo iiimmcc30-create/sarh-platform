@@ -251,6 +251,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       verified: u.verified ?? false,
       verifiedTier: typeof u.verifiedTier === 'string' ? u.verifiedTier : null,
       verifiedSince: typeof u.verifiedSince === 'string' ? u.verifiedSince : null,
+      createdAt: typeof u.createdAt === 'string' ? u.createdAt : null,
       isAI: u.isAI ?? false,
       followers: u.followersCount ?? u.followers ?? 0,
       following: u.followingCount ?? u.following ?? 0,

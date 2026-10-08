@@ -48,6 +48,7 @@ describe('profile tabs: X-style icons, label beside the selected tab only', () =
     expect(tabs).toContain('paddingBottom: 10,');
     expect(tabs).toContain('PROFILE_TAB_ROW_HEIGHT = 20');
     expect(tabs).toContain('height: HEADER_TAB_INDICATOR_THICKNESS,');
+    expect(tabs).toContain('scrollTo({ x: next, y: 0, animated: true })');
   });
 });
 
@@ -70,7 +71,7 @@ describe('profile tab track (frames computed once, interpolated by progress)', (
     // Idle tab 1 (x 144..222): icon centred.
     expect(track.iconX[1][0]).toBe(173);
     expect(track.indicatorCenter[0]).toBe(72);
-    expect(track.indicatorWidth[0]).toBe(120);
+    expect(track.indicatorWidth[0]).toBe(86);
   });
 
   it('RTL: tab 0 on the right, icon at the inline start (right) and the label to its left', () => {
@@ -83,9 +84,12 @@ describe('profile tab track (frames computed once, interpolated by progress)', (
     expect(track.indicatorCenter[2]).toBeLessThan(track.indicatorCenter[0]);
   });
 
-  it('too narrow: shrinks proportionally instead of overflowing; waits for a width', () => {
+  it('too narrow: keeps natural widths and grows the track so the row can scroll', () => {
     const track = profileTabTrack(5, { ...base, rowWidth: 200, labelWidths: [80, 80, 80, 80, 80], rtl: false })!;
-    expect(track.widthsAt[0].reduce((a, b) => a + b, 0)).toBeCloseTo(200);
+    expect(track.contentWidth).toBeGreaterThan(200);
+    expect(track.widthsAt[0].reduce((a, b) => a + b, 0)).toBeCloseTo(track.contentWidth);
+    expect(track.widthsAt[0][0]).toBe(130);
+    expect(track.indicatorWidth[0]).toBe(20 + 6 + 80);
     expect(profileTabTrack(3, { ...base, rowWidth: 0, labelWidths: labels, rtl: false })).toBeNull();
     expect(profileTabTrack(1, { ...base, rowWidth: 100, labelWidths: [40], rtl: false })!.inputRange).toEqual([0, 1]);
   });

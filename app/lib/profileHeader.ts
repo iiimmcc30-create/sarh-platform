@@ -15,6 +15,8 @@ export const PROFILE_ACTION_PILL_SHAPE = 'pill' as const;
  */
 export const PROFILE_COVER_ICON_BUTTON_SIZE = 36;
 export const PROFILE_COVER_ICON_GLYPH = 18;
+/** Back and more only: +3pt. The glass capsule stays 36. */
+export const PROFILE_COVER_NAV_GLYPH = PROFILE_COVER_ICON_GLYPH + 3;
 /** Smallest hitSlop the DS icon buttons apply (SarhIconButton: space[4]). */
 export const PROFILE_COVER_ICON_MIN_HIT_SLOP = 4;
 export const PROFILE_COVER_ICON_HIT_AREA = PROFILE_COVER_ICON_BUTTON_SIZE + 2 * PROFILE_COVER_ICON_MIN_HIT_SLOP;

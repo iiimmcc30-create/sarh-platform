@@ -62,23 +62,36 @@ export type ProfileTabTrack = {
   iconX: number[][];
   /** [i][k] physical left of tab i's label while tab k is selected. */
   labelX: number[][];
-  /** [k] underline physical centre / width under the selected tab k. */
+  /** [k] underline physical centre / width under the selected tab's content. */
   indicatorCenter: number[];
   indicatorWidth: number[];
+  /** Width of the scrolling track. Wider than the viewport when tabs overflow. */
+  contentWidth: number;
 };
 
-function slotWidths(k: number, input: ProfileTabTrackInput, count: number): number[] {
-  const natural = Array.from({ length: count }, (_, i) =>
+function naturalSlotWidths(k: number, input: ProfileTabTrackInput, count: number): number[] {
+  return Array.from({ length: count }, (_, i) =>
     input.baseWidth + (i === k ? input.gap + Math.max(0, input.labelWidths[i] ?? 0) : 0),
   );
+}
+
+/**
+ * When the natural row fits, spare width is shared (tabs fill the screen).
+ * When it does not, slots stay at their natural width so the bar can scroll
+ * instead of shrinking the touch targets.
+ */
+function slotWidths(
+  k: number,
+  input: ProfileTabTrackInput,
+  count: number,
+  layoutWidth: number,
+  fill: boolean,
+): number[] {
+  const natural = naturalSlotWidths(k, input, count);
   const total = natural.reduce((sum, w) => sum + w, 0);
-  if (total <= input.rowWidth) {
-    const extra = (input.rowWidth - total) / count;
-    return natural.map((w) => w + extra);
-  }
-  // Too narrow (tiny screen / huge font scale): shrink every slot proportionally.
-  const scale = input.rowWidth / total;
-  return natural.map((w) => w * scale);
+  if (!fill || total > layoutWidth) return natural;
+  const extra = (layoutWidth - total) / count;
+  return natural.map((w) => w + extra);
 }
 
 export function profileTabTrack(count: number, input: ProfileTabTrackInput): ProfileTabTrack | null {
@@ -89,16 +102,23 @@ export function profileTabTrack(count: number, input: ProfileTabTrackInput): Pro
   const labelX: number[][] = Array.from({ length: count }, () => []);
   const indicatorCenter: number[] = [];
   const indicatorWidth: number[] = [];
-  const { rtl, iconSize, gap, inset, rowWidth } = input;
+  let widest = 0;
+  for (let k = 0; k < count; k += 1) {
+    const total = naturalSlotWidths(k, input, count).reduce((sum, w) => sum + w, 0);
+    if (total > widest) widest = total;
+  }
+  const fill = widest <= input.rowWidth;
+  const contentWidth = fill ? input.rowWidth : widest;
+  const { rtl, iconSize, gap } = input;
 
   for (let k = 0; k < count; k += 1) {
-    const widths = slotWidths(k, input, count);
+    const widths = slotWidths(k, input, count, contentWidth, fill);
     widthsAt.push(widths);
     inputRange.push(k);
     let start = 0;
     for (let i = 0; i < count; i += 1) {
       const w = widths[i];
-      const x = rtl ? rowWidth - start - w : start;
+      const x = rtl ? contentWidth - start - w : start;
       start += w;
       const center = x + w / 2;
       const label = Math.max(0, input.labelWidths[i] ?? 0);
@@ -107,7 +127,8 @@ export function profileTabTrack(count: number, input: ProfileTabTrackInput): Pro
         const group = iconSize + gap + label;
         icon = rtl ? center + group / 2 - iconSize : center - group / 2;
         indicatorCenter.push(center);
-        indicatorWidth.push(Math.max(0, w - inset * 2));
+        // Hairline under the icon + label only, never the spare slot width.
+        indicatorWidth.push(iconSize + (label > 0 ? gap + label : 0));
       } else {
         icon = center - iconSize / 2;
       }
@@ -123,7 +144,7 @@ export function profileTabTrack(count: number, input: ProfileTabTrackInput): Pro
     indicatorCenter.push(indicatorCenter[0]);
     indicatorWidth.push(indicatorWidth[0]);
   }
-  return { inputRange, widthsAt, iconX, labelX, indicatorCenter, indicatorWidth };
+  return { inputRange, widthsAt, iconX, labelX, indicatorCenter, indicatorWidth, contentWidth };
 }
 
 /** Label / selected-glyph visibility of tab `i` against the progress (crisp crossfade). */

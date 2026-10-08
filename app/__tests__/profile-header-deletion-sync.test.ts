@@ -146,7 +146,7 @@ describe('profile header', () => {
     });
 
     it('Other User Profile shows only Follow + Message (no Share, no Edit Profile)', () => {
-      expect(visitorBlock).toContain('title="مراسلة"');
+      expect(visitorBlock).toContain('title="رسالة"');
       expect(visitorBlock).toContain("'متابعة'");
       expect(visitorBlock).toContain('onPress={onMessage}');
       expect(visitorBlock).toContain('onPress={onFollow}');
