@@ -56,6 +56,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { goldSellersFirstInRegion } from '@/lib/goldSeller';
 
 const MARKET_FOCUS_TTL_MS = 60_000;
 const EMPTY_LISTINGS: Listing[] = [];
@@ -282,7 +283,9 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
       if (sortMode === 'oldest') return list;
 
       list = [...list].sort(compareListingBoostPriority);
-      return interleavePromotedListings(list);
+      const ranked = interleavePromotedListings(list);
+      // «بائع ذهبي»: inside a picked region, Gold sellers lead (paid pins stay on top).
+      return regionSelection.type === 'all' ? ranked : goldSellersFirstInRegion(ranked);
     }, [items, showFeaturedOnly, activeParent, activeSub, regionSelection, sortMode]);
 
     useEffect(() => {

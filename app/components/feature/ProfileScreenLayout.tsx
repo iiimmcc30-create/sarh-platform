@@ -6,6 +6,7 @@ import { VerifiedInfoSheet } from '@/components/ui/VerifiedInfoSheet';
 import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
 import { ProfileTabs } from '@/components/feature/ProfileTabs';
 import { ProfileStatsRow } from '@/components/feature/ProfileStatsRow';
+import { GoldSellerLabel } from '@/components/feature/GoldSellerLabel';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { ProfileActionsSkeleton, ProfileHeaderSkeleton } from '@/components/ui/skeleton';
 import { useFocusEffect } from 'expo-router';
@@ -507,22 +508,26 @@ export function ProfileScreenLayout({
                   </Pressable>
                 </Row>
 
-                <Pressable
-                  onPress={openVerifiedSheet}
-                  disabled={!openVerifiedSheet}
-                  style={styles.usernamePress}
-                  testID="profile-username-press"
-                >
-                  <AppText
-                    variant="label"
-                    color="textSecondary"
-                    numberOfLines={1}
-                    style={styles.username}
-                    testID="profile-username"
+                <Row gap="sm" align="center">
+                  <Pressable
+                    onPress={openVerifiedSheet}
+                    disabled={!openVerifiedSheet}
+                    style={styles.usernamePress}
+                    testID="profile-username-press"
                   >
-                    @{user.username}
-                  </AppText>
-                </Pressable>
+                    <AppText
+                      variant="label"
+                      color="textSecondary"
+                      numberOfLines={1}
+                      style={styles.username}
+                      testID="profile-username"
+                    >
+                      @{user.username}
+                    </AppText>
+                  </Pressable>
+                  {/* «بائع ذهبي»: quiet gold caption beside the handle (Gold sellers only). */}
+                  <GoldSellerLabel user={user} />
+                </Row>
               </Stack>
 
               {/* Bio under the @handle (clear 16pt gap): readable standard white / near-black, regular weight. */}

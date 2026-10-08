@@ -60,6 +60,7 @@ import {
   listingAllowsOwnerEdit,
 } from '@/lib/listingLimits';
 import { usePaidServices } from '@/hooks/usePaidServices';
+import { GoldSellerLabel } from '@/components/feature/GoldSellerLabel';
 import { firstEnabledPromoteGoal, isPromoteGoalEnabled } from '@/services/paidServices';
 
 function safeIndex(index: number, length: number): number {
@@ -610,17 +611,21 @@ export default function ListingDetailScreen() {
                     style={styles.sellerInlineAvatar}
                     contentFit="cover"
                   />
-                  <VerifiedInlineName
-                    name={listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
-                    verified={listing.seller.verified}
-                    tier={listing.seller.verifiedTier}
-                    username={listing.seller.username}
-                    style={styles.sellerInlineName}
-                  >
-                    <AppText variant="cardTitle" color="textSecondary" style={styles.sellerInlineName} numberOfLines={1}>
-                      {listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
-                    </AppText>
-                  </VerifiedInlineName>
+                  <View style={styles.sellerInlineName}>
+                    <VerifiedInlineName
+                      name={listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
+                      verified={listing.seller.verified}
+                      tier={listing.seller.verifiedTier}
+                      username={listing.seller.username}
+                      style={styles.sellerInlineName}
+                    >
+                      <AppText variant="cardTitle" color="textSecondary" style={styles.sellerInlineName} numberOfLines={1}>
+                        {listing.seller.arabicName || listing.seller.displayName || listing.seller.username}
+                      </AppText>
+                    </VerifiedInlineName>
+                    {/* «بائع ذهبي»: quiet gold caption under the name (Gold sellers only). */}
+                    <GoldSellerLabel user={listing.seller} />
+                  </View>
                 </Row>
               </Pressable>
               <SarhButton

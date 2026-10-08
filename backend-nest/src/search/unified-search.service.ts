@@ -15,6 +15,7 @@ import {
   type RankAlternative,
   type RankMetadata,
 } from './lib/search-ranking.util';
+import { goldSellersFirst } from '../subscriptions/perks/subscriber-perks';
 import {
   parseHashtagQuery,
   textHasHashtag,
@@ -396,6 +397,15 @@ export class UnifiedSearchService {
           expansions,
           intent,
         );
+        // «بائع ذهبي»: inside the searched region Gold sellers lead (stable).
+        if (filters.region?.trim()) {
+          items = goldSellersFirst(
+            items,
+            (item) =>
+              (item.data as { seller?: { verified?: boolean | null; verifiedTier?: string | null } | null })
+                ?.seller,
+          );
+        }
         break;
       case 'posts':
         if (hashtag) {
