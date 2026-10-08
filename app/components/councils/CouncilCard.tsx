@@ -9,6 +9,7 @@ import { CouncilTierTag } from './CouncilTierTag';
 import { subscriberTierOf } from '@/lib/subscriberTier';
 import { resolveMediaUrl } from '@/services/media';
 import {
+  COUNCIL_FOLLOWERS_ONLY_LABEL,
   councilListenersLabel,
   councilSpeakersLabel,
   councilUserName,
@@ -46,6 +47,14 @@ export function CouncilCard({ council, onPress }: Props) {
             <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
             <AppText variant="caption" color="textMuted">
               خاص
+            </AppText>
+          </Row>
+        ) : null}
+        {council.followersOnly ? (
+          <Row gap="xs" align="center" testID="council-card-followers-only">
+            <AppIcon name="people-outline" size={12} color={colors.textMuted} />
+            <AppText variant="caption" color="textMuted">
+              {COUNCIL_FOLLOWERS_ONLY_LABEL}
             </AppText>
           </Row>
         ) : null}

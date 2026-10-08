@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CouncilCard } from '@/components/councils/CouncilCard';
+import { CouncilUpcomingCard } from '@/components/councils/CouncilUpcomingCard';
 import { CouncilMiniPlayer } from '@/components/councils/CouncilMiniPlayer';
 import { CouncilNotice } from '@/components/councils/CouncilNotice';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -22,13 +23,20 @@ import {
 import { isAppRtl } from '@/lib/rtl';
 import { sortCouncilsByHostTier } from '@/lib/subscriberTier';
 import { safePush } from '@/lib/safeNavigate';
+import { showToast } from '@/lib/toast';
 import {
   COUNCIL_WEB_TEXT,
   COUNCILS_EMPTY_TEXT,
+  COUNCILS_UPCOMING_TITLE,
+  CouncilApiError,
   councilErrorMessage,
   fetchAccessibleCouncils,
   fetchCouncils,
+  fetchUpcomingCouncils,
+  setCouncilReminder,
+  startScheduledCouncil,
   type CouncilCard as CouncilCardData,
+  type CouncilUpcomingCard as UpcomingData,
 } from '@/services/councils';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
@@ -47,13 +55,21 @@ export default function CouncilsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [upcoming, setUpcoming] = useState<UpcomingData[]>([]);
+  const [upcomingBusy, setUpcomingBusy] = useState<string | null>(null);
   const seq = useRef(0);
 
   const load = useCallback(async () => {
     const id = ++seq.current;
     try {
-      const [acc, pub] = await Promise.all([fetchAccessibleCouncils(), fetchCouncils()]);
+      const [acc, pub, up] = await Promise.all([
+        fetchAccessibleCouncils(),
+        fetchCouncils(),
+        // «قادمة» is optional: an older backend or a hiccup never blocks the live list.
+        fetchUpcomingCouncils().catch(() => null),
+      ]);
       if (id !== seq.current) return;
+      if (up) setUpcoming(up.councils);
       setMine(acc.mine);
       setPrivateList(acc.private);
       const hidden = new Set([acc.mine?.id, ...acc.private.map((c) => c.id)]);
@@ -100,6 +116,43 @@ export default function CouncilsScreen() {
     [router],
   );
 
+  const toggleRemind = useCallback(async (c: UpcomingData) => {
+    const on = !c.remindMe;
+    const patch = (remindMe: boolean, reminderCount: number) =>
+      setUpcoming((list) => list.map((x) => (x.id === c.id ? { ...x, remindMe, reminderCount } : x)));
+    patch(on, Math.max(0, c.reminderCount + (on ? 1 : -1)));
+    try {
+      const res = await setCouncilReminder(c.id, on);
+      patch(res.remindMe, res.reminderCount);
+      if (res.remindMe) void showToast('سنرسل لك تنبيهاً عند بدء المجلس', 'success');
+    } catch (err) {
+      patch(c.remindMe, c.reminderCount);
+      void showToast(councilErrorMessage(err), 'error');
+    }
+  }, []);
+
+  const startNow = useCallback(
+    async (c: UpcomingData) => {
+      if (upcomingBusy) return;
+      setUpcomingBusy(c.id);
+      try {
+        await startScheduledCouncil(c.id);
+        setUpcoming((list) => list.filter((x) => x.id !== c.id));
+        safePush({ pathname: '/councils/[id]', params: { id: c.id } }, undefined, router);
+      } catch (err) {
+        if (err instanceof CouncilApiError && err.code === 'council_exists') {
+          void showToast('أنهِ مجلسك المباشر أولاً ثم ابدأ المجلس المجدول', 'info');
+        } else {
+          void showToast(councilErrorMessage(err), 'error');
+          void load();
+        }
+      } finally {
+        setUpcomingBusy(null);
+      }
+    },
+    [load, router, upcomingBusy],
+  );
+
   if (Platform.OS === 'web') {
     return (
       <Screen edges={['top', 'bottom']}>
@@ -121,7 +174,7 @@ export default function CouncilsScreen() {
       </Stack>
     ) : null;
 
-  const empty = !mine && !privateList.length && !publicList.length;
+  const empty = !mine && !privateList.length && !publicList.length && !upcoming.length;
 
   const miniInset = session?.miniPlayerVisible ? COUNCIL_MINI_PLAYER_HEIGHT + COUNCIL_MINI_PLAYER_GAP : 0;
   const fabBottom = insets.bottom + spacing.lg + miniInset;
@@ -165,6 +218,22 @@ export default function CouncilsScreen() {
             {section('مجالس مباشرة', sortCouncilsByHostTier(publicList))}
             {hasMore ? (
               <SarhButton title="عرض المزيد" variant="ghost" shape="pill" loading={loadingMore} onPress={() => void loadMore()} />
+            ) : null}
+            {upcoming.length ? (
+              <Stack gap="sm">
+                <AppText variant="label" color="textSecondary">
+                  {COUNCILS_UPCOMING_TITLE}
+                </AppText>
+                {upcoming.map((c) => (
+                  <CouncilUpcomingCard
+                    key={c.id}
+                    council={c}
+                    busy={upcomingBusy === c.id}
+                    onToggleRemind={(x) => void toggleRemind(x)}
+                    onStart={(x) => void startNow(x)}
+                  />
+                ))}
+              </Stack>
             ) : null}
           </>
         )}

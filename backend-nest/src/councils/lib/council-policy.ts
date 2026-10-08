@@ -11,6 +11,30 @@ export const COUNCIL_HOST_ABSENT_END_MS = 30 * 60_000;
 /** Stage seats of speakers absent (no socket heartbeat) for this long are freed. */
 export const COUNCIL_STALE_SPEAKER_MS = 2 * 60_000;
 
+/** Scheduled councils start at least this far ahead and at most this far out. */
+export const COUNCIL_SCHEDULE_MIN_LEAD_MS = 5 * 60_000;
+export const COUNCIL_SCHEDULE_MAX_LEAD_MS = 14 * 24 * 60 * 60_000;
+/** Upcoming (not yet started) councils per host. */
+export const COUNCIL_MAX_SCHEDULED_PER_OWNER = 3;
+/** A scheduled council never started this long after its time is dropped (ENDED). */
+export const COUNCIL_SCHEDULE_STALE_MS = 24 * 60 * 60_000;
+
+/**
+ * Validates a requested start time. Returns the Date, or an error code:
+ * `invalid_schedule` (unparseable), `schedule_too_soon`, `schedule_too_far`.
+ */
+export function parseCouncilSchedule(
+  value: string,
+  now: Date,
+): Date | 'invalid_schedule' | 'schedule_too_soon' | 'schedule_too_far' {
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return 'invalid_schedule';
+  const lead = at.getTime() - now.getTime();
+  if (lead < COUNCIL_SCHEDULE_MIN_LEAD_MS) return 'schedule_too_soon';
+  if (lead > COUNCIL_SCHEDULE_MAX_LEAD_MS) return 'schedule_too_far';
+  return at;
+}
+
 /** A subscriber's room entrance is announced at most once per council in this window. */
 export const COUNCIL_ARRIVAL_COOLDOWN_SEC = 10 * 60;
 /** Busy rooms: at most one entrance announcement per council in this window. */

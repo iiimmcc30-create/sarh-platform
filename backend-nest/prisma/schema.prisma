@@ -98,6 +98,7 @@ model User {
   councilMemberships                  CouncilMember[]                   @relation("CouncilMemberUser")
   councilSpeakRequests                CouncilSpeakRequest[]             @relation("CouncilSpeakRequestUser")
   councilInvites                      CouncilInvite[]                   @relation("CouncilInviteUser")
+  councilReminders                    CouncilReminder[]                 @relation("CouncilReminderUser")
   profileViewsReceived                ProfileView[]                     @relation("ProfileViewsReceived")
   profileViewsGiven                   ProfileView[]                     @relation("ProfileViewsGiven")
 
@@ -263,6 +264,12 @@ model Council {
   modCanMute           Boolean               @default(true)
   modCanRemove         Boolean               @default(true)
   modCanBan            Boolean               @default(false)
+  /// Gold hosts: only the host's followers (plus the host and invited users) may join.
+  followersOnly        Boolean               @default(false)
+  /// Scheduled councils (status SCHEDULED): planned start time (Blue+ / Gold hosts).
+  scheduledFor         DateTime?
+  /// When «ذكّرني» users were notified that the council started (sent once).
+  remindersSentAt      DateTime?
   hostLastSeenAt       DateTime              @default(now())
   createdAt            DateTime              @default(now())
   startedAt            DateTime              @default(now())
@@ -272,9 +279,11 @@ model Council {
   members              CouncilMember[]
   speakRequests        CouncilSpeakRequest[]
   invites              CouncilInvite[]
+  reminders            CouncilReminder[]
 
   @@index([ownerId, status])
   @@index([status, visibility, startedAt])
+  @@index([status, scheduledFor])
 }
 
 /// One row per user who joined (or was banned from) a council. "On stage" = seatIndex set.
@@ -331,6 +340,19 @@ model CouncilInvite {
   @@index([userId])
 }
 
+/// «ذكّرني» on a scheduled council: notified once when it starts.
+model CouncilReminder {
+  id        String   @id @default(uuid())
+  councilId String
+  userId    String
+  createdAt DateTime @default(now())
+  council   Council  @relation(fields: [councilId], references: [id], onDelete: Cascade)
+  user      User     @relation("CouncilReminderUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([councilId, userId])
+  @@index([userId])
+}
+
 enum CouncilVisibility {
   PUBLIC
   PRIVATE
@@ -339,6 +361,7 @@ enum CouncilVisibility {
 enum CouncilStatus {
   LIVE
   ENDED
+  SCHEDULED
 }
 
 enum CouncilMemberRole {

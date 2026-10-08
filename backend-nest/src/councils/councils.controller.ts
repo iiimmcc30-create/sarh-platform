@@ -19,6 +19,7 @@ import {
   CouncilAccessQueryDto,
   CouncilMemberActionDto,
   CouncilMicDto,
+  CouncilRemindDto,
   CouncilsPageQueryDto,
   CreateCouncilDto,
   InviteCouncilUsersDto,
@@ -56,6 +57,20 @@ export class CouncilsController {
   @Get('accessible')
   async accessible(@CurrentUser() user: JwtPayload) {
     return successResponse(await this.councils.accessible(user));
+  }
+
+  /** Subscriber options for the create screen (Gold: followers-only, Blue+/Gold: schedule). */
+  @RateLimit('api')
+  @Get('perks')
+  async perks(@CurrentUser() user: JwtPayload) {
+    return successResponse(await this.councils.perks(user));
+  }
+
+  /** «قادمة»: scheduled councils (public + my own), soonest first. */
+  @RateLimit('api')
+  @Get('upcoming')
+  async upcoming(@CurrentUser() user: JwtPayload) {
+    return successResponse(await this.councils.upcoming(user));
   }
 
   @RateLimit('api')
@@ -107,6 +122,29 @@ export class CouncilsController {
     @Body() dto: JoinCouncilDto,
   ) {
     return successResponse(await this.councils.join(user, id, dto));
+  }
+
+  /** «ذكّرني» on a scheduled council. */
+  @RateLimit('api')
+  @Post(':id/remind')
+  @HttpCode(HttpStatus.OK)
+  async remind(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CouncilRemindDto,
+  ) {
+    return successResponse(await this.councils.remind(user, id, dto.on));
+  }
+
+  /** Host starts a scheduled council now. */
+  @RateLimit('api')
+  @Post(':id/start')
+  @HttpCode(HttpStatus.OK)
+  async start(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return successResponse(await this.councils.start(user, id));
   }
 
   @RateLimit('api')

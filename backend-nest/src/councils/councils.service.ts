@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 import { Prisma, type Council, type CouncilMember } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,6 +16,9 @@ import {
 import {
   COUNCIL_HOST_ABSENT_END_MS,
   COUNCIL_KICK_MINUTES,
+  COUNCIL_MAX_SCHEDULED_PER_OWNER,
+  COUNCIL_SCHEDULE_STALE_MS,
+  parseCouncilSchedule,
   COUNCIL_MAX_SPEAKERS,
   COUNCIL_REQUEST_COOLDOWN_MS,
   COUNCIL_STALE_SPEAKER_MS,
@@ -31,6 +34,12 @@ import { COUNCIL_USER_SELECT, type CouncilUser } from './lib/council-select';
 import { CouncilPresenceService } from './services/council-presence.service';
 import { CouncilRealtimeService } from './services/council-realtime.service';
 import { CouncilAgoraModerationService } from './services/council-agora-moderation.service';
+import { SubscriptionEntitlementService } from '../subscriptions/services/subscription-entitlement.service';
+import {
+  activeSubscriberTier,
+  canHostFollowersOnlyCouncils,
+  canScheduleCouncils,
+} from '../subscriptions/perks/subscriber-perks';
 import type {
   CouncilMemberAction,
   CreateCouncilDto,
@@ -42,11 +51,19 @@ export const COUNCILS_PAGE_SIZE = 20;
 export const COUNCIL_PRIVATE_LIST_LIMIT = 50;
 export const COUNCIL_BANNED_LIST_LIMIT = 100;
 export const COUNCIL_USERS_SEARCH_LIMIT = 20;
+export const COUNCIL_UPCOMING_LIMIT = 30;
 const BAN_AGORA_SECONDS = 24 * 60 * 60;
 
 const NOT_FOUND_AR = 'المجلس غير موجود';
 const FORBIDDEN_AR = 'غير مسموح';
 const FULL_AR = 'اكتمل عدد المتحدثين في المجلس';
+const NOT_STARTED_AR = 'المجلس لم يبدأ بعد';
+const FOLLOWERS_ONLY_AR = 'هذا المجلس لمتابعي المضيف فقط';
+const SCHEDULE_ERRORS_AR: Record<string, string> = {
+  invalid_schedule: 'موعد المجلس غير صالح',
+  schedule_too_soon: 'اختر موعداً بعد ٥ دقائق على الأقل',
+  schedule_too_far: 'يمكن جدولة المجلس خلال أسبوعين كحد أقصى',
+};
 
 const INVITE_ALPHABET =
   'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -79,7 +96,26 @@ export class CouncilsService {
     private readonly agoraModeration: CouncilAgoraModerationService,
     private readonly notifications: AppNotificationsService,
     private readonly logger: LoggerService,
+    @Optional() private readonly entitlements?: SubscriptionEntitlementService,
   ) {}
+
+  // ─── Subscriber perks ───────────────────────────────────────────────────
+
+  /** Host tier from the ACTIVE subscription (server-side; never the client). */
+  private async subscriberTier(userId: string) {
+    if (!this.entitlements) return null;
+    return activeSubscriberTier(this.entitlements, userId).catch(() => null);
+  }
+
+  /** What the create screen may offer (the server re-checks on create). */
+  async perks(user: JwtPayload) {
+    const tier = await this.subscriberTier(user.userId);
+    return {
+      tier,
+      canFollowersOnly: canHostFollowersOnlyCouncils(tier),
+      canSchedule: canScheduleCouncils(tier),
+    };
+  }
 
   // ─── Access ─────────────────────────────────────────────────────────────
 
@@ -222,6 +258,8 @@ export class CouncilsService {
       rules: council.rules,
       visibility: council.visibility,
       status: council.status,
+      followersOnly: council.followersOnly,
+      scheduledFor: council.scheduledFor,
       createdAt: council.createdAt,
       startedAt: council.startedAt,
       endedAt: council.endedAt,
@@ -322,17 +360,59 @@ export class CouncilsService {
 
   async create(user: JwtPayload, dto: CreateCouncilDto) {
     const id = randomUUID();
+    const now = new Date();
+    // Subscriber options are gated here, on the server.
+    const wantsFollowersOnly =
+      dto.followersOnly === true && dto.visibility === 'PUBLIC';
+    let scheduledFor: Date | null = null;
+    if (dto.scheduledFor || wantsFollowersOnly) {
+      const tier = await this.subscriberTier(user.userId);
+      if (wantsFollowersOnly && !canHostFollowersOnlyCouncils(tier)) {
+        throwApi(
+          403,
+          'perk_required',
+          'مجالس المتابعين متاحة لمشتركي Gold',
+        );
+      }
+      if (dto.scheduledFor) {
+        if (!canScheduleCouncils(tier)) {
+          throwApi(
+            403,
+            'perk_required',
+            'جدولة المجالس متاحة لمشتركي Blue+ وGold',
+          );
+        }
+        const parsed = parseCouncilSchedule(dto.scheduledFor, now);
+        if (typeof parsed === 'string') {
+          throwApi(400, parsed, SCHEDULE_ERRORS_AR[parsed]);
+        }
+        scheduledFor = parsed;
+      }
+    }
     await this.prisma.$transaction(async (tx) => {
       // One LIVE council per owner (lock the owner row against double-submit).
       await tx.$queryRaw`SELECT 1 FROM "User" WHERE id = ${user.userId} FOR UPDATE`;
-      const existing = await tx.council.findFirst({
-        where: { ownerId: user.userId, status: 'LIVE' },
-        select: { id: true },
-      });
-      if (existing) {
-        throwApi(409, 'council_exists', 'لديك مجلس مباشر بالفعل', {
-          councilId: existing.id,
+      if (scheduledFor) {
+        const upcoming = await tx.council.count({
+          where: { ownerId: user.userId, status: 'SCHEDULED' },
         });
+        if (upcoming >= COUNCIL_MAX_SCHEDULED_PER_OWNER) {
+          throwApi(
+            409,
+            'council_schedule_limit',
+            `يمكنك جدولة ${COUNCIL_MAX_SCHEDULED_PER_OWNER} مجالس كحد أقصى`,
+          );
+        }
+      } else {
+        const existing = await tx.council.findFirst({
+          where: { ownerId: user.userId, status: 'LIVE' },
+          select: { id: true },
+        });
+        if (existing) {
+          throwApi(409, 'council_exists', 'لديك مجلس مباشر بالفعل', {
+            councilId: existing.id,
+          });
+        }
       }
       await tx.council.create({
         data: {
@@ -341,6 +421,10 @@ export class CouncilsService {
           name: dto.name,
           description: dto.description ? dto.description : null,
           visibility: dto.visibility,
+          followersOnly: wantsFollowersOnly,
+          ...(scheduledFor
+            ? { status: 'SCHEDULED' as const, scheduledFor, startedAt: scheduledFor }
+            : {}),
           rules: dto.rules ?? [],
           agoraChannelName: councilIdToChannel(id),
           inviteCode: newCouncilInviteCode(),
@@ -366,8 +450,18 @@ export class CouncilsService {
         },
       });
     });
-    this.logger.info({ councilId: id, userId: user.userId }, 'Council created');
+    this.logger.info(
+      { councilId: id, userId: user.userId, scheduled: Boolean(scheduledFor) },
+      'Council created',
+    );
     const { council, member } = await this.loadForViewer(id, user.userId);
+    if (scheduledFor) {
+      return {
+        state: await this.buildState(council, user.userId, member),
+        agora: null,
+        agoraError: 'council_scheduled' as const,
+      };
+    }
     return {
       state: await this.buildState(council, user.userId, member),
       ...this.credentials(id, user.userId, member!),
@@ -393,7 +487,13 @@ export class CouncilsService {
       user.userId,
       dto.code,
     );
+    if (council.status === 'SCHEDULED') {
+      throwApi(409, 'council_not_started', NOT_STARTED_AR, {
+        scheduledFor: council.scheduledFor,
+      });
+    }
     this.assertLive(council);
+    await this.assertFollowersOnlyAccess(council, user.userId, member);
     if (member?.role === 'BANNED') {
       throwApi(403, 'council_banned', 'تم حظرك من هذا المجلس');
     }
@@ -464,6 +564,7 @@ export class CouncilsService {
 
   async list(user: JwtPayload, cursor?: string) {
     await this.endAbsentHosts();
+    await this.startDueScheduled().catch(() => 0);
     const rows = await this.prisma.council.findMany({
       where: {
         status: 'LIVE',
@@ -549,6 +650,7 @@ export class CouncilsService {
       name: c.name,
       description: c.description,
       visibility: c.visibility,
+      followersOnly: c.followersOnly,
       status: c.status,
       startedAt: c.startedAt,
       owner: c.owner,
@@ -557,6 +659,267 @@ export class CouncilsService {
       listenerCount: Math.max(0, present - speakersCount),
       isOwner: c.ownerId === viewerId,
     };
+  }
+
+  /**
+   * «للمتابعين فقط»: the host, the host's moderators and invited users always
+   * pass; everyone else must follow the host (checked on every join).
+   */
+  private async assertFollowersOnlyAccess(
+    council: Council,
+    userId: string,
+    member: CouncilMember | null,
+  ) {
+    if (!council.followersOnly || council.ownerId === userId) return;
+    if (member?.role === 'MODERATOR') return;
+    const [follow, invite] = await Promise.all([
+      this.prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: userId,
+            followingId: council.ownerId,
+          },
+        },
+        select: { id: true },
+      }),
+      this.prisma.councilInvite.findUnique({
+        where: { councilId_userId: { councilId: council.id, userId } },
+        select: { id: true },
+      }),
+    ]);
+    if (!follow && !invite) {
+      throwApi(403, 'council_followers_only', FOLLOWERS_ONLY_AR, {
+        hostId: council.ownerId,
+      });
+    }
+  }
+
+  // ─── Scheduled councils («قادمة») ───────────────────────────────────────
+
+  /** Upcoming councils: public ones + the viewer's own (any visibility). */
+  async upcoming(user: JwtPayload) {
+    void this.startDueScheduled().catch(() => {});
+    const uid = user.userId;
+    const rows = await this.prisma.council.findMany({
+      where: {
+        status: 'SCHEDULED',
+        OR: [{ visibility: 'PUBLIC' }, { ownerId: uid }],
+        owner: {
+          ...ACTIVE_OWNER,
+          blocksInitiated: { none: { blockedId: uid } },
+          blocksReceived: { none: { blockerId: uid } },
+        },
+      },
+      orderBy: [{ scheduledFor: 'asc' }, { id: 'asc' }],
+      take: COUNCIL_UPCOMING_LIMIT,
+      include: {
+        owner: { select: COUNCIL_USER_SELECT },
+        reminders: { where: { userId: uid }, select: { id: true } },
+        _count: { select: { reminders: true } },
+      },
+    });
+    return {
+      councils: rows.map((c) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        visibility: c.visibility,
+        followersOnly: c.followersOnly,
+        status: c.status,
+        scheduledFor: c.scheduledFor,
+        owner: c.owner,
+        isOwner: c.ownerId === uid,
+        remindMe: c.reminders.length > 0,
+        reminderCount: c._count.reminders,
+      })),
+    };
+  }
+
+  /** «ذكّرني» on / off for a scheduled council the viewer can see. */
+  async remind(user: JwtPayload, id: string, on: boolean) {
+    const { council } = await this.loadForViewer(id, user.userId);
+    if (council.status !== 'SCHEDULED') {
+      throwApi(409, 'council_not_scheduled', 'المجلس ليس مجدولاً');
+    }
+    if (council.ownerId !== user.userId) {
+      if (on) {
+        await this.prisma.councilReminder.upsert({
+          where: { councilId_userId: { councilId: id, userId: user.userId } },
+          create: { councilId: id, userId: user.userId },
+          update: {},
+        });
+      } else {
+        await this.prisma.councilReminder.deleteMany({
+          where: { councilId: id, userId: user.userId },
+        });
+      }
+    }
+    const reminderCount = await this.prisma.councilReminder.count({
+      where: { councilId: id },
+    });
+    return {
+      remindMe: council.ownerId !== user.userId && on,
+      reminderCount,
+    };
+  }
+
+  /** Host starts a scheduled council now (early or late). */
+  async start(user: JwtPayload, id: string) {
+    const { council } = await this.loadForViewer(id, user.userId);
+    if (council.ownerId !== user.userId) {
+      throwApi(403, 'forbidden', FORBIDDEN_AR);
+    }
+    if (council.status === 'LIVE') {
+      const member = await this.findMember(this.prisma, id, user.userId);
+      return {
+        state: await this.buildState(council, user.userId, member),
+        ...this.credentials(id, user.userId, member!),
+      };
+    }
+    if (council.status !== 'SCHEDULED') this.assertLive(council);
+    const started = await this.goLive(id, council.ownerId);
+    if (started === 'busy') {
+      const existing = await this.prisma.council.findFirst({
+        where: { ownerId: user.userId, status: 'LIVE' },
+        select: { id: true },
+      });
+      throwApi(409, 'council_exists', 'لديك مجلس مباشر بالفعل', {
+        councilId: existing?.id,
+      });
+    }
+    await this.notifyReminders(id);
+    await this.realtime.touchHost(id, user.userId);
+    const fresh = await this.loadForViewer(id, user.userId);
+    return {
+      state: await this.buildState(fresh.council, user.userId, fresh.member),
+      ...this.credentials(id, user.userId, fresh.member!),
+    };
+  }
+
+  /**
+   * SCHEDULED → LIVE under the owner-row lock (one LIVE council per owner).
+   * Returns 'started', 'busy' (owner already live) or 'gone' (not scheduled).
+   */
+  private async goLive(
+    id: string,
+    ownerId: string,
+  ): Promise<'started' | 'busy' | 'gone'> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "User" WHERE id = ${ownerId} FOR UPDATE`;
+      const live = await tx.council.findFirst({
+        where: { ownerId, status: 'LIVE' },
+        select: { id: true },
+      });
+      if (live) return 'busy';
+      const now = new Date();
+      const { count } = await tx.council.updateMany({
+        where: { id, ownerId, status: 'SCHEDULED' },
+        data: { status: 'LIVE', startedAt: now, hostLastSeenAt: now },
+      });
+      return count > 0 ? 'started' : 'gone';
+    });
+  }
+
+  /** Tells «ذكّرني» users the council is live (exactly once per council). */
+  private async notifyReminders(id: string) {
+    const { count } = await this.prisma.council.updateMany({
+      where: { id, remindersSentAt: null },
+      data: { remindersSentAt: new Date() },
+    });
+    if (count === 0) return 0;
+    const council = await this.prisma.council.findUnique({
+      where: { id },
+      select: { name: true, ownerId: true },
+    });
+    if (!council) return 0;
+    const rows = await this.prisma.councilReminder.findMany({
+      where: {
+        councilId: id,
+        user: {
+          ...ACTIVE_OWNER,
+          blocksInitiated: { none: { blockedId: council.ownerId } },
+          blocksReceived: { none: { blockerId: council.ownerId } },
+        },
+      },
+      select: { userId: true },
+      take: 5000,
+    });
+    const userIds = rows.map((r) => r.userId).filter((u) => u !== council.ownerId);
+    if (userIds.length > 0) {
+      await this.notifications
+        .notifyUsers(userIds, {
+          type: 'system',
+          titleAr: 'بدأ المجلس',
+          bodyAr: `«${council.name}» مباشر الآن، انضم واستمع`,
+          data: { kind: 'council_live', councilId: id },
+        })
+        .catch(() => {});
+    }
+    return userIds.length;
+  }
+
+  /**
+   * Starts scheduled councils whose time has come (called by the council
+   * scheduler every 30 s and lazily from the lists). Runs once per tick across
+   * instances (Redis claim); every transition is also guarded in SQL, so a
+   * double run can never start or notify twice. Host already live elsewhere:
+   * the council waits (host nudged once) until the host starts it.
+   */
+  async startDueScheduled(now = new Date()): Promise<number> {
+    if (!(await this.cache.claimOnce('council:start-due', 20))) return 0;
+    const due = await this.prisma.council.findMany({
+      where: { status: 'SCHEDULED', scheduledFor: { lte: now } },
+      orderBy: { scheduledFor: 'asc' },
+      take: 25,
+      select: { id: true, ownerId: true, name: true, scheduledFor: true },
+    });
+    let started = 0;
+    for (const c of due) {
+      try {
+        if (
+          c.scheduledFor &&
+          c.scheduledFor.getTime() < now.getTime() - COUNCIL_SCHEDULE_STALE_MS
+        ) {
+          await this.endCouncil(c.id);
+          continue;
+        }
+        const result = await this.goLive(c.id, c.ownerId);
+        if (result === 'started') {
+          started++;
+          this.logger.info({ councilId: c.id }, 'Scheduled council started');
+          await this.notifications
+            .notifyUser({
+              userId: c.ownerId,
+              type: 'system',
+              titleAr: 'حان موعد مجلسك',
+              bodyAr: `«${c.name}» بدأ الآن، ادخل لإدارته`,
+              data: { kind: 'council_live', councilId: c.id },
+            })
+            .catch(() => {});
+          await this.notifyReminders(c.id);
+        } else if (
+          result === 'busy' &&
+          (await this.cache.claimOnce(`council:host-nudge:${c.id}`, 24 * 3600))
+        ) {
+          await this.notifications
+            .notifyUser({
+              userId: c.ownerId,
+              type: 'system',
+              titleAr: 'حان موعد مجلسك',
+              bodyAr: `أنهِ مجلسك الحالي ثم ابدأ «${c.name}»`,
+              // Still SCHEDULED: the app opens the councils list («قادمة» → ابدأ الآن).
+              data: { kind: 'council_scheduled_due', councilId: c.id },
+            })
+            .catch(() => {});
+        }
+      } catch (err) {
+        this.logger.warn(
+          { councilId: c.id, err: err instanceof Error ? err.message : String(err) },
+          'Scheduled council start failed',
+        );
+      }
+    }
+    return started;
   }
 
   async resolveInvite(user: JwtPayload, code: string) {

@@ -25,6 +25,13 @@ export const COUNCIL_WEB_TEXT = 'المجالس متاحة في تطبيق سر�
 export const COUNCIL_AUDIO_UNAVAILABLE_TEXT = 'الصوت غير متاح حالياً، حاول لاحقاً';
 export const COUNCIL_LIVE_BUSY_TEXT = 'أغلق البث المباشر أولاً للاستماع إلى المجلس';
 export const COUNCILS_EMPTY_TEXT = 'لا توجد مجالس مباشرة الآن';
+export const COUNCIL_FOLLOWERS_ONLY_TEXT = 'هذا المجلس للمتابعين فقط — تابع المضيف للانضمام';
+export const COUNCIL_NOT_STARTED_TEXT = 'لم يبدأ المجلس بعد';
+export const COUNCIL_FOLLOWERS_ONLY_LABEL = 'للمتابعين فقط';
+export const COUNCILS_UPCOMING_TITLE = 'قادمة';
+/** Mirrors the server schedule window (5 minutes .. 14 days ahead). */
+export const COUNCIL_SCHEDULE_MIN_LEAD_MS = 5 * 60_000;
+export const COUNCIL_SCHEDULE_MAX_LEAD_MS = 14 * 24 * 60 * 60_000;
 export const DEFAULT_COUNCIL_RULES = [
   'الاحترام واجب',
   'يمنع الإساءة',
@@ -33,7 +40,7 @@ export const DEFAULT_COUNCIL_RULES = [
 ];
 
 export type CouncilVisibility = 'PUBLIC' | 'PRIVATE';
-export type CouncilStatus = 'LIVE' | 'ENDED';
+export type CouncilStatus = 'LIVE' | 'ENDED' | 'SCHEDULED';
 export type CouncilMemberRole = 'OWNER' | 'MODERATOR' | 'SPEAKER' | 'LISTENER' | 'BANNED';
 
 export type CouncilUser = {
@@ -84,6 +91,10 @@ export type CouncilMeta = {
   endedAt: string | null;
   owner: CouncilUser;
   maxSpeakers: number;
+  /** Gold hosts: only followers, invitees and the host may join (server-enforced). */
+  followersOnly?: boolean;
+  /** Set while the council is SCHEDULED (ISO). */
+  scheduledFor?: string | null;
   moderatorPermissions: {
     canManageRequests: boolean;
     canMute: boolean;
@@ -154,6 +165,28 @@ export type CouncilCard = {
   speakersCount: number;
   listenerCount: number;
   isOwner: boolean;
+  followersOnly?: boolean;
+};
+
+/** «قادمة» — a scheduled council card. */
+export type CouncilUpcomingCard = {
+  id: string;
+  name: string;
+  description: string | null;
+  visibility: CouncilVisibility;
+  followersOnly: boolean;
+  scheduledFor: string;
+  owner: CouncilUser;
+  isOwner: boolean;
+  remindMe: boolean;
+  reminderCount: number;
+};
+
+/** What the signed-in user may use when creating a council (server decides). */
+export type CouncilPerks = {
+  tier: string | null;
+  canFollowersOnly: boolean;
+  canSchedule: boolean;
 };
 
 export type CouncilInput = {
@@ -165,6 +198,9 @@ export type CouncilInput = {
   modCanMute?: boolean;
   modCanRemove?: boolean;
   modCanBan?: boolean;
+  followersOnly?: boolean;
+  /** ISO time; omitted = start now. */
+  scheduledFor?: string;
 };
 
 export type CouncilMemberAction =
@@ -240,6 +276,25 @@ export function fetchCouncil(id: string, code?: string | null) {
 
 export function createCouncil(input: CouncilInput) {
   return request<CouncilJoinResult>(BASE, jsonInit('POST', input));
+}
+
+export function fetchCouncilPerks() {
+  return request<CouncilPerks>(`${BASE}/perks`);
+}
+
+export function fetchUpcomingCouncils() {
+  return request<{ councils: CouncilUpcomingCard[] }>(`${BASE}/upcoming`);
+}
+
+export function setCouncilReminder(id: string, on: boolean) {
+  return request<{ remindMe: boolean; reminderCount: number }>(
+    `${BASE}/${enc(id)}/remind`,
+    jsonInit('POST', { on }),
+  );
+}
+
+export function startScheduledCouncil(id: string) {
+  return request<CouncilJoinResult>(`${BASE}/${enc(id)}/start`, jsonInit('POST'));
 }
 
 export function updateCouncil(id: string, patch: Partial<CouncilInput>) {
@@ -451,9 +506,76 @@ export function councilErrorMessage(err: unknown): string {
         return 'تمت إزالتك من المجلس مؤقتاً';
       case 'agora_unavailable':
         return COUNCIL_AUDIO_UNAVAILABLE_TEXT;
+      case 'council_followers_only':
+        return COUNCIL_FOLLOWERS_ONLY_TEXT;
+      case 'council_not_started':
+        return COUNCIL_NOT_STARTED_TEXT;
       default:
         return err.message;
     }
   }
   return err instanceof Error && err.message ? err.message : 'تعذّر إكمال الطلب، حاول مرة أخرى';
+}
+
+// ─── Scheduling helpers («قادمة») ──────────────────────────────────────────
+
+const AR_WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
+/** "9:30 م" — 12-hour clock with Arabic AM/PM marks, local time. */
+export function councilTimeLabel(date: Date): string {
+  const h = date.getHours();
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${pad2(date.getMinutes())} ${h < 12 ? 'ص' : 'م'}`;
+}
+
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** "اليوم" / "غداً" / weekday + day/month, local time. */
+export function councilDayLabel(date: Date, now = new Date()): string {
+  const diffDays = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000);
+  if (diffDays === 0) return 'اليوم';
+  if (diffDays === 1) return 'غداً';
+  return `${AR_WEEKDAYS[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1}`;
+}
+
+/** "اليوم · 9:30 م" for upcoming cards. */
+export function councilScheduleLabel(iso: string | null | undefined, now = new Date()): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${councilDayLabel(d, now)} · ${councilTimeLabel(d)}`;
+}
+
+/** Day chips for the create screen: today + next 6 days (start-of-day, local). */
+export function councilScheduleDays(now = new Date(), count = 7): Date[] {
+  return Array.from({ length: count }, (_, i) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + i));
+}
+
+/**
+ * Time chips (every 30 min) for `day`. For today only slots at least the minimum lead
+ * time ahead are offered, so the server never rejects a picked slot as too soon.
+ */
+export function councilScheduleSlots(day: Date, now = new Date(), stepMinutes = 30): Date[] {
+  const out: Date[] = [];
+  const earliest = now.getTime() + COUNCIL_SCHEDULE_MIN_LEAD_MS;
+  const latest = now.getTime() + COUNCIL_SCHEDULE_MAX_LEAD_MS;
+  for (let m = 0; m < 24 * 60; m += stepMinutes) {
+    const slot = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(m / 60), m % 60);
+    const t = slot.getTime();
+    if (t >= earliest && t <= latest) out.push(slot);
+  }
+  return out;
+}
+
+/** Client-side mirror of the server window check (the server re-validates). */
+export function isValidCouncilSchedule(date: Date | null | undefined, now = new Date()): boolean {
+  if (!date || Number.isNaN(date.getTime())) return false;
+  const lead = date.getTime() - now.getTime();
+  return lead >= COUNCIL_SCHEDULE_MIN_LEAD_MS && lead <= COUNCIL_SCHEDULE_MAX_LEAD_MS;
 }

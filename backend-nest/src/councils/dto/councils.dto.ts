@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsEnum,
   IsIn,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -86,6 +87,16 @@ export class CreateCouncilDto {
   @IsOptional()
   @IsBoolean()
   modCanBan?: boolean;
+
+  /** «للمتابعين فقط» (Gold hosts, public councils): only followers may join. */
+  @IsOptional()
+  @IsBoolean()
+  followersOnly?: boolean;
+
+  /** Scheduled start (ISO date, Blue+ / Gold hosts). Absent = start now. */
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  scheduledFor?: string;
 }
 
 export class UpdateCouncilDto {
@@ -182,4 +193,10 @@ export class SearchCouncilUsersQueryDto {
   @Transform(trim)
   @MaxLength(60)
   q?: string;
+}
+
+export class CouncilRemindDto {
+  /** true = «ذكّرني», false = cancel the reminder. */
+  @IsBoolean()
+  on!: boolean;
 }

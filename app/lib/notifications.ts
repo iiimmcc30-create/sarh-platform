@@ -379,11 +379,18 @@ export function handleNotificationNavigation(
 
     case 'system': {
       const councilId = stringField(data, 'councilId');
-      if (councilId && stringField(data, 'kind') === 'council_invite') {
+      if (
+        councilId &&
+        (stringField(data, 'kind') === 'council_invite' || stringField(data, 'kind') === 'council_live')
+      ) {
         safePush({
           pathname: '/councils/[id]',
           params: { id: councilId },
         } as never, undefined, ctx.router);
+        return true;
+      }
+      if (councilId && stringField(data, 'kind') === 'council_scheduled_due') {
+        safePush('/councils' as never, undefined, ctx.router);
         return true;
       }
       const ticketId = stringField(data, 'ticketId');
