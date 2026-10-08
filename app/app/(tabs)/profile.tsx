@@ -27,6 +27,7 @@ import { safePush, safeReplace } from '@/lib/safeNavigate';
 import { PROFILE_EDIT_ROUTE, resolveProfileBack } from '@/lib/profileHeader';
 import { presentOwnProfileMenu } from '@/lib/profileCollectionsMenu';
 import { fetchStoriesFeed, type StoryGroup } from '@/services/stories';
+import { fetchProfileViews } from '@/services/profileViews';
 import { shouldReuseFreshResult } from '@/services/requestCoordination';
 import type { Post } from '@/services/types';
 
@@ -128,12 +129,20 @@ export default function ProfileScreen() {
     }
   }, [loadFirstPage, me.id]);
 
+  /** «من شاهد ملفك»: 30-day count only here; the list lives on /profile/views. */
+  const [profileViewsCount, setProfileViewsCount] = useState<number | null>(null);
+  const loadProfileViewsCount = useCallback(async () => {
+    const res = await fetchProfileViews();
+    if (res) setProfileViewsCount(res.total);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       void loadStories();
       void refetchUser();
       void loadMyListings();
-    }, [loadMyListings, loadStories, refetchUser]),
+      void loadProfileViewsCount();
+    }, [loadMyListings, loadProfileViewsCount, loadStories, refetchUser]),
   );
   const myPosts = useMemo(
     () =>
@@ -378,6 +387,10 @@ export default function ProfileScreen() {
       likesContent={renderLikes()}
       onTabChange={onTabChange}
       onAdsNearEnd={() => void loadNextPage()}
+      profileViews={{
+        count: profileViewsCount,
+        onPress: () => safePush('/profile/views', undefined, router),
+      }}
     />
   );
 }

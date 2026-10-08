@@ -98,6 +98,8 @@ model User {
   councilMemberships                  CouncilMember[]                   @relation("CouncilMemberUser")
   councilSpeakRequests                CouncilSpeakRequest[]             @relation("CouncilSpeakRequestUser")
   councilInvites                      CouncilInvite[]                   @relation("CouncilInviteUser")
+  profileViewsReceived                ProfileView[]                     @relation("ProfileViewsReceived")
+  profileViewsGiven                   ProfileView[]                     @relation("ProfileViewsGiven")
 
   @@index([username])
   @@index([email])
@@ -144,6 +146,22 @@ model Follow {
   @@unique([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+/// «مين شاف ملفي»: one row per viewer per profile per day (latest view time).
+model ProfileView {
+  id        String   @id @default(uuid())
+  profileId String
+  viewerId  String
+  /// UTC day of the view (dedupe key).
+  day       DateTime @db.Date
+  viewedAt  DateTime @default(now())
+  profile   User     @relation("ProfileViewsReceived", fields: [profileId], references: [id], onDelete: Cascade)
+  viewer    User     @relation("ProfileViewsGiven", fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, viewerId, day])
+  @@index([profileId, viewedAt])
+  @@index([viewerId])
 }
 
 model UserBlock {

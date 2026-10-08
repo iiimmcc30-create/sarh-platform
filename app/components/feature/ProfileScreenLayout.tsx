@@ -116,6 +116,11 @@ type ProfileScreenLayoutProps = {
    * keep their real positions, so nothing shifts when the user arrives.
    */
   loading?: boolean;
+  /**
+   * Own profile only: «من شاهد ملفك» entry under the stats (count of the last 30
+   * days; null while loading). Omitted = no row.
+   */
+  profileViews?: { count: number | null; onPress: () => void };
 };
 
 function formatStatCount(n: number): string {
@@ -165,6 +170,7 @@ export function ProfileScreenLayout({
   initialTab = 'posts',
   onAdsNearEnd,
   loading = false,
+  profileViews,
 }: ProfileScreenLayoutProps) {
   const { colors: themeColors, scheme, isDark } = useTheme();
   const { gutter } = useLayout();
@@ -534,6 +540,32 @@ export function ProfileScreenLayout({
 
               {/* Stats (X-style «677 المتابعون»): compact, 12pt above (bio/handle), no dividers. */}
               <ProfileStatsRow stats={stats} style={styles.statsRow} />
+
+              {/* «من شاهد ملفك» (own profile): one quiet row, no card. */}
+              {isOwnProfile && profileViews ? (
+                <Pressable
+                  onPress={profileViews.onPress}
+                  accessibilityRole="button"
+                  accessibilityLabel="من شاهد ملفك"
+                  style={({ pressed }) => [styles.viewsRow, pressed ? styles.viewsRowPressed : null]}
+                  testID="profile-views-row"
+                >
+                  <Row gap="xs" align="center">
+                    <AppIcon name="eye-outline" size={15} color={themeColors.textMuted} />
+                    <AppText variant="caption" color="textSecondary">
+                      من شاهد ملفك
+                    </AppText>
+                    {profileViews.count != null ? (
+                      <AppText variant="label" color="textPrimary">
+                        {formatStatCount(profileViews.count)}
+                      </AppText>
+                    ) : null}
+                    <AppText variant="caption" color="textMuted">
+                      · آخر 30 يوماً
+                    </AppText>
+                  </Row>
+                </Pressable>
+              ) : null}
             </Stack>
           )}
 
@@ -716,6 +748,13 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     usernamePress: {
       alignSelf: 'flex-start',
+    },
+    viewsRow: {
+      alignSelf: 'flex-start',
+      paddingVertical: 2,
+    },
+    viewsRowPressed: {
+      opacity: 0.6,
     },
     ratingRowPressed: {
       opacity: 0.75,

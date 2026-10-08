@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { RedisService } from '../../redis/redis.service';
@@ -22,6 +22,7 @@ import {
   planProfileIdentityUpdate,
 } from '../lib/profile-change-cooldown';
 import { resolveVerifiedSince } from '../lib/verified-since';
+import { ProfileViewsService } from './profile-views.service';
 
 const MIN_RATING = 1;
 const MAX_RATING = 5;
@@ -42,6 +43,7 @@ export class UsersService {
     private readonly socketDisconnect: SocketDisconnectService,
     private readonly notifications: AppNotificationsService,
     private readonly config: ConfigService,
+    @Optional() private readonly profileViews?: ProfileViewsService,
   ) {}
 
   async listUsers(query: ListUsersQueryDto) {
@@ -91,6 +93,10 @@ export class UsersService {
       ]);
       isFollowing = !!follow;
       myRating = review?.rating ?? null;
+      // «مين شاف ملفي»: blocked pairs never get here (403 above / isBlocked).
+      if (!blockedByViewer) {
+        void this.profileViews?.record(id, viewer).catch(() => {});
+      }
       this.logger.debug(
         {
           viewerId: viewer.userId,
