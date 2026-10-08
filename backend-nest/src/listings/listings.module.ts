@@ -4,6 +4,8 @@ import { ListingsService } from './listings.service';
 import { ListingsRepository } from './repositories/listings.repository';
 import { ListingBoostController } from './boost/listing-boost.controller';
 import { ListingBoostService } from './boost/listing-boost.service';
+import { ListingFreeBoostController } from './boost/listing-free-boost.controller';
+import { ListingFreeBoostService } from './boost/listing-free-boost.service';
 import { ListingPromotionController } from './promotion/listing-promotion.controller';
 import { ListingPromotionService } from './promotion/listing-promotion.service';
 import { PromoteQuoteService } from './promotion/promote-quote.service';
@@ -25,6 +27,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
   ],
   controllers: [
     ListingsController,
+    ListingFreeBoostController,
     ListingBoostController,
     ListingPromotionController,
   ],
@@ -32,6 +35,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
     ListingsService,
     ListingsRepository,
     ListingBoostService,
+    ListingFreeBoostService,
     ListingPromotionService,
     PromoteQuoteService,
   ],

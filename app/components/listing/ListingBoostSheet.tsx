@@ -23,6 +23,7 @@ import {
   fetchPromotionPlans,
 } from '@/services/listingPromotion';
 import { launchPaymentCheckout } from '@/services/payments';
+import { FreeBoostOption } from '@/components/listing/FreeBoostOption';
 import { usePaidServices } from '@/hooks/usePaidServices';
 import {
   firstEnabledBoostType,
@@ -265,6 +266,18 @@ export function ListingBoostSheet({
                 </View>
               </LinearGradient>
             ) : null}
+
+            {/* Blue+/Gold: «تمييز مجاني (متبقي X)» first — applies with no payment. */}
+            <FreeBoostOption
+              listingId={listingId}
+              enabled={isBoostTypeEnabled('featured', paidFlags)}
+              style={styles.freeBoost}
+              onApplied={() => {
+                onPlanPromoteSuccess?.();
+                onClose();
+                Alert.alert('تم التمييز', 'إعلانك مميز الآن لمدة ٢٤ ساعة ضمن اشتراكك.');
+              }}
+            />
 
             <Text style={styles.sectionLabel}>اختر الخدمة</Text>
             <View style={styles.serviceGrid}>
@@ -556,6 +569,10 @@ function createStyles(colors: ThemeColors) {
     planActionQuota: {
       ...typography.micro,
       color: colors.textMuted,
+    },
+    freeBoost: {
+      marginTop: spacing.sm,
+      marginBottom: spacing.xs,
     },
     sectionLabel: {
       ...typography.caption,

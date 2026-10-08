@@ -44,6 +44,15 @@ export const PLAN_FEATURE_CATALOG: PlanFeatureCatalogItem[] = [
     suggestedValue: '0',
   },
   {
+    key: 'weeklyFreeBoosts',
+    labelAr: 'تمييز مجاني أسبوعياً',
+    descriptionAr:
+      'عدد مرات تمييز الإعلان مجاناً (24 ساعة) كل 7 أيام (Blue+ 2، Gold 4)',
+    valueType: 'NUMBER',
+    audiences: ['USER'],
+    suggestedValue: '0',
+  },
+  {
     key: 'monthlyLiveHours',
     labelAr: 'ساعات البث المباشر شهرياً',
     descriptionAr: 'حصة البث المباشر بالساعات كل شهر',

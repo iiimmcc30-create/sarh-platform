@@ -31,6 +31,7 @@ import {
 } from '@/services/listingPromote';
 import { listPromoteCatalogOptions, type PromoteCatalogOption } from '@/services/promoteCatalog';
 import { usePaidServices } from '@/hooks/usePaidServices';
+import { FreeBoostOption } from '@/components/listing/FreeBoostOption';
 import { firstEnabledPromoteGoal, isPromoteGoalEnabled } from '@/services/paidServices';
 import {
   PROMOTE_SERVICE_COPY,
@@ -305,6 +306,18 @@ export default function ListingPromoteScreen() {
                   خدمات التعزيز غير مفعّلة حالياً. تواصل مع الإدارة إن لزم.
                 </AppText>
               </Row>
+            ) : null}
+
+            {/* Blue+/Gold: «تمييز مجاني (متبقي X)» first — applies with no payment. */}
+            {id ? (
+              <FreeBoostOption
+                listingId={id}
+                enabled={isPromoteGoalEnabled('featured', paidFlags)}
+                onApplied={() => {
+                  setNotice({ tone: 'info', text: 'تم تمييز إعلانك مجاناً لمدة ٢٤ ساعة ضمن اشتراكك.' });
+                  setReloadKey((k) => k + 1);
+                }}
+              />
             ) : null}
 
             {enabledServices.length > 0 ? (
