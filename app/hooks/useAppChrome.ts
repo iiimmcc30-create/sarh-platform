@@ -14,6 +14,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { motion } from '@/design-system/tokens/motion';
 
 /** Stay revealed near the top of a list. */
@@ -148,3 +149,26 @@ export function useBindChromeScroll(
 
 function noopSetVisible(_visible: boolean) {}
 function noopSetHidden(_hidden: boolean) {}
+
+/**
+ * X timeline chrome: the header slides off upward and the list comes with it,
+ * so hiding it does not leave an empty band. The status-bar inset stays put.
+ */
+export function useChromeContentShift(headerHeight: number) {
+  const { chromeProgress } = useAppChromeScroll();
+  const insets = useSafeAreaInsets();
+  const shift = Math.max(0, headerHeight - insets.top);
+  return useMemo(
+    () => ({
+      transform: [
+        {
+          translateY: chromeProgress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-shift, 0],
+          }),
+        },
+      ],
+    }),
+    [chromeProgress, shift],
+  );
+}

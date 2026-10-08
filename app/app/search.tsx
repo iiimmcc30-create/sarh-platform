@@ -156,6 +156,12 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     resetCollapse,
   } = useCollapsibleSearchHeader(SHELL_IDENTITY_COLLAPSE_H);
   const [section, setSection] = useState<ExploreSection>('explore');
+  const exploreIndex = Math.max(0, EXPLORE_SECTIONS.findIndex((item) => item.id === section));
+  const { layouts: exploreLayouts, onTabLayout: onExploreTabLayout } = useTabLayouts(EXPLORE_SECTIONS.length);
+  const { scrollRef: exploreTabsRef, rowProps: exploreTabsRowProps } = useRevealActiveTab(
+    exploreIndex,
+    exploreLayouts,
+  );
   const displayName = isAuthenticated
     ? me.arabicName || me.displayName || me.username || 'حسابي'
     : 'ضيف';
@@ -778,13 +784,19 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   );
 
   const exploreTabs = (
-    <Row style={styles.sectionRow}>
-      {EXPLORE_SECTIONS.map((item) => {
+    <SarhChipRow
+      contentPaddingHorizontal={gutter}
+      style={styles.sectionRow}
+      scrollRef={exploreTabsRef}
+      scrollProps={exploreTabsRowProps}
+    >
+      {EXPLORE_SECTIONS.map((item, index) => {
         const active = section === item.id;
         return (
           <Pressable
             key={item.id}
             onPress={() => selectSection(item.id)}
+            onLayout={(event) => onExploreTabLayout(index, event)}
             style={styles.sectionTab}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
@@ -804,7 +816,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
           </Pressable>
         );
       })}
-    </Row>
+    </SarhChipRow>
   );
 
   const resultTabs = (
@@ -1482,7 +1494,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       paddingTop: 8,
     },
     sectionTab: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'flex-end',
       minHeight: 48,

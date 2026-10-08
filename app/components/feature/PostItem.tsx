@@ -615,7 +615,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     row: {
       alignItems: 'flex-start',
       paddingHorizontal: spacing.md,
-      paddingTop: spacing.md,
+      paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
       gap: POST_ITEM_LAYOUT.rowGap,
     },
@@ -690,7 +690,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     handle: {
       ...typography.caption,
       ...resolveAppFontFace('400'),
-      color: colors.textMuted,
+      color: colors.textSecondary,
       flexShrink: 1,
       writingDirection: 'ltr',
       alignSelf: 'flex-start',

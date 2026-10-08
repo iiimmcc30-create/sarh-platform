@@ -145,13 +145,13 @@ function ListingCardInner({
 
           <View style={[styles.listMetaRow, getRtlRow()]}>
             <View style={[styles.listMetaCluster, getRtlRow()]}>
-              <AppIcon name="map-marker-outline" size={12} color={colors.textPrimary} />
+              <AppIcon name="map-marker-outline" size={12} color={colors.textSecondary} />
               <Text style={styles.listMetaText} numberOfLines={1} ellipsizeMode="tail">
                 {location}
               </Text>
             </View>
             <View style={[styles.listMetaClusterFixed, getRtlRow()]}>
-              <AppIcon name="time-outline" size={12} color={colors.textPrimary} />
+              <AppIcon name="time-outline" size={12} color={colors.textSecondary} />
               <Text style={styles.listMetaText} numberOfLines={1}>
                 {displayTime}
               </Text>
@@ -318,11 +318,11 @@ function ListingCardInner({
 
       <View style={[styles.harajMeta, getRtlRow()]}>
         <View style={[styles.harajMetaItem, getRtlRow()]}>
-          <AppIcon name="map-marker-outline" size={13} color={colors.textPrimary} />
+          <AppIcon name="map-marker-outline" size={13} color={colors.textSecondary} />
           <Text style={styles.harajMetaText}>{location}</Text>
         </View>
         <View style={[styles.harajMetaItem, getRtlRow()]}>
-          <AppIcon name="time-outline" size={13} color={colors.textPrimary} />
+          <AppIcon name="time-outline" size={13} color={colors.textSecondary} />
           <Text style={styles.harajMetaText}>{timeLabel || 'الآن'}</Text>
         </View>
       </View>
@@ -438,19 +438,19 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
   },
   listMetaText: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     writingDirection: 'rtl',
     flexShrink: 1,
   },
   listPriceAmount: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     writingDirection: 'ltr',
     fontVariant: ['tabular-nums'],
   },
   listRiyalText: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
   listStatusNew: {
     ...typography.badge,
@@ -727,7 +727,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
   },
   harajMetaText: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     writingDirection: 'rtl',
   },
   harajSellerRow: {

@@ -3,6 +3,7 @@
 
 import { MessagesPanel } from '@/components/feature/MessagesPanel';
 import { AppChromeLayer } from '@/components/navigation/AppChromeLayer';
+import { useChromeContentShift } from '@/hooks/useAppChrome';
 import {
   HomeAppBar,
   SHELL_ICON_SIZE,
@@ -19,7 +20,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { safePush } from '@/lib/safeNavigate';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Compact (40pt) header search — same field, slightly smaller than the 48pt default. */
@@ -35,6 +36,7 @@ export default function MessagesScreen() {
   const { isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
   const [headerH, setHeaderH] = useState(() => messagesChromeH(insets.top));
+  const contentShift = useChromeContentShift(headerH);
   const [search, setSearch] = useState('');
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const { colors } = useTheme();
@@ -106,6 +108,7 @@ export default function MessagesScreen() {
           </View>
         </HomeAppBar>
       </AppChromeLayer>
+      <Animated.View style={[{ flex: 1 }, contentShift]}>
       <ScreenBody
         scroll={false}
         gutter={false}
@@ -122,6 +125,7 @@ export default function MessagesScreen() {
           onNewMessageOpenChange={setNewMessageOpen}
         />
       </ScreenBody>
+      </Animated.View>
     </Screen>
   );
 }

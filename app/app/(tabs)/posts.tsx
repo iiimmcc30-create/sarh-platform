@@ -7,12 +7,14 @@ import {
   ListRenderItemInfo,
   Pressable,
   StyleSheet,
+  Animated,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { AppFlatList } from '@/components/ui/AppFlatList';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { AppChromeLayer } from '@/components/navigation/AppChromeLayer';
+import { useChromeContentShift } from '@/hooks/useAppChrome';
 import { FLUSH_TABS_CONTENT_GAP, HomeAppBar, shellIdentityStackH } from '@/components/ui/HomeAppBar';
 import { ds } from '@/constants/designSystem';
 import { type ThemeColors } from '@/constants/theme';
@@ -76,6 +78,7 @@ export default function PostsScreen() {
   });
   const feedTab: FeedTab = FEED_TABS[feedPager.index] ?? 'for_you';
   const [headerH, setHeaderH] = useState(() => shellIdentityStackH(insets.top) + space[32]);
+  const contentShift = useChromeContentShift(headerH);
   // Cold start with no cached feed paints skeleton rows from the first frame.
   const [loadingFeed, setLoadingFeed] = useState(() => posts.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -226,6 +229,7 @@ export default function PostsScreen() {
         </HomeAppBar>
       </AppChromeLayer>
 
+      <Animated.View style={[{ flex: 1 }, contentShift]}>
       <ScreenBody scroll={false} gutter={false} bottomInset="tabBar">
         <SwipeTabPager
           pager={feedPager}
@@ -257,6 +261,7 @@ export default function PostsScreen() {
           }
         />
       </ScreenBody>
+      </Animated.View>
 
       <CreatePostFab mode="fixed" />
     </Screen>

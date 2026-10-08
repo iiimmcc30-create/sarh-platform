@@ -13,11 +13,11 @@ import { HomeAppBar, shellIdentityStackH } from '@/components/ui/HomeAppBar';
 import { Screen, ScreenBody } from '@/design-system/layout';
 import { useAppUser } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppChromeScroll } from '@/hooks/useAppChrome';
+import { useAppChromeScroll, useChromeContentShift } from '@/hooks/useAppChrome';
 import { HOME_TAB_RESELECT_EVENT } from '@/lib/homeQuickAccess';
 import { safePush } from '@/lib/safeNavigate';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DeviceEventEmitter } from 'react-native';
+import { Animated, DeviceEventEmitter } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -33,6 +33,7 @@ export default function HomeScreen() {
   const listingsRef = useRef<MarketListingsFeedHandle>(null);
   const refreshBusyRef = useRef(false);
   const [headerH, setHeaderH] = useState(() => shellIdentityStackH(insets.top));
+  const contentShift = useChromeContentShift(headerH);
 
   const refreshHome = useCallback(() => {
     if (refreshBusyRef.current) return;
@@ -78,6 +79,7 @@ export default function HomeScreen() {
         />
       </AppChromeLayer>
 
+      <Animated.View style={[{ flex: 1 }, contentShift]}>
       <ScreenBody scroll={false} gutter={false} bottomInset="tabBar" padBottom="md">
         <MarketListingsFeed
           ref={listingsRef}
@@ -86,6 +88,7 @@ export default function HomeScreen() {
           padTop={headerH}
         />
       </ScreenBody>
+      </Animated.View>
     </Screen>
   );
 }
