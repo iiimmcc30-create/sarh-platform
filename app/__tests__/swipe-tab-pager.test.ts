@@ -68,7 +68,8 @@ describe('shared swipe-tab pager = the /bookmarks pager', () => {
       expect(hook).toContain(prop);
     }
     expect(pagerView).toContain("direction: rtl ? 'rtl' : 'ltr'");
-    expect(pagerView).toContain('<ScrollView');
+    expect(pagerView).toContain('const Scroller = nativeDriver ? Animated.ScrollView : ScrollView;');
+    expect(pagerView).toContain('<Scroller');
   });
 
   it('uses RN only: no Reanimated, pager or gesture library', () => {

@@ -1,7 +1,8 @@
 import { isTabPageNear } from '@/lib/tabPager';
 import type { SwipeTabPagerState } from '@/hooks/useSwipeTabPager';
-import { useCallback, useState, type ReactNode } from 'react';
+import { memo, useCallback, useRef, useState, type ReactNode } from 'react';
 import {
+  Animated,
   ScrollView,
   StyleSheet,
   View,
@@ -21,13 +22,21 @@ type Props = {
    * height so the parent never scrolls into a taller hidden page.
    */
   fit?: 'fill' | 'content';
+  /**
+   * `content` only: a page stays mounted once shown (no remount of a whole list
+   * on every switch), and hidden pages skip re-renders until shown again, so a
+   * tab change only renders the page coming in.
+   */
+  keepMounted?: boolean;
   pageStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
 };
 
 /** Renders the /bookmarks horizontal paging ScrollView from useSwipeTabPager state. */
-export function SwipeTabPager({ pager, renderPage, fit = 'fill', pageStyle, style }: Props) {
-  const { index, count, width, rtl, pagerProps } = pager;
+export function SwipeTabPager({ pager, renderPage, fit = 'fill', keepMounted = false, pageStyle, style }: Props) {
+  const { index, count, width, rtl, pagerProps, nativeDriver } = pager;
+  /** Pages shown at least once (keepMounted). */
+  const visited = useRef(new Set<number>());
   const [activeHeight, setActiveHeight] = useState(0);
   const onActiveLayout = useCallback((event: LayoutChangeEvent) => {
     const next = Math.ceil(event.nativeEvent.layout.height);
@@ -45,27 +54,48 @@ export function SwipeTabPager({ pager, renderPage, fit = 'fill', pageStyle, styl
       );
       continue;
     }
+    const near = isTabPageNear(page, index);
+    if (keepMounted && near) visited.current.add(page);
+    const mounted = keepMounted ? visited.current.has(page) : near;
     pages.push(
       <View
         key={page}
         style={[{ width }, pageStyle, active ? null : { height: activeHeight, overflow: 'hidden' }]}
         onLayout={active ? onActiveLayout : undefined}
       >
-        {isTabPageNear(page, index) ? renderPage(page, active) : null}
+        {mounted ? (
+          keepMounted ? (
+            <FrozenWhenHidden active={active}>{renderPage(page, active)}</FrozenWhenHidden>
+          ) : (
+            renderPage(page, active)
+          )
+        ) : null}
       </View>,
     );
   }
 
+  const Scroller = nativeDriver ? Animated.ScrollView : ScrollView;
   return (
-    <ScrollView
+    <Scroller
       {...pagerProps}
       contentContainerStyle={fit === 'content' ? styles.contentRow : undefined}
       style={[fit === 'fill' ? styles.fill : null, { direction: rtl ? 'rtl' : 'ltr' }, style]}
     >
       {pages}
-    </ScrollView>
+    </Scroller>
   );
 }
+
+/**
+ * A hidden page keeps its last render (it is off screen or clipped behind the
+ * active page) and catches up as soon as it becomes the active page.
+ */
+const FrozenWhenHidden = memo(
+  function FrozenWhenHidden({ children }: { active: boolean; children: ReactNode }) {
+    return <>{children}</>;
+  },
+  (prev, next) => !prev.active && !next.active,
+);
 
 const styles = StyleSheet.create({
   fill: {

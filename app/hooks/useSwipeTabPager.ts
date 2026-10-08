@@ -24,6 +24,14 @@ type Options = {
   initialIndex?: number;
   /** Veto a swipe target (the pager snaps back). Tab presses are guarded by the caller. */
   canSelect?: (index: number) => boolean;
+  /**
+   * Drive `progress` from the scroll on the native driver (iOS / Android): the
+   * tab bar follows taps and swipes on the UI thread, even while JS renders the
+   * next page. Only for consumers that animate transform / opacity from
+   * `progress` (no width), e.g. ProfileTabs. The pager then needs an
+   * Animated.ScrollView (SwipeTabPager picks it from `nativeDriver`).
+   */
+  nativeDriver?: boolean;
 };
 
 /** Programmatic moves ignore intermediate offsets until they land (or time out). */
@@ -43,7 +51,14 @@ const WEB_SETTLE_MS = 140;
  * from the left, web RTL scrolls in negative scrollLeft. Horizontal paging
  * ScrollView, no scrollbar, no bounce, RN Animated only.
  */
-export function useSwipeTabPager({ count, width: initialWidth, initialIndex = 0, canSelect }: Options) {
+export function useSwipeTabPager({
+  count,
+  width: initialWidth,
+  initialIndex = 0,
+  canSelect,
+  nativeDriver = false,
+}: Options) {
+  const useNativeScroll = nativeDriver && Platform.OS !== 'web';
   const pagerRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(() => clampTabIndex(initialIndex, count));
   const indexRef = useRef(index);
@@ -179,10 +194,10 @@ export function useSwipeTabPager({ count, width: initialWidth, initialIndex = 0,
   const onScroll = useMemo(
     () =>
       Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
-        // The indicator animates width/translate from JS; web has no native driver.
-        useNativeDriver: false,
+        // Default: SwipeTabIndicator animates width from JS; web has no native driver.
+        useNativeDriver: useNativeScroll,
       }),
-    [scrollX],
+    [scrollX, useNativeScroll],
   );
 
   /** A user drag takes over from any programmatic move. */
@@ -262,6 +277,7 @@ export function useSwipeTabPager({ count, width: initialWidth, initialIndex = 0,
     mode,
     count,
     width,
+    nativeDriver: useNativeScroll,
     pagerProps: {
       ref: pagerRef,
       horizontal: true,

@@ -185,6 +185,8 @@ export function ProfileScreenLayout({
     count: profileTabs.length,
     width: windowWidth,
     initialIndex: Math.max(0, profileTabs.findIndex((tab) => tab.key === initialTab)),
+    // ProfileTabs animates transform / opacity only: follow the pager on the UI thread.
+    nativeDriver: true,
   });
   const activeTab: ProfileTabKey = profileTabs[tabPager.index]?.key ?? 'posts';
   const { goTo: goToTab, jumpTo: jumpToTab } = tabPager;
@@ -648,6 +650,7 @@ export function ProfileScreenLayout({
         <SwipeTabPager
           pager={tabPager}
           fit="content"
+          keepMounted
           pageStyle={[styles.postsFeed, inset]}
           renderPage={(page) => {
             const key = profileTabs[page]?.key;

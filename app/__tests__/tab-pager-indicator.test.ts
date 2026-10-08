@@ -265,12 +265,21 @@ describe('wiring', () => {
     expect(layoutsHook).toContain('export function useRevealActiveTab');
   });
 
-  it('Profile tabs: measured tabs + pager progress, per-tab fade only as fallback', () => {
+  it('Profile tabs: computed track + pager progress on the native driver (no per-frame layout)', () => {
     expect(layout).toContain('progress={tabPager.progress}');
-    expect(profileTabs).toContain('<SwipeTabIndicator');
-    expect(profileTabs).toContain('onLayout={(event) => onTabLayout(i, event)}');
-    expect(profileTabs).toContain('showOwnIndicator={!progress}');
-    expect(profileTabs).toContain('inset={spacing.md}');
+    expect(layout).toContain('nativeDriver: true,');
+    expect(layout).toContain('keepMounted');
+    expect(profileTabs).toContain('profileTabTrack(count, {');
+    expect(profileTabs).toContain('inset: spacing.md,');
+    expect(profileTabs).toContain('const drive = progress ?? ownProgress;');
+    expect(profileTabs).toContain('transform: [{ translateX: motion.indicatorX }, { scaleX: motion.indicatorScale }]');
+    // Nothing measured per tab / per frame, and no width animation on the bar.
+    expect(profileTabs).not.toContain('onTabLayout');
+    expect(profileTabs).not.toContain('<SwipeTabIndicator');
+    expect(profileTabs).not.toContain('useNativeDriver: false');
+    expect(profileTabs).not.toMatch(/width: \w+\.interpolate/);
+    expect(hook).toContain('useNativeDriver: useNativeScroll,');
+    expect(hook).toContain("const useNativeScroll = nativeDriver && Platform.OS !== 'web';");
   });
 
   it('Search result tabs: measured tabs + pager progress, full-tab underline, reveal', () => {
