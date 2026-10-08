@@ -1,6 +1,5 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
-import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
@@ -13,8 +12,6 @@ import { StoryViewer } from '@/components/feature/StoryViewer';
 /** Default ring diameter (unchanged); callers may pass a smaller `size`. */
 const DEFAULT_CIRCLE = 64;
 const RING_BORDER = 2;
-
-const STORY_GRADIENT = ['#F58529', '#DD2A7B', '#8134AF', '#515BD4'] as const;
 
 type StoriesBarProps = {
   feed: StoryGroup[];
@@ -56,16 +53,13 @@ function StoryRing({
     );
   }
 
+  // One solid identity ring for everyone (no gradient, no tier colours):
+  // unseen = theme accent (white in Dark, black in Light), seen = theme hairline grey.
   if (unseen) {
     return (
-      <LinearGradient
-        colors={[...STORY_GRADIENT]}
-        start={{ x: 0, y: 1 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.ringGradient}
-      >
+      <View style={[styles.ring, styles.ringUnseen]}>
         <View style={styles.ringInner}>{children}</View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -231,13 +225,8 @@ function createBarStyles(
       gap: spacing.md,
     },
     itemWrap: { alignItems: 'center', gap: spacing.xs, width: CIRCLE + spacing.sm },
-    ringGradient: {
-      width: CIRCLE,
-      height: CIRCLE,
-      borderRadius: CIRCLE / 2,
-      padding: RING_BORDER,
-      alignItems: 'center',
-      justifyContent: 'center',
+    ringUnseen: {
+      backgroundColor: colors.electric,
     },
     ringInner: {
       width: INNER,
@@ -258,7 +247,7 @@ function createBarStyles(
     },
     ringSeen: {
       borderWidth: RING_BORDER,
-      borderColor: colors.borderMid,
+      borderColor: colors.borderSoft,
       backgroundColor: colors.bgDeep,
       padding: RING_BORDER,
     },

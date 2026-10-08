@@ -1,6 +1,5 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
-import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { VerifiedInfoSheet } from '@/components/ui/VerifiedInfoSheet';
@@ -411,17 +410,8 @@ export function ProfileScreenLayout({
                   style={styles.avatarCol}
                 >
                   {hasStoryRing ? (
-                    <LinearGradient
-                      colors={[
-                        themeColors.electricBright,
-                        themeColors.cyan,
-                        // All-accent ring: black in Light, white in Dark (black & white identity).
-                        themeColors.glow,
-                      ]}
-                      style={styles.avatarRing}
-                      start={{ x: 0, y: 1 }}
-                      end={{ x: 1, y: 0 }}
-                    >
+                    // Solid identity story ring: black in Light, white in Dark (same for everyone).
+                    <View style={styles.avatarRing}>
                       <View style={styles.avatarClip}>
                         <Image
                           source={uriSource(user.avatar)}
@@ -429,7 +419,7 @@ export function ProfileScreenLayout({
                           contentFit="cover"
                         />
                       </View>
-                    </LinearGradient>
+                    </View>
                   ) : (
                     <View style={styles.avatarPlain}>
                       <Image
@@ -754,6 +744,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       height: 92,
       borderRadius: 46,
       padding: 2.5,
+      backgroundColor: colors.electric,
     },
     avatarPlain: {
       width: 88,
