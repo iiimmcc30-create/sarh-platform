@@ -129,7 +129,7 @@ export default function ProfileScreen() {
     }
   }, [loadFirstPage, me.id]);
 
-  /** «من شاهد ملفك»: 30-day count only here; the list lives on /profile/views. */
+  /** «من شاهد ملفك»: 30-day count for the menu subtitle; the list lives on /profile/views. */
   const [profileViewsCount, setProfileViewsCount] = useState<number | null>(null);
   const loadProfileViewsCount = useCallback(async () => {
     const res = await fetchProfileViews();
@@ -364,7 +364,7 @@ export default function ProfileScreen() {
       onRefresh={onRefresh}
       onBack={handleBack}
       onShare={handleShare}
-      onMenu={() => void presentOwnProfileMenu(router, me.id)}
+      onMenu={() => void presentOwnProfileMenu(router, me.id, { profileViewsCount })}
       onEditProfile={() => safePush(PROFILE_EDIT_ROUTE, undefined, router)}
       onAvatarPress={() => {
         if (hasStories && myStoryGroup) {
@@ -387,10 +387,6 @@ export default function ProfileScreen() {
       likesContent={renderLikes()}
       onTabChange={onTabChange}
       onAdsNearEnd={() => void loadNextPage()}
-      profileViews={{
-        count: profileViewsCount,
-        onPress: () => safePush('/profile/views', undefined, router),
-      }}
     />
   );
 }

@@ -5,6 +5,8 @@ jest.mock('@/services/api', () => ({ API_BASE: 'https://api.test' }));
 jest.mock('@/services/authFetch', () => ({ authFetch: jest.fn() }));
 jest.mock('@/constants/sarhOfficial', () => ({ SARH_OFFICIAL_SITE: 'https://sarh.test' }));
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { GOLD_SELLER_LABEL, goldSellersFirstInRegion, isGoldSeller } from '@/lib/goldSeller';
 import { normalizeProfileViews, profileViewsSummary } from '@/services/profileViews';
 import { freeBoostSubtitle, freeBoostTitle, normalizeFreeBoostQuota } from '@/services/freeBoost';
@@ -18,6 +20,9 @@ import {
   CouncilApiError,
   isValidCouncilSchedule,
 } from '@/services/councils';
+
+const appRoot = join(__dirname, '..');
+const src = (rel: string) => readFileSync(join(appRoot, rel), 'utf8');
 
 describe('gold seller', () => {
   it('needs a verified gold badge', () => {
@@ -50,6 +55,22 @@ describe('gold seller', () => {
 });
 
 describe('profile views', () => {
+  it('lives in the own-profile more menu, not under the stats', () => {
+    const menu = src('lib/profileCollectionsMenu.ts');
+    expect(menu).toContain("key: 'profile-views'");
+    expect(menu).toContain('PROFILE_VIEWS_TITLE');
+    expect(menu).toContain("icon: 'eye-outline'");
+    expect(menu).toContain("'/profile/views'");
+    expect(menu).toContain('profileViewsMenuItem');
+    const layout = src('components/feature/ProfileScreenLayout.tsx');
+    expect(layout).not.toContain('profile-views-row');
+    expect(layout).not.toContain('profileViews');
+    expect(src('app/(tabs)/profile.tsx')).toContain('presentOwnProfileMenu(router, me.id, { profileViewsCount })');
+    // Visitor menu must not gain the own-only entry.
+    expect(src('app/users/[id].tsx')).not.toContain('profile-views');
+    expect(src('app/users/[id].tsx')).not.toContain('openProfileViews');
+  });
+
   it('never exposes identities while locked', () => {
     const r = normalizeProfileViews({
       locked: true,

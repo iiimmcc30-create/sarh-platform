@@ -210,7 +210,7 @@ describe('Profile ••• menu: القوائم المضاف إليها', () =>
     const menu = src('lib/profileCollectionsMenu.ts');
     expect(menu).toContain('MEMBER_OF_TITLE');
     expect(menu).toContain("{ pathname: '/collections', params: { section: 'member-of', userId } }");
-    expect(src('app/(tabs)/profile.tsx')).toContain('onMenu={() => void presentOwnProfileMenu(router, me.id)}');
+    expect(src('app/(tabs)/profile.tsx')).toContain('presentOwnProfileMenu(router, me.id, { profileViewsCount })');
     const visitor = src('app/users/[id].tsx');
     expect(visitor).toContain('MEMBER_OF_MENU_ITEM,');
     expect(visitor).toContain('openMemberOfCollections(router, profile.id)');
