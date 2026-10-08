@@ -23,7 +23,7 @@ export const PROFILE_BACK_BUTTON_SIZE = PROFILE_COVER_ICON_BUTTON_SIZE;
 export const PROFILE_BACK_LABEL = 'رجوع';
 export const PROFILE_EDIT_LABEL = 'تعديل الملفّ الشخصيّ';
 /** My Profile share pill: shares the profile link (sarhProfileShareUrl). */
-export const PROFILE_SHARE_LABEL = 'مشاركة الملف الشخصي';
+export const PROFILE_SHARE_LABEL = 'مشاركة الملف';
 /**
  * Profile stats (followers / following / posts): one compact block the SIZE of
  * the «تعديل الملف الشخصي» pill (not its shape): same 44 height and the same

@@ -107,7 +107,7 @@ describe('profile header', () => {
     expect(row).toContain('onPress={onShare}');
     expect(row).toContain('onPress={onEditProfile}');
     expect(row).toContain('isOwnProfile && (onShare || onEditProfile)');
-    expect(PROFILE_SHARE_LABEL).toBe('مشاركة الملف الشخصي');
+    expect(PROFILE_SHARE_LABEL).toBe('مشاركة الملف');
     expect(PROFILE_EDIT_LABEL).toBe('تعديل الملفّ الشخصيّ');
   });
 
