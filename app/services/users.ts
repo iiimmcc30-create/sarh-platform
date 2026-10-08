@@ -15,6 +15,8 @@ export type PublicUserProfile = {
   avatar?: string;
   coverImage?: string;
   bio?: string;
+  /** Profile links under the bio: `{ url, label? }[]` (max 3). */
+  links?: { url: string; label?: string }[];
   verified: boolean;
   verifiedTier?: string | null;
   /** ISO time the verification request was approved; null when unknown (e.g. subscription-granted). */

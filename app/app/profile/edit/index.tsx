@@ -15,6 +15,7 @@ import { showToast } from '@/lib/toast';
 import { rtlForwardIcon } from '@/lib/rtl';
 import { safePush } from '@/lib/safeNavigate';
 import { presentActionSheet } from '@/lib/actionSheet';
+import { profileLinksSummary } from '@/lib/profileLinks';
 import { AppText, SarhCard, SarhDivider } from '@/design-system/components';
 import { FullBleed, Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 
@@ -31,6 +32,7 @@ export default function EditProfileScreen() {
   const username = me.username || '';
   const profileUrl = sarhProfileShareUrl(username);
   const bio = me.bio?.trim() ?? '';
+  const linksSummary = profileLinksSummary(me.links);
 
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -213,8 +215,10 @@ export default function EditProfileScreen() {
           <SarhDivider inset />
           <ProfileInfoRow
             label="روابط"
-            value=""
+            value={linksSummary}
             placeholder="إضافة رابط"
+            ltr={Boolean(linksSummary)}
+            onPress={() => safePush('/profile/edit/links', undefined, router)}
             styles={styles}
             colors={colors}
           />

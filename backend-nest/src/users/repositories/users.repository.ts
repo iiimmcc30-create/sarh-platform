@@ -29,6 +29,8 @@ const profileSelect = {
   avatar: true,
   coverImage: true,
   bio: true,
+  website: true,
+  profileLinks: true,
   verified: true,
   verifiedTier: true,
   isAI: true,
@@ -78,6 +80,8 @@ const updateUserSelect = {
   avatar: true,
   coverImage: true,
   bio: true,
+  website: true,
+  profileLinks: true,
   verified: true,
   verifiedTier: true,
   country: true,
@@ -103,6 +107,7 @@ type UpdateUserData = {
   displayName?: string;
   arabicName?: string;
   bio?: string;
+  profileLinks?: Prisma.InputJsonValue;
   avatar?: string;
   coverImage?: string | null;
   country?: Country;

@@ -55,6 +55,7 @@ import {
   type LikeToggleResult,
 } from '@/lib/postLikeToggle';
 import { showToast } from '@/lib/toast';
+import { parseProfileLinks } from '@/lib/profileLinks';
 
 const BOOKMARKS_STORAGE_KEY = 'sarouh:bookmarked_posts';
 const REFETCH_TTL_MS = 60_000;
@@ -258,6 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reviewCount: u.reviewCount ?? 0,
       country: u.country || 'SA',
       bio: u.bio || '',
+      links: Array.isArray(u.links) ? parseProfileLinks(u.links) : undefined,
       nameChangedAt: u.nameChangedAt ?? null,
       usernameChangedAt: u.usernameChangedAt ?? null,
       nameNextAllowedAt: u.nameNextAllowedAt ?? null,
@@ -855,6 +857,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (updates.arabicName !== undefined) body.arabicName = updates.arabicName;
       if (updates.username !== undefined) body.username = updates.username;
       if (updates.bio !== undefined) body.bio = updates.bio;
+      if (updates.links !== undefined) body.links = updates.links;
       if (updates.country !== undefined) body.country = updates.country;
       if (avatar !== undefined) body.avatar = avatar;
       // '' = remove the cover (backend stores null → default cover).

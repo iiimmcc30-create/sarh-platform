@@ -38,6 +38,8 @@ export interface User {
   reviewCount?: number;
   country: Country;
   bio: string;
+  /** Profile links under the bio (max 3, http/https). */
+  links?: { url: string; label?: string }[];
   nameChangedAt?: string | null;
   usernameChangedAt?: string | null;
   nameNextAllowedAt?: string | null;

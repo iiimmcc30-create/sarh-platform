@@ -165,6 +165,7 @@ export default function ProfileScreen() {
       verifiedTier: me.verifiedTier ?? null,
       verifiedSince: me.verifiedSince ?? null,
       bio: me.bio,
+      links: me.links,
       country: me.country,
       followersCount: me.followers,
       followingCount: me.following,

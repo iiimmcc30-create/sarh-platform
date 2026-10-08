@@ -22,6 +22,7 @@ import {
   planProfileIdentityUpdate,
 } from '../lib/profile-change-cooldown';
 import { resolveVerifiedSince } from '../lib/verified-since';
+import { normalizeProfileLinks, readProfileLinks } from '../lib/profile-links';
 import { ProfileViewsService } from './profile-views.service';
 
 const MIN_RATING = 1;
@@ -157,6 +158,13 @@ export class UsersService {
       }
     }
 
+    let profileLinks: { url: string; label?: string }[] | undefined;
+    if (dto.links !== undefined) {
+      const parsed = normalizeProfileLinks(dto.links);
+      if (!parsed.ok) throwApi(400, 'invalid_profile_links', parsed.messageAr);
+      profileLinks = parsed.links;
+    }
+
     try {
       const {
         fcmToken,
@@ -164,10 +172,12 @@ export class UsersService {
         fcmPlatform,
         birthDate: _bd,
         email,
+        links: _links,
         ...profileData
       } = dto;
       const baseData = {
         ...profileData,
+        ...(profileLinks !== undefined ? { profileLinks } : {}),
         ...(email !== undefined ? { email } : {}),
         ...(birthDate !== undefined ? { birthDate } : {}),
         ...(dto.privateMessagesAudience !== undefined
@@ -631,6 +641,7 @@ export class UsersService {
       avatar: updated.avatar,
       coverImage: updated.coverImage,
       bio: updated.bio,
+      links: readProfileLinks(updated.profileLinks, updated.website),
       verified: updated.verified,
       verifiedTier: updated.verifiedTier ?? null,
       country: updated.country,
@@ -659,6 +670,7 @@ export class UsersService {
       avatar: user.avatar,
       coverImage: user.coverImage,
       bio: user.bio,
+      links: readProfileLinks(user.profileLinks, user.website),
       verified: user.verified,
       verifiedTier: user.verifiedTier ?? null,
       verifiedSince: resolveVerifiedSince(user.verified, user.accountVerificationRequest),

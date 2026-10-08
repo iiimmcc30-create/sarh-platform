@@ -24,6 +24,8 @@ model User {
   bio                                 String?
   about                               String?
   website                             String?
+  /// Profile links under the bio: JSON array of { url, label? } (max 3). NULL = never set.
+  profileLinks                        Json?
   publicPhone                         String?
   publicEmail                         String?
   verified                            Boolean                           @default(false)

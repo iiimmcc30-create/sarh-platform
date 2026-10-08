@@ -7,6 +7,7 @@ import { ImageViewerModal } from '@/components/ui/ImageViewerModal';
 import { ProfileTabs } from '@/components/feature/ProfileTabs';
 import { ProfileStatsRow } from '@/components/feature/ProfileStatsRow';
 import { GoldSellerLabel } from '@/components/feature/GoldSellerLabel';
+import { ProfileLinksRow } from '@/components/feature/ProfileLinksRow';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { ProfileActionsSkeleton, ProfileHeaderSkeleton } from '@/components/ui/skeleton';
 import { useFocusEffect } from 'expo-router';
@@ -75,6 +76,8 @@ export type ProfileDisplayUser = {
   verifiedSince?: string | null;
   isAI?: boolean;
   bio?: string;
+  /** Profile links under the bio (X-style); none renders nothing. */
+  links?: { url: string; label?: string }[];
   country?: string;
   followersCount: number;
   followingCount: number;
@@ -539,6 +542,8 @@ export function ProfileScreenLayout({
                 </AppText>
               ) : null}
 
+              <ProfileLinksRow links={user.links} style={styles.links} />
+
               {/* Stats (X-style «677 المتابعون»): compact, 12pt above (bio/handle), no dividers. */}
               <ProfileStatsRow stats={stats} style={styles.statsRow} />
             </Stack>
@@ -740,6 +745,9 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     bio: {
       lineHeight: 22,
       paddingTop: spacing.sm,
+    },
+    links: {
+      width: '100%',
     },
     avatarCol: {
       position: 'relative',

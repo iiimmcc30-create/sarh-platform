@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEmail,
@@ -13,8 +15,9 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { SUPPORTED_COUNTRIES } from '../../lib/countries';
 import { IsOurUploadUrl } from '../validators/is-our-upload-url.validator';
 import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
@@ -44,6 +47,19 @@ export class UsernameAvailableQueryDto {
   username!: string;
 }
 
+/** One profile link; strict URL/label rules live in lib/profile-links (service-side). */
+export class ProfileLinkDto {
+  @IsString()
+  @MaxLength(300)
+  url!: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(60)
+  label?: string | null;
+}
+
 export class UpdateUserDto {
   @IsOptional()
   @IsString()
@@ -64,6 +80,15 @@ export class UpdateUserDto {
   @MaxLength(160)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   bio?: string;
+
+  /** Profile links under the bio (max 3, http/https). `null` or `[]` clears them. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => ProfileLinkDto)
+  links?: ProfileLinkDto[] | null;
 
   @IsOptional()
   @IsString()

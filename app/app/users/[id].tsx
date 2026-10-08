@@ -39,6 +39,7 @@ import { showToast } from '@/lib/toast';
 import { resolveProfileBack } from '@/lib/profileHeader';
 import { safeReplace } from '@/lib/safeNavigate';
 import { SHARE_ICON } from '@/lib/interactionActions';
+import { parseProfileLinks } from '@/lib/profileLinks';
 
 /** Layout only — an empty tab still needs vertical presence in the feed. */
 /** Stand-in identity while the profile request is in flight (rendered as skeleton). */
@@ -415,6 +416,7 @@ export default function UserProfileScreen() {
     verifiedSince: profile.verifiedSince ?? null,
     isAI: profile.isAI,
     bio: profile.bio,
+    links: parseProfileLinks(profile.links),
     country: profile.country,
     followersCount: profile.followersCount,
     followingCount: profile.followingCount,
