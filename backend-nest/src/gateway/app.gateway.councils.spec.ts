@@ -18,6 +18,7 @@ function setup() {
     touch: jest.fn().mockResolvedValue(undefined),
     emitListenerCount: jest.fn().mockResolvedValue(undefined),
     left: jest.fn().mockResolvedValue(undefined),
+    announceArrival: jest.fn().mockResolvedValue(undefined),
   };
   const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
   const gateway = new AppGateway(
@@ -74,6 +75,7 @@ describe('AppGateway «المجالس» socket handlers', () => {
     expect(client.emit).toHaveBeenCalledWith('council:joined', {
       councilId: COUNCIL,
     });
+    expect(councils.announceArrival).toHaveBeenCalledWith(COUNCIL, USER);
 
     handlers.get('council:leave')!({ councilId: COUNCIL });
     await flush();

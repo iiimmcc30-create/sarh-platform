@@ -1,6 +1,7 @@
 import {
   COUNCIL_MAX_SPEAKERS,
   canActOn,
+  councilArrivalTier,
   councilPermissions,
   firstFreeSeat,
   roleOffStage,
@@ -117,5 +118,24 @@ describe('council policy', () => {
     expect(roleOnStage('MODERATOR')).toBe('MODERATOR');
     expect(roleOffStage('SPEAKER')).toBe('LISTENER');
     expect(roleOffStage('MODERATOR')).toBe('MODERATOR');
+  });
+
+  it('announces entrances only for active Gold / Blue+ badges', () => {
+    expect(councilArrivalTier({ verified: true, verifiedTier: 'gold' })).toBe(
+      'gold',
+    );
+    expect(
+      councilArrivalTier({ verified: true, verifiedTier: 'blue_plus' }),
+    ).toBe('blue_plus');
+    expect(
+      councilArrivalTier({ verified: true, verifiedTier: 'blue' }),
+    ).toBeNull();
+    expect(
+      councilArrivalTier({ verified: true, verifiedTier: null }),
+    ).toBeNull();
+    expect(
+      councilArrivalTier({ verified: false, verifiedTier: 'gold' }),
+    ).toBeNull();
+    expect(councilArrivalTier(null)).toBeNull();
   });
 });

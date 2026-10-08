@@ -11,6 +11,24 @@ export const COUNCIL_HOST_ABSENT_END_MS = 30 * 60_000;
 /** Stage seats of speakers absent (no socket heartbeat) for this long are freed. */
 export const COUNCIL_STALE_SPEAKER_MS = 2 * 60_000;
 
+/** A subscriber's room entrance is announced at most once per council in this window. */
+export const COUNCIL_ARRIVAL_COOLDOWN_SEC = 10 * 60;
+/** Busy rooms: at most one entrance announcement per council in this window. */
+export const COUNCIL_ARRIVAL_GAP_SEC = 3;
+
+/**
+ * Tier whose room entrance is announced («انضم فلان ✦»): only an active Gold or
+ * Blue+ badge (`verifiedTier` is set only while the subscription is active).
+ */
+export function councilArrivalTier(
+  user: { verified?: boolean | null; verifiedTier?: string | null } | null,
+): 'gold' | 'blue_plus' | null {
+  if (!user || user.verified !== true) return null;
+  return user.verifiedTier === 'gold' || user.verifiedTier === 'blue_plus'
+    ? user.verifiedTier
+    : null;
+}
+
 export type CouncilFlags = {
   ownerId: string;
   modCanManageRequests: boolean;

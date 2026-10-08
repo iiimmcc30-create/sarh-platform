@@ -10,7 +10,10 @@ import {
   type CouncilSpeakerRow,
 } from '../lib/council-select';
 import {
+  councilArrivalTier,
   councilPermissions,
+  COUNCIL_ARRIVAL_COOLDOWN_SEC,
+  COUNCIL_ARRIVAL_GAP_SEC,
   COUNCIL_MAX_SPEAKERS,
 } from '../lib/council-policy';
 
@@ -161,6 +164,30 @@ export class CouncilRealtimeService {
     for (const userId of managers) {
       this.bridge.toUser(userId, 'council:requests', { councilId, pending });
     }
+  }
+
+  /**
+   * `council:arrival` — a Gold / Blue+ subscriber entered the room (read-only, public
+   * identity fields only). Once per user per council every 10 min (socket reconnects
+   * never repeat it) and at most one per council every 3 s. Best effort.
+   */
+  async announceArrival(councilId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: COUNCIL_USER_SELECT,
+    });
+    if (!councilArrivalTier(user)) return;
+    const first = await this.cache.claimOnce(
+      `council:arrival:${councilId}:${userId}`,
+      COUNCIL_ARRIVAL_COOLDOWN_SEC,
+    );
+    if (!first) return;
+    const free = await this.cache.claimOnce(
+      `council:arrival-gap:${councilId}`,
+      COUNCIL_ARRIVAL_GAP_SEC,
+    );
+    if (!free) return;
+    this.bridge.toCouncil(councilId, 'council:arrival', { councilId, user });
   }
 
   emitToCouncil(councilId: string, event: string, data: object) {

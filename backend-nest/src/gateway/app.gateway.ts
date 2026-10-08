@@ -320,6 +320,9 @@ export class AppGateway
     await this.councils.touch(councilId, userId);
     await this.councils.emitListenerCount(councilId);
     client.emit('council:joined', { councilId });
+    void this.councils
+      .announceArrival(councilId, userId)
+      .catch(() => undefined);
   }
 
   async onCouncilLeave(client: AuthenticatedSocket, raw: unknown) {
