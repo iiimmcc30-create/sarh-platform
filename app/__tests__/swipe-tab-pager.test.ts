@@ -120,7 +120,8 @@ describe('Profile tabs swipe', () => {
 
 describe('Search result tabs swipe', () => {
   it('uses the existing RESULT_SECTIONS as pages; the filter is the pager index', () => {
-    expect(search).toContain('useSwipeTabPager({ count: RESULT_SECTIONS.length, width: windowWidth })');
+    expect(search).toMatch(/useSwipeTabPager\(\{\n\s+count: RESULT_SECTIONS\.length,\n\s+width: windowWidth,/);
+    expect(search).toContain('nativeDriver: true,');
     expect(search).toContain("const filter: SearchFilter = RESULT_SECTIONS[resultPager.index]?.id ?? 'all';");
     expect(search).toContain('onPress={() => goToResultTab(index)}');
     expect(search).not.toContain('setFilter(');
@@ -129,13 +130,23 @@ describe('Search result tabs swipe', () => {
 
   it('keeps the query, debounce and search pipeline; the pager never searches', () => {
     expect(search).toContain('const [query, setQuery] = useState(initialQuery);');
-    expect(search).toContain('useDebouncedValue(query.trim(), 350)');
+    expect(search).toContain('useDebouncedValue(query.trim(), 300)');
     expect(search).toContain('}, [debouncedQuery, filter]);');
     expect(search.match(/unifiedSearch\(\{/g)).toHaveLength(1);
     expect(hook).not.toMatch(/unifiedSearch|fetch\(/);
     expect(pagerView).not.toMatch(/unifiedSearch|fetch\(/);
     // Leaving results resets to the first tab without a request of its own.
     expect(search).toContain('jumpToResultTab(0);');
+  });
+
+  it('caches page 1 per (query, tab): swiping back to a tab makes no request', () => {
+    expect(search).toContain('const cacheKey = `${debouncedQuery}\\u0000${filter}`;');
+    expect(search).toContain("Date.now() - hit.at < ('error' in hit ? RESULT_ERROR_TTL_MS : RESULT_CACHE_TTL_MS)");
+    // Tabs passed through mid-swipe are never requested; a tab hop does not abort the previous tab.
+    expect(search).toContain('const delay = tabHop ? TAB_SETTLE_FETCH_DELAY_MS : 0;');
+    expect(search).toContain('if (entry.q !== debouncedQuery)');
+    expect(search).toContain('while (cache.size > RESULT_CACHE_MAX)');
+    expect(hook).toContain('disableIntervalMomentum: true,');
   });
 });
 

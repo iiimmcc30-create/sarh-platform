@@ -259,7 +259,10 @@ describe('wiring', () => {
   it('one sliding indicator, LTR track so translateX is physical', () => {
     expect(indicator).toContain("direction: 'ltr'");
     expect(indicator).toContain('left: 0,\n    right: 0,');
-    expect(indicator).toContain('transform: [{ translateX: animated.translateX }]');
+    // Transform-only (native driver): fixed width + scaleX, never an animated width.
+    expect(indicator).toContain('transform: [{ translateX: animated.translateX }, { scaleX: animated.scaleX }]');
+    expect(indicator).toContain('width: BASE_WIDTH,');
+    expect(indicator).not.toMatch(/width: progress\.interpolate/);
     expect(indicator).toContain("extrapolate: 'clamp'");
     expect(layoutsHook).toContain('export function useTabLayouts');
     expect(layoutsHook).toContain('export function useRevealActiveTab');
@@ -289,7 +292,7 @@ describe('wiring', () => {
     expect(search).toContain('progress={resultPager.progress}');
     expect(search).toContain('onLayout={(event) => onResultTabLayout(index, event)}');
     expect(search).toContain('inset={RESULT_TAB_INDICATOR_INSET}');
-    expect(search).toContain('const RESULT_TAB_INDICATOR_INSET = 0;');
+    expect(search).toContain('const RESULT_TAB_INDICATOR_INSET = TAB_SIDE_PAD - HEADER_TAB_INDICATOR_OVERHANG;');
     expect(search).not.toContain('fixedWidth={');
     expect(search).toContain('scrollRef={resultTabsRef}');
     expect(search).not.toContain('styles.resultTabIndicator');

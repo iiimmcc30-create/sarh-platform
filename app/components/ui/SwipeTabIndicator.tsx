@@ -7,6 +7,13 @@ import {
 import { useMemo } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 
+/**
+ * The bar is laid out at a fixed width and sized with scaleX, so the whole
+ * animation is transform-only and runs on the native driver (a `width`
+ * interpolation cannot, and forces a JS layout pass every frame).
+ */
+const BASE_WIDTH = 100;
+
 type Props = TabIndicatorOptions & {
   /** Pager progress (0 .. count - 1) from useSwipeTabPager: follows the drag. */
   progress: Animated.AnimatedInterpolation<number> | Animated.Value;
@@ -42,15 +49,16 @@ export function SwipeTabIndicator({
   );
   const animated = useMemo(() => {
     if (!interp) return null;
+    // scaleX pivots on the bar's centre: shift the centre to x + w / 2.
     return {
       translateX: progress.interpolate({
         inputRange: interp.inputRange,
-        outputRange: interp.translateX,
+        outputRange: interp.translateX.map((x, i) => x + interp.width[i] / 2 - BASE_WIDTH / 2),
         extrapolate: 'clamp',
       }),
-      width: progress.interpolate({
+      scaleX: progress.interpolate({
         inputRange: interp.inputRange,
-        outputRange: interp.width,
+        outputRange: interp.width.map((w) => w / BASE_WIDTH),
         extrapolate: 'clamp',
       }),
     };
@@ -66,11 +74,15 @@ export function SwipeTabIndicator({
     >
       <Animated.View
         style={{
-          width: animated.width,
+          // Physical left anchor: RN-web ignores the track's `direction: 'ltr'` in an RTL page.
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: BASE_WIDTH,
           height: thickness,
           borderRadius: radius,
           backgroundColor: color,
-          transform: [{ translateX: animated.translateX }],
+          transform: [{ translateX: animated.translateX }, { scaleX: animated.scaleX }],
         }}
       />
     </View>

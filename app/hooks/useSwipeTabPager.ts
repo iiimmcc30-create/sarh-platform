@@ -296,6 +296,11 @@ export function useSwipeTabPager({
       bounces: false,
       showsHorizontalScrollIndicator: false,
       nestedScrollEnabled: true,
+      // One page per fling (no multi-page skips / extra settles) and no Android overscroll glow
+      // fighting the parent vertical list; iOS locks to the first drag axis.
+      disableIntervalMomentum: true,
+      directionalLockEnabled: true,
+      overScrollMode: 'never' as const,
       onScroll,
       onScrollBeginDrag,
       onMomentumScrollEnd,

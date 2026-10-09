@@ -83,7 +83,7 @@ describe('search architecture', () => {
     expect(search).toContain('abortRef.current?.abort()');
     expect(search).toContain('Keyboard.dismiss()');
     expect(search).toContain('if (seq !== searchSeq.current) return');
-    expect(search).toContain('useDebouncedValue(query.trim(), 350)');
+    expect(search).toContain('useDebouncedValue(query.trim(), 300)');
   });
 
   it('collapses identity on scroll and keeps categories sticky without Reanimated', () => {
@@ -92,7 +92,11 @@ describe('search architecture', () => {
     const tabs = src('components/navigation/FloatingTabBar.tsx');
     const appBar = src('components/ui/HomeAppBar.tsx');
     expect(search).toContain('useCollapsibleSearchHeader(SHELL_IDENTITY_COLLAPSE_H)');
-    expect(search).toContain('collapseStyle={collapseStyle}');
+    // Transform-only collapse on the native driver: no per-frame height / paddingTop.
+    expect(search).toContain('collapseEnabled ? collapseTransform : null');
+    expect(search).toContain('nativeScrollY={scrollY}');
+    expect(search).not.toContain('paddingFor(');
+    expect(search).not.toContain('collapseStyle={collapseStyle}');
     expect(search).toContain('identityStyle={identityStyle}');
     expect(search).toContain('<View style={styles.searchSlot}>{chromeTabs}</View>');
     expect(search).toContain("bottomInset={isTab && phase === 'home' ? 'tabBar' : 'none'}");
@@ -105,7 +109,7 @@ describe('search architecture', () => {
     expect(search).toContain("if (phaseRef.current !== 'results')");
     expect(search).toContain('headerMeasuredRef');
     expect(search).toContain('scrollingRef.current');
-    expect(search).toContain('{ height: bodyPaddingTop }');
+    expect(search).toContain('{ height: headerH },');
     expect(search).toContain('styles.chromeClip');
     expect(search).not.toContain('react-native-reanimated');
     expect(hook).toContain('Animated.diffClamp');

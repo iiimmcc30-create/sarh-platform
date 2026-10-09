@@ -86,7 +86,7 @@ describe('header tab underline: flush with the header bottom and label-wide', ()
 
   it('Search result tabs: sliding indicator spans the whole tab, no strip below', () => {
     expect(search).toContain('inset={RESULT_TAB_INDICATOR_INSET}');
-    expect(search).toContain('contentContainerStyle={styles.filterRowContent}');
+    expect(search).toContain('contentContainerStyle={[styles.filterRowContent, styles.tabRowContent]}');
     expect(search).toMatch(/filterRowContent: \{\n\s+paddingBottom: 0,/);
     // inset 0 → the bar is as wide as the measured tab (label + overhang).
     expect(tabIndicatorFrame({ x: 40, y: 0, width: 72, height: 48 }, { inset: 0 })).toMatchObject({
@@ -165,7 +165,7 @@ describe('top headers share the bottom tab bar surface; flush tab headers give c
 
   it('content (not the header) carries the gap under a flush tab header', () => {
     expect(bar).toContain('export const FLUSH_TABS_CONTENT_GAP = space[12];');
-    expect(search).toContain("padTop={collapseEnabled ? 'md' : 'none'}");
+    expect(search).toContain('paddingTop: headerH + (collapseEnabled ? GAP.md : 0)');
     expect(search).toContain("flushBottom={phase === 'home' || phase === 'results'}");
     expect(feed).toContain('paddingTop: headerH + FLUSH_TABS_CONTENT_GAP');
   });

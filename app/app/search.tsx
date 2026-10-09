@@ -34,6 +34,7 @@ import {
 import { orderExploreSections } from '@/lib/searchExplore';
 import { AppText, SarhBackButton, SarhChipRow, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { GAP } from '@/design-system/layout/metrics';
 import { useAppChromeScroll } from '@/hooks/useAppChrome';
 import { useApp, useAppUser } from '@/hooks/useApp';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
@@ -107,10 +108,22 @@ const RESULT_SECTIONS: { id: SearchFilter; label: string }[] = [
 ];
 
 /**
- * Result-tab underline: one indicator that slides with the swipe and spans the
- * whole tab (label + HEADER_TAB_INDICATOR_OVERHANG each side), X-style.
+ * X-style tab spacing: fit-content tabs with 16pt on each side of the label (no chip gap),
+ * scrolling when they overflow.
  */
-const RESULT_TAB_INDICATOR_INSET = 0;
+const TAB_SIDE_PAD = 16;
+/**
+ * Result-tab underline: one indicator that slides with the swipe and spans the
+ * label + HEADER_TAB_INDICATOR_OVERHANG each side, X-style.
+ */
+const RESULT_TAB_INDICATOR_INSET = TAB_SIDE_PAD - HEADER_TAB_INDICATOR_OVERHANG;
+/** Results for a (query, filter) stay fresh this long: swiping back never refetches. */
+const RESULT_CACHE_TTL_MS = 60_000;
+/** A failed (query, tab) is not re-requested on every swipe back; «إعادة المحاولة» forces it. */
+const RESULT_ERROR_TTL_MS = 15_000;
+const RESULT_CACHE_MAX = 40;
+/** Swiping through tabs: only the tab the user stops on is requested. */
+const TAB_SETTLE_FETCH_DELAY_MS = 250;
 
 type ExploreSection = 'explore' | 'trending' | 'news' | 'services';
 
@@ -152,7 +165,6 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     scrollY,
     translateY,
     identityOpacity,
-    paddingFor,
     resetCollapse,
   } = useCollapsibleSearchHeader(SHELL_IDENTITY_COLLAPSE_H);
   const [section, setSection] = useState<ExploreSection>('explore');
@@ -180,14 +192,19 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     if (initialQuery.trim().length >= MIN_QUERY) return 'results';
     return isTab ? 'home' : 'mode';
   });
-  const debouncedQuery = useDebouncedValue(query.trim(), 350);
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const { width: windowWidth } = useWindowDimensions();
   /**
    * Result tabs ride the /bookmarks swipe pager: one index = the selected filter.
    * A swipe settles once (onMomentumScrollEnd) exactly like a tab press, so the
    * query, debounce and results are kept and no extra request is made mid-swipe.
    */
-  const resultPager = useSwipeTabPager({ count: RESULT_SECTIONS.length, width: windowWidth });
+  const resultPager = useSwipeTabPager({
+    count: RESULT_SECTIONS.length,
+    width: windowWidth,
+    // UI-thread progress (SwipeTabIndicator is transform-only); the filter settles on momentum end.
+    nativeDriver: true,
+  });
   const { goTo: goToResultTab, jumpTo: jumpToResultTab } = resultPager;
   const filter: SearchFilter = RESULT_SECTIONS[resultPager.index]?.id ?? 'all';
   /** Measured result tabs: one indicator slides under them with the pager drag. */
@@ -219,6 +236,23 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
 
   const searchSeq = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  /** First page per (query, filter): swiping back to a tab shows it without a request. */
+  const resultCache = useRef(
+    new Map<string, { at: number; groups: SearchGroup[] } | { at: number; error: string }>(),
+  );
+  const lastRequestRef = useRef<{ q: string; filter: SearchFilter } | null>(null);
+  /**
+   * In-flight network requests by query. A tab hop does not cancel the previous tab's request
+   * (it lands in the service cache, so swiping back is free); a new query or unmount does.
+   */
+  const inflightRef = useRef(new Set<{ q: string; ac: AbortController }>());
+  useEffect(() => {
+    const inflight = inflightRef.current;
+    return () => {
+      for (const entry of inflight) entry.ac.abort();
+      inflight.clear();
+    };
+  }, []);
   const loadingMoreRef = useRef(false);
   const pageRef = useRef(1);
   const filterRef = useRef(filter);
@@ -299,25 +333,34 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
     };
   }, [section, trendingLoaded, newsLoaded, servicesLoaded]);
 
-  // Ensure editorial stories exist for news result viewer (without mounting storm)
+  // Ensure editorial stories exist for news result viewer (without mounting storm).
+  // One request at a time: a groups / filter change mid-flight must not cancel and refetch it.
+  const storiesInflightRef = useRef(false);
+  const mountedRef = useRef(true);
   useEffect(() => {
-    if (newsLoaded) return;
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (newsLoaded || storiesInflightRef.current) return;
     if (filter !== 'news' && !groups.some((g) => g.type === 'news' && g.items.length > 0)) {
       return;
     }
-    let cancelled = false;
+    storiesInflightRef.current = true;
     void fetchEditorialStories()
       .then((data) => {
-        if (cancelled) return;
+        if (!mountedRef.current) return;
         setStories(data);
         setNewsLoaded(true);
       })
       .catch(() => {
-        if (!cancelled) setNewsLoaded(true);
+        if (mountedRef.current) setNewsLoaded(true);
+      })
+      .finally(() => {
+        storiesInflightRef.current = false;
       });
-    return () => {
-      cancelled = true;
-    };
   }, [filter, groups, newsLoaded]);
 
   useEffect(() => {
@@ -362,6 +405,26 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
       return () => ac.abort();
     }
 
+    const cacheKey = `${debouncedQuery}\u0000${filter}`;
+    if (!append && nextPage === 1) {
+      const hit = resultCache.current.get(cacheKey);
+      const fresh =
+        hit && Date.now() - hit.at < ('error' in hit ? RESULT_ERROR_TTL_MS : RESULT_CACHE_TTL_MS);
+      if (hit && fresh) {
+        if ('error' in hit) {
+          setGroups([]);
+          setError(hit.error);
+        } else {
+          setGroups(hit.groups);
+          setError(null);
+        }
+        setLoading(false);
+        setLoadingMore(false);
+        loadingMoreRef.current = false;
+        return () => ac.abort();
+      }
+    }
+
     if (append) {
       loadingMoreRef.current = true;
       setLoadingMore(true);
@@ -370,15 +433,46 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
       setError(null);
     }
 
-    unifiedSearch({
-      q: debouncedQuery,
-      type: filter,
-      page: nextPage,
-      limit: filter === 'all' ? 8 : 20,
-      signal: ac.signal,
+    // Same query, another tab (a swipe / tap): wait a beat so tabs passed through are never requested.
+    const last = lastRequestRef.current;
+    const tabHop = !append && last != null && last.q === debouncedQuery && last.filter !== filter;
+    lastRequestRef.current = { q: debouncedQuery, filter };
+    const delay = tabHop ? TAB_SETTLE_FETCH_DELAY_MS : 0;
+
+    new Promise<void>((resolve, reject) => {
+      if (delay === 0) return resolve();
+      const timer = setTimeout(resolve, delay);
+      ac.signal.addEventListener('abort', () => {
+        clearTimeout(timer);
+        reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      });
     })
+      .then(() => {
+        for (const entry of inflightRef.current) {
+          if (entry.q !== debouncedQuery) {
+            entry.ac.abort();
+            inflightRef.current.delete(entry);
+          }
+        }
+        const net = { q: debouncedQuery, ac: append ? ac : new AbortController() };
+        inflightRef.current.add(net);
+        return unifiedSearch({
+          q: debouncedQuery,
+          type: filter,
+          page: nextPage,
+          limit: filter === 'all' ? 8 : 20,
+          signal: net.ac.signal,
+        }).finally(() => inflightRef.current.delete(net));
+      })
       .then((res) => {
         if (seq !== searchSeq.current) return;
+        if (!append && nextPage === 1) {
+          const cache = resultCache.current;
+          cache.delete(cacheKey);
+          cache.set(cacheKey, { at: Date.now(), groups: res.groups });
+          // Bounded: drop the oldest entries.
+          while (cache.size > RESULT_CACHE_MAX) cache.delete(cache.keys().next().value as string);
+        }
         setGroups((prev) => {
           if (!append) return res.groups;
           const byType = new Map(prev.map((g) => [g.type, g]));
@@ -403,7 +497,12 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
       .catch((err: unknown) => {
         if (seq !== searchSeq.current) return;
         if ((err as { name?: string })?.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'تعذر إتمام البحث');
+        const message = err instanceof Error ? err.message : 'تعذر إتمام البحث';
+        if (!append && nextPage === 1) {
+          resultCache.current.delete(cacheKey);
+          resultCache.current.set(cacheKey, { at: Date.now(), error: message });
+        }
+        setError(message);
       })
       .finally(() => {
         if (seq !== searchSeq.current) return;
@@ -487,9 +586,13 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const canSearch = debouncedQuery.length >= MIN_QUERY;
   const collapseEnabled = phase === 'home' || phase === 'results';
   const hideTabBar = isTab && phase !== 'home';
-  const bodyPaddingTop = useMemo(
-    () => (collapseEnabled ? paddingFor(headerH) : headerH),
-    [collapseEnabled, headerH, paddingFor],
+  /**
+   * Fixed overlay header + static content inset: the collapse is a translateY of the whole
+   * header (native driver). No per-frame height / paddingTop (layout) animation any more.
+   */
+  const bodyContentStyle = useMemo(
+    () => ({ paddingTop: headerH + (collapseEnabled ? GAP.md : 0) }),
+    [collapseEnabled, headerH],
   );
   const visibleTabBarStyle = useMemo(
     () => ({
@@ -599,27 +702,25 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const loadMoreRef = useRef(loadMore);
   loadMoreRef.current = loadMore;
 
-  const onBodyScroll = useMemo(
-    () =>
-      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-        useNativeDriver: false,
-        listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-          scrollingRef.current = true;
-          onChromeScroll(event);
-          if (phaseRef.current !== 'results') return;
-          const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-          if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 180) {
-            loadMoreRef.current();
-          }
-        },
-      }),
-    [onChromeScroll, scrollY],
+  /** JS side of the scroll (scrollY itself is native-driven via ScreenBody nativeScrollY). */
+  const onBodyScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollingRef.current = true;
+      onChromeScroll(event);
+      if (phaseRef.current !== 'results') return;
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 180) {
+        loadMoreRef.current();
+      }
+    },
+    [onChromeScroll],
   );
 
   const retrySearch = useCallback(() => {
+    resultCache.current.delete(`${debouncedQuery}\u0000${filter}`);
     setPage(1);
     runSearch(1, false);
-  }, [runSearch]);
+  }, [debouncedQuery, filter, runSearch]);
 
   const resultFrame = useCallback(
     (type: SearchResultItem['type']) => {
@@ -785,8 +886,9 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
 
   const exploreTabs = (
     <SarhChipRow
-      contentPaddingHorizontal={gutter}
+      contentPaddingHorizontal={Math.max(0, gutter - TAB_SIDE_PAD)}
       style={styles.sectionRow}
+      contentContainerStyle={styles.tabRowContent}
       scrollRef={exploreTabsRef}
       scrollProps={exploreTabsRowProps}
     >
@@ -821,9 +923,9 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
 
   const resultTabs = (
     <SarhChipRow
-      contentPaddingHorizontal={gutter}
+      contentPaddingHorizontal={Math.max(0, gutter - TAB_SIDE_PAD)}
       style={styles.filterRowWrap}
-      contentContainerStyle={styles.filterRowContent}
+      contentContainerStyle={[styles.filterRowContent, styles.tabRowContent]}
       scrollRef={resultTabsRef}
       scrollProps={resultTabsRowProps}
     >
@@ -1250,7 +1352,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const resultItems =
     filter === 'all' ? latestItems : visibleGroups.flatMap((group) => group.items);
 
-  const collapseStyle = useMemo(() => ({ transform: [{ translateY }] }), [translateY]);
+  const collapseTransform = useMemo(() => ({ transform: [{ translateY }] }), [translateY]);
   const identityStyle = useMemo(() => ({ opacity: identityOpacity }), [identityOpacity]);
 
   const sessionBack = (
@@ -1268,7 +1370,8 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
         pointerEvents="box-none"
         style={[
           styles.chromeLayer,
-          { height: bodyPaddingTop },
+          { height: headerH },
+          collapseEnabled ? collapseTransform : null,
           ambientShadow(scheme, 'soft'),
         ]}
       >
@@ -1285,7 +1388,6 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
               center={searchField}
               leading={phase === 'home' ? undefined : sessionBack}
               showNotifications={phase !== 'mode'}
-              collapseStyle={collapseStyle}
               identityStyle={identityStyle}
               flushBottom={phase === 'home' || phase === 'results'}
             >
@@ -1299,10 +1401,16 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
         </View>
       </Animated.View>
 
-      <Animated.View style={[styles.bodyWrap, { paddingTop: bodyPaddingTop }]}>
+      {/* The header slides up under the status bar: keep the status area painted. */}
+      {collapseEnabled && insets.top > 0 ? (
+        <View pointerEvents="none" style={[styles.statusFill, { height: insets.top }]} />
+      ) : null}
+
+      <View style={styles.bodyWrap}>
       <ScreenBody
         // Flush tab header (no strip under the underline): the content owns the top gap (FLUSH_TABS_CONTENT_GAP = md).
-        padTop={collapseEnabled ? 'md' : 'none'}
+        contentContainerStyle={bodyContentStyle}
+        nativeScrollY={scrollY}
         padBottom={hideTabBar || !isTab ? 'xxxl' : 'md'}
         gutter={false}
         bottomInset={isTab && phase === 'home' ? 'tabBar' : 'none'}
@@ -1418,7 +1526,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
           />
         )}
       </ScreenBody>
-      </Animated.View>
+      </View>
 
       {viewerIndex != null ? (
         <EditorialStoryViewer
@@ -1497,6 +1605,12 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'flex-end',
       minHeight: 48,
+      // + the label wrap's overhang padding = TAB_SIDE_PAD each side of the label.
+      paddingHorizontal: TAB_SIDE_PAD - HEADER_TAB_INDICATOR_OVERHANG,
+    },
+    /** Tabs sit edge to edge; spacing comes from each tab's own side padding. */
+    tabRowContent: {
+      gap: 0,
     },
     /** Label + underline: the bar spans the label and sits on the header's bottom edge. */
     sectionTabLabelWrap: {
@@ -1532,7 +1646,7 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       justifyContent: 'center',
       minHeight: 48,
       paddingBottom: 12,
-      paddingHorizontal: HEADER_TAB_INDICATOR_OVERHANG,
+      paddingHorizontal: TAB_SIDE_PAD,
       position: 'relative',
     },
     suggestRow: {
