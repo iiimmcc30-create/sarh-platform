@@ -326,6 +326,47 @@ describe('App Store Server Notifications V2', () => {
     expect(entitlements.grant).toHaveBeenCalledTimes(2);
   });
 
+  it('grants an immediate upgrade (DID_CHANGE_RENEWAL_PREF / UPGRADE) but not a downgrade', async () => {
+    const { service, entitlements } = setup();
+    await service.verifyFromClient(USER, {
+      platform: 'app_store',
+      productId: 'sa.sarh.verification.blue.monthly',
+      purchaseToken: signTestJws(
+        appleTx({ productId: 'sa.sarh.verification.blue.monthly' }),
+      ),
+    });
+    const upgradeTx = appleTx({
+      transactionId: '2000000005',
+      appAccountToken: undefined,
+    });
+    expect(
+      await service.handleAppleNotification(
+        notification('DID_CHANGE_RENEWAL_PREF', upgradeTx, {
+          subtype: 'UPGRADE',
+        }),
+      ),
+    ).toEqual({ outcome: 'granted' });
+    const ctx = entitlements.grant.mock.calls[1][0] as unknown as {
+      userId: string;
+      product: { planSlug: string };
+    };
+    expect(ctx.userId).toBe(USER);
+    expect(ctx.product.planSlug).toBe('gold-badge');
+
+    const downgradeTx = appleTx({
+      transactionId: '2000000005',
+      productId: 'sa.sarh.verification.blue.monthly',
+    });
+    const res = await service.handleAppleNotification(
+      notification('DID_CHANGE_RENEWAL_PREF', downgradeTx, {
+        subtype: 'DOWNGRADE',
+        notificationUUID: 'uuid-downgrade',
+      }),
+    );
+    expect(res.outcome).not.toBe('granted');
+    expect(entitlements.grant).toHaveBeenCalledTimes(2);
+  });
+
   it('handles auto-renew off, expiry and refunds', async () => {
     const { service, entitlements, repo } = setup();
     await service.verifyFromClient(USER, {

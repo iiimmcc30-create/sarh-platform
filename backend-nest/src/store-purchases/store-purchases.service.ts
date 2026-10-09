@@ -401,7 +401,14 @@ export class StorePurchasesService {
       })) ??
       (await this.repo.findByTransaction('app_store', verified.transactionId));
 
-    switch (type) {
+    // An upgrade takes effect immediately (new transaction in the same chain);
+    // a downgrade only at the next renewal, which arrives as DID_RENEW.
+    const effectiveType =
+      type === 'DID_CHANGE_RENEWAL_PREF' && subtype === 'UPGRADE'
+        ? 'SUBSCRIBED'
+        : type;
+
+    switch (effectiveType) {
       case 'SUBSCRIBED':
       case 'DID_RENEW':
       case 'OFFER_REDEEMED': {
