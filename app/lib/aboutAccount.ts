@@ -57,3 +57,13 @@ export function profileRatingInline(
   if (rating == null || !Number.isFinite(rating) || count <= 0) return null;
   return { average: rating.toFixed(1), count: `(${count.toLocaleString('en-US')})` };
 }
+
+/** Five-star row fills (1 / 0.5 / 0), rounded to the nearest half star; null with no reviews. */
+export function profileStarFills(
+  rating: number | null | undefined,
+  reviewCount: number | null | undefined,
+): number[] | null {
+  if (profileRatingInline(rating, reviewCount) == null) return null;
+  const halves = Math.round(Math.min(5, Math.max(0, rating as number)) * 2) / 2;
+  return [1, 2, 3, 4, 5].map((n) => (halves >= n ? 1 : halves >= n - 0.5 ? 0.5 : 0));
+}

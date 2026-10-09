@@ -10,7 +10,7 @@ function styleBlock(file: string, name: string): string {
   return file.slice(start, file.indexOf('\n    },', start));
 }
 
-describe('Profile header: avatar right, name under it, rating inline with the handle', () => {
+describe('Profile header: avatar right, name under it, five stars inline with the handle', () => {
   const layout = src('components/feature/ProfileScreenLayout.tsx');
   const avatarRow = layout.indexOf('testID="profile-avatar-row"');
   const avatar = layout.indexOf('testID="profile-avatar"');
@@ -36,25 +36,36 @@ describe('Profile header: avatar right, name under it, rating inline with the ha
     expect(username).toBeLessThan(stats);
   });
 
-  it('one star + average + count on the @handle line (single line, handle truncates)', () => {
+  it('five small gold stars right after @username on the handle line (handle truncates first)', () => {
     const handleRow = layout.indexOf('testID="profile-handle-row"');
+    const stars = layout.indexOf('<ProfileRatingStars');
     expect(handleRow).toBeGreaterThan(name);
     expect(username).toBeGreaterThan(handleRow);
-    expect(rating).toBeGreaterThan(username);
-    expect(rating).toBeLessThan(stats);
-    const ratingBlock = layout.slice(rating, layout.indexOf('</Pressable>', rating));
-    // Exactly one star glyph (no five-star row), monochrome textPrimary when rated.
-    expect(ratingBlock.match(/<AppIcon/g)).toHaveLength(1);
-    expect(ratingBlock).toContain("name={rating ? 'star' : 'star-outline'}");
-    expect(ratingBlock).toContain('color={rating ? themeColors.textPrimary : themeColors.textSecondary}');
-    expect(ratingBlock).toContain('{rating.average}');
-    expect(ratingBlock).toContain('{rating.count}');
-    expect(layout).not.toContain('[1, 2, 3, 4, 5].map');
+    expect(stars).toBeGreaterThan(username);
+    expect(stars).toBeLessThan(layout.indexOf('</Row>', handleRow));
+    expect(stars).toBeLessThan(stats);
+    // Not on the display-name row any more.
+    expect(stars).toBeGreaterThan(layout.indexOf('</Row>', nameRow));
+    expect(layout).toContain('<ProfileRatingStars rating={user.rating} reviewCount={user.reviewCount} onPress={onRatePress} />');
     expect(layout).not.toContain('testID="profile-since"');
     expect(styleBlock(layout, 'handleRow')).toContain("flexWrap: 'nowrap'");
-    expect(styleBlock(layout, 'ratingRow')).toContain('flexShrink: 0');
     expect(styleBlock(layout, 'usernamePress')).toContain('flexShrink: 1');
+    expect(styleBlock(layout, 'usernamePress')).toContain("alignSelf: 'center'");
     expect(styleBlock(layout, 'nameCluster')).toContain('flexShrink: 1');
+
+    const comp = src('components/feature/ProfileRatingStars.tsx');
+    expect(comp).toContain('export const PROFILE_STAR_SIZE = 12;');
+    expect(comp).toContain('export const PROFILE_STAR_GAP = 1.5;');
+    expect(comp).toContain('const gold = colors.tierGold;');
+    expect(comp).toContain('testID="profile-rating"');
+    expect(comp).toContain('hitSlop={STARS_HIT_SLOP}');
+    expect(comp).toMatch(/STARS_HIT_SLOP = \{ top: 16, bottom: 16/);
+    expect(comp).toMatch(/root: \{[^}]*flexShrink: 0/);
+    expect(comp).toContain('(fills ?? [0, 0, 0, 0, 0]).map(');
+  });
+
+  it('header entrance fade never stays stuck semi-transparent', () => {
+    expect(layout).toContain('if (!finished) {\n        headerOpacity.setValue(1);\n        headerTranslate.setValue(0);');
   });
 
   it('name and @handle open «عن هذا الحساب»', () => {

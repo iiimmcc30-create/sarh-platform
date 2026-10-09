@@ -6,11 +6,23 @@ import {
   aboutAccountRows,
   aboutCountryLabel,
   profileRatingInline,
+  profileStarFills,
 } from '@/lib/aboutAccount';
 import { formatArMonthYear, formatVerifiedSince } from '@/lib/verifiedBadge';
 
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n');
+
+describe('profile five-star fills (half-star support)', () => {
+  it('rounds to the nearest half and clamps 0–5; null without reviews', () => {
+    expect(profileStarFills(4.8, 23)).toEqual([1, 1, 1, 1, 1]);
+    expect(profileStarFills(3.6, 4)).toEqual([1, 1, 1, 0.5, 0]);
+    expect(profileStarFills(2.2, 1)).toEqual([1, 1, 0, 0, 0]);
+    expect(profileStarFills(7, 1)).toEqual([1, 1, 1, 1, 1]);
+    expect(profileStarFills(null, 0)).toBeNull();
+    expect(profileStarFills(4, 0)).toBeNull();
+  });
+});
 
 describe('profile rating inline «★ 4.8 (23)»', () => {
   it('one decimal average + count; null without reviews', () => {

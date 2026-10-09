@@ -1,4 +1,3 @@
-import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { StoryRing } from '@/components/ui/StoryRing';
 import { FounderBadge } from '@/components/ui/FounderBadge';
@@ -9,6 +8,7 @@ import { ProfileTabs } from '@/components/feature/ProfileTabs';
 import { ProfileStatsRow } from '@/components/feature/ProfileStatsRow';
 import { GoldSellerLabel } from '@/components/feature/GoldSellerLabel';
 import { ProfileLinksRow } from '@/components/feature/ProfileLinksRow';
+import { ProfileRatingStars } from '@/components/feature/ProfileRatingStars';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { ProfileActionsSkeleton, ProfileHeaderSkeleton } from '@/components/ui/skeleton';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -57,7 +57,7 @@ import {
   profileStatusBarStyle,
   shouldPinProfileTabs,
 } from '@/lib/profileHeader';
-import { ABOUT_ACCOUNT_ROUTE, ABOUT_ACCOUNT_TITLE, profileRatingInline } from '@/lib/aboutAccount';
+import { ABOUT_ACCOUNT_ROUTE, ABOUT_ACCOUNT_TITLE } from '@/lib/aboutAccount';
 import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
 import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
@@ -179,7 +179,7 @@ export function ProfileScreenLayout({
   onAdsNearEnd,
   loading = false,
 }: ProfileScreenLayoutProps) {
-  const { colors: themeColors, scheme, isDark } = useTheme();
+  const { colors: themeColors, isDark } = useTheme();
   const { gutter } = useLayout();
   const insets = useSafeAreaInsets();
   const { onChromeScroll } = useAppChromeScroll();
@@ -200,8 +200,8 @@ export function ProfileScreenLayout({
     (key: ProfileTabKey) => goToTab(Math.max(0, profileTabs.findIndex((tab) => tab.key === key))),
     [goToTab, profileTabs],
   );
-  const headerOpacity = useRef(new Animated.Value(0)).current;
-  const headerTranslate = useRef(new Animated.Value(12)).current;
+  const [headerOpacity] = useState(() => new Animated.Value(0));
+  const [headerTranslate] = useState(() => new Animated.Value(12));
   const isOwnProfile = mode === 'own';
 
   /**
@@ -272,7 +272,14 @@ export function ProfileScreenLayout({
         useNativeDriver: true,
       }),
       Animated.spring(headerTranslate, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 4 }),
-    ]).start();
+    ]).start(({ finished }) => {
+      // A remount of the header detaches these values, which stops the entrance mid-way and
+      // left the whole header (name, stars, buttons) stuck semi-transparent. Snap to the end.
+      if (!finished) {
+        headerOpacity.setValue(1);
+        headerTranslate.setValue(0);
+      }
+    });
   }, [headerOpacity, headerTranslate]);
 
   useEffect(() => {
@@ -285,7 +292,6 @@ export function ProfileScreenLayout({
   }, [activeTab, onTabChange]);
 
   const displayName = user.arabicName || user.displayName || user.username;
-  const rating = profileRatingInline(user.rating, user.reviewCount);
 
   const stats = useMemo(
     () => [
@@ -518,42 +524,8 @@ export function ProfileScreenLayout({
                       @{user.username}
                     </AppText>
                   </Pressable>
-                  {/* One star + average + count (X-style, monochrome), same line as the handle. */}
-                  <Pressable
-                    testID="profile-rating"
-                    onPress={onRatePress}
-                    disabled={!onRatePress}
-                    hitSlop={RATING_HIT_SLOP}
-                    accessibilityRole={onRatePress ? 'button' : undefined}
-                    accessibilityLabel={
-                      rating ? `التقييم ${rating.average} من ${user.reviewCount ?? 0} تقييم` : 'لا توجد تقييمات بعد'
-                    }
-                    style={({ pressed }) => [
-                      styles.ratingRow,
-                      pressed && onRatePress ? styles.ratingRowPressed : null,
-                    ]}
-                  >
-                    <Row gap="none" align="center" style={styles.ratingInner}>
-                    <AppText variant="label" color="textSecondary" style={styles.ratingDot}>
-                      ·
-                    </AppText>
-                    <AppIcon
-                      name={rating ? 'star' : 'star-outline'}
-                      size={PROFILE_RATING_STAR_SIZE}
-                      color={rating ? themeColors.textPrimary : themeColors.textSecondary}
-                    />
-                    {rating ? (
-                      <>
-                        <AppText variant="label" color="textPrimary" style={styles.ratingNum} testID="profile-rating-average">
-                          {rating.average}
-                        </AppText>
-                        <AppText variant="label" color="textSecondary" style={styles.ratingNum} testID="profile-rating-count">
-                          {rating.count}
-                        </AppText>
-                      </>
-                    ) : null}
-                    </Row>
-                  </Pressable>
+                  {/* Five small gold stars right after the @handle (the handle truncates first). */}
+                  <ProfileRatingStars rating={user.rating} reviewCount={user.reviewCount} onPress={onRatePress} />
                   {mode === 'visitor' && followsYou ? (
                     <AppText variant="caption" color="textSecondary" style={styles.followsYou} testID="profile-follows-you">
                       يتابعك
@@ -753,11 +725,8 @@ export const PROFILE_STORY_AVATAR_SIZE = 82;
 export const PROFILE_STORY_RING_STROKE = 3.25;
 /** Verified seal next to the 18px name (cardTitle). */
 export const PROFILE_NAME_BADGE_SIZE = 18;
-/** Single rating star on the handle line (15pt label). */
-export const PROFILE_RATING_STAR_SIZE = 14;
 /** Small controls on the name / handle lines still get a ≥ 44pt touch target. */
 const BADGE_HIT_SLOP = { top: 13, bottom: 13, left: 10, right: 10 } as const;
-const RATING_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 } as const;
 
 function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   /** Glass chrome (translucent fill + light white hairline) for controls over the cover. */
@@ -826,32 +795,16 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     nameBlock: {
       marginTop: spacing.sm,
     },
-    /** Rating sits right after the handle on the same line and never shrinks. */
-    ratingRow: {
-      paddingVertical: 2,
-      flexShrink: 0,
-    },
-    ratingInner: {
-      gap: 3,
-    },
-    ratingDot: {
-      marginEnd: 1,
-    },
-    ratingNum: {
-      writingDirection: 'ltr',
-    },
     /** Larger than the old 12px caption (15/500 label) on the stronger secondary token; still under the 18px name. */
     username: {
       writingDirection: 'ltr',
       alignSelf: 'flex-start',
     },
+    /** Centred on the handle row so the stars sit on the same visual line (was pinned to the row top). */
     usernamePress: {
-      alignSelf: 'flex-start',
+      alignSelf: 'center',
       flexShrink: 1,
       minWidth: 0,
-    },
-    ratingRowPressed: {
-      opacity: 0.75,
     },
     followsYou: {
       borderWidth: StyleSheet.hairlineWidth,
