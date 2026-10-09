@@ -35,6 +35,7 @@ import { SettingsModule } from './settings/settings.module';
 import { HomeExploreModule } from './home-explore/home-explore.module';
 import { CollectionsModule } from './collections/collections.module';
 import { CouncilsModule } from './councils/councils.module';
+import { ShareModule } from './share/share.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { CouncilsModule } from './councils/councils.module';
     FeedSuppliersModule,
     CollectionsModule,
     CouncilsModule,
+    ShareModule,
   ],
 })
 export class AppModule {}

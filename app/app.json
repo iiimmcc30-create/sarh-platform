@@ -15,8 +15,14 @@
       "icon": "./assets/images/icon.png",
       "infoPlist": {
         "CFBundleDisplayName": "سرح | Sarh",
-        "UIBackgroundModes": ["audio"]
-      }
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      },
+      "associatedDomains": [
+        "applinks:sarhsa.online",
+        "applinks:www.sarhsa.online"
+      ]
     },
     "android": {
       "package": "com.sarh.app",
@@ -40,7 +46,59 @@
         "monochromeImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#020202"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "sarhsa.online",
+              "pathPrefix": "/l/"
+            },
+            {
+              "scheme": "https",
+              "host": "sarhsa.online",
+              "pathPrefix": "/post/"
+            },
+            {
+              "scheme": "https",
+              "host": "sarhsa.online",
+              "pathPrefix": "/u/"
+            },
+            {
+              "scheme": "https",
+              "host": "sarhsa.online",
+              "pathPrefix": "/councils/join/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.sarhsa.online",
+              "pathPrefix": "/l/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.sarhsa.online",
+              "pathPrefix": "/post/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.sarhsa.online",
+              "pathPrefix": "/u/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.sarhsa.online",
+              "pathPrefix": "/councils/join/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

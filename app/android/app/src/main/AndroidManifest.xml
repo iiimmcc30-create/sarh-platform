@@ -35,6 +35,20 @@
         <data android:scheme="sarh"/>
         <data android:scheme="exp+safat"/>
       </intent-filter>
+      <!-- Shared links (App Links, mirrors app.json android.intentFilters): /l, /post, /u, /councils/join. -->
+      <intent-filter android:autoVerify="true" data-generated="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <data android:scheme="https" android:host="sarhsa.online" android:pathPrefix="/l/"/>
+        <data android:scheme="https" android:host="sarhsa.online" android:pathPrefix="/post/"/>
+        <data android:scheme="https" android:host="sarhsa.online" android:pathPrefix="/u/"/>
+        <data android:scheme="https" android:host="sarhsa.online" android:pathPrefix="/councils/join/"/>
+        <data android:scheme="https" android:host="www.sarhsa.online" android:pathPrefix="/l/"/>
+        <data android:scheme="https" android:host="www.sarhsa.online" android:pathPrefix="/post/"/>
+        <data android:scheme="https" android:host="www.sarhsa.online" android:pathPrefix="/u/"/>
+        <data android:scheme="https" android:host="www.sarhsa.online" android:pathPrefix="/councils/join/"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
     </activity>
   </application>
 </manifest>

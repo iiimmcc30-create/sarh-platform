@@ -113,6 +113,15 @@ export class UsersController {
     );
   }
 
+  /** Shared /u/:username links: resolve a public handle to the profile id. */
+  @Public()
+  @RateLimit('api')
+  @Get('by-username/:username')
+  @HttpCode(HttpStatus.OK)
+  async byUsername(@Param('username') username: string) {
+    return successResponse(await this.users.resolveUsername(username));
+  }
+
   @Public()
   @OptionalAuth()
   @RateLimit('api')

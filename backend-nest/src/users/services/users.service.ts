@@ -63,6 +63,17 @@ export class UsersService {
     }));
   }
 
+  /** Public handle → `{ id, username }` for shared profile links (active accounts only). */
+  async resolveUsername(raw: string) {
+    const username = typeof raw === 'string' ? raw.trim().replace(/^@/, '') : '';
+    if (!/^[A-Za-z0-9_.]{1,40}$/.test(username)) {
+      throwApi(404, 'not_found', 'المستخدم غير موجود');
+    }
+    const user = await this.repo.findActiveUserByUsername(username);
+    if (!user) throwApi(404, 'not_found', 'المستخدم غير موجود');
+    return { id: user.id, username: user.username };
+  }
+
   async getUser(id: string, viewer?: JwtPayload) {
     if (!id) throwApi(400, 'invalid_id', 'معرّف غير صالح');
 

@@ -563,3 +563,32 @@ export async function setBlockUser(
     return { ok: false, message: 'تعذّر الاتصال بالخادم' };
   }
 }
+
+/**
+ * Shared /u/<username> link → profile id. Uses the exact-handle endpoint and
+ * falls back to the public user search (exact, case-insensitive match only)
+ * for API builds that predate it. Null when no such account.
+ */
+export async function resolveUsername(username: string): Promise<string | null> {
+  const handle = username.trim().replace(/^@/, '');
+  if (!handle) return null;
+  try {
+    const res = await authFetch(`${API_BASE}/api/users/by-username/${encodeURIComponent(handle)}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json?.success && typeof json.data?.id === 'string') return json.data.id;
+    }
+  } catch {
+    // fall through to search
+  }
+  try {
+    const res = await authFetch(`${API_BASE}/api/users?search=${encodeURIComponent(handle)}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const list: { id?: string; username?: string }[] = Array.isArray(json?.data) ? json.data : [];
+    const hit = list.find((u) => typeof u.username === 'string' && u.username.toLowerCase() === handle.toLowerCase());
+    return hit?.id ?? null;
+  } catch {
+    return null;
+  }
+}

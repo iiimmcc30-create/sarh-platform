@@ -149,6 +149,17 @@ export class UsersRepository {
     });
   }
 
+  findActiveUserByUsername(username: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        username: { equals: username, mode: 'insensitive' },
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { id: true, username: true },
+    });
+  }
+
   findUserProfile(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
