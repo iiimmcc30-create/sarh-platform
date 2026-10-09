@@ -77,6 +77,7 @@ model User {
   sentMessages                        Message[]                         @relation("SentMessages")
   notifications                       Notification[]
   payments                            Payment[]
+  storePurchases                      StorePurchase[]
   posts                               Post[]
   postComments                        PostComment[]
   listingComments                     ListingComment[]
@@ -499,6 +500,77 @@ model Payment {
   @@index([orderId])
   @@index([transactionId])
   @@index([userId, referenceId, referenceType, status])
+}
+
+/// Apple In-App Purchase / Google Play Billing transactions for digital
+/// services sold inside the native apps (verification subscriptions, boosts,
+/// promotion). One row per store transaction: Apple transactionId, Google
+/// orderId. The unique key makes verification and webhooks idempotent.
+model StorePurchase {
+  id                    String              @id @default(uuid())
+  platform              StorePlatform
+  productId             String
+  /// subscription | boost | promotion (store-purchases/store-products.ts).
+  productKind           String
+  transactionId         String
+  originalTransactionId String?
+  /// Google purchase token (the Apple JWS is kept in raw).
+  purchaseToken         String?
+  userId                String
+  status                StorePurchaseStatus @default(processing)
+  autoRenew             Boolean?
+  /// Production | Sandbox (Apple) / production | test (Google).
+  environment           String?
+  listingId             String?
+  paymentId             String?             @unique
+  purchasedAt           DateTime?
+  expiresAt             DateTime?
+  revokedAt             DateTime?
+  lastError             String?
+  raw                   Json?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, transactionId])
+  @@index([userId])
+  @@index([originalTransactionId])
+  @@index([purchaseToken])
+  @@index([status])
+}
+
+/// Processed App Store Server Notifications V2 / Google RTDN messages
+/// (dedupe by notificationUUID / Pub/Sub messageId).
+model StoreNotification {
+  id             String        @id @default(uuid())
+  platform       StorePlatform
+  notificationId String
+  type           String
+  subtype        String?
+  transactionId  String?
+  outcome        String?
+  createdAt      DateTime      @default(now())
+
+  @@unique([platform, notificationId])
+  @@index([transactionId])
+}
+
+enum StorePlatform {
+  app_store
+  google_play
+}
+
+enum StorePurchaseStatus {
+  /// Row claimed, entitlement being granted.
+  processing
+  /// Entitlement granted (subscription active / boost applied).
+  active
+  /// Subscription period ended (not renewed).
+  expired
+  /// Refunded or revoked by the store.
+  revoked
+  /// Verification or granting failed; may be retried.
+  failed
 }
 
 /// External provider checkout (currently Network International / N-Genius).
@@ -1205,6 +1277,10 @@ enum PaymentMethod {
   mastercard
   apple_pay
   stc_pay
+  /// Apple In-App Purchase (native iOS digital services).
+  app_store
+  /// Google Play Billing (native Android digital services).
+  google_play
 }
 
 enum PaymentStatus {

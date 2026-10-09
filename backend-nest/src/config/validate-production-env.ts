@@ -4,6 +4,8 @@
  * Never logs secret values — only missing key names.
  */
 
+import { storeIapEnvWarnings } from '../store-purchases/store-purchases.config';
+
 function isBlank(value: string | undefined): boolean {
   return !value || !value.trim();
 }
@@ -138,5 +140,11 @@ export function validateProductionEnv(): void {
       'Application startup aborted.',
     ];
     throw new Error(lines.join('\n'));
+  }
+
+  // Apple IAP / Google Play Billing are optional until the store products
+  // are live: warn (names only), never abort startup.
+  for (const warning of storeIapEnvWarnings()) {
+    console.warn(`[env] ${warning}`);
   }
 }

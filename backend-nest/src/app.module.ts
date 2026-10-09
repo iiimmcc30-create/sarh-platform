@@ -10,6 +10,7 @@ import { PostsModule } from './posts/posts.module';
 import { StoriesModule } from './stories/stories.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
+import { StorePurchasesModule } from './store-purchases/store-purchases.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { PlansModule } from './plans/plans.module';
@@ -55,6 +56,7 @@ import { ShareModule } from './share/share.module';
     StoriesModule,
     NotificationsModule,
     PaymentsModule,
+    StorePurchasesModule,
     IntegrationsModule,
     SubscriptionsModule,
     PlansModule,

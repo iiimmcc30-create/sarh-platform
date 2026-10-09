@@ -73,6 +73,12 @@ export class SubscriptionLifecycleRepository {
         planId: { not: 'free' },
         renewDate: { gt: now, lte: end },
         autoRenew: true,
+        // App Store / Google Play renew automatically: no manual-renewal reminder.
+        user: {
+          storePurchases: {
+            none: { productKind: 'subscription', status: 'active' },
+          },
+        },
       },
       select: SUBSCRIPTION_SELECT,
     });

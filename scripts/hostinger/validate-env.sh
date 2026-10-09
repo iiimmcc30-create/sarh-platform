@@ -210,6 +210,14 @@ mask_status NI_BASIC_AUTH "$(get NI_BASIC_AUTH)" 1
 mask_status NI_REALM "$(get NI_REALM)" 1
 
 echo ""
+echo "=== IN-APP PURCHASES (optional until store products are live) ==="
+for k in APPLE_IAP_ISSUER_ID APPLE_IAP_KEY_ID APPLE_IAP_PRIVATE_KEY APPLE_IAP_BUNDLE_ID \
+  GOOGLE_PLAY_PACKAGE_NAME GOOGLE_PLAY_SERVICE_ACCOUNT_JSON GOOGLE_PLAY_RTDN_AUDIENCE \
+  GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT; do
+  mask_status "$k" "$(get "$k")" 1
+done
+
+echo ""
 echo "=== EMAIL/SMS ==="
 for k in SMTP_HOST SMTP_USER SMTP_PASS; do
   mask_status "$k" "$(get "$k")" 1
