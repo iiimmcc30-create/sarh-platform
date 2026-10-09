@@ -131,6 +131,10 @@ export interface Listing {
   views?: number;
   /** Owner edits used — regular users may edit once */
   editCount?: number;
+  /** SaudiCity id (shared city list) when the listing has a city. */
+  cityId?: string;
+  /** «القريب منك» only: server-rounded distance from the viewer (km). No coordinates ever. */
+  distanceKm?: number;
 }
 
 export interface Post {

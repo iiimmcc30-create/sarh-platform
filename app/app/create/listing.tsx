@@ -52,10 +52,14 @@ import {
   suggestionMode,
   type CategorySuggestion,
 } from '@/lib/categoryIntelligence';
+import { detectDeviceCity } from '@/lib/deviceCity';
 import {
-  detectCurrentListingLocation,
-  formatListingAddress,
-} from '@/lib/listingLocation';
+  matchSaudiCityName,
+  saudiCityById,
+  saudiRegionNameAr,
+  type SaudiCityEntry,
+} from '@/lib/saudiCities';
+import { SaudiCityPickerSheet } from '@/components/market/SaudiCityPickerSheet';
 import { showAlert } from '@/lib/confirmDialog';
 
 const GCC_COUNTRIES: { code: Country; ar: string; flag: string; currency: string }[] = [
@@ -102,6 +106,11 @@ export default function CreateListingScreen() {
   const [weightKg, setWeightKg] = useState('');
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
+  // Saudi listings: a city from the shared list (GPS picks the nearest; user can change).
+  const [cityId, setCityId] = useState<string | null>(null);
+  /** Id of the city GPS chose; lat/lng are sent only while that city is still selected. */
+  const [gpsCityId, setGpsCityId] = useState<string | null>(null);
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [imageUris, setImageUris] = useState<string[]>([]);
@@ -144,6 +153,9 @@ export default function CreateListingScreen() {
         setPrice(raw.price != null ? String(raw.price) : '');
         setCountry((raw.country as Country) || 'SA');
         setLocation(raw.arabicLocation ?? raw.location ?? '');
+        const knownCity =
+          saudiCityById(raw.cityId) ?? matchSaudiCityName(raw.arabicLocation ?? raw.location);
+        if (knownCity) setCityId(knownCity.id);
         setContactPhone(raw.contactPhone ?? '');
         setWeightKg(raw.weightKg != null ? String(raw.weightKg) : '');
         setImageUris(
@@ -238,16 +250,30 @@ export default function CreateListingScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titleAr, parents, categoryLocked]);
 
+  const selectCity = (city: SaudiCityEntry) => {
+    setCityId(city.id);
+    setLocation(city.nameAr);
+    setStepError(null);
+  };
+
+  /** GPS → nearest city on the device (no reverse geocoding); point rounded to ~1 km. */
   const detectLocation = async (force = false) => {
     setLocating(true);
-    const result = await detectCurrentListingLocation();
-    if (result.geo) {
-      setLat(result.geo.latitude);
-      setLng(result.geo.longitude);
-      const label = formatListingAddress(result.geo);
-      if (label && (force || !location.trim())) setLocation(label);
+    try {
+      const result = await detectDeviceCity({ useCache: !force });
+      if (result.status !== 'ok') {
+        if (force) setCityPickerOpen(true);
+        return;
+      }
+      if (!force && cityId) return;
+      setLat(result.lat);
+      setLng(result.lng);
+      setGpsCityId(result.city.id);
+      selectCity(result.city);
+      if (force) setCityPickerOpen(false);
+    } finally {
+      setLocating(false);
     }
-    setLocating(false);
   };
 
   useEffect(() => {
@@ -299,10 +325,48 @@ export default function CreateListingScreen() {
     videoState.status === 'ready' ||
     videoState.status === 'uploading';
 
+  const selectedCity = saudiCityById(cityId);
+
+  /** Saudi listings pick a city from the shared list; other countries keep free text. */
+  const renderLocationField = () =>
+    country === 'SA' ? (
+      <Pressable
+        onPress={() => setCityPickerOpen(true)}
+        style={[styles.categoryField, selectedCity ? styles.inputFilled : null]}
+        accessibilityRole="button"
+        accessibilityLabel={selectedCity ? `المدينة: ${selectedCity.nameAr}` : 'اختر مدينة العرض'}
+        testID="listing-city-field"
+      >
+        <Row fill justify="between" align="center">
+          <Row gap="xs" align="center" style={styles.categoryValueText}>
+            <AppIcon name="location-outline" size={18} color={colors.textMuted} />
+            <AppText
+              variant="body"
+              color={selectedCity ? 'textPrimary' : 'textMuted'}
+              numberOfLines={1}
+            >
+              {selectedCity
+                ? `${selectedCity.nameAr} · ${saudiRegionNameAr(selectedCity.regionId).replace(/^(منطقة|المنطقة)\s/, '')}`
+                : 'اختر مدينة العرض'}
+            </AppText>
+          </Row>
+          <AppIcon name="chevron-down" size={16} color={colors.textMuted} />
+        </Row>
+      </Pressable>
+    ) : (
+      <SarhInput
+        appearance="theme"
+        value={location}
+        onChangeText={setLocation}
+        placeholder="حدد موقع العرض يدوياً"
+        icon="location-outline"
+      />
+    );
+
   const stepHint = (): string | null => {
     if (step === 0) {
       if (titleAr.trim().length < 3) return 'أدخل عنوان العرض';
-      if (!location.trim()) return 'حدد موقع العرض';
+      if (country === 'SA' ? !cityId : !location.trim()) return 'اختر مدينة العرض';
       if (!parentCategory || !subCategory) return 'اختر التصنيف';
       return null;
     }
@@ -438,7 +502,15 @@ export default function CreateListingScreen() {
           ? Number(weightKg)
           : undefined;
       const legacyCategory = resolveLegacyListingCategory(subCategory, parentCategory);
-      const locationLabel = location.trim();
+      const pickedCity = country === 'SA' ? saudiCityById(cityId) : null;
+      const locationLabel = pickedCity?.nameAr ?? location.trim();
+      const usedGps =
+        pickedCity != null && gpsCityId === pickedCity.id && lat != null && lng != null;
+      const geoFields = pickedCity
+        ? usedGps
+          ? { cityId: pickedCity.id, lat: lat as number, lng: lng as number, geoSource: 'GPS' as const }
+          : { cityId: pickedCity.id, lat: pickedCity.lat, lng: pickedCity.lng, geoSource: 'CITY' as const }
+        : {};
       const payload = {
         title,
         arabicTitle: title,
@@ -452,6 +524,7 @@ export default function CreateListingScreen() {
         quantity: 1,
         location: locationLabel,
         arabicLocation: locationLabel,
+        ...geoFields,
         country,
         contactPhone: contactPhone.trim()
           ? normalizeContactPhone(contactPhone, country)
@@ -611,13 +684,7 @@ export default function CreateListingScreen() {
                       </Pressable>
                     )}
                   </Row>
-                  <SarhInput
-                    appearance="theme"
-                    value={location}
-                    onChangeText={setLocation}
-                    placeholder="حدد موقع العرض يدوياً"
-                    icon="location-outline"
-                  />
+                  {renderLocationField()}
                   <Pressable onPress={() => setShowMap((v) => !v)} style={styles.linkBtn}>
                     <AppText variant="caption" color="primary">
                       {showMap ? 'إخفاء الخريطة' : 'اختيار من الخريطة'}
@@ -694,14 +761,12 @@ export default function CreateListingScreen() {
 
             {step === 1 && (
               <Stack gap="md">
-                <SarhInput
-                  appearance="theme"
-                  label="موقع العرض"
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="حدد موقع العرض يدوياً"
-                  icon="location-outline"
-                />
+                <Stack gap="xs">
+                  <AppText variant="caption" color="textMuted">
+                    موقع العرض
+                  </AppText>
+                  {renderLocationField()}
+                </Stack>
 
                 <SarhInput
                   appearance="theme"
@@ -898,6 +963,17 @@ export default function CreateListingScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        <SaudiCityPickerSheet
+          visible={cityPickerOpen}
+          title="مدينة العرض"
+          selectedId={cityId}
+          onClose={() => setCityPickerOpen(false)}
+          onSelect={selectCity}
+          onUseLocation={() => void detectLocation(true)}
+          locating={locating}
+          testID="listing-city-picker"
+        />
 
         <Modal
           visible={categoryPickerOpen}

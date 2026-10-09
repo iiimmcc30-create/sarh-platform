@@ -2,6 +2,8 @@ import { MarketAppBar } from '@/components/market/MarketAppBar';
 import { MarketFilterBar } from '@/components/market/MarketFilterBar';
 import { MarketCategoryPicker } from '@/components/market/MarketCategoryPicker';
 import { RegionCityPicker } from '@/components/market/RegionCityPicker';
+import { NearbyFilterChips } from '@/components/market/NearbyFilterChips';
+import { SaudiCityPickerSheet } from '@/components/market/SaudiCityPickerSheet';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { AppFlatList } from '@/components/ui/AppFlatList';
 import { ListingCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
@@ -21,7 +23,16 @@ import {
   type FeedSortMode,
 } from '@/lib/listingSort';
 import { listingMatchesMarketSelection } from '@/lib/marketCategoriesFallback';
-import { listingMatchesRegionSelection, resolveNearbyRegionSelection } from '@/lib/saudiRegionSearch';
+import { listingMatchesRegionSelection } from '@/lib/saudiRegionSearch';
+import { detectDeviceCity } from '@/lib/deviceCity';
+import {
+  applyNearbyChip,
+  initialNearbyState,
+  nearbyApiParams,
+  type NearbyChip,
+  type NearbyState,
+} from '@/lib/nearbyFeed';
+import type { SaudiCityEntry } from '@/lib/saudiCities';
 import { safePush } from '@/lib/safeNavigate';
 import { showToast } from '@/lib/toast';
 import {
@@ -56,14 +67,12 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import * as Location from 'expo-location';
 import { goldSellersFirstInRegion } from '@/lib/goldSeller';
 import {
   PROMOTION_VIEWABILITY,
   trackPromotedClick,
   trackPromotedImpression,
 } from '@/lib/promotionTracking';
-import { showAlert } from '@/lib/confirmDialog';
 
 const MARKET_FOCUS_TTL_MS = 60_000;
 const EMPTY_LISTINGS: Listing[] = [];
@@ -121,7 +130,12 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
     const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
     const [sortMode, setSortMode] = useState<FeedSortMode>('newest');
-    const [nearbyActive, setNearbyActive] = useState(false);
+    // «القريب»: server radius feed around the device point or a picked city (session only).
+    const [nearby, setNearby] = useState<NearbyState | null>(null);
+    const nearbyActive = nearby !== null;
+    const [nearbyLocating, setNearbyLocating] = useState(false);
+    const [cityPickerOpen, setCityPickerOpen] = useState(false);
+    const [cityPickerMessage, setCityPickerMessage] = useState<string | undefined>(undefined);
     const nearbyBusyRef = useRef(false);
     const [items, setItems] = useState<Listing[]>([]);
     const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -145,15 +159,21 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         subcategoryId: activeSubId ?? undefined,
         // Sorting happens at the API (createdAt DESC/ASC + matching cursor), so the
         // order is part of every page request and of the fetch/dedupe URL key.
-        sort: sortMode === 'oldest' ? ('oldest' as const) : undefined,
+        sort: nearby ? undefined : sortMode === 'oldest' ? ('oldest' as const) : undefined,
+        ...nearbyApiParams(nearby),
       }),
-      [showFeaturedOnly, activeParentId, activeSubId, sortMode],
+      [showFeaturedOnly, activeParentId, activeSubId, sortMode, nearby],
     );
 
     const loadFirstPage = useCallback(async () => {
       const gen = ++loadGenRef.current;
       const hasServerFilters = Boolean(
-        apiFilters.featured || apiFilters.categoryId || apiFilters.subcategoryId || apiFilters.sort,
+        apiFilters.featured ||
+          apiFilters.categoryId ||
+          apiFilters.subcategoryId ||
+          apiFilters.sort ||
+          apiFilters.near ||
+          apiFilters.nearCityId,
       );
       if (!hasServerFilters) {
         const boot = getBootstrappedListingsPage(accessToken);
@@ -281,28 +301,33 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         if (activeParent && !listingMatchesMarketSelection(l, activeParent, activeSub)) {
           return false;
         }
-        if (!listingMatchesRegionSelection(l.arabicLocation || l.location || '', regionSelection)) {
+        // «القريب» is filtered by distance on the server; the region text filter is
+        // only for a region/city picked in the region sheet.
+        if (
+          !nearbyActive &&
+          !listingMatchesRegionSelection(l.arabicLocation || l.location || '', regionSelection)
+        ) {
           return false;
         }
         return true;
       });
 
-      // Oldest-first is already ordered by the API (createdAt ASC); re-ranking or
-      // promotion interleaving here would undo it, which is what broke the toggle.
-      if (sortMode === 'oldest') return list;
+      // Server order is final for the radius feed (nearest / newest within radius) and
+      // for oldest-first; re-ranking or promotion interleaving here would undo it.
+      if (nearbyActive || sortMode === 'oldest') return list;
 
       list = [...list].sort(compareListingBoostPriority);
       const ranked = interleavePromotedListings(list);
       // «بائع ذهبي»: inside a picked region, Gold sellers lead (paid pins stay on top).
       return regionSelection.type === 'all' ? ranked : goldSellersFirstInRegion(ranked);
-    }, [items, showFeaturedOnly, activeParent, activeSub, regionSelection, sortMode]);
+    }, [items, showFeaturedOnly, activeParent, activeSub, regionSelection, sortMode, nearbyActive]);
 
     useEffect(() => {
-      if (regionSelection.type === 'all') return;
+      if (nearbyActive || regionSelection.type === 'all') return;
       if (!hasMore || loading || loadingMore) return;
       if (filtered.length >= 8) return;
       void loadNextPage();
-    }, [filtered.length, hasMore, loadNextPage, loading, loadingMore, regionSelection.type]);
+    }, [filtered.length, hasMore, loadNextPage, loading, loadingMore, regionSelection.type, nearbyActive]);
 
     const cycleSort = useCallback(() => {
       // Invalidate in-flight pages and hide the previous order's rows behind the
@@ -327,48 +352,124 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
       listRef.current?.scrollToOffset({ offset: 0, animated: false });
     }, []);
 
-    const onNearby = useCallback(async () => {
-      if (nearbyActive) {
-        setNearbyActive(false);
+    const resetListForNewQuery = useCallback(() => {
+      // New origin/radius/order: drop in-flight pages and show the skeleton until page 1.
+      loadGenRef.current += 1;
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+      setLoadFailed(false);
+      setItems([]);
+      setNextCursor(null);
+      setHasMore(false);
+      setLoading(true);
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }, []);
+
+    /** Apply a new «القريب» query; reloads only when the server params really change. */
+    const applyNearby = useCallback(
+      (next: NearbyState | null) => {
+        const same =
+          JSON.stringify(nearbyApiParams(next)) === JSON.stringify(nearbyApiParams(nearby));
+        if (!same) resetListForNewQuery();
+        setNearby(next);
+      },
+      [nearby, resetListForNewQuery],
+    );
+
+    const startNearby = useCallback(
+      (next: NearbyState) => {
         setRegionSelection({ type: 'all' });
+        applyNearby(next);
+      },
+      [applyNearby],
+    );
+
+    const onNearby = useCallback(async () => {
+      if (nearby) {
+        applyNearby(null);
         return;
       }
       if (nearbyBusyRef.current) return;
       nearbyBusyRef.current = true;
+      setNearbyLocating(true);
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          showAlert('إذن الموقع', 'يرجى السماح بالوصول للموقع لعرض الإعلانات القريبة');
+        const res = await detectDeviceCity();
+        if (res.status === 'ok') {
+          startNearby(initialNearbyState({ kind: 'gps', lat: res.lat, lng: res.lng, city: res.city }));
           return;
         }
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const [geo] = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        const resolved = resolveNearbyRegionSelection({
-          city: geo?.city,
-          subregion: geo?.subregion,
-          region: geo?.region,
-        });
-        if (!resolved) {
-          showAlert('الموقع', 'تعذّر تحديد مدينتك');
-          return;
-        }
-        setRegionSelection(resolved);
-        setNearbyActive(true);
-      } catch {
-        showAlert('خطأ', 'تعذّر الحصول على موقعك');
+        // No permission / no fix / outside KSA: measure from «مدينتك» instead.
+        setCityPickerMessage(
+          res.status === 'denied'
+            ? 'الموقع غير مفعّل — اختر مدينتك لعرض الإعلانات القريبة منها'
+            : res.status === 'outside'
+              ? 'موقعك خارج المملكة — اختر مدينة لعرض الإعلانات القريبة منها'
+              : 'تعذّر تحديد موقعك — اختر مدينتك',
+        );
+        setCityPickerOpen(true);
       } finally {
         nearbyBusyRef.current = false;
+        setNearbyLocating(false);
       }
-    }, [nearbyActive]);
+    }, [nearby, applyNearby, startNearby]);
+
+    const onPickNearbyCity = useCallback(
+      (city: SaudiCityEntry) => {
+        startNearby({
+          ...(nearby ?? initialNearbyState({ kind: 'city', city })),
+          origin: { kind: 'city', city },
+        });
+      },
+      [nearby, startNearby],
+    );
+
+    const onNearbyChip = useCallback(
+      (chip: NearbyChip) => {
+        if (!nearby) return;
+        applyNearby(applyNearbyChip(nearby, chip));
+      },
+      [nearby, applyNearby],
+    );
+
+    const onNearbyOriginPress = useCallback(() => {
+      setCityPickerMessage(undefined);
+      setCityPickerOpen(true);
+    }, []);
+
+    const onCityPickerUseLocation = useCallback(async () => {
+      setNearbyLocating(true);
+      try {
+        const res = await detectDeviceCity({ useCache: false });
+        if (res.status === 'ok') {
+          setCityPickerOpen(false);
+          startNearby({
+            ...(nearby ?? initialNearbyState({ kind: 'gps', lat: res.lat, lng: res.lng, city: res.city })),
+            origin: { kind: 'gps', lat: res.lat, lng: res.lng, city: res.city },
+          });
+        } else {
+          setCityPickerMessage(
+            res.status === 'denied'
+              ? 'اسمح بالوصول للموقع من الإعدادات، أو اختر مدينتك'
+              : 'تعذّر تحديد موقعك — اختر مدينتك',
+          );
+        }
+      } finally {
+        setNearbyLocating(false);
+      }
+    }, [nearby, startNearby]);
 
     const onRegionPress = useCallback(() => setRegionPickerOpen(true), []);
     const onNearbyPress = useCallback(() => {
       void onNearby();
     }, [onNearby]);
-    const onSortPress = cycleSort;
+    const onSortPress = useCallback(() => {
+      // Inside «القريب» the order chip switches nearest-first ↔ newest within the radius.
+      if (nearby) {
+        applyNearby({ ...nearby, nearestFirst: !nearby.nearestFirst });
+        return;
+      }
+      cycleSort();
+    }, [cycleSort, nearby, applyNearby]);
     const onCategoryPress = useCallback(() => setCategoryPickerOpen(true), []);
 
     const filterBar = useMemo(
@@ -382,9 +483,9 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           categoryActive={categoryActive}
           categoryPickerOpen={categoryPickerOpen}
           regionActive={regionPickerOpen}
-          nearbyActive={nearbyActive}
-          sortActive={sortMode !== 'newest'}
-          sortLabel={feedSortLabelAr(sortMode)}
+          nearbyActive={nearbyActive || nearbyLocating}
+          sortActive={nearby ? nearby.nearestFirst : sortMode !== 'newest'}
+          sortLabel={nearby ? (nearby.nearestFirst ? 'الأقرب أولاً' : 'الأحدث') : feedSortLabelAr(sortMode)}
         />
       ),
       [
@@ -397,8 +498,22 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         categoryPickerOpen,
         regionPickerOpen,
         nearbyActive,
+        nearbyLocating,
+        nearby,
         sortMode,
       ],
+    );
+
+    const nearbyBar = useMemo(
+      () =>
+        nearby ? (
+          <NearbyFilterChips
+            state={nearby}
+            onChip={onNearbyChip}
+            onOriginPress={onNearbyOriginPress}
+          />
+        ) : null,
+      [nearby, onNearbyChip, onNearbyOriginPress],
     );
 
     const renderItem = useCallback(
@@ -433,9 +548,10 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         <View style={variant === 'home' ? styles.homeHeaderStack : undefined}>
           {extraHeader}
           {variant === 'home' ? filterBar : null}
+          {variant === 'home' ? nearbyBar : null}
         </View>
       ),
-      [extraHeader, variant, filterBar],
+      [extraHeader, variant, filterBar, nearbyBar],
     );
 
     return (
@@ -449,6 +565,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
               featuredActive={showFeaturedOnly}
             />
             {filterBar}
+            {nearbyBar}
           </View>
         ) : null}
 
@@ -496,7 +613,9 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
                   🔍
                 </AppText>
                 <AppText variant="body" color="textMuted" align="center">
-                  لا توجد إعلانات مطابقة
+                  {nearby
+                    ? `لا توجد إعلانات ضمن ${nearby.radiusKm} كم من ${nearby.origin.city.nameAr}`
+                    : 'لا توجد إعلانات مطابقة'}
                 </AppText>
               </Stack>
             )
@@ -524,9 +643,25 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           selection={regionSelection}
           onClose={() => setRegionPickerOpen(false)}
           onSelect={(selection) => {
-            setNearbyActive(false);
+            if (nearby) applyNearby(null);
             setRegionSelection(selection);
           }}
+          onNearby={() => {
+            if (!nearby) onNearbyPress();
+          }}
+          nearbyActive={nearbyActive}
+        />
+
+        <SaudiCityPickerSheet
+          visible={cityPickerOpen}
+          title="مدينتك"
+          message={cityPickerMessage}
+          selectedId={nearby?.origin.kind === 'city' ? nearby.origin.city.id : null}
+          onClose={() => setCityPickerOpen(false)}
+          onSelect={onPickNearbyCity}
+          onUseLocation={() => void onCityPickerUseLocation()}
+          locating={nearbyLocating}
+          testID="nearby-city-picker"
         />
 
         <MarketCategoryPicker

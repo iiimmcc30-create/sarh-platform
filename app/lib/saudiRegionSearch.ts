@@ -1,5 +1,19 @@
 import type { RegionSelection, SaudiCity, SaudiRegion } from '@/constants/saudiRegions';
 import { SAUDI_REGIONS } from '@/constants/saudiRegions';
+import { matchSaudiCityName, type SaudiCityEntry } from '@/lib/saudiCities';
+
+/** Listing location text → a city of the shared list (whole text, then each part). */
+export function resolveListingCity(locationText: string): SaudiCityEntry | null {
+  const raw = typeof locationText === 'string' ? locationText.trim() : '';
+  if (!raw) return null;
+  const direct = matchSaudiCityName(raw);
+  if (direct) return direct;
+  for (const part of raw.split(/[,،\-–|/]+/)) {
+    const hit = matchSaudiCityName(part);
+    if (hit) return hit;
+  }
+  return null;
+}
 
 export function normalizeArabic(text: string): string {
   return text
@@ -107,6 +121,13 @@ export function listingMatchesRegionSelection(
 
   const raw = typeof locationText === 'string' ? locationText.trim() : '';
   if (!raw) return false;
+
+  // Known city (any spelling variant): exact id / region comparison.
+  const known = resolveListingCity(raw);
+  if (known) {
+    if (selection.type === 'city') return known.id === selection.city.id;
+    return known.regionId === selection.region.id;
+  }
 
   const haystack = normalizeArabic(raw);
   const haystackCompact = compactArabic(raw);

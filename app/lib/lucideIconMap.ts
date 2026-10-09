@@ -451,6 +451,11 @@ const MAP: Record<string, LucideIcon> = {
   construct: Wrench,
 };
 
+/** True when `name` is a known icon (e.g. a MarketCategory.icon from the admin). */
+export function hasLucideIcon(name: string | null | undefined): boolean {
+  return typeof name === 'string' && Object.prototype.hasOwnProperty.call(MAP, name);
+}
+
 export function resolveLucideIcon(name: string): LucideIcon {
   if (MAP[name]) return MAP[name];
   const aliased = FLATICON_ALIASES[name];

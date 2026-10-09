@@ -54,6 +54,8 @@ type BackendListing = {
   displaySellerName?: string | null;
   displayPhone?: string | null;
   displayRegion?: string | null;
+  cityId?: string | null;
+  distanceKm?: number | null;
   seller?: {
     id: string;
     username: string;
@@ -143,6 +145,8 @@ export function mapListing(l: BackendListing): Listing {
     createdAt: l.createdAt,
     views: typeof l.views === 'number' ? l.views : undefined,
     editCount: typeof l.editCount === 'number' ? l.editCount : 0,
+    cityId: l.cityId ?? undefined,
+    distanceKm: typeof l.distanceKm === 'number' ? l.distanceKm : undefined,
   };
 }
 
@@ -157,11 +161,16 @@ export type ListingSearchParams = {
   cursor?: string;
   sellerId?: string;
   featured?: boolean;
-  /** Server-side publish-time order. Omitted/newest = default feed ranking. */
+  /** Server-side order. Omitted/newest = default feed ranking; nearest needs near/cityId. */
   sort?: ListingFeedSort;
+  /** «القريب منك» origin: device point rounded to 2 decimals (never stored server-side). */
+  near?: { lat: number; lng: number };
+  /** «القريب منك» origin when location is off: the picked city centre. */
+  nearCityId?: string;
+  radiusKm?: number;
 };
 
-export type ListingFeedSort = 'newest' | 'oldest';
+export type ListingFeedSort = 'newest' | 'oldest' | 'nearest';
 
 export type ListingSearchPage = {
   listings: Listing[];
@@ -234,9 +243,13 @@ export function isDefaultListingsFirstPage(params: ListingSearchParams = {}): bo
     !params.cursor &&
     !params.sellerId &&
     !params.featured &&
-    params.sort !== 'oldest'
+    !params.near &&
+    !params.nearCityId &&
+    (params.sort == null || params.sort === 'newest')
   );
 }
+
+const roundTo2 = (v: number) => (Math.round(v * 100) / 100).toFixed(2);
 
 export function buildListingsFeedUrl(
   base: string,
@@ -255,7 +268,15 @@ export function buildListingsFeedUrl(
   if (params.featured) qs.set('featured', 'true');
   // Only non-default orders go on the wire, so the default URL (and its
   // bootstrap/dedupe cache entries) stays identical to the newest feed.
-  if (params.sort === 'oldest') qs.set('sort', 'oldest');
+  if (params.sort === 'oldest' || params.sort === 'nearest') qs.set('sort', params.sort);
+  if (params.near) {
+    qs.set('near', `${roundTo2(params.near.lat)},${roundTo2(params.near.lng)}`);
+  } else if (params.nearCityId) {
+    qs.set('cityId', params.nearCityId);
+  }
+  if ((params.near || params.nearCityId) && params.radiusKm) {
+    qs.set('radiusKm', String(params.radiusKm));
+  }
 
   const root = base.replace(/\/$/, '');
   const query = qs.toString();

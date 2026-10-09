@@ -156,14 +156,17 @@ describe('shared sheet components (source contracts)', () => {
       'components/listing/ListingContactSheet.tsx',
       'components/listing/PromotionStatsSheet.tsx',
       'components/feature/RatingModal.tsx',
-      'components/market/MarketCategoryPicker.tsx',
-      'components/market/RegionCityPicker.tsx',
+      'components/ui/sheets/GroupedPickerSheet.tsx',
       'components/listing/ListingFeePaymentSheet.tsx',
       'components/live/LiveBroadcastPledgeModal.tsx',
       'components/feature/chat/ChatActionsSheet.tsx',
       'components/listing/ListingDeleteDialog.tsx',
     ]) {
       expect({ f, ok: src(f).includes('<SheetSurface') }).toEqual({ f, ok: true });
+    }
+    // Region / category pickers render through the shared grouped picker sheet.
+    for (const f of ['components/market/MarketCategoryPicker.tsx', 'components/market/RegionCityPicker.tsx']) {
+      expect({ f, ok: src(f).includes('<GroupedPickerSheet') }).toEqual({ f, ok: true });
     }
   });
 
