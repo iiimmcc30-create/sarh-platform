@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "sources": [
   "OpenStreetMap Nominatim (place nodes, ODbL)",
   "GeoNames SA dump (CC BY 4.0)",
@@ -332,10 +332,10 @@
    "nameAr": "الحريق",
    "nameEn": "Al Hariq",
    "aliases": [],
-   "lat": 25.447,
-   "lng": 45.4011,
+   "lat": 23.6336,
+   "lng": 46.5139,
    "verifiedBy": "osm+geonames",
-   "agreeKm": 0.0
+   "agreeKm": 0.8
   },
   {
    "id": "marat",
@@ -1407,10 +1407,10 @@
    "nameAr": "الحرجة",
    "nameEn": "Al Harjah",
    "aliases": [],
-   "lat": 19.5757,
-   "lng": 41.9845,
+   "lat": 17.9218,
+   "lng": 43.3677,
    "verifiedBy": "osm+geonames",
-   "agreeKm": 0.7
+   "agreeKm": 0.9
   },
   {
    "id": "ahad-rufaidah",

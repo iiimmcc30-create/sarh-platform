@@ -93,6 +93,14 @@ describe('Saudi city dataset', () => {
 });
 
 describe('distance helpers', () => {
+  it('uses the governorate seats, not same-name villages (audit regressions)', () => {
+    const m = saudiCityMatcher();
+    const near = (id: string, lat: number, lng: number) =>
+      haversineKm(m.byId.get(id)!.lat, m.byId.get(id)!.lng, lat, lng);
+    expect(near('hariq', 23.6336, 46.5139)).toBeLessThan(2); // not الحريق village near Shaqra
+    expect(near('harjah', 17.9218, 43.3677)).toBeLessThan(2); // not الحرجة village near Balqarn
+  });
+
   it('haversine is accurate (Makkah ↔ Madinah ≈ 337 km great-circle)', () => {
     const m = saudiCityMatcher();
     const r = m.byId.get('makkah-city')!;
