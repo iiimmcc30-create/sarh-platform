@@ -108,7 +108,8 @@ describe('UsersService profile identity cooldowns', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers({ toFake: ['Date'] });
+    // Jest 30 has no `toFake` option (it was silently ignored): same runtime behaviour.
+    jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-09-25T12:00:00.000Z'));
     repo.findByUsername.mockResolvedValue(null);
     mockLock();

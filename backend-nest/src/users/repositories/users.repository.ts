@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Country, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { softDeleteFields } from '../../common/utils/soft-delete.util';
+import { accountDeletionOperations } from '../lib/account-anonymization';
 
 const listUserSelect = {
   id: true,
@@ -264,20 +264,9 @@ export class UsersRepository {
     });
   }
 
+  /** Account deletion: anonymize + revoke sessions/tokens (lib/account-anonymization.ts). */
   deactivateUser(id: string) {
-    return this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id },
-        data: {
-          isActive: false,
-          ...softDeleteFields(),
-          email: `deleted_${Date.now()}@safat.deleted`,
-          fcmToken: null,
-        },
-      }),
-      this.prisma.userDeviceToken.deleteMany({ where: { userId: id } }),
-      this.prisma.userSession.deleteMany({ where: { userId: id } }),
-    ]);
+    return this.prisma.$transaction(accountDeletionOperations(this.prisma, id));
   }
 
   findUserById(id: string, select: Prisma.UserSelect) {

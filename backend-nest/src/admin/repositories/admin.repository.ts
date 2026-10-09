@@ -8,6 +8,7 @@ import {
   softDeleteFields,
 } from '../../common/utils/soft-delete.util';
 import type { PaginationQueryDto } from '../dto/admin.dto';
+import { accountDeletionOperations } from '../../users/lib/account-anonymization';
 import { ADMIN_MEMBERSHIP_SELECT } from '../../subscriptions/verification/admin-membership';
 
 const USER_SELECT = {
@@ -188,28 +189,9 @@ export class AdminRepository {
     });
   }
 
+  /** Same anonymization as self-service account deletion (users/lib/account-anonymization.ts). */
   purgeUser(id: string) {
-    const ts = Date.now();
-    return this.prisma.$transaction([
-      this.prisma.userSession.deleteMany({ where: { userId: id } }),
-      this.prisma.user.update({
-        where: { id },
-        data: {
-          isActive: false,
-          ...softDeleteFields(),
-          username: `deleted_${id.slice(0, 8)}_${ts}`,
-          email: `deleted_${ts}@safat.deleted`,
-          phone: null,
-          googleId: null,
-          fcmToken: null,
-          displayName: 'Deleted User',
-          arabicName: 'مستخدم محذوف',
-          bio: null,
-          avatar: null,
-          coverImage: null,
-        },
-      }),
-    ]);
+    return this.prisma.$transaction(accountDeletionOperations(this.prisma, id));
   }
 
   async listPosts(query: PaginationQueryDto) {
