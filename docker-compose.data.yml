@@ -23,8 +23,17 @@
 
 name: sarh
 
+# Bounded json-file logs (default driver keeps growing until the disk is full).
+# 5 x 20 MB per container; `docker compose up -d` recreates a service to apply it.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   postgres:
+    logging: *default-logging
     image: postgres:18-alpine
     restart: unless-stopped
     mem_limit: ${POSTGRES_MEM_LIMIT:-768m}
@@ -50,6 +59,7 @@ services:
       - sarh_internal
 
   redis:
+    logging: *default-logging
     image: redis:7-alpine
     restart: unless-stopped
     mem_limit: ${REDIS_MEM_LIMIT:-384m}

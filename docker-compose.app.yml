@@ -29,8 +29,17 @@ x-backend-env: &backend-env
   REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
   REDIS_ENABLED: 'true'
 
+# Bounded json-file logs (default driver keeps growing until the disk is full).
+# 5 x 20 MB per container; `docker compose up -d` recreates a service to apply it.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   api:
+    logging: *default-logging
     build:
       context: ./backend-nest
       dockerfile: Dockerfile
@@ -65,6 +74,7 @@ services:
       start_period: 60s
 
   worker:
+    logging: *default-logging
     image: sarh-backend:latest
     restart: unless-stopped
     mem_limit: 512m
@@ -94,6 +104,7 @@ services:
       start_period: 45s
 
   socket:
+    logging: *default-logging
     image: sarh-backend:latest
     restart: unless-stopped
     mem_limit: 384m
@@ -128,6 +139,7 @@ services:
       start_period: 30s
 
   admin:
+    logging: *default-logging
     build:
       context: ./admin-panel
       dockerfile: Dockerfile
@@ -162,6 +174,7 @@ services:
       start_period: 40s
 
   web:
+    logging: *default-logging
     build:
       context: ./app
       dockerfile: Dockerfile
@@ -185,6 +198,7 @@ services:
 
   # HTTPS: add -f docker-compose.prod.ssl.yml (overrides nginx ports/volumes only).
   nginx:
+    logging: *default-logging
     image: nginx:1.27-alpine
     restart: unless-stopped
     mem_limit: 128m
