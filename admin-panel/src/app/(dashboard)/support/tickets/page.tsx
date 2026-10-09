@@ -28,7 +28,7 @@ const statusTone = (s: string) => {
 const STATUS_LABEL: Record<string, string> = {
   OPEN: 'مفتوحة',
   IN_REVIEW: 'قيد المراجعة',
-  AI_ASSISTING: 'سرحان يساعد',
+  AI_ASSISTING: 'مساعد سرح يساعد',
   WAITING_FOR_CUSTOMER: 'بانتظار العميل',
   WAITING_FOR_SUPPORT: 'بانتظار خدمة العملاء',
   IN_PROGRESS: 'قيد المعالجة',
@@ -72,7 +72,7 @@ export default function SupportTicketsPage() {
   return (
     <ResourcePage<TicketRow>
       title="البلاغات"
-      description="بلاغات العملاء عبر سرحان وخدمة العملاء"
+      description="بلاغات العملاء عبر مساعد سرح وخدمة العملاء"
       fetchPage={fetchPage}
       filters={
         <div className="flex flex-wrap gap-2 text-sm">

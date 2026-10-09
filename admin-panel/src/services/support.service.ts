@@ -94,3 +94,19 @@ export async function reorderSupportFaqs(items: { id: string; sortOrder: number 
   const res = await apiClient.put('/admin/support/faqs/reorder', { items });
   return unwrap<{ ok: boolean }>(res);
 }
+
+export type ServiceStatus = {
+  state: 'ok' | 'degraded';
+  textAr: string;
+  updatedAt: string | null;
+};
+
+export async function fetchServiceStatus() {
+  const res = await apiClient.get('/admin/support/status');
+  return unwrap<ServiceStatus>(res);
+}
+
+export async function updateServiceStatus(body: { state: 'ok' | 'degraded'; textAr?: string }) {
+  const res = await apiClient.put('/admin/support/status', body);
+  return unwrap<ServiceStatus>(res);
+}

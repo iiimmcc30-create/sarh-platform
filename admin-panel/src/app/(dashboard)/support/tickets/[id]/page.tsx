@@ -17,7 +17,7 @@ import { useAdminSupportTicketSocket } from '@/hooks/useAdminSupportTicketSocket
 const STATUS_LABEL: Record<string, string> = {
   OPEN: 'جديدة',
   IN_REVIEW: 'قيد المراجعة',
-  AI_ASSISTING: 'سرحان يساعد',
+  AI_ASSISTING: 'مساعد سرح يساعد',
   WAITING_FOR_CUSTOMER: 'بانتظار العميل',
   WAITING_FOR_SUPPORT: 'بانتظار خدمة العملاء',
   IN_PROGRESS: 'قيد المعالجة',
@@ -79,7 +79,7 @@ export default function SupportTicketDetailPage() {
   const reporter = ticket.reporter as Record<string, unknown> | undefined;
 
   const authorLabel = (msg: Record<string, unknown>) => {
-    if (msg.authorKind === 'SARHAN') return 'سرحان';
+    if (msg.authorKind === 'SARHAN') return 'مساعد سرح';
     if (msg.authorKind === 'STAFF' || msg.isStaffReply) return 'خدمة العملاء';
     return 'العميل';
   };
@@ -99,7 +99,7 @@ export default function SupportTicketDetailPage() {
             العميل: {String(reporter?.arabicName || reporter?.displayName || reporter?.username || '—')}
           </p>
           {typeof metadata.issueType === 'string' ? (
-            <p className="text-sm text-slate-300">تصنيف سرحان: {String(metadata.issueType)}</p>
+            <p className="text-sm text-slate-300">تصنيف مساعد سرح: {String(metadata.issueType)}</p>
           ) : null}
           {typeof metadata.summary === 'string' ? (
             <p className="text-sm text-slate-300 whitespace-pre-wrap">ملخص: {String(metadata.summary)}</p>
