@@ -194,3 +194,12 @@ describe('grouped picker sheets («كل المناطق» / «التصنيف»)',
     expect(src('components/market/RegionCityPicker.tsx')).toContain('القريب مني');
   });
 });
+
+describe('ListingCard distance item', () => {
+  it('adds «~N كم» to the one-line meta row only when distanceKm is present', () => {
+    const card = src('components/feature/ListingCard.tsx');
+    expect(card).toContain('const distanceLabel = formatDistanceKm(listing.distanceKm);');
+    expect(card).toMatch(/\{distanceLabel \? \(\s*<ListMetaItem\s+icon="navigation"\s+label=\{distanceLabel\}/);
+    expect(card).not.toMatch(/listing\.(lat|lng)\b/);
+  });
+});

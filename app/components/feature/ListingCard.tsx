@@ -39,6 +39,7 @@ import { VERIFIED_BADGE_GAP } from '@/lib/verifiedBadge';
 import { LISTING_LIST_LAYOUT } from '@/components/feature/listingCardLayout';
 import { useListingListMetrics } from '@/components/feature/useListingListMetrics';
 import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
+import { formatDistanceKm } from '@/lib/saudiCities';
 
 interface ListingCardProps {
   listing: Listing;
@@ -164,6 +165,8 @@ function ListingCardInner({
   const timeLabel = listingTimeLabel(listing);
   const title = listing.arabicTitle || listing.title;
   const location = listing.arabicLocation || listing.location;
+  // «القريب»: server-rounded distance only (never coordinates), e.g. «~35 كم».
+  const distanceLabel = formatDistanceKm(listing.distanceKm);
   const seller = listing.seller;
   const managed = isManagedListing(listing);
   const sellerName = listingAdvertiserName(listing);
@@ -216,6 +219,16 @@ function ListingCardInner({
               textStyle={[styles.listMetaText, listDyn.metaText]}
               shrink
             />
+            {distanceLabel ? (
+              <ListMetaItem
+                icon="navigation"
+                label={distanceLabel}
+                iconSize={m.metaIcon}
+                iconColor={colors.textSecondary}
+                gap={m.metaInnerGap}
+                textStyle={[styles.listMetaText, listDyn.metaText]}
+              />
+            ) : null}
             <ListMetaItem
               icon="refresh-circle-outline"
               label={displayTime}
