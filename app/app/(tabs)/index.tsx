@@ -2,7 +2,6 @@
 // SAFAT — Home Tab (الصفاة)
 
 import { useRouter } from 'expo-router';
-import { HomeQuickAccess } from '@/components/feature/HomeQuickAccess';
 import { HomeStoriesRow } from '@/components/feature/HomeStoriesRow';
 import {
   MarketListingsFeed,
@@ -57,17 +56,9 @@ export default function HomeScreen() {
     safePush('/sidebar', undefined, router);
   }, [isAuthenticated, router]);
 
-  // Home list header: user stories row directly under the app bar, then Quick Access
-  // (the market feed adds its filter/categories bar and listings after this).
-  const quickAccess = useMemo(
-    () => (
-      <>
-        <HomeStoriesRow />
-        <HomeQuickAccess />
-      </>
-    ),
-    [],
-  );
+  // Home list header: user stories row directly under the app bar (the market
+  // feed adds its filter/categories bar and listings after this). No quick-access rail.
+  const homeHeader = useMemo(() => <HomeStoriesRow />, []);
 
   return (
     <Screen edges={[]}>
@@ -84,7 +75,7 @@ export default function HomeScreen() {
         <MarketListingsFeed
           ref={listingsRef}
           variant="home"
-          extraHeader={quickAccess}
+          extraHeader={homeHeader}
           padTop={headerH}
         />
       </ScreenBody>

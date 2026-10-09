@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { UserIdentityRow, USER_IDENTITY } from '@/components/ui/UserIdentityRow';
 import { SkeletonRegion, UserIdentityRowSkeleton } from '@/components/ui/skeleton';
-import { AppText, SarhDivider } from '@/design-system/components';
+import { AppText } from '@/design-system/components';
 import { motion } from '@/design-system/tokens';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow } from '@/lib/rtl';
@@ -66,7 +66,6 @@ export function SettingsPeopleList({
           {[0, 1, 2, 3].map((i) => (
             <View key={i}>
               <UserIdentityRowSkeleton trailingPill={88} trailingPillHeight={32} style={styles.row} />
-              {i < 3 ? <SarhDivider inset /> : null}
             </View>
           ))}
         </SkeletonRegion>
@@ -124,7 +123,6 @@ export function SettingsPeopleList({
                 )}
               </Pressable>
             </View>
-            {idx < users.length - 1 ? <SarhDivider inset /> : null}
           </View>
         );
       })}

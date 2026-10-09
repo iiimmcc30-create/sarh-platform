@@ -10,7 +10,6 @@ jest.mock('@/constants/branding', () => ({ MEWA_FALLBACK_AVATAR: 1 }));
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n');
 
-const quick = src('components/feature/HomeQuickAccess.tsx');
 const chips = src('components/ui/filterChipAppearance.tsx');
 const bar = src('components/market/MarketFilterBar.tsx');
 const card = src('components/feature/ListingCard.tsx');
@@ -50,10 +49,8 @@ describe('quick-access surface: filter chips + listing cards match the Home quic
     expect(surface.borderColor).toBe('#E6E8EB');
   });
 
-  it('Home quick access still uses the same SarhButton variant', () => {
+  it('the quick-access surface keeps the same SarhButton variant (Home rail removed)', () => {
     expect(HOME_QUICK_ACCESS_CHIP_VARIANT).toBe('secondary');
-    expect(quick).toContain('resolveQuickAccessSurface(scheme)');
-    expect(quick).toContain('borderColor: (pressed ? chipPressed : chip).borderColor');
   });
 
   it('shared filter chips (SarhChip filter) read idle bg / border / label / icon from quick access', () => {

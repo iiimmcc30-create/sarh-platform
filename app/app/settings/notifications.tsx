@@ -65,7 +65,7 @@ export default function NotificationSettingsScreen() {
   const enabledCount = settings ? NOTIFICATION_PREF_KEYS.filter((key) => settings.prefs[key]).length : 0;
 
   return (
-    <SettingsScreen title="الإشعارات" largeTitle>
+    <SettingsScreen title="الإشعارات">
       {osBlocked ? (
         <SettingsGroup footer="الإشعارات متوقفة من إعدادات جهازك، فلن يصلك شيء حتى تسمح بها.">
           <SarhSettingsRow

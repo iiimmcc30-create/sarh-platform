@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { buildSettingsGroups, type SettingsContext } from '../lib/settingsRows';
+import { buildSettingsGroups, settingsSectionHref, type SettingsContext } from '../lib/settingsRows';
+import { withoutDigitalPurchaseRows } from '../lib/storePurchases';
 import { filterSettingsGroups, normalizeArabic } from '../lib/settingsSearch';
 import {
   AUDIENCE_PAGES,
@@ -49,20 +50,37 @@ function routeFileExists(route: string): boolean {
   return [`${base}.tsx`, path.join(base, 'index.tsx')].some((f) => existsSync(f));
 }
 
-describe('settings home groups', () => {
-  const groups = buildSettingsGroups(ctx());
+describe('settings hub sections (X look)', () => {
+  const groups = buildSettingsGroups(ctx({ identity: { name: 'متعب', username: 'x7987x' } }));
 
-  it('keeps the target order', () => {
+  it('keeps the X section order adapted to Sarh', () => {
     expect(groups.map((g) => g.key)).toEqual([
-      'subscription',
       'account',
+      'security',
+      'verification',
       'privacy',
       'notifications',
-      'listings',
-      'appearance',
-      'help',
-      'session',
+      'payments',
+      'display',
+      'resources',
     ]);
+    expect(groups.map((g) => g.title)).toEqual([
+      'حسابك',
+      'الأمان والوصول إلى الحساب',
+      'توثيق الحساب',
+      'الخصوصية والأمان',
+      'الإشعارات',
+      'المدفوعات',
+      'العرض واللغة',
+      'موارد إضافية',
+    ]);
+  });
+
+  it('every section has an outline icon and a grey description', () => {
+    for (const g of groups) {
+      expect(g.icon).toBeTruthy();
+      expect(g.description.length).toBeGreaterThan(10);
+    }
   });
 
   it('every row either navigates to an existing screen or runs a known action', () => {
@@ -79,27 +97,55 @@ describe('settings home groups', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('ends with logout and an inner delete-account page, both muted red, plus the version', () => {
-    const last = groups[groups.length - 1];
-    expect(last.rows.map((r) => r.key)).toEqual(['logout', 'delete-account']);
-    expect(last.rows.every((r) => r.tone === 'danger')).toBe(true);
-    expect(last.rows[1].route).toBe('/settings/delete-account');
-    expect(last.footer).toContain('1.2.3 (45)');
+  it('single-row sections open their page directly, the rest open the section page', () => {
+    const by = (k: string) => groups.find((g) => g.key === k)!;
+    expect(settingsSectionHref(by('notifications'))).toBe('/settings/notifications');
+    expect(settingsSectionHref(by('verification'))).toBe('/verification');
+    expect(settingsSectionHref(by('privacy'))).toBe('/settings/section?key=privacy');
+    expect(routeFileExists('/settings/section')).toBe(true);
   });
 
-  it('help links to the shared /support hub', () => {
-    const help = groups.find((g) => g.key === 'help')!;
-    expect(help.rows[0].route).toBe('/support');
+  it('«حسابك» holds account info, data download and delete/logout (muted red)', () => {
+    const account = groups.find((g) => g.key === 'account')!;
+    expect(account.rows.map((r) => r.key)).toEqual(['profile', 'phone', 'email', 'export', 'delete-account', 'logout']);
+    expect(account.rows[0].route).toBe('/profile/edit');
+    expect(account.rows[0].description).toBe('متعب · @x7987x');
+    expect(account.rows.filter((r) => r.tone === 'danger').map((r) => r.key)).toEqual(['delete-account', 'logout']);
   });
 
-  it('shows the active plan or an upgrade/trial entry', () => {
+  it('security, privacy, payments and resources hold the expected rows', () => {
+    const keys = (k: string) => groups.find((g) => g.key === k)!.rows.map((r) => r.key);
+    expect(keys('security')).toEqual(['password', 'sessions']);
+    expect(keys('privacy')).toEqual([
+      'messages-audience',
+      'comments-audience',
+      'following-list',
+      'show-in-search',
+      'blocked',
+      'muted',
+      'profile-views',
+    ]);
+    expect(keys('payments')).toEqual(['payments', 'fees', 'promote']);
+    expect(groups.find((g) => g.key === 'resources')!.rows[0].route).toBe('/support');
+  });
+
+  it('verification shows the active plan, the trial offer, or «توثيق الحساب»', () => {
     const subscribed = buildSettingsGroups(
       ctx({ subscription: { planLabel: 'ذهبي', until: 'حتى ١ نوفمبر', trialEligible: false, trialActive: false } }),
     );
-    expect(subscribed[0].rows[0].value).toBe('ذهبي · حتى ١ نوفمبر');
-    expect(groups[0].rows[0].title).toContain('مجاناً');
+    const v = (gs: typeof groups) => gs.find((g) => g.key === 'verification')!;
+    expect(v(subscribed).rows[0].description).toBe('ذهبي · حتى ١ نوفمبر');
+    expect(v(subscribed).description).toBe('مشترك ذهبي · حتى ١ نوفمبر');
+    expect(v(groups).rows[0].title).toContain('مجاناً');
     const plain = buildSettingsGroups(ctx({ subscription: { planLabel: null, until: null, trialEligible: false, trialActive: false } }));
-    expect(plain[0].rows[0].title).toBe('توثيق الحساب');
+    expect(v(plain).title).toBe('توثيق الحساب');
+    expect(v(plain).rows[0].title).toBe('توثيق الحساب');
+  });
+
+  it('hides «توثيق الحساب» (and boosts) when digital purchases are off', () => {
+    const off = withoutDigitalPurchaseRows(groups, false);
+    expect(off.map((g) => g.key)).not.toContain('verification');
+    expect(off.find((g) => g.key === 'payments')!.rows.map((r) => r.key)).toEqual(['payments', 'fees']);
   });
 
   it('shows counts only when there is something to count', () => {
@@ -180,7 +226,7 @@ describe('settings screens wiring', () => {
   });
 });
 
-describe('settings inner pages (iOS inset-grouped)', () => {
+describe('settings inner pages (X look)', () => {
   const SAVE_PAGES = [
     'app/profile/settings/account.tsx',
     'app/profile/settings/password.tsx',
@@ -196,6 +242,7 @@ describe('settings inner pages (iOS inset-grouped)', () => {
     'app/settings/delete-account.tsx',
     'app/settings/audience.tsx',
     'app/settings/payment.tsx',
+    'app/settings/section.tsx',
   ];
 
   it('every inner page uses the shared settings shell, no legacy header or cards', () => {
@@ -206,7 +253,7 @@ describe('settings inner pages (iOS inset-grouped)', () => {
       expect(text).not.toContain('SarhCard');
       expect(text).not.toContain('SarhButton');
     }
-    expect(src('components/ui/SettingsMenuScreen.tsx')).toContain('<SettingsScreen title={title} largeTitle');
+    expect(src('components/ui/SettingsMenuScreen.tsx')).toContain('<SettingsScreen title={title}');
   });
 
   it('edit forms save from the top-left bar, dim until changed, and guard unsaved edits', () => {
@@ -228,9 +275,13 @@ describe('settings inner pages (iOS inset-grouped)', () => {
     expect(src('app/settings/notifications.tsx')).toContain('updateNotificationSettings(patch)');
   });
 
-  it('the save bar: back on the inline start, «حفظ» on the end, spinner while saving, discard prompt', () => {
+  it('the X header: back on the inline start, bold title + grey @username, «حفظ» on the end, hairline, discard prompt', () => {
     const shell = src('components/settings/SettingsScreen.tsx');
     expect(shell).toContain('getRtlRow()');
+    expect(shell).toContain('testID="settings-header-username"');
+    expect(shell).toContain('`@${username}`');
+    expect(shell).toContain('styles.hairline');
+    expect(shell.indexOf('{title}')).toBeLessThan(shell.indexOf('{line}'));
     expect(shell.indexOf('<SarhBackButton')).toBeLessThan(shell.indexOf('testID="settings-save"'));
     expect(shell).toContain('<ActivityIndicator');
     expect(shell).toContain('usePreventRemove');
@@ -248,19 +299,23 @@ describe('settings inner pages (iOS inset-grouped)', () => {
 });
 
 describe('settings follow-up: account card, audience, notifications, devices, export, payments', () => {
-  it('the hub card shows the name in a themed DS text and no «حساب مجاني» line', () => {
-    const card = src('components/settings/SettingsAccountCard.tsx');
-    expect(card).toContain('color="textPrimary"');
-    expect(card).toContain('testID="settings-account-name"');
-    expect(card).toContain('planLine ? (');
+  it('settings show the @username (and the name under «حسابك») from the loaded profile or the auth user', () => {
+    const shell = src('components/settings/SettingsScreen.tsx');
+    expect(shell).toContain('export function useSettingsIdentity()');
+    expect(shell).toContain('me.username || user?.username');
+    expect(shell).toContain('me.arabicName || me.displayName || user?.arabicName || user?.displayName');
+    expect(src('components/settings/useSettingsGroups.ts')).toContain('identity,');
+    expect(existsSync(path.join(root, 'components/settings/SettingsAccountCard.tsx'))).toBe(false);
     const home = src('components/settings/SettingsHomeScreen.tsx');
     expect(home).not.toContain('حساب مجاني');
+    expect(src('lib/settingsRows.ts')).not.toContain('حساب مجاني');
   });
 
   it('the subscription entry reads «توثيق الحساب», never «ترقية الحساب»', () => {
     const rows = src('lib/settingsRows.ts');
     expect(rows).toContain("'توثيق الحساب'");
     expect(rows).not.toContain('ترقية الحساب');
+    expect(rows).toContain("title: 'توثيق الحساب'");
   });
 
   it('audience selection maps to the same privacy patches as before', () => {
@@ -340,5 +395,38 @@ describe('settings follow-up: account card, audience, notifications, devices, ex
     expect(list).toContain('<SettingsPill');
     expect(list).toContain('لا توجد مدفوعات بعد');
     expect(existsSync(path.join(root, 'app/settings/payment.tsx'))).toBe(true);
+  });
+});
+
+describe('X settings look: flat rows, bold sub-headers, pill search, version', () => {
+  it('rows: outline icon, title, grey multi-line description, no separators or chevrons by default', () => {
+    const row = src('design-system/components/SarhSettingsRow.tsx');
+    expect(row).toContain('showChevron = false');
+    expect(row).not.toContain('<SarhDivider');
+    expect(row).toContain('numberOfLines={3}');
+    expect(row).not.toMatch(/borderRadius|shadow|LinearGradient/);
+  });
+
+  it('sections: bold text sub-header, no card box', () => {
+    const section = src('design-system/components/SarhSettingsSection.tsx');
+    expect(section).toContain('variant="heading3"');
+    expect(section).not.toMatch(/borderRadius|borderWidth|backgroundColor/);
+    expect(src('components/settings/SettingsRows.tsx')).not.toContain('SarhSettingsSection grouped');
+  });
+
+  it('hub: X header, pill «إعدادات البحث», section rows with descriptions, centred version', () => {
+    const home = src('components/settings/SettingsHomeScreen.tsx');
+    expect(home).toContain('<SettingsSaveHeader title="الإعدادات" />');
+    expect(home).toContain('placeholder="إعدادات البحث"');
+    expect(home).toContain('shape="pill"');
+    expect(home).toContain('subtitle={group.description}');
+    expect(home).toContain('testID="settings-version"');
+    expect(home).toContain('align="center"');
+  });
+
+  it('edit forms use underlined fields with a label above', () => {
+    const rows = src('components/settings/SettingsRows.tsx');
+    expect(rows).toContain('borderBottomWidth');
+    expect(rows).toContain('borderBottomColor: focused ? colors.textPrimary : colors.borderMid');
   });
 });

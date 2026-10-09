@@ -46,7 +46,7 @@ export default function BlockedUsersScreen() {
   };
 
   return (
-    <SettingsScreen title="الحسابات المحظورة" largeTitle>
+    <SettingsScreen title="الحسابات المحظورة">
       <SettingsPeopleList
         users={users}
         loading={loading}

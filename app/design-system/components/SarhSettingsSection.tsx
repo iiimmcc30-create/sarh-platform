@@ -1,71 +1,48 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import { colors, space } from '../tokens';
+import { space } from '../tokens';
 import { AppText } from './AppText';
 
 export type SarhSettingsSectionProps = {
-  /** Small grey group title; omit for an untitled group. */
+  /** Bold sub-header above the rows (X settings); omit for an untitled block. */
   title?: string;
-  /** iOS Settings look: rows inside a rounded, hairline-bordered surface card. */
+  /** @deprecated X settings have no grouped boxes — kept for call-site compatibility, ignored. */
   grouped?: boolean;
-  /** Small grey note under the group. */
+  /** Grey explanatory note under the rows. */
   footer?: string;
   children: ReactNode;
 };
 
-export function SarhSettingsSection({ title, grouped = false, footer, children }: SarhSettingsSectionProps) {
+/**
+ * X settings section: an optional bold text sub-header, plain rows on the
+ * page background (no card, no border, no separators) and a grey note.
+ */
+export function SarhSettingsSection({ title, footer, children }: SarhSettingsSectionProps) {
   useTheme();
-  if (grouped) {
-    return (
-      <View style={{ paddingTop: space[24], paddingHorizontal: space[16] }}>
-        {title ? (
-          <AppText
-            variant="caption"
-            color="textMuted"
-            numberOfLines={1}
-            style={{ paddingHorizontal: space[16], paddingBottom: space[8] }}
-          >
-            {title}
-          </AppText>
-        ) : null}
-        <View
-          style={{
-            borderRadius: space[12] + space[4],
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.border,
-            backgroundColor: colors.surface,
-            overflow: 'hidden',
-          }}
-        >
-          {children}
-        </View>
-        {footer ? (
-          <AppText
-            variant="caption"
-            color="textMuted"
-            style={{ paddingHorizontal: space[16], paddingTop: space[8] }}
-          >
-            {footer}
-          </AppText>
-        ) : null}
-      </View>
-    );
-  }
   return (
-    <View style={{ paddingTop: space[24] }}>
-      <AppText
-        variant="caption"
-        color="textMuted"
-        numberOfLines={1}
-        style={{
-          paddingHorizontal: space[16],
-          paddingBottom: space[8],
-        }}
-      >
-        {title}
-      </AppText>
+    <View style={{ paddingTop: title ? space[16] : space[8] }}>
+      {title ? (
+        <AppText
+          variant="heading3"
+          color="textPrimary"
+          numberOfLines={2}
+          accessibilityRole="header"
+          style={{ paddingHorizontal: space[16], paddingBottom: space[4] }}
+        >
+          {title}
+        </AppText>
+      ) : null}
       <View>{children}</View>
+      {footer ? (
+        <AppText
+          variant="bodySmall"
+          color="textMuted"
+          style={{ paddingHorizontal: space[16], paddingTop: space[4], paddingBottom: space[8] }}
+        >
+          {footer}
+        </AppText>
+      ) : null}
     </View>
   );
 }

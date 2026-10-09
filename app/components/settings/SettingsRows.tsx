@@ -8,18 +8,19 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { AppText, SarhDivider, SarhSettingsSection } from '@/design-system/components';
+import { AppText, SarhSettingsSection } from '@/design-system/components';
 import { motion, typography } from '@/design-system/tokens';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow, ltrInputText, rtlInputText } from '@/lib/rtl';
 
 /**
- * Grouped-list building blocks for inner settings pages. Rows with icon /
- * value / chevron / switch / checkmark are `SarhSettingsRow`; these cover
- * the rest: inline text fields, centered action rows, status and notes.
+ * X-style building blocks for settings pages. Rows with icon / description /
+ * switch / checkmark are `SarhSettingsRow`; these cover the rest: underlined
+ * text fields, text action rows, status and notes. Everything sits on the page
+ * background — no cards, no boxes, no separators.
  */
 
-/** iOS inset-grouped section (rounded card, grey header and footnote). */
+/** A section: optional bold text sub-header, plain rows, grey note. */
 export function SettingsGroup({
   title,
   footer,
@@ -30,36 +31,34 @@ export function SettingsGroup({
   children: ReactNode;
 }) {
   return (
-    <SarhSettingsSection grouped title={title} footer={footer}>
+    <SarhSettingsSection title={title} footer={footer}>
       {children}
     </SarhSettingsSection>
   );
 }
 
 const styles = StyleSheet.create({
+  field: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
   fieldRow: {
     alignItems: 'center',
-    minHeight: 52,
-    paddingHorizontal: 16,
-    gap: 12,
+    minHeight: 44,
+    gap: 8,
   },
-  fieldLabel: { width: 96 },
-  fieldInput: { flex: 1, minWidth: 0, paddingVertical: 12 },
+  fieldInput: { flex: 1, minWidth: 0, paddingVertical: 8 },
   fieldPrefix: { writingDirection: 'ltr' },
   actionRow: {
     minHeight: 52,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    gap: 12,
   },
   status: { paddingVertical: 28, paddingHorizontal: 24, alignItems: 'center', gap: 10 },
   checkLine: { alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
 });
 
 export type SettingsFieldRowProps = Omit<TextInputProps, 'style'> & {
-  /** Fixed-width label on the start side (iOS «Label   value» field). Omit for a full-width field. */
+  /** Small grey label above the underlined input (X form field). */
   label?: string;
   /** Latin / numeric typing (email, phone, password, code). */
   ltr?: boolean;
@@ -67,24 +66,35 @@ export type SettingsFieldRowProps = Omit<TextInputProps, 'style'> & {
   prefix?: string;
   /** Eye toggle for password fields. */
   revealable?: boolean;
+  /** @deprecated Every X field has its own underline; kept for compatibility, ignored. */
   showDivider?: boolean;
 };
 
-/** One editable row inside a grouped section: label · inline input. */
+/** X form field: grey label, plain input, hairline underline that brightens on focus. */
 export const SettingsFieldRow = forwardRef<TextInput, SettingsFieldRowProps>(function SettingsFieldRow(
-  { label, ltr = false, prefix, revealable = false, secureTextEntry, showDivider = false, editable = true, ...input },
+  { label, ltr = false, prefix, revealable = false, secureTextEntry, editable = true, onFocus, onBlur, ...input },
   ref,
 ) {
   const { colors, isDark } = useTheme();
   const [revealed, setRevealed] = useState(false);
+  const [focused, setFocused] = useState(false);
   return (
-    <View>
-      <View style={[styles.fieldRow, getRtlRow(), { opacity: editable ? 1 : motion.opacity.disabled }]}>
-        {label ? (
-          <AppText variant="label" color="textPrimary" numberOfLines={1} style={styles.fieldLabel}>
-            {label}
-          </AppText>
-        ) : null}
+    <View style={[styles.field, { opacity: editable ? 1 : motion.opacity.disabled }]}>
+      {label ? (
+        <AppText variant="caption" color={focused ? 'textPrimary' : 'textMuted'} numberOfLines={1}>
+          {label}
+        </AppText>
+      ) : null}
+      <View
+        style={[
+          styles.fieldRow,
+          getRtlRow(),
+          {
+            borderBottomWidth: focused ? 2 * StyleSheet.hairlineWidth + 0.5 : StyleSheet.hairlineWidth,
+            borderBottomColor: focused ? colors.textPrimary : colors.borderMid,
+          },
+        ]}
+      >
         {prefix ? (
           <AppText variant="body" color="textMuted" style={styles.fieldPrefix}>
             {prefix}
@@ -94,6 +104,14 @@ export const SettingsFieldRow = forwardRef<TextInput, SettingsFieldRowProps>(fun
           ref={ref}
           {...input}
           editable={editable}
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
           secureTextEntry={revealable ? secureTextEntry && !revealed : secureTextEntry}
           placeholderTextColor={colors.textMuted}
           keyboardAppearance={isDark ? 'dark' : 'light'}
@@ -122,12 +140,11 @@ export const SettingsFieldRow = forwardRef<TextInput, SettingsFieldRowProps>(fun
           </Pressable>
         ) : null}
       </View>
-      {showDivider ? <SarhDivider inset /> : null}
     </View>
   );
 });
 
-/** Centered text action inside a group (iOS «Sign Out» style). */
+/** Plain text action row (X «تسجيل الخروج»): start-aligned, optional icon, no box. */
 export function SettingsActionRow({
   title,
   onPress,
@@ -135,7 +152,6 @@ export function SettingsActionRow({
   loading = false,
   disabled = false,
   icon,
-  showDivider = false,
   testID,
 }: {
   title: string;
@@ -144,6 +160,7 @@ export function SettingsActionRow({
   loading?: boolean;
   disabled?: boolean;
   icon?: string;
+  /** @deprecated No separators in X lists; ignored. */
   showDivider?: boolean;
   testID?: string;
 }) {
@@ -162,21 +179,23 @@ export function SettingsActionRow({
         style={({ pressed }) => [
           styles.actionRow,
           getRtlRow(),
-          { opacity: disabled ? motion.opacity.disabled : pressed ? motion.opacity.pressed : 1 },
+          {
+            opacity: disabled ? motion.opacity.disabled : 1,
+            backgroundColor: pressed ? colors.bgElevated : 'transparent',
+          },
         ]}
       >
         {loading ? (
           <ActivityIndicator size="small" color={tint} />
         ) : (
           <>
-            {icon ? <AppIcon name={icon} size={18} color={tint} /> : null}
+            {icon ? <AppIcon name={icon} size={22} strokeWidth={1.5} color={tint} /> : null}
             <AppText variant="label" style={{ color: tint }} numberOfLines={1}>
               {title}
             </AppText>
           </>
         )}
       </Pressable>
-      {showDivider ? <SarhDivider inset /> : null}
     </View>
   );
 }
@@ -209,10 +228,9 @@ export function SettingsStatus({
             </AppText>
           </View>
           {state === 'error' && onRetry ? (
-            <>
-              <SarhDivider />
+            <View style={{ alignItems: 'center' }}>
               <SettingsActionRow title="إعادة المحاولة" onPress={onRetry} />
-            </>
+            </View>
           ) : null}
         </>
       )}
@@ -269,25 +287,12 @@ export function SettingsPill({ label, tone = 'neutral' }: { label: string; tone?
   );
 }
 
-/** Centered intro block at the top of a page: icon tile, title, one-paragraph explanation. */
+/** Intro block at the top of a page (X): plain outline icon, bold title, grey explanation. */
 export function SettingsHero({ icon, title, body }: { icon: string; title: string; body: string }) {
   const { colors } = useTheme();
   return (
-    <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 16, gap: 8 }}>
-      <View
-        style={{
-          width: 64,
-          height: 64,
-          borderRadius: 18,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.bgElevated,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.borderSoft,
-        }}
-      >
-        <AppIcon name={icon} size={30} color={colors.textPrimary} />
-      </View>
+    <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 24, paddingBottom: 8, gap: 8 }}>
+      <AppIcon name={icon} size={36} strokeWidth={1.5} color={colors.textPrimary} />
       <AppText variant="heading3" color="textPrimary" align="center">
         {title}
       </AppText>

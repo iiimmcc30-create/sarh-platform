@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { AppText, SarhDivider, SarhSettingsRow } from '@/design-system/components';
+import { AppText, SarhSettingsRow } from '@/design-system/components';
 import { useTheme } from '@/hooks/useTheme';
 import { formatRelativeTimeAr } from '@/lib/formatRelativeTime';
 import { getRtlRow } from '@/lib/rtl';
@@ -63,8 +63,8 @@ export function SessionDeviceCard({
   return (
     <SettingsGroup title={groupTitle} footer={groupFooter}>
       <View style={[styles.head, getRtlRow()]}>
-        <View style={[styles.tile, { backgroundColor: colors.bgElevated }]}>
-          <AppIcon name={SESSION_PLATFORM_ICON[session.platform]} size={22} color={colors.textPrimary} />
+        <View style={styles.tile}>
+          <AppIcon name={SESSION_PLATFORM_ICON[session.platform]} size={26} strokeWidth={1.5} color={colors.textPrimary} />
         </View>
         <View style={styles.texts}>
           <View style={[styles.titleRow, getRtlRow()]}>
@@ -78,7 +78,6 @@ export function SessionDeviceCard({
           </AppText>
         </View>
       </View>
-      <SarhDivider inset />
       <SarhSettingsRow
         title="تسجيل الدخول"
         value={formatArabicDate(session.signedInAt) || undefined}

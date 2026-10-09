@@ -194,16 +194,14 @@ describe('Councils: gating, wiring and design constraints', () => {
     }
   });
 
-  it('sidebar entry sits directly above العلامات المرجعية; quick access has the القوائم slot', () => {
+  it('sidebar entry sits directly above العلامات المرجعية (Home quick access removed)', () => {
     const panel = src('components/feature/AppSidebar.tsx');
     const row = "{ key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },";
     expect(panel).toContain(row);
     const nextRow = panel.indexOf('{', panel.indexOf('\n', panel.indexOf(row)) + 1);
     expect(panel.indexOf("{ key: 'bookmarks'")).toBe(nextRow);
     expect(panel.indexOf("key: 'collections'")).toBeGreaterThan(panel.indexOf("key: 'bookmarks'"));
-    const quick = src('lib/homeQuickAccess.ts');
-    expect(quick.indexOf("key: 'councils'")).toBeLessThan(quick.indexOf("key: 'bookmarks'"));
-    expect(quick).not.toContain("key: 'collections'");
+    expect(src('app/(tabs)/index.tsx')).not.toContain('HomeQuickAccess');
     const layout = src('app/_layout.tsx');
     for (const name of ['councils/index', 'councils/create', 'councils/[id]', 'councils/join/[code]']) {
       expect(layout).toContain(`<Stack.Screen name="${name}" />`);

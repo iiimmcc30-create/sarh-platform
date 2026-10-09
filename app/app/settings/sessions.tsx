@@ -89,7 +89,7 @@ export default function SessionsScreen() {
   const others = sessions?.filter((s) => !s.current) ?? [];
 
   return (
-    <SettingsScreen title="الأجهزة المتصلة" largeTitle>
+    <SettingsScreen title="الأجهزة المتصلة">
       {loading && !sessions ? (
         <SettingsStatus state="loading" />
       ) : !sessions ? (

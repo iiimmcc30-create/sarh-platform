@@ -38,7 +38,7 @@ export default function PaymentsHistoryScreen() {
   const groups = payments ? groupPaymentsByMonth(payments) : [];
 
   return (
-    <SettingsScreen title="سجل المدفوعات" largeTitle>
+    <SettingsScreen title="سجل المدفوعات">
       {loading && !payments ? (
         <SettingsStatus state="loading" />
       ) : !payments ? (

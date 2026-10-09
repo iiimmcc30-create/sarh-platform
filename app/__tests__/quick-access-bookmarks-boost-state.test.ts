@@ -12,29 +12,12 @@ import type { Listing } from '@/services/types';
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8');
 
-describe('Home quick access: المحفوظات replaces المفضلة in the same slot', () => {
-  const catalog = src('lib/homeQuickAccess.ts');
-  const keys = [...catalog.matchAll(/key: '([^']+)'/g)].map((m) => m[1]);
-
-  it('keeps the order and swaps only this item', () => {
-    expect(keys).toEqual(['councils', 'bookmarks', 'settings']);
-    expect(catalog).toContain("label: 'المحفوظات'");
-    expect(catalog).not.toContain("label: 'المفضلة'");
-    expect(catalog).toContain("href: '/bookmarks'");
-  });
-
-  it('uses the same save icon as the Feed interaction button (PostItem)', () => {
-    const postItem = src('components/feature/PostItem.tsx');
-    const feedIcon = postItem.match(/icon=\{post\.bookmarked \? '([^']+)' : '([^']+)'\}/);
-    expect(feedIcon).not.toBeNull();
-    const unsavedIcon = feedIcon![2];
-    expect(unsavedIcon).toBe('bookmark-outline');
-    const block = catalog.slice(catalog.indexOf("key: 'bookmarks'"), catalog.indexOf("key: 'settings'"));
-    expect(block).toContain(`icon: '${unsavedIcon}'`);
-    // Same AppIcon component in both places; quick access design is untouched.
-    const quick = src('components/feature/HomeQuickAccess.tsx');
-    expect(quick).toContain("import { AppIcon } from '@/components/ui/FlaticonIcon'");
-    expect(postItem).toContain('AppIcon');
+describe('Bookmarks (المحفوظات) stay reachable after the Home quick-access rail was removed', () => {
+  it('the sidebar keeps the bookmarks row with the Feed save icon', () => {
+    const sidebar = src('components/feature/AppSidebar.tsx');
+    expect(sidebar).toContain("icon: 'bookmark-outline'");
+    expect(sidebar).toContain("route: '/bookmarks'");
+    expect(src('components/feature/PostItem.tsx')).toContain("'bookmark-outline'");
   });
 
   it('opens the /bookmarks page with the standard header', () => {
@@ -132,4 +115,4 @@ describe('client effective boost state (stale in-memory / snapshot copies)', () 
     expect(src('services/unifiedSearch.ts')).toContain('pinnedUntil: l.pinnedUntil ?? null,');
     expect(src('contexts/AppContext.tsx')).toContain("featuredUntil: typeof l.featuredUntil === 'string'");
   });
-});
+});

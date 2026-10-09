@@ -10,7 +10,6 @@ import {
   isValidCollectionName,
   MEMBER_OF_SECTION_TITLE,
 } from '@/services/collections';
-import { HOME_QUICK_ACCESS_ITEMS } from '@/lib/homeQuickAccess';
 
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -27,20 +26,10 @@ describe('Collections: naming & navigation', () => {
     expect(panel.indexOf("key: 'promote'")).toBeGreaterThan(panel.indexOf("key: 'collections'"));
   });
 
-  it('quick access: المجالس took the القوائم slot; القوائم stays in the sidebar', () => {
-    expect(HOME_QUICK_ACCESS_ITEMS.map((i) => i.key)).toEqual([
-      'councils',
-      'bookmarks',
-      'settings',
-    ]);
-    expect(HOME_QUICK_ACCESS_ITEMS[0]).toMatchObject({
-      label: 'المجالس',
-      href: '/councils',
-    });
+  it('القوائم stays in the sidebar (the Home quick-access rail is gone)', () => {
     // Lists remain reachable (sidebar row + routes).
     expect(src('components/feature/AppSidebar.tsx')).toContain("route: '/collections'");
     expect(existsSync(path.join(root, 'app/collections/index.tsx'))).toBe(true);
-    expect(HOME_QUICK_ACCESS_ITEMS.some((i) => i.label === 'الخدمات')).toBe(false);
     // Services page/route remains (Search still reaches it).
     expect(src('app/search.tsx')).toContain("{ id: 'services', label: 'الخدمات' }");
     expect(existsSync(path.join(root, 'app/ministry/index.tsx'))).toBe(true);

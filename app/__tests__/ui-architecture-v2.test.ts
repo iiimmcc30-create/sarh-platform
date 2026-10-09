@@ -363,7 +363,8 @@ describe('Architecture V2 — Wave 1 migrated screens', () => {
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');
-      if (delegatesToSettingsShell(file)) expect(text).toContain('<SettingsSaveHeader');
+      // Settings pages (inner pages and the X-style hub) use the shared settings header.
+      if (delegatesToSettingsShell(file) || text.includes('<SettingsSaveHeader')) expect(text).toContain('<SettingsSaveHeader');
       else expect(text).toContain('<ScreenHeader variant="screen"');
     });
 
@@ -560,7 +561,7 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
     expect(menu).toContain('gutter={false}');
     expect(menu).not.toContain('SarhCard');
 
-    // Inner pages: inset-grouped sections on the shared settings shell, no cards.
+    // Inner pages: X-style flat sections on the shared settings shell, no cards.
     for (const file of [
       'app/profile/settings/account.tsx',
       'app/settings/blocked.tsx',
@@ -571,8 +572,8 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
       expect(text).toContain('<SettingsScreen');
     }
     expect(src('app/profile/settings/account.tsx')).toContain('<SettingsGroup');
-    expect(src('components/settings/SettingsRows.tsx')).toContain('SarhSettingsSection grouped');
-    expect(src('components/settings/SettingsPeopleList.tsx')).toContain('SarhDivider');
+    expect(src('components/settings/SettingsRows.tsx')).toContain('<SarhSettingsSection title={title} footer={footer}>');
+    expect(src('components/settings/SettingsPeopleList.tsx')).not.toContain('SarhDivider');
   });
 
   it('routes profile forms through the responsive form cap and DS inputs', () => {
@@ -985,8 +986,8 @@ describe('Architecture V2 — Wave 4D home and explore', () => {
   it('keeps Home fetch, section order, and official ministry routes', () => {
     const home = src('app/(tabs)/index.tsx');
     expect(home).not.toContain('ExploreSarhSection');
-    expect(home).toContain('extraHeader={quickAccess}');
-    expect(home.indexOf('<HomeQuickAccess')).toBeLessThan(home.indexOf('extraHeader={quickAccess}'));
+    expect(home).toContain('extraHeader={homeHeader}');
+    expect(home).not.toContain('<HomeQuickAccess');
     expect(home).not.toContain('<HomeFeedSuppliers');
     expect(home).not.toContain('ListingCard');
     expect(home).not.toContain('HomeMinistryOrgCard');

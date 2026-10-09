@@ -286,8 +286,7 @@ describe('HomeAppBar chrome', () => {
     );
     expect(home).not.toContain('HomeMinistryOrgCard');
     expect(home).not.toContain('أحدث المنشورات');
-    expect(home).toContain('HomeQuickAccess');
-    expect(quick).toContain("href: '/councils'");
+    expect(home).not.toContain('HomeQuickAccess');
     expect(quick).not.toContain("tab: 'services'");
     expect(fallback).toContain("href: '/ministry'");
     expect(fallback).toContain('خدمات وزارة البيئة والمياه والزراعة');
@@ -319,10 +318,6 @@ describe('Home design-system adoption', () => {
     path.join(__dirname, '../components/feature/ListingCard.tsx'),
     'utf8',
   );
-  const quick = fs.readFileSync(
-    path.join(__dirname, '../components/feature/HomeQuickAccess.tsx'),
-    'utf8',
-  );
   const listings = fs.readFileSync(
     path.join(__dirname, '../components/market/MarketListingsFeed.tsx'),
     'utf8',
@@ -339,7 +334,6 @@ describe('Home design-system adoption', () => {
     expect(appBar).not.toContain('styles.searchBar');
     expect(explore).toContain('SarhButton');
     expect(explore).toContain('HOME_BANNER_CTA_LABEL');
-    expect(quick).toContain('الوصول السريع');
     expect(listings).toContain('listMode="market"');
     expect(listings).not.toContain('أحدث الإعلانات');
     expect(community).toContain('مجتمع سرح');
@@ -351,7 +345,7 @@ describe('Home design-system adoption', () => {
   });
 
   it('does not remap Home copy through the legacy Bold AppText path', () => {
-    for (const src of [appBar, explore, community, stories, quick, listings]) {
+    for (const src of [appBar, explore, community, stories, listings]) {
       expect(src).not.toContain("from '@/components/ui/AppText'");
       expect(src).not.toContain('OFFICIAL_APP_FONT');
       expect(src).not.toContain('resolveAppFontFace');
@@ -390,11 +384,12 @@ describe('Home design-system adoption', () => {
 
   it('keeps the launch Home section order', () => {
     const exploreAt = home.indexOf('ExploreSarhSection');
-    const quickAt = home.indexOf('<HomeQuickAccess');
-    const listingsAt = home.indexOf('extraHeader={quickAccess}');
+    const storiesAt = home.indexOf('<HomeStoriesRow');
+    const listingsAt = home.indexOf('extraHeader={homeHeader}');
     expect(exploreAt).toBe(-1);
-    expect(quickAt).toBeGreaterThan(-1);
-    expect(listingsAt).toBeGreaterThan(quickAt);
+    expect(home).not.toContain('<HomeQuickAccess');
+    expect(storiesAt).toBeGreaterThan(-1);
+    expect(listingsAt).toBeGreaterThan(storiesAt);
     expect(home).not.toContain('<HomeFeedSuppliers');
     expect(home).not.toContain('HomeMinistryOrgCard');
     expect(home).not.toContain('<EditorialStoriesBar');

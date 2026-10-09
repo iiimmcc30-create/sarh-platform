@@ -11,15 +11,14 @@ describe('Home stories row', () => {
   const bar = src('components/feature/StoriesBar.tsx');
   const feed = src('components/market/MarketListingsFeed.tsx');
 
-  it('renders stories directly under the header and before Quick Access, categories and listings', () => {
+  it('renders stories directly under the header and before categories and listings', () => {
     const headerAt = home.indexOf('<HomeAppBar');
     const storiesAt = home.indexOf('<HomeStoriesRow />');
-    const quickAt = home.indexOf('<HomeQuickAccess />');
-    const listAt = home.indexOf('extraHeader={quickAccess}');
+    const listAt = home.indexOf('extraHeader={homeHeader}');
     expect(headerAt).toBeGreaterThan(-1);
     expect(storiesAt).toBeGreaterThan(-1);
-    expect(storiesAt).toBeLessThan(quickAt);
-    expect(quickAt).toBeLessThan(listAt);
+    expect(home).not.toContain('HomeQuickAccess');
+    expect(storiesAt).toBeLessThan(listAt);
     // The header lives in the chrome layer; the list header starts with extraHeader,
     // followed by the market filter/categories bar, then the listings.
     const headerStack = feed.slice(feed.indexOf('const ListHeader = useCallback'));

@@ -45,7 +45,7 @@ export default function DeleteAccountScreen() {
   };
 
   return (
-    <SettingsScreen title="حذف الحساب" largeTitle>
+    <SettingsScreen title="حذف الحساب">
       <SettingsGroup title="ماذا يحدث عند الحذف">
         {WHAT_HAPPENS.map((line, i) => (
           <SarhSettingsRow

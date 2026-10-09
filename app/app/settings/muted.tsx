@@ -37,7 +37,7 @@ export default function MutedUsersScreen() {
   };
 
   return (
-    <SettingsScreen title="الحسابات المكتومة" largeTitle>
+    <SettingsScreen title="الحسابات المكتومة">
       <SettingsPeopleList
         users={users}
         loading={loading}

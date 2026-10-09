@@ -26,7 +26,7 @@ type SettingsMenuScreenProps = {
   onItemPress?: (item: SettingsMenuItem) => boolean;
 };
 
-/** Simple link menus (مركز المعلومات، السياسات): large title + inset-grouped rows. */
+/** Simple link menus (مركز المعلومات، السياسات): X header + plain rows with bold sub-headers. */
 export function SettingsMenuScreen({
   title,
   items,
@@ -49,7 +49,7 @@ export function SettingsMenuScreen({
       : []);
 
   return (
-    <SettingsScreen title={title} largeTitle>
+    <SettingsScreen title={title}>
       {resolvedSections.map((section, sectionIndex) => (
         <SarhSettingsSection
           key={`${section.title}-${sectionIndex}`}

@@ -8,7 +8,7 @@ function src(rel: string) {
 }
 
 describe('home launch layout', () => {
-  it('keeps Home section order: quick access, then the existing market feed', () => {
+  it('keeps Home section order: stories, then the existing market feed (no quick access)', () => {
     const home = src('app/(tabs)/index.tsx');
     expect(home).not.toContain('ExploreSarhSection');
     expect(home).not.toContain('<HomeFeedSuppliers');
@@ -16,35 +16,15 @@ describe('home launch layout', () => {
     expect(home).not.toContain('<HomeCommunityPosts');
     expect(home).not.toContain('HomeLatestListings');
     expect(home).not.toContain('أحدث الإعلانات');
-    expect(home).toContain('<HomeQuickAccess');
-    expect(home).toContain('extraHeader={quickAccess}');
+    expect(home).not.toContain('HomeQuickAccess');
+    expect(home).toContain('extraHeader={homeHeader}');
     expect(home).toContain('variant="home"');
-    expect(home.indexOf('<HomeQuickAccess')).toBeLessThan(home.indexOf('extraHeader={quickAccess}'));
     expect(home).toContain("safePush('/sidebar'");
   });
 
-  it('wires quick access to existing app routes and stays append-only', () => {
+  it('keeps the former quick-access destinations and their routes', () => {
     const catalog = src('lib/homeQuickAccess.ts');
-    const quick = src('components/feature/HomeQuickAccess.tsx');
-    expect(catalog).toContain("key: 'councils'");
-    expect(catalog).not.toContain("key: 'services'");
-    expect(catalog).toContain("key: 'bookmarks'");
-    expect(catalog).not.toContain("key: 'favorites'");
-    // Suppliers left the quick-access rail (its screen and routes stay).
-    expect(catalog).not.toContain("key: 'feed-suppliers'");
-    expect(catalog).not.toContain("label: 'الموردين'");
-    expect(catalog).toContain("key: 'settings'");
-    expect(catalog).toContain("href: '/councils'");
-    expect(catalog).not.toContain("tab: 'services'");
-    expect(catalog).toContain("href: '/bookmarks'");
-    expect(catalog).not.toContain("href: '/favorites'");
-    expect(catalog).not.toContain("href: '/feed-suppliers'");
-    expect(catalog).toContain("href: '/settings'");
-    expect(catalog).toContain('HOME_QUICK_ACCESS_ITEMS');
-    expect(quick).toContain('HOME_QUICK_ACCESS_ITEMS.map');
-    // One horizontal RTL row of flex: 1 tiles sized by the item count.
-    expect(quick).toContain('<Row align="center" gap="sm" style={[styles.rail, { paddingHorizontal: gutter }]}>');
-    expect(quick).toContain('borderRadius: radius[999]');
+    expect(catalog).not.toContain('HOME_QUICK_ACCESS_ITEMS');
     expect(src('app/ministry/index.tsx')).toContain("value === 'posts' || value === 'services'");
     expect(src('app/favorites.tsx')).toContain('export default function FavoritesScreen');
     expect(src('app/feed-suppliers/index.tsx')).toContain('export default function FeedSuppliersScreen');
@@ -91,10 +71,10 @@ describe('home launch layout', () => {
   });
 
   it('reorders settings account rows onto existing screens and drops the duplicate info hub', () => {
-    // Settings home (redesign): rows are data in lib/settingsRows.ts; the account card opens edit profile.
+    // Settings (X look): sections and rows are data in lib/settingsRows.ts; «حسابك» → «الملف الشخصي» opens edit profile.
     const settings = src('lib/settingsRows.ts');
     expect(src('app/settings/index.tsx')).toContain('SettingsHomeScreen');
-    expect(src('components/settings/SettingsHomeScreen.tsx')).toContain("'/profile/edit'");
+    expect(settings).toContain("route: '/profile/edit'");
     expect(settings).toContain("route: '/profile/settings/account'");
     expect(settings).toContain("title: 'كلمة المرور'");
     expect(settings).toContain("route: '/profile/settings/password'");

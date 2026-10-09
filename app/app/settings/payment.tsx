@@ -68,13 +68,11 @@ export default function PaymentDetailScreen() {
               style={{
                 width: 56,
                 height: 56,
-                borderRadius: 16,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: colors.bgElevated,
               }}
             >
-              <AppIcon name={paymentType(payment).icon} size={26} color={colors.textPrimary} />
+              <AppIcon name={paymentType(payment).icon} size={32} strokeWidth={1.5} color={colors.textPrimary} />
             </View>
             <AppText variant="heading1" color="textPrimary" align="center">
               {formatPaymentAmount(payment)}

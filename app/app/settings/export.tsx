@@ -59,7 +59,7 @@ export default function DataExportScreen() {
   const status = STATUS_COPY[state];
 
   return (
-    <SettingsScreen title="تحميل بياناتي" largeTitle>
+    <SettingsScreen title="تحميل بياناتي">
       <SettingsHero
         icon="download-outline"
         title="نسخة من بياناتك"

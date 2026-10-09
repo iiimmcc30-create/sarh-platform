@@ -53,7 +53,7 @@ export default function PrivacyAudienceScreen() {
   const selected = privacy ? audienceSelected(kind, privacy) : null;
 
   return (
-    <SettingsScreen title={page.title} largeTitle>
+    <SettingsScreen title={page.title}>
       {!privacy ? (
         <SettingsStatus state="loading" />
       ) : (

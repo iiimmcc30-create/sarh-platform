@@ -1,14 +1,5 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  Keyboard,
-  Pressable,
-  StyleSheet,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { ActivityIndicator, Animated, Keyboard, Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
 import { usePreventRemove } from '@react-navigation/native';
 import { AppText, SarhBackButton } from '@/design-system/components';
@@ -17,18 +8,20 @@ import { motion } from '@/design-system/tokens';
 import { controls, layout } from '@/constants/theme';
 import { useLayout } from '@/hooks/useLayout';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppUser } from '@/hooks/useApp';
+import { useAuth } from '@/contexts/AuthContext';
 import { presentActionSheet } from '@/lib/actionSheet';
 import { getRtlRow } from '@/lib/rtl';
 import { showToast } from '@/lib/toast';
 
 /**
- * Inner settings pages share one shell (iOS Settings):
+ * Settings pages share one X-style shell:
  *
  *   ┌──────────────────────────────────────┐
- *   │ حفظ          العنوان              → │   back on the right (RTL), title centered,
- *   └──────────────────────────────────────┘   the text action (حفظ) at the top-left.
- *     العنوان الكبير                          large title on list pages, fades into the bar.
- *     ╭ grouped rounded sections ╮
+ *   │ حفظ                    الخصوصية   → │   back on the right (RTL), bold title with
+ *   │                         @username    │   the @username in grey under it, the text
+ *   └──────────────────────────────────────┘   action (حفظ) at the top-left, then a hairline.
+ *     plain rows on the page background — no cards, no boxes, no separators.
  *
  * Edit pages pass `save`: the action is dim until something changes, shows a
  * spinner while saving, and leaving with unsaved edits asks first
@@ -46,27 +39,45 @@ export type SettingsSaveAction = {
 
 export type SettingsSaveHeaderProps = {
   title: string;
+  /** Grey line under the title. Defaults to the signed-in @username; pass `null` to hide. */
+  subtitle?: string | null;
   save?: SettingsSaveAction;
   onBack?: () => void;
-  /** 0 → 1: compact title (and bar hairline) fade in as the large title scrolls away. */
+  /** @deprecated The X header is always shown in full; kept for call-site compatibility. */
   progress?: Animated.Value | Animated.AnimatedInterpolation<number>;
+  /** @deprecated See `progress`. */
   showTitle?: boolean;
 };
+
+/**
+ * Display name + @username for the settings header and the «حسابك» page.
+ * `me` (AppContext) starts as an empty placeholder until the profile loads, so
+ * fall back to the signed-in auth user instead of rendering nothing.
+ */
+export function useSettingsIdentity(): { name: string; username: string } {
+  const { me } = useAppUser();
+  const { user } = useAuth();
+  const username = (me.username || user?.username || '').replace(/^@/, '');
+  const name =
+    me.arabicName || me.displayName || user?.arabicName || user?.displayName || username || 'حسابي';
+  return { name, username };
+}
 
 const styles = StyleSheet.create({
   bar: {
     alignItems: 'center',
-    minHeight: layout.headerHeight - 8,
+    minHeight: layout.headerHeight,
+    gap: 4,
   },
   side: {
-    minWidth: controls.iconButton + 24,
+    minWidth: controls.iconButton,
     justifyContent: 'center',
   },
   sideEnd: {
+    minWidth: controls.iconButton + 24,
     alignItems: 'flex-end',
   },
-  titleWrap: { flex: 1, minWidth: 0, alignItems: 'center' },
-  title: { width: '100%', textAlign: 'center', writingDirection: 'rtl' },
+  titleWrap: { flex: 1, minWidth: 0, alignItems: 'flex-start', justifyContent: 'center' },
   action: {
     minWidth: 44,
     minHeight: 44,
@@ -75,75 +86,82 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hairline: {
-    position: 'absolute',
-    start: 0,
-    end: 0,
-    bottom: 0,
     height: StyleSheet.hairlineWidth,
   },
-  largeTitle: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 4 },
 });
 
-/** Top bar for inner settings pages: back (right) · centered title · «حفظ» (left). */
-export function SettingsSaveHeader({ title, save, onBack, progress, showTitle = true }: SettingsSaveHeaderProps) {
+/** X header for settings pages: back (right) · bold title + grey @username · «حفظ» (left) · hairline. */
+export function SettingsSaveHeader({ title, subtitle, save, onBack }: SettingsSaveHeaderProps) {
   const router = useRouter();
   const { colors } = useTheme();
   const { gutter } = useLayout();
+  const { username } = useSettingsIdentity();
   const saving = !!save?.saving;
   const enabled = !!save?.enabled && !saving;
   const label = save?.label ?? 'حفظ';
+  const line = subtitle === undefined ? (username ? `@${username}` : null) : subtitle;
 
   return (
-    <View style={[styles.bar, getRtlRow(), { paddingHorizontal: gutter - 4 }]}>
-      <View style={styles.side}>
-        <SarhBackButton
-          accessibilityLabel="رجوع"
-          color={colors.textPrimary}
-          onPress={() => {
-            Keyboard.dismiss();
-            if (onBack) onBack();
-            else router.back();
-          }}
-        />
-      </View>
-      <Animated.View style={[styles.titleWrap, { opacity: showTitle ? progress ?? 1 : 0 }]}>
-        <AppText variant="heading3" color="textPrimary" numberOfLines={1} style={styles.title}>
-          {title}
-        </AppText>
-      </Animated.View>
-      <View style={[styles.side, styles.sideEnd]}>
-        {save ? (
-          <Pressable
-            testID="settings-save"
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            accessibilityState={{ disabled: !enabled, busy: saving }}
-            disabled={!enabled}
+    <View>
+      <View style={[styles.bar, getRtlRow(), { paddingHorizontal: gutter - 4 }]}>
+        <View style={styles.side}>
+          <SarhBackButton
+            accessibilityLabel="رجوع"
+            color={colors.textPrimary}
             onPress={() => {
               Keyboard.dismiss();
-              save.onPress();
+              if (onBack) onBack();
+              else router.back();
             }}
-            hitSlop={12}
-            style={({ pressed }) => [styles.action, { opacity: pressed ? motion.opacity.pressed : 1 }]}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
-            ) : (
-              <AppText
-                variant="button"
-                color={enabled ? 'textPrimary' : 'textMuted'}
-                style={{ opacity: enabled ? 1 : motion.opacity.disabled }}
-              >
-                {label}
-              </AppText>
-            )}
-          </Pressable>
-        ) : null}
+          />
+        </View>
+        <View style={styles.titleWrap}>
+          <AppText variant="heading3" color="textPrimary" numberOfLines={1} accessibilityRole="header">
+            {title}
+          </AppText>
+          {line ? (
+            <AppText
+              testID="settings-header-username"
+              variant="caption"
+              color="textMuted"
+              numberOfLines={1}
+              style={{ writingDirection: 'ltr' }}
+            >
+              {line}
+            </AppText>
+          ) : null}
+        </View>
+        <View style={[styles.side, styles.sideEnd]}>
+          {save ? (
+            <Pressable
+              testID="settings-save"
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ disabled: !enabled, busy: saving }}
+              disabled={!enabled}
+              onPress={() => {
+                Keyboard.dismiss();
+                save.onPress();
+              }}
+              hitSlop={12}
+              style={({ pressed }) => [styles.action, { opacity: pressed ? motion.opacity.pressed : 1 }]}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={colors.textPrimary} />
+              ) : (
+                <AppText
+                  variant="button"
+                  color={enabled ? 'textPrimary' : 'textMuted'}
+                  style={{ opacity: enabled ? 1 : motion.opacity.disabled }}
+                >
+                  {label}
+                </AppText>
+              )}
+            </Pressable>
+          ) : null}
+        </View>
       </View>
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.hairline, { backgroundColor: colors.borderSoft, opacity: progress ?? 0 }]}
-      />
+      <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
     </View>
   );
 }
@@ -221,7 +239,9 @@ export function useSettingsSave(allowLeave?: () => void) {
 
 export type SettingsScreenProps = {
   title: string;
-  /** iOS large title under the bar (list pages). Edit forms keep the compact title only. */
+  /** Grey line under the title; defaults to the signed-in @username. */
+  subtitle?: string | null;
+  /** @deprecated X pages show the title in the header only; kept for call-site compatibility. */
   largeTitle?: boolean;
   save?: SettingsSaveAction;
   onBack?: () => void;
@@ -233,12 +253,10 @@ export type SettingsScreenProps = {
   testID?: string;
 };
 
-const LARGE_TITLE_FADE = [18, 44] as const;
-
-/** Shell for every inner settings page: header + large title + grouped body. */
+/** Shell for every settings page: X header + plain body on the page background. */
 export function SettingsScreen({
   title,
-  largeTitle = false,
+  subtitle,
   save,
   onBack,
   keyboard = false,
@@ -247,46 +265,10 @@ export function SettingsScreen({
   children,
   testID,
 }: SettingsScreenProps) {
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const progress = largeTitle
-    ? scrollY.interpolate({ inputRange: [...LARGE_TITLE_FADE], outputRange: [0, 1], extrapolate: 'clamp' })
-    : scrollY.interpolate({ inputRange: [0, 12], outputRange: [0, 1], extrapolate: 'clamp' });
-  const largeOpacity = scrollY.interpolate({
-    inputRange: [0, LARGE_TITLE_FADE[1] - 8],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-
-  const onScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      scrollY.setValue(event.nativeEvent.contentOffset.y);
-    },
-    [scrollY],
-  );
-
   return (
     <Screen edges={['top', 'bottom']} keyboard={keyboard} testID={testID}>
-      <SettingsSaveHeader
-        title={title}
-        save={save}
-        onBack={onBack}
-        progress={largeTitle ? progress : undefined}
-      />
-      <ScreenBody
-        gutter={false}
-        width={width}
-        padBottom="xxxl"
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        refreshControl={refreshControl}
-      >
-        {largeTitle ? (
-          <Animated.View style={[styles.largeTitle, { opacity: largeOpacity }]}>
-            <AppText variant="heading1" color="textPrimary" numberOfLines={1} accessibilityRole="header">
-              {title}
-            </AppText>
-          </Animated.View>
-        ) : null}
+      <SettingsSaveHeader title={title} subtitle={subtitle} save={save} onBack={onBack} />
+      <ScreenBody gutter={false} width={width} padBottom="xxxl" refreshControl={refreshControl}>
         {children}
       </ScreenBody>
     </Screen>
