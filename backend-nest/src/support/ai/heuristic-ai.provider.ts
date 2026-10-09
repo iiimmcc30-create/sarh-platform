@@ -50,7 +50,8 @@ export class HeuristicAiProvider implements AiProvider {
     if (HUMAN_REQUEST_RE.test(text)) {
       return {
         replyAr: '',
-        issueType: (context.issueType as SarhanDecision['issueType']) || 'OTHER',
+        issueType:
+          (context.issueType as SarhanDecision['issueType']) || 'OTHER',
         escalate: true,
         summary,
       };
@@ -85,7 +86,8 @@ export class HeuristicAiProvider implements AiProvider {
     if (THANKS_RE.test(text)) {
       return {
         replyAr: 'العفو! إذا احتجت شي ثاني اكتب لي هنا.',
-        issueType: (context.issueType as SarhanDecision['issueType']) || 'OTHER',
+        issueType:
+          (context.issueType as SarhanDecision['issueType']) || 'OTHER',
         escalate: false,
       };
     }
@@ -118,9 +120,14 @@ export class HeuristicAiProvider implements AiProvider {
     const askedToClarify = Boolean(
       (context.missingInformation || []).includes('problem_description'),
     );
-    if (contentTokens(text).length < 2 && !askedToClarify && customerTurns < 4) {
+    if (
+      contentTokens(text).length < 2 &&
+      !askedToClarify &&
+      customerTurns < 4
+    ) {
       return {
-        replyAr: 'وضّح لي سؤالك أكثر؟ مثلاً: «ما وصلني الكود» أو «كيف أميّز إعلاني».',
+        replyAr:
+          'وضّح لي سؤالك أكثر؟ مثلاً: «ما وصلني الكود» أو «كيف أميّز إعلاني».',
         issueType: 'OTHER',
         escalate: false,
         missingInformation: ['problem_description'],

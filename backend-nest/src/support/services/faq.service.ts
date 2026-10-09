@@ -112,7 +112,8 @@ export class FaqService {
   /** Active FAQs, cached for a minute (admin writes invalidate it). */
   async activeFaqs(): Promise<Faq[]> {
     const now = Date.now();
-    if (this.cache && now - this.cache.at < CACHE_TTL_MS) return this.cache.faqs;
+    if (this.cache && now - this.cache.at < CACHE_TTL_MS)
+      return this.cache.faqs;
     const faqs = await this.repo.listActiveFaqsForRetrieval();
     this.cache = { at: now, faqs };
     return faqs;
@@ -135,7 +136,9 @@ export class FaqService {
     }
 
     if (top) {
-      const byKey = new Map(scoped.filter((f) => f.key).map((f) => [f.key!, f]));
+      const byKey = new Map(
+        scoped.filter((f) => f.key).map((f) => [f.key!, f]),
+      );
       const curated = FAQ_TOP_KEYS.map((k) => byKey.get(k)).filter(
         (f): f is Faq => Boolean(f),
       );
@@ -207,7 +210,9 @@ export class FaqService {
     }
   }
 
-  async setServiceStatus(body: Record<string, unknown>): Promise<ServiceStatus> {
+  async setServiceStatus(
+    body: Record<string, unknown>,
+  ): Promise<ServiceStatus> {
     const parsed = serviceStatusSchema.safeParse(body);
     if (!parsed.success) throwApi(400, 'invalid_body', 'بيانات غير صالحة');
     const textAr =

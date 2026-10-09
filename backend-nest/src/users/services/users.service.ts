@@ -65,7 +65,8 @@ export class UsersService {
 
   /** Public handle → `{ id, username }` for shared profile links (active accounts only). */
   async resolveUsername(raw: string) {
-    const username = typeof raw === 'string' ? raw.trim().replace(/^@/, '') : '';
+    const username =
+      typeof raw === 'string' ? raw.trim().replace(/^@/, '') : '';
     if (!/^[A-Za-z0-9_.]{1,40}$/.test(username)) {
       throwApi(404, 'not_found', 'المستخدم غير موجود');
     }
@@ -689,7 +690,10 @@ export class UsersService {
       links: readProfileLinks(user.profileLinks, user.website),
       verified: user.verified,
       verifiedTier: user.verifiedTier ?? null,
-      verifiedSince: resolveVerifiedSince(user.verified, user.accountVerificationRequest),
+      verifiedSince: resolveVerifiedSince(
+        user.verified,
+        user.accountVerificationRequest,
+      ),
       isAI: user.isAI ?? false,
       country: user.country,
       role: user.role,

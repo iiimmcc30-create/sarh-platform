@@ -12,8 +12,7 @@ export const MAX_PROFILE_LINK_LABEL = 30;
 export type ProfileLink = { url: string; label?: string };
 
 export type ProfileLinksResult =
-  | { ok: true; links: ProfileLink[] }
-  | { ok: false; messageAr: string };
+  { ok: true; links: ProfileLink[] } | { ok: false; messageAr: string };
 
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
 
@@ -37,7 +36,12 @@ export function normalizeProfileLinkUrl(raw: unknown): string | null {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
   if (parsed.username || parsed.password) return null;
   const host = parsed.hostname;
-  if (!host || !host.includes('.') || host.startsWith('.') || host.endsWith('.')) {
+  if (
+    !host ||
+    !host.includes('.') ||
+    host.startsWith('.') ||
+    host.endsWith('.')
+  ) {
     return null;
   }
   return value;
@@ -53,18 +57,30 @@ export function normalizeProfileLinks(input: unknown): ProfileLinksResult {
   const seen = new Set<string>();
   for (const row of input) {
     const rawUrl =
-      row && typeof row === 'object' ? (row as { url?: unknown }).url : undefined;
+      row && typeof row === 'object'
+        ? (row as { url?: unknown }).url
+        : undefined;
     const rawLabel =
-      row && typeof row === 'object' ? (row as { label?: unknown }).label : undefined;
+      row && typeof row === 'object'
+        ? (row as { label?: unknown }).label
+        : undefined;
     if (typeof rawUrl === 'string' && !rawUrl.trim()) continue;
     const url = normalizeProfileLinkUrl(rawUrl);
     if (!url) {
-      return { ok: false, messageAr: 'الرابط غير صالح، استخدم رابطًا يبدأ بـ https://' };
+      return {
+        ok: false,
+        messageAr: 'الرابط غير صالح، استخدم رابطًا يبدأ بـ https://',
+      };
     }
-    if (rawLabel !== undefined && rawLabel !== null && typeof rawLabel !== 'string') {
+    if (
+      rawLabel !== undefined &&
+      rawLabel !== null &&
+      typeof rawLabel !== 'string'
+    ) {
       return { ok: false, messageAr: 'اسم الرابط غير صالح' };
     }
-    const label = typeof rawLabel === 'string' ? rawLabel.trim().replace(/\s+/g, ' ') : '';
+    const label =
+      typeof rawLabel === 'string' ? rawLabel.trim().replace(/\s+/g, ' ') : '';
     if (label.length > MAX_PROFILE_LINK_LABEL) {
       return {
         ok: false,

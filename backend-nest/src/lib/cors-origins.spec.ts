@@ -1,11 +1,7 @@
 import { isAllowedCorsOrigin, resolveCorsOrigins } from './cors-origins';
 
 describe('cors origins', () => {
-  const keys = [
-    'ALLOWED_ORIGINS',
-    'NODE_ENV',
-    'FRONTEND_URL',
-  ] as const;
+  const keys = ['ALLOWED_ORIGINS', 'NODE_ENV', 'FRONTEND_URL'] as const;
   let snapshot: Record<string, string | undefined>;
 
   beforeEach(() => {

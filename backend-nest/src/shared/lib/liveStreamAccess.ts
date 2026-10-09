@@ -30,8 +30,7 @@ export function checkLiveStreamAccess(
   return {
     allowed: false,
     code: 'plan_required',
-    messageAr:
-      'البث المباشر غير متاح في باقتك. قم بالترقية لبدء البث.',
+    messageAr: 'البث المباشر غير متاح في باقتك. قم بالترقية لبدء البث.',
     planId,
   };
 }

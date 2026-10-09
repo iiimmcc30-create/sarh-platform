@@ -7,9 +7,15 @@ import {
 
 describe('profile links', () => {
   it('normalizes urls (adds https, keeps http/https only)', () => {
-    expect(normalizeProfileLinkUrl(' sarh.app/u/salem ')).toBe('https://sarh.app/u/salem');
-    expect(normalizeProfileLinkUrl('http://example.com')).toBe('http://example.com');
-    expect(normalizeProfileLinkUrl('https://x.com/sarh')).toBe('https://x.com/sarh');
+    expect(normalizeProfileLinkUrl(' sarh.app/u/salem ')).toBe(
+      'https://sarh.app/u/salem',
+    );
+    expect(normalizeProfileLinkUrl('http://example.com')).toBe(
+      'http://example.com',
+    );
+    expect(normalizeProfileLinkUrl('https://x.com/sarh')).toBe(
+      'https://x.com/sarh',
+    );
     expect(normalizeProfileLinkUrl('javascript:alert(1)')).toBeNull();
     expect(normalizeProfileLinkUrl('ftp://example.com')).toBeNull();
     expect(normalizeProfileLinkUrl('mailto:a@b.com')).toBeNull();
@@ -18,7 +24,9 @@ describe('profile links', () => {
     expect(normalizeProfileLinkUrl('exa mple.com')).toBeNull();
     expect(normalizeProfileLinkUrl('')).toBeNull();
     expect(normalizeProfileLinkUrl(42)).toBeNull();
-    expect(normalizeProfileLinkUrl(`https://a.com/${'x'.repeat(250)}`)).toBeNull();
+    expect(
+      normalizeProfileLinkUrl(`https://a.com/${'x'.repeat(250)}`),
+    ).toBeNull();
   });
 
   it('validates the list, drops empty rows and duplicates', () => {
@@ -40,8 +48,12 @@ describe('profile links', () => {
   });
 
   it('rejects invalid urls, long labels, too many links', () => {
-    expect(normalizeProfileLinks([{ url: 'javascript:alert(1)' }]).ok).toBe(false);
-    expect(normalizeProfileLinks([{ url: 'a.com', label: 'x'.repeat(31) }]).ok).toBe(false);
+    expect(normalizeProfileLinks([{ url: 'javascript:alert(1)' }]).ok).toBe(
+      false,
+    );
+    expect(
+      normalizeProfileLinks([{ url: 'a.com', label: 'x'.repeat(31) }]).ok,
+    ).toBe(false);
     expect(normalizeProfileLinks('a.com').ok).toBe(false);
     const many = Array.from({ length: MAX_PROFILE_LINKS + 1 }, (_, i) => ({
       url: `https://a${i}.com`,
@@ -55,7 +67,10 @@ describe('profile links', () => {
     ]);
     expect(readProfileLinks([], 'https://www.mewa.gov.sa')).toEqual([]);
     expect(
-      readProfileLinks([{ url: 'https://a.com', label: 'أ' }, { url: 'javascript:x' }], null),
+      readProfileLinks(
+        [{ url: 'https://a.com', label: 'أ' }, { url: 'javascript:x' }],
+        null,
+      ),
     ).toEqual([{ url: 'https://a.com', label: 'أ' }]);
     expect(readProfileLinks(undefined, null)).toEqual([]);
   });

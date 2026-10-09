@@ -21,7 +21,10 @@ function knowledgeFor(text: string): SupportKnowledgeSnippet[] {
   }));
 }
 
-function ctx(body: string, over: Partial<SupportAiContext> = {}): SupportAiContext {
+function ctx(
+  body: string,
+  over: Partial<SupportAiContext> = {},
+): SupportAiContext {
   return {
     ticketNumber: 'SRH-2026-000010',
     category: 'OTHER_HELP',
@@ -127,7 +130,12 @@ describe('HeuristicAiProvider / SarhanSupportService («مساعد سرح»)', (
   });
 
   it('never talks about orders, delivery or butchers', async () => {
-    for (const q of ['ما جاني الكود', 'السلام عليكم', 'أبي استرجع فلوسي', 'ابي اكلم موظف']) {
+    for (const q of [
+      'ما جاني الكود',
+      'السلام عليكم',
+      'أبي استرجع فلوسي',
+      'ابي اكلم موظف',
+    ]) {
       const turn = await assistant.nextTurn(ctx(q), {});
       expect(turn.replyAr).not.toMatch(DELIVERY_WORDS);
     }
@@ -157,7 +165,13 @@ describe('SupportAiContextService', () => {
     const faq = {
       retrieveForAssistant: jest.fn().mockResolvedValue([
         {
-          faq: { key: 'acc-otp-missing', questionAr: 'q', answerAr: 'a', actionRoute: null, actionLabel: null },
+          faq: {
+            key: 'acc-otp-missing',
+            questionAr: 'q',
+            answerAr: 'a',
+            actionRoute: null,
+            actionLabel: null,
+          },
           score: 0.9,
         },
       ]),

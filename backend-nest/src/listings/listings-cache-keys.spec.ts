@@ -173,7 +173,10 @@ describe('every listings feed invalidator uses the shared v3 pattern', () => {
   it('PaymentsService listing cache invalidation clears listings:v3:* keys', async () => {
     const cache = makeMemoryCache();
     cache.store.set(listingsFeedCacheKey({ sort: 'newest' }), {});
-    cache.store.set(listingsFeedCacheKey({ sort: 'newest', country: 'SA' }), {});
+    cache.store.set(
+      listingsFeedCacheKey({ sort: 'newest', country: 'SA' }),
+      {},
+    );
     cache.store.set('listing:l9', {});
     const payments = Object.create(PaymentsService.prototype) as {
       cache: unknown;

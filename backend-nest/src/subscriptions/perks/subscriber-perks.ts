@@ -1,4 +1,7 @@
-import { tierForPlanSlug, type VerificationTier } from '../verification/verification-tiers';
+import {
+  tierForPlanSlug,
+  type VerificationTier,
+} from '../verification/verification-tiers';
 import type { SubscriptionEntitlementService } from '../services/subscription-entitlement.service';
 
 /**
@@ -13,7 +16,10 @@ import type { SubscriptionEntitlementService } from '../services/subscription-en
  * from the client.
  */
 export async function activeSubscriberTier(
-  entitlements: Pick<SubscriptionEntitlementService, 'getEffectivePlanSlugForUser'>,
+  entitlements: Pick<
+    SubscriptionEntitlementService,
+    'getEffectivePlanSlugForUser'
+  >,
   userId: string,
 ): Promise<VerificationTier | null> {
   const slug = await entitlements.getEffectivePlanSlugForUser(userId);
@@ -59,9 +65,14 @@ export function weeklyFreeBoostsFor(
 
 /** «بائع ذهبي»: public Gold badge only (same rule as the gold seal). */
 export function isGoldSeller(
-  user: { verified?: boolean | null; verifiedTier?: string | null } | null | undefined,
+  user:
+    | { verified?: boolean | null; verifiedTier?: string | null }
+    | null
+    | undefined,
 ): boolean {
-  return Boolean(user && user.verified === true && user.verifiedTier === 'gold');
+  return Boolean(
+    user && user.verified === true && user.verifiedTier === 'gold',
+  );
 }
 
 /**
@@ -70,10 +81,16 @@ export function isGoldSeller(
  */
 export function goldSellersFirst<T>(
   items: readonly T[],
-  sellerOf: (item: T) => { verified?: boolean | null; verifiedTier?: string | null } | null | undefined,
+  sellerOf: (
+    item: T,
+  ) =>
+    | { verified?: boolean | null; verifiedTier?: string | null }
+    | null
+    | undefined,
 ): T[] {
   const gold: T[] = [];
   const rest: T[] = [];
-  for (const item of items) (isGoldSeller(sellerOf(item)) ? gold : rest).push(item);
+  for (const item of items)
+    (isGoldSeller(sellerOf(item)) ? gold : rest).push(item);
   return gold.length ? [...gold, ...rest] : [...items];
 }

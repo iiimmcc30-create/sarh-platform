@@ -285,7 +285,9 @@ describe('PostsService feed cache isolation', () => {
       service.createPost(author, {
         content: '',
         arabicContent: '',
-        media: [{ url: 'https://cdn.example/only.jpg', type: 'IMAGE', sortOrder: 0 }],
+        media: [
+          { url: 'https://cdn.example/only.jpg', type: 'IMAGE', sortOrder: 0 },
+        ],
       }),
     ).resolves.toMatchObject({ id: 'p-media' });
 
@@ -483,7 +485,11 @@ describe('PostsService block enforcement on mutations (H5)', () => {
 
     // A different viewer still counts.
     await expect(
-      service.recordView('p1', { userId: 'user-c', username: 'c', role: 'USER' }),
+      service.recordView('p1', {
+        userId: 'user-c',
+        username: 'c',
+        role: 'USER',
+      }),
     ).resolves.toMatchObject({ recorded: true });
     expect(repo.incrementViewsCount).toHaveBeenCalledTimes(2);
   });

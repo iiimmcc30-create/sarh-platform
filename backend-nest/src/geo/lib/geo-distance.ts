@@ -41,7 +41,11 @@ export type BoundingBox = {
 };
 
 /** Lat/lng box that fully contains the circle (slightly generous, filtered exactly after). */
-export function boundingBox(lat: number, lng: number, radiusKm: number): BoundingBox {
+export function boundingBox(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+): BoundingBox {
   const dLat = (radiusKm / EARTH_RADIUS_KM) * (180 / Math.PI);
   const cosLat = Math.max(Math.cos(toRad(lat)), 0.01);
   const dLng = dLat / cosLat;

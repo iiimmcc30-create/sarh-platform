@@ -314,11 +314,7 @@ export class CollectionsService {
       where: { collectionId: id },
     });
     if (count >= MAX_MEMBERS_PER_COLLECTION) {
-      throwApi(
-        400,
-        'limit_reached',
-        'وصلت القائمة إلى الحد الأقصى من الأعضاء',
-      );
+      throwApi(400, 'limit_reached', 'وصلت القائمة إلى الحد الأقصى من الأعضاء');
     }
     try {
       await this.prisma.collectionMember.create({

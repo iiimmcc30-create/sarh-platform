@@ -30,7 +30,8 @@ export const LISTING_SORT_MODES = ['newest', 'oldest', 'nearest'] as const;
 export const LISTING_NEARBY_RADII = [25, 50, 100, 200] as const;
 export const LISTING_GEO_SOURCES = ['CITY', 'GPS'] as const;
 /** "lat,lng" in decimal degrees, e.g. "26.33,43.97". */
-export const NEAR_PARAM_PATTERN = /^\s*-?\d{1,2}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$/;
+export const NEAR_PARAM_PATTERN =
+  /^\s*-?\d{1,2}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$/;
 export type ListingSortMode = (typeof LISTING_SORT_MODES)[number];
 
 export class ListListingsQueryDto {

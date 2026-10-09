@@ -3,7 +3,8 @@
  * المزاحمية / المزاحميه / مزاحمية, حفر الباطن / حفرالباطن, ضرماء / ضرما,
  * أبها / ابها, diacritics and tatweel, "محافظة …" prefixes, ", منطقة …" suffixes.
  */
-const DIACRITICS = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640\u200c-\u200f]/g;
+const DIACRITICS =
+  /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640\u200c-\u200f]/g;
 
 export function normalizeArabicPlace(input: string | null | undefined): string {
   let s = String(input ?? '').trim();

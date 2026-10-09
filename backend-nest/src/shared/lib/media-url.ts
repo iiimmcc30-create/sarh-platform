@@ -62,7 +62,8 @@ function durableOrNull(url?: string | null): string | null {
 export function sanitizeListingMedia<T extends object>(listing: T): T {
   const row = listing as T & ListingMediaFields;
   const images = (row.images ?? []).filter(
-    (uri) => typeof uri === 'string' && uri.trim() && !isEphemeralDiskUploadUrl(uri),
+    (uri) =>
+      typeof uri === 'string' && uri.trim() && !isEphemeralDiskUploadUrl(uri),
   );
   const thumbnailUrl = durableOrNull(row.thumbnailUrl ?? null);
   const videoUrl = durableOrNull(row.videoUrl ?? null);
@@ -77,7 +78,11 @@ export function sanitizeListingMedia<T extends object>(listing: T): T {
     : row.seller;
 
   // Belt and braces next to the Prisma global omit: listing coordinates never leave.
-  const { lat: _lat, lng: _lng, ...rest } = listing as T & { lat?: unknown; lng?: unknown };
+  const {
+    lat: _lat,
+    lng: _lng,
+    ...rest
+  } = listing as T & { lat?: unknown; lng?: unknown };
   void _lat;
   void _lng;
   return {

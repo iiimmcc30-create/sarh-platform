@@ -49,7 +49,10 @@ export class SupportAiContextService {
     const lastCustomer = [...recentMessages]
       .reverse()
       .find((m) => m.authorKind === 'CUSTOMER');
-    const query = (lastCustomer?.body || ticket.description || '').slice(0, 500);
+    const query = (lastCustomer?.body || ticket.description || '').slice(
+      0,
+      500,
+    );
     const matches = await this.faq.retrieveForAssistant(query, 3);
 
     return {

@@ -134,7 +134,6 @@ describe('LIVE API journeys (real backend)', () => {
       .get('/api/admin/support/tickets')
       .set(auth);
     expect(tickets.status).toBe(200);
-
   });
 
   itLive('admin editorial stories + official services + settings', async () => {

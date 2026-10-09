@@ -12,7 +12,13 @@ export type BackfillRow = {
 };
 
 export type BackfillPlan = {
-  updates: Array<{ id: string; cityId: string; lat: number; lng: number; via: 'city' | 'region' }>;
+  updates: Array<{
+    id: string;
+    cityId: string;
+    lat: number;
+    lng: number;
+    via: 'city' | 'region';
+  }>;
   unmatched: Array<{ id: string; text: string }>;
 };
 
@@ -25,11 +31,19 @@ export function planListingGeoBackfill(
   for (const r of rows) {
     const m = matcher.match(r.arabicLocation, r.displayRegion, r.location);
     if (m) {
-      plan.updates.push({ id: r.id, cityId: m.city.id, lat: m.city.lat, lng: m.city.lng, via: m.via });
+      plan.updates.push({
+        id: r.id,
+        cityId: m.city.id,
+        lat: m.city.lat,
+        lng: m.city.lng,
+        via: m.via,
+      });
     } else {
       plan.unmatched.push({
         id: r.id,
-        text: [r.arabicLocation, r.displayRegion, r.location].filter(Boolean).join(' | '),
+        text: [r.arabicLocation, r.displayRegion, r.location]
+          .filter(Boolean)
+          .join(' | '),
       });
     }
   }
@@ -54,7 +68,11 @@ export class ListingGeoBackfillService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    if (process.env.NODE_ENV === 'test' || process.env.GEO_BOOT_BACKFILL === 'false') return;
+    if (
+      process.env.NODE_ENV === 'test' ||
+      process.env.GEO_BOOT_BACKFILL === 'false'
+    )
+      return;
     setTimeout(() => {
       void this.runAtBoot();
     }, 3_000).unref?.();
@@ -64,7 +82,10 @@ export class ListingGeoBackfillService implements OnModuleInit {
     try {
       const seeded = await this.cities.seed();
       if (seeded) {
-        this.logger?.info({ event: 'SAUDI_CITIES_SEEDED', ...seeded }, 'Saudi cities seeded');
+        this.logger?.info(
+          { event: 'SAUDI_CITIES_SEEDED', ...seeded },
+          'Saudi cities seeded',
+        );
       }
       await this.backfill();
     } catch (err) {
@@ -75,7 +96,9 @@ export class ListingGeoBackfillService implements OnModuleInit {
     }
   }
 
-  async backfill(batchSize = 500): Promise<{ updated: number; unmatched: BackfillPlan['unmatched'] }> {
+  async backfill(
+    batchSize = 500,
+  ): Promise<{ updated: number; unmatched: BackfillPlan['unmatched'] }> {
     let updated = 0;
     const unmatched: BackfillPlan['unmatched'] = [];
     let afterId: string | undefined;
@@ -86,7 +109,12 @@ export class ListingGeoBackfillService implements OnModuleInit {
           lat: null,
           ...(afterId ? { id: { gt: afterId } } : {}),
         },
-        select: { id: true, arabicLocation: true, displayRegion: true, location: true },
+        select: {
+          id: true,
+          arabicLocation: true,
+          displayRegion: true,
+          location: true,
+        },
         orderBy: { id: 'asc' },
         take: batchSize,
       });

@@ -10,7 +10,10 @@ export function describeSessionDevice(userAgent: string | null | undefined): {
   if (!ua) return { label: 'جهاز غير معروف', platform: 'unknown' };
   const lower = ua.toLowerCase();
   if (/iphone|ipad|ios|darwin|cfnetwork/.test(lower)) {
-    return { label: lower.includes('ipad') ? 'iPad' : 'iPhone', platform: 'ios' };
+    return {
+      label: lower.includes('ipad') ? 'iPad' : 'iPhone',
+      platform: 'ios',
+    };
   }
   if (lower.includes('android') || lower.includes('okhttp')) {
     return { label: 'Android', platform: 'android' };

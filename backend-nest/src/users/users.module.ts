@@ -12,8 +12,17 @@ import { GatewaySharedModule } from '../gateway/gateway-shared.module';
 @Module({
   imports: [RedisModule, GatewaySharedModule],
   // UserSettingsController first: its `me/...` routes must win over `:id`.
-  controllers: [ProfileViewsController, UserSettingsController, UsersController],
-  providers: [UsersService, UsersRepository, ProfileViewsService, UserSettingsService],
+  controllers: [
+    ProfileViewsController,
+    UserSettingsController,
+    UsersController,
+  ],
+  providers: [
+    UsersService,
+    UsersRepository,
+    ProfileViewsService,
+    UserSettingsService,
+  ],
   exports: [UsersRepository],
 })
 export class UsersModule {}

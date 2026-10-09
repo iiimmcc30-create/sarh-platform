@@ -26,7 +26,9 @@ describe('GET /listings radius mode («القريب منك»)', () => {
     filterIds: jest.fn(),
     findMany: jest.fn(),
   };
-  const usersRepo = { findBlockedRelationshipIds: jest.fn().mockResolvedValue([]) };
+  const usersRepo = {
+    findBlockedRelationshipIds: jest.fn().mockResolvedValue([]),
+  };
   const cache = { get: jest.fn(), set: jest.fn() };
   let service: ListingsService;
   let hidden: Set<string>;
@@ -34,22 +36,29 @@ describe('GET /listings radius mode («القريب منك»)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     hidden = new Set();
-    repo.findNearbyIds.mockImplementation(async (sql: { values: unknown[] }) => {
-      // Emulate the keyset: cursor id is the last string value when present.
-      const strings = sql.values.filter((v) => typeof v === 'string') as string[];
-      const cursor = strings.find((s) => /^l\d\d$/.test(s));
-      const limit = sql.values[sql.values.length - 1] as number;
-      const radius = 50;
-      const rows = geo.filter((g) => g.distance_km <= radius);
-      const start = cursor ? rows.findIndex((r) => r.id === cursor) + 1 : 0;
-      return rows.slice(start, start + limit);
-    });
-    repo.filterIds.mockImplementation(async (where: { AND: Array<{ id?: { in: string[] } }> }) => {
-      const ids = where.AND[1].id!.in;
-      return ids.filter((id) => !hidden.has(id));
-    });
-    repo.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
-      where.id.in.map(full),
+    repo.findNearbyIds.mockImplementation(
+      async (sql: { values: unknown[] }) => {
+        // Emulate the keyset: cursor id is the last string value when present.
+        const strings = sql.values.filter(
+          (v) => typeof v === 'string',
+        ) as string[];
+        const cursor = strings.find((s) => /^l\d\d$/.test(s));
+        const limit = sql.values[sql.values.length - 1] as number;
+        const radius = 50;
+        const rows = geo.filter((g) => g.distance_km <= radius);
+        const start = cursor ? rows.findIndex((r) => r.id === cursor) + 1 : 0;
+        return rows.slice(start, start + limit);
+      },
+    );
+    repo.filterIds.mockImplementation(
+      async (where: { AND: Array<{ id?: { in: string[] } }> }) => {
+        const ids = where.AND[1].id!.in;
+        return ids.filter((id) => !hidden.has(id));
+      },
+    );
+    repo.findMany.mockImplementation(
+      async ({ where }: { where: { id: { in: string[] } } }) =>
+        where.id.in.map(full),
     );
     service = new ListingsService(
       repo as never,
@@ -61,7 +70,9 @@ describe('GET /listings radius mode («القريب منك»)', () => {
       {} as never,
       { resolveSync: jest.fn().mockReturnValue(null) } as never,
       {} as never,
-      { expireStalePromotions: jest.fn().mockResolvedValue(undefined) } as never,
+      {
+        expireStalePromotions: jest.fn().mockResolvedValue(undefined),
+      } as never,
       {} as never,
       {} as never,
       new SaudiCitiesService({} as never),
@@ -84,7 +95,11 @@ describe('GET /listings radius mode («القريب منك»)', () => {
         radiusKm: 50,
         sort: 'nearest',
         cursor,
-      } as never)) as { listings: Array<Record<string, unknown>>; nextCursor: string | null; hasMore: boolean };
+      } as never)) as {
+        listings: Array<Record<string, unknown>>;
+        nextCursor: string | null;
+        hasMore: boolean;
+      };
       for (const l of page.listings) {
         expect(l).not.toHaveProperty('lat');
         expect(l).not.toHaveProperty('lng');
@@ -102,18 +117,30 @@ describe('GET /listings radius mode («القريب منك»)', () => {
 
   it('applies the normal filters per batch without breaking the order', async () => {
     hidden = new Set(['l01', 'l02', 'l05']);
-    const page = (await service.list({ cityId: 'rass', sort: 'nearest' } as never)) as {
+    const page = (await service.list({
+      cityId: 'rass',
+      sort: 'nearest',
+    } as never)) as {
       listings: Array<{ id: string; distanceKm: number }>;
     };
-    expect(page.listings.map((l) => l.id).slice(0, 4)).toEqual(['l00', 'l03', 'l04', 'l06']);
+    expect(page.listings.map((l) => l.id).slice(0, 4)).toEqual([
+      'l00',
+      'l03',
+      'l04',
+      'l06',
+    ]);
     expect(page.listings[0].distanceKm).toBe(1);
   });
 
   it('rejects an unknown cityId and nearest without an origin', async () => {
-    await expect(service.list({ cityId: 'nowhere' } as never)).rejects.toMatchObject({
+    await expect(
+      service.list({ cityId: 'nowhere' } as never),
+    ).rejects.toMatchObject({
       error: 'invalid_city',
     });
-    await expect(service.list({ sort: 'nearest' } as never)).rejects.toMatchObject({
+    await expect(
+      service.list({ sort: 'nearest' } as never),
+    ).rejects.toMatchObject({
       error: 'origin_required',
     });
   });
@@ -125,7 +152,13 @@ describe('listing coordinates never leave the API', () => {
   });
 
   it('sanitizeListingMedia strips lat/lng as a second guard', () => {
-    const out = sanitizeListingMedia({ id: 'x', images: [], lat: 1, lng: 2, cityId: 'rass' });
+    const out = sanitizeListingMedia({
+      id: 'x',
+      images: [],
+      lat: 1,
+      lng: 2,
+      cityId: 'rass',
+    });
     expect(out).not.toHaveProperty('lat');
     expect(out).not.toHaveProperty('lng');
     expect(out).toHaveProperty('cityId', 'rass');

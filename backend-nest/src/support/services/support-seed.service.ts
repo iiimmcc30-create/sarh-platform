@@ -46,7 +46,10 @@ export class SupportSeedService implements OnModuleInit {
     }
   }
 
-  async seedKnowledgeBase(): Promise<{ upserted: number; retired: number } | null> {
+  async seedKnowledgeBase(): Promise<{
+    upserted: number;
+    retired: number;
+  } | null> {
     const current = await this.repo.getAppSetting(FAQ_KB_VERSION_SETTING_KEY);
     const seeded = Number(current?.value ?? 0);
     if (Number.isFinite(seeded) && seeded >= FAQ_KB_VERSION) return null;

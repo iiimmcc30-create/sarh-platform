@@ -8,8 +8,7 @@ export const JAILBREAK_RE =
 export const HUMAN_REQUEST_RE =
   /موظف|خدمة العملاء|خدمه العملاء|إنسان|انسان|بشري|شخص حقيقي|human|agent|مو بوت|مش بوت|ما ابي بوت|ابي احد يكلمني|حولني/i;
 
-export const FRAUD_RE =
-  /احتيال|نصب|نصاب|محتال|سرقوني|سرقة|انسرق|حرامي|scam/i;
+export const FRAUD_RE = /احتيال|نصب|نصاب|محتال|سرقوني|سرقة|انسرق|حرامي|scam/i;
 
 export const REFUND_RE =
   /استرجاع|استرجع|استرداد|ارجاع (المبلغ|فلوس)|رجعوا? (لي )?(فلوسي|المبلغ)|تعويض|refund|خصم مرتين|انخصم مرتين|مدفوع مرتين|دفعت مرتين/i;
@@ -20,7 +19,9 @@ export const PAYMENT_DISPUTE_RE =
 export const THANKS_RE =
   /^(شكرا|شكراً|مشكور|مشكورين|يعطيك العافيه|يعطيك العافية|تمام|تم|انحلت|حليتها|ok|thanks)[\s!.؟?]*$/i;
 
-export function issueTypeForFaqKey(key: string | null | undefined): SupportIssueType {
+export function issueTypeForFaqKey(
+  key: string | null | undefined,
+): SupportIssueType {
   const k = key ?? '';
   if (k.startsWith('acc-')) return 'ACCOUNT_ISSUE';
   if (k.startsWith('ads-') || k.startsWith('mkt-') || k.startsWith('bs-')) {
@@ -29,9 +30,14 @@ export function issueTypeForFaqKey(key: string | null | undefined): SupportIssue
   if (k.startsWith('promo-')) return 'PROMOTION_ISSUE';
   if (k.startsWith('sub-') || k.startsWith('ver-')) return 'SUBSCRIPTION_ISSUE';
   if (k.startsWith('council-')) return 'COUNCIL_ISSUE';
-  if (k === 'pay-refund-request' || k === 'pay-refund-policy') return 'REFUND_ISSUE';
+  if (k === 'pay-refund-request' || k === 'pay-refund-policy')
+    return 'REFUND_ISSUE';
   if (k.startsWith('pay-')) return 'PAYMENT_ISSUE';
-  if (k === 'safe-scammed' || k === 'safe-deposit' || k === 'safe-fraud-signs') {
+  if (
+    k === 'safe-scammed' ||
+    k === 'safe-deposit' ||
+    k === 'safe-fraud-signs'
+  ) {
     return 'FRAUD_REPORT';
   }
   if (k.startsWith('tech-')) return 'TECHNICAL_ISSUE';

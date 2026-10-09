@@ -45,11 +45,15 @@ describe('NI auth logging never leaks the access token', () => {
 
   it('keeps NI error codes for failed auth', () => {
     const summary = summarizeNiAuthResponse({
-      errors: [{ errorCode: 'invalidCredentials', message: 'bad', domain: 'identity' }],
+      errors: [
+        { errorCode: 'invalidCredentials', message: 'bad', domain: 'identity' },
+      ],
     });
     expect(summary).toMatchObject({
       hasAccessToken: false,
-      errors: [{ errorCode: 'invalidCredentials', message: 'bad', domain: 'identity' }],
+      errors: [
+        { errorCode: 'invalidCredentials', message: 'bad', domain: 'identity' },
+      ],
     });
   });
 
@@ -63,7 +67,11 @@ describe('NI auth logging never leaks the access token', () => {
         status: 201,
         data: {
           reference: '11111111-2222-4333-8444-555555555555',
-          _links: { payment: { href: 'https://paypage.ksa.ngenius-payments.com/?code=x' } },
+          _links: {
+            payment: {
+              href: 'https://paypage.ksa.ngenius-payments.com/?code=x',
+            },
+          },
         },
       });
 
@@ -89,13 +97,19 @@ describe('NI auth logging never leaks the access token', () => {
 
     // The real request still used the token (behaviour unchanged).
     const orderCall = mockedAxios.post.mock.calls[1];
-    expect((orderCall[2] as { headers: Record<string, string> }).headers.Authorization).toBe(
-      `Bearer ${TOKEN}`,
-    );
+    expect(
+      (orderCall[2] as { headers: Record<string, string> }).headers
+        .Authorization,
+    ).toBe(`Bearer ${TOKEN}`);
   });
 
   it('redactSensitive masks tokens without revealing their start', () => {
-    const out = JSON.stringify(redactSensitive({ access_token: TOKEN, nested: { refresh_token: TOKEN } }));
+    const out = JSON.stringify(
+      redactSensitive({
+        access_token: TOKEN,
+        nested: { refresh_token: TOKEN },
+      }),
+    );
     expect(out).not.toContain(TOKEN);
     expect(out).not.toContain(TOKEN.slice(0, 4));
   });

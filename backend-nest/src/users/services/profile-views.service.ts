@@ -17,7 +17,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** UTC calendar day (dedupe key: one row per viewer per profile per day). */
 export function profileViewDay(now: Date): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
 }
 
 /**
@@ -59,7 +61,11 @@ export class ProfileViewsService {
    * self views, anonymous visitors or staff accounts. Blocked pairs are already
    * rejected by the profile endpoint (403) and filtered again when listing.
    */
-  async record(profileId: string, viewer: JwtPayload | undefined, now = new Date()) {
+  async record(
+    profileId: string,
+    viewer: JwtPayload | undefined,
+    now = new Date(),
+  ) {
     if (!viewer?.userId || viewer.userId === profileId) return;
     if (viewer.role && viewer.role !== 'USER') return;
     const day = profileViewDay(now);
@@ -120,7 +126,10 @@ export class ProfileViewsService {
       select: { viewedAt: true, viewer: { select: VIEWER_SELECT } },
     });
     const seen = new Set<string>();
-    const viewers: Array<{ user: (typeof rows)[number]['viewer']; viewedAt: Date }> = [];
+    const viewers: Array<{
+      user: (typeof rows)[number]['viewer'];
+      viewedAt: Date;
+    }> = [];
     for (const row of rows) {
       if (seen.has(row.viewer.id)) continue;
       seen.add(row.viewer.id);

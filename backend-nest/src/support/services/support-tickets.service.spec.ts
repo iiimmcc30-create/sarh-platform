@@ -126,7 +126,10 @@ describe('SupportTicketsService', () => {
     expect(repo.createMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         authorKind: 'SARHAN',
-        body: sarhanWelcome('متعب', SUPPORT_TICKET_CATEGORY_LABEL_AR.OTHER_HELP),
+        body: sarhanWelcome(
+          'متعب',
+          SUPPORT_TICKET_CATEGORY_LABEL_AR.OTHER_HELP,
+        ),
       }),
     );
     expect(sarhan.nextTurn).toHaveBeenCalled();
@@ -452,7 +455,11 @@ describe('SupportTicketsService', () => {
 
     it('gives Gold help tickets (مساعد سرح) HIGH priority too', async () => {
       repo.findReporterTier.mockResolvedValue({ verifiedTier: 'gold' });
-      repo.createTicket.mockResolvedValue({ ...created, status: 'AI_ASSISTING', handlerMode: 'AI_ACTIVE' });
+      repo.createTicket.mockResolvedValue({
+        ...created,
+        status: 'AI_ASSISTING',
+        handlerMode: 'AI_ACTIVE',
+      });
       repo.findTicketById.mockResolvedValue(null);
       repo.findUserTicket.mockResolvedValue(null);
       await service.createTicket(user('gold-user'), {

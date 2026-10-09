@@ -23,12 +23,78 @@ export const FAQ_ANSWER_MIN_SCORE = 0.42;
 
 const STOPWORDS = new Set(
   [
-    'كيف', 'وش', 'ايش', 'شو', 'ابي', 'ابغي', 'ابغا', 'ودي', 'ليش', 'لماذا', 'هل', 'ما', 'من', 'في',
-    'على', 'عن', 'الي', 'الى', 'انا', 'لي', 'يا', 'اللي', 'التي', 'الذي', 'متي', 'وين', 'اين',
-    'هذا', 'هذي', 'هذه', 'ذا', 'او', 'و', 'ثم', 'مع', 'عشان', 'لان', 'بس', 'طيب', 'السلام',
-    'عليكم', 'مرحبا', 'هلا', 'لو', 'سمحت', 'الله', 'يعطيك', 'العافيه', 'شي', 'شيء', 'اقدر',
-    'ممكن', 'لازم', 'يقول', 'عندي', 'فيه', 'كل', 'اذا', 'ان', 'انه', 'قد', 'لم', 'لا', 'تم',
-    'the', 'a', 'to', 'how', 'i', 'my', 'is', 'can',
+    'كيف',
+    'وش',
+    'ايش',
+    'شو',
+    'ابي',
+    'ابغي',
+    'ابغا',
+    'ودي',
+    'ليش',
+    'لماذا',
+    'هل',
+    'ما',
+    'من',
+    'في',
+    'على',
+    'عن',
+    'الي',
+    'الى',
+    'انا',
+    'لي',
+    'يا',
+    'اللي',
+    'التي',
+    'الذي',
+    'متي',
+    'وين',
+    'اين',
+    'هذا',
+    'هذي',
+    'هذه',
+    'ذا',
+    'او',
+    'و',
+    'ثم',
+    'مع',
+    'عشان',
+    'لان',
+    'بس',
+    'طيب',
+    'السلام',
+    'عليكم',
+    'مرحبا',
+    'هلا',
+    'لو',
+    'سمحت',
+    'الله',
+    'يعطيك',
+    'العافيه',
+    'شي',
+    'شيء',
+    'اقدر',
+    'ممكن',
+    'لازم',
+    'يقول',
+    'عندي',
+    'فيه',
+    'كل',
+    'اذا',
+    'ان',
+    'انه',
+    'قد',
+    'لم',
+    'لا',
+    'تم',
+    'the',
+    'a',
+    'to',
+    'how',
+    'i',
+    'my',
+    'is',
+    'can',
   ].map((w) => normalizeArabicSearchText(w)),
 );
 
@@ -102,7 +168,8 @@ export function conceptsOf(text: string): Set<string> {
   const norm = ` ${normalizeHelpText(text)} `;
   const out = new Set<string>();
   for (const { phrase, concept } of index.phrases) {
-    if (norm.includes(` ${phrase} `) || norm.includes(` ${phrase}`)) out.add(concept);
+    if (norm.includes(` ${phrase} `) || norm.includes(` ${phrase}`))
+      out.add(concept);
   }
   for (const token of norm.trim().split(/\s+/)) {
     if (!token) continue;
@@ -124,7 +191,8 @@ export function trigrams(text: string): Set<string> {
   const norm = normalizeHelpText(text).replace(/\s+/g, ' ');
   const padded = `  ${norm} `;
   const out = new Set<string>();
-  for (let i = 0; i + 3 <= padded.length; i += 1) out.add(padded.slice(i, i + 3));
+  for (let i = 0; i + 3 <= padded.length; i += 1)
+    out.add(padded.slice(i, i + 3));
   return out;
 }
 

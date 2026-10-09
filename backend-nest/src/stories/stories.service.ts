@@ -185,7 +185,9 @@ export class StoriesService {
       const myStories = viewerId
         ? (items.find((i) => i.user.id === viewerId) ?? null)
         : null;
-      const muted = viewerId ? await this.mutedIds(viewerId) : new Set<string>();
+      const muted = viewerId
+        ? await this.mutedIds(viewerId)
+        : new Set<string>();
       const others = viewerId
         ? items.filter((i) => i.user.id !== viewerId && !muted.has(i.user.id))
         : items;

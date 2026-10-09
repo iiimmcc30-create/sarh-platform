@@ -1,8 +1,15 @@
 import { SharePreviewController } from './share-preview.controller';
-import { escapeHtml, formatPriceAr, previewImageUrl, renderSharePreview, SHARE_DEFAULT_IMAGE } from './share-preview.html';
+import {
+  escapeHtml,
+  formatPriceAr,
+  previewImageUrl,
+  renderSharePreview,
+  SHARE_DEFAULT_IMAGE,
+} from './share-preview.html';
 
 function fakeRes() {
-  const res: Record<string, jest.Mock> & { body?: string; code?: number } = {} as never;
+  const res: Record<string, jest.Mock> & { body?: string; code?: number } =
+    {} as never;
   res.status = jest.fn((c: number) => {
     res.code = c;
     return res;
@@ -23,16 +30,24 @@ describe('share preview html', () => {
       description: 'وصف',
       image: 'https://res.cloudinary.com/demo/image/upload/v1/a.png',
     });
-    expect(html).toContain('<meta property="og:title" content="نعيمي &lt;b&gt;&quot;حري&quot;&lt;/b&gt;" />');
-    expect(html).toContain('https://res.cloudinary.com/demo/image/upload/w_1200,c_limit,q_auto,f_jpg/v1/a.png');
+    expect(html).toContain(
+      '<meta property="og:title" content="نعيمي &lt;b&gt;&quot;حري&quot;&lt;/b&gt;" />',
+    );
+    expect(html).toContain(
+      'https://res.cloudinary.com/demo/image/upload/w_1200,c_limit,q_auto,f_jpg/v1/a.png',
+    );
     expect(html).toContain('twitter:card');
     expect(escapeHtml("'")).toBe('&#39;');
   });
 
   it('image + price fallbacks', () => {
     expect(previewImageUrl(null)).toBe(SHARE_DEFAULT_IMAGE);
-    expect(previewImageUrl('/uploads/a.jpg')).toBe('https://sarhsa.online/uploads/a.jpg');
-    expect(previewImageUrl('https://res.cloudinary.com/d/video/upload/v1/a.mp4')).toBe(SHARE_DEFAULT_IMAGE);
+    expect(previewImageUrl('/uploads/a.jpg')).toBe(
+      'https://sarhsa.online/uploads/a.jpg',
+    );
+    expect(
+      previewImageUrl('https://res.cloudinary.com/d/video/upload/v1/a.mp4'),
+    ).toBe(SHARE_DEFAULT_IMAGE);
     expect(formatPriceAr(2500, 'SAR')).toBe('2,500 ريال');
     expect(formatPriceAr(0, 'SAR')).toBeNull();
   });
@@ -61,7 +76,10 @@ describe('SharePreviewController', () => {
     expect(res.code).toBe(200);
     expect(res.body).toContain('content="نعيمي للبيع — 3,000 ريال"');
     expect(res.body).toContain('w_1200');
-    expect(prisma.listing.findFirst.mock.calls[0][0].where).toMatchObject({ id: 'abc', deletedAt: null });
+    expect(prisma.listing.findFirst.mock.calls[0][0].where).toMatchObject({
+      id: 'abc',
+      deletedAt: null,
+    });
   });
 
   it('unknown / invalid ids get a generic 404 card without hitting the DB', async () => {

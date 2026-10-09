@@ -31,15 +31,33 @@ describe('UsersService.getUser verifiedSince', () => {
       findFollow: jest.fn().mockResolvedValue(null),
       findUserRating: jest.fn().mockResolvedValue(null),
     };
-    const redis = { cacheGet: jest.fn().mockResolvedValue(null), cacheSet: jest.fn() };
-    const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
-    return new UsersService(repo as never, redis as never, logger as never, {} as never, {} as never, {} as never);
+    const redis = {
+      cacheGet: jest.fn().mockResolvedValue(null),
+      cacheSet: jest.fn(),
+    };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    return new UsersService(
+      repo as never,
+      redis as never,
+      logger as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
   }
 
   it('exposes the approval date on the public profile', async () => {
     const service = makeService({
       ...baseRow,
-      accountVerificationRequest: { status: 'VERIFIED', reviewedAt: new Date('2025-03-14T09:30:00.000Z') },
+      accountVerificationRequest: {
+        status: 'VERIFIED',
+        reviewedAt: new Date('2025-03-14T09:30:00.000Z'),
+      },
     });
     const profile = (await service.getUser('u1')) as Record<string, unknown>;
     expect(profile.verifiedSince).toBe('2025-03-14T09:30:00.000Z');
@@ -47,7 +65,10 @@ describe('UsersService.getUser verifiedSince', () => {
   });
 
   it('is null for a badge without an approved request', async () => {
-    const service = makeService({ ...baseRow, accountVerificationRequest: null });
+    const service = makeService({
+      ...baseRow,
+      accountVerificationRequest: null,
+    });
     const profile = (await service.getUser('u1')) as Record<string, unknown>;
     expect(profile.verifiedSince).toBeNull();
   });

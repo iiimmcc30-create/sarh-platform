@@ -102,8 +102,14 @@ describe('FAQ retrieval (synonyms + trigram)', () => {
   });
 
   it('tolerates spelling variants (hamza / taa marbuta / alef maqsura)', () => {
-    const a = scoreFaq('ما وصلني رمز التحقق', byKey.get('acc-otp-missing')! as never);
-    const b = scoreFaq('ما وصلنى رمز التحقق', byKey.get('acc-otp-missing')! as never);
+    const a = scoreFaq(
+      'ما وصلني رمز التحقق',
+      byKey.get('acc-otp-missing')! as never,
+    );
+    const b = scoreFaq(
+      'ما وصلنى رمز التحقق',
+      byKey.get('acc-otp-missing')! as never,
+    );
     expect(b).toBeCloseTo(a, 2);
   });
 
@@ -126,7 +132,9 @@ describe('knowledge-base seeding', () => {
 
   function repoMock(version: unknown) {
     return {
-      getAppSetting: jest.fn().mockResolvedValue(version == null ? null : { value: version }),
+      getAppSetting: jest
+        .fn()
+        .mockResolvedValue(version == null ? null : { value: version }),
       upsertFaqByKey: jest.fn().mockResolvedValue({}),
       listActiveUnkeyedFaqs: jest.fn().mockResolvedValue([
         { id: 'old-1', questionAr: LEGACY_SEED_QUESTIONS[13], answerAr: 'x' },
@@ -139,8 +147,12 @@ describe('knowledge-base seeding', () => {
 
   it('upserts every entry by key, soft-retires legacy rows, records the version', async () => {
     const repo = repoMock(null);
-    const result = await new SupportSeedService(repo as never).seedKnowledgeBase();
-    expect(repo.upsertFaqByKey).toHaveBeenCalledTimes(FAQ_KNOWLEDGE_BASE.length);
+    const result = await new SupportSeedService(
+      repo as never,
+    ).seedKnowledgeBase();
+    expect(repo.upsertFaqByKey).toHaveBeenCalledTimes(
+      FAQ_KNOWLEDGE_BASE.length,
+    );
     expect(repo.deactivateFaqs).toHaveBeenCalledWith(['old-1']);
     expect(repo.upsertAppSetting).toHaveBeenCalledWith(
       FAQ_KB_VERSION_SETTING_KEY,
@@ -152,14 +164,20 @@ describe('knowledge-base seeding', () => {
 
   it('is idempotent: does nothing once the version is seeded (admin edits kept)', async () => {
     const repo = repoMock(FAQ_KB_VERSION);
-    expect(await new SupportSeedService(repo as never).seedKnowledgeBase()).toBeNull();
+    expect(
+      await new SupportSeedService(repo as never).seedKnowledgeBase(),
+    ).toBeNull();
     expect(repo.upsertFaqByKey).not.toHaveBeenCalled();
     expect(repo.deactivateFaqs).not.toHaveBeenCalled();
   });
 
   it('never throws at boot when the DB is not migrated yet', async () => {
-    const repo = { getAppSetting: jest.fn().mockRejectedValue(new Error('column key')) };
-    await expect(new SupportSeedService(repo as never).onModuleInit()).resolves.toBeUndefined();
+    const repo = {
+      getAppSetting: jest.fn().mockRejectedValue(new Error('column key')),
+    };
+    await expect(
+      new SupportSeedService(repo as never).onModuleInit(),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -202,12 +220,22 @@ describe('FaqService (search, top questions, service status)', () => {
       textAr: 'كل الخدمات تعمل بشكل طبيعي',
       updatedAt: null,
     });
-    expect(parseServiceStatus({ state: 'degraded', textAr: 'تأخير في الرسائل' }, null).state).toBe('degraded');
+    expect(
+      parseServiceStatus(
+        { state: 'degraded', textAr: 'تأخير في الرسائل' },
+        null,
+      ).state,
+    ).toBe('degraded');
   });
 
   it('requires a message when marking the service degraded', async () => {
-    await expect(svc.setServiceStatus({ state: 'degraded' })).rejects.toBeTruthy();
-    repo.upsertAppSetting.mockResolvedValue({ value: { state: 'ok', textAr: 'كل الخدمات تعمل بشكل طبيعي' }, updatedAt: new Date() });
+    await expect(
+      svc.setServiceStatus({ state: 'degraded' }),
+    ).rejects.toBeTruthy();
+    repo.upsertAppSetting.mockResolvedValue({
+      value: { state: 'ok', textAr: 'كل الخدمات تعمل بشكل طبيعي' },
+      updatedAt: new Date(),
+    });
     const ok = await svc.setServiceStatus({ state: 'ok' });
     expect(ok.textAr).toBe('كل الخدمات تعمل بشكل طبيعي');
   });

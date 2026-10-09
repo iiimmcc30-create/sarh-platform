@@ -61,8 +61,9 @@ describe('MessagingPolicyService', () => {
       allowPrivateMessages: true,
       privateMessagesAudience: 'followers',
     });
-    repo.findFollow.mockImplementation(async (follower: string, following: string) =>
-      follower === 'fan' && following === 'recv' ? { id: 'f1' } : null,
+    repo.findFollow.mockImplementation(
+      async (follower: string, following: string) =>
+        follower === 'fan' && following === 'recv' ? { id: 'f1' } : null,
     );
 
     await expect(

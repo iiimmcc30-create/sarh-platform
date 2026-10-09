@@ -37,6 +37,8 @@ export class ListingFreeBoostController {
     @Param('listingId', ParseUUIDPipe) listingId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return successResponse(await this.freeBoosts.applyFreeBoost(user, listingId));
+    return successResponse(
+      await this.freeBoosts.applyFreeBoost(user, listingId),
+    );
   }
 }

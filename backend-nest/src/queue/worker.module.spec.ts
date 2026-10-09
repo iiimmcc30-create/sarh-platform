@@ -18,5 +18,4 @@ describe('WorkerModule import graph', () => {
     expect(imports.every((entry) => entry != null)).toBe(true);
     expect(imports).toContain(QueueModule);
   });
-
 });

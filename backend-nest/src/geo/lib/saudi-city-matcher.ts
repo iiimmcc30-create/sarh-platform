@@ -1,4 +1,7 @@
-import { locationCandidates, normalizeArabicPlace } from './arabic-place-normalize';
+import {
+  locationCandidates,
+  normalizeArabicPlace,
+} from './arabic-place-normalize';
 import { haversineKm } from './geo-distance';
 
 export type SaudiCityRecord = {
@@ -70,7 +73,8 @@ export class SaudiCityMatcher {
    */
   match(...texts: Array<string | null | undefined>): CityMatch | null {
     const pieces: string[] = [];
-    for (const t of texts) for (const p of locationCandidates(t)) pieces.push(p);
+    for (const t of texts)
+      for (const p of locationCandidates(t)) pieces.push(p);
 
     for (const p of pieces) {
       const c = this.matchName(p);
@@ -96,7 +100,10 @@ export class SaudiCityMatcher {
     return null;
   }
 
-  nearest(lat: number, lng: number): { city: SaudiCityRecord; km: number } | null {
+  nearest(
+    lat: number,
+    lng: number,
+  ): { city: SaudiCityRecord; km: number } | null {
     let best: { city: SaudiCityRecord; km: number } | null = null;
     for (const c of this.dataset.cities) {
       const km = haversineKm(lat, lng, c.lat, c.lng);

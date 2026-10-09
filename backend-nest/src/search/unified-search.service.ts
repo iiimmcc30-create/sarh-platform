@@ -402,8 +402,14 @@ export class UnifiedSearchService {
           items = goldSellersFirst(
             items,
             (item) =>
-              (item.data as { seller?: { verified?: boolean | null; verifiedTier?: string | null } | null })
-                ?.seller,
+              (
+                item.data as {
+                  seller?: {
+                    verified?: boolean | null;
+                    verifiedTier?: string | null;
+                  } | null;
+                }
+              )?.seller,
           );
         }
         break;

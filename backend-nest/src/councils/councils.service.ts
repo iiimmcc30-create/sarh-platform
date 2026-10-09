@@ -368,11 +368,7 @@ export class CouncilsService {
     if (dto.scheduledFor || wantsFollowersOnly) {
       const tier = await this.subscriberTier(user.userId);
       if (wantsFollowersOnly && !canHostFollowersOnlyCouncils(tier)) {
-        throwApi(
-          403,
-          'perk_required',
-          'مجالس المتابعين متاحة لمشتركي Gold',
-        );
+        throwApi(403, 'perk_required', 'مجالس المتابعين متاحة لمشتركي Gold');
       }
       if (dto.scheduledFor) {
         if (!canScheduleCouncils(tier)) {
@@ -423,7 +419,11 @@ export class CouncilsService {
           visibility: dto.visibility,
           followersOnly: wantsFollowersOnly,
           ...(scheduledFor
-            ? { status: 'SCHEDULED' as const, scheduledFor, startedAt: scheduledFor }
+            ? {
+                status: 'SCHEDULED' as const,
+                scheduledFor,
+                startedAt: scheduledFor,
+              }
             : {}),
           rules: dto.rules ?? [],
           agoraChannelName: councilIdToChannel(id),
@@ -844,7 +844,9 @@ export class CouncilsService {
       select: { userId: true },
       take: 5000,
     });
-    const userIds = rows.map((r) => r.userId).filter((u) => u !== council.ownerId);
+    const userIds = rows
+      .map((r) => r.userId)
+      .filter((u) => u !== council.ownerId);
     if (userIds.length > 0) {
       await this.notifications
         .notifyUsers(userIds, {
@@ -914,7 +916,10 @@ export class CouncilsService {
         }
       } catch (err) {
         this.logger.warn(
-          { councilId: c.id, err: err instanceof Error ? err.message : String(err) },
+          {
+            councilId: c.id,
+            err: err instanceof Error ? err.message : String(err),
+          },
           'Scheduled council start failed',
         );
       }

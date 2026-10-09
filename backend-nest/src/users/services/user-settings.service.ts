@@ -18,7 +18,8 @@ const DEFAULT_SESSION_TTL_DAYS = 30;
 
 function sessionTtlMs(): number {
   const days = parseInt(process.env.SESSION_TTL_DAYS ?? '', 10);
-  const safe = Number.isFinite(days) && days > 0 ? days : DEFAULT_SESSION_TTL_DAYS;
+  const safe =
+    Number.isFinite(days) && days > 0 ? days : DEFAULT_SESSION_TTL_DAYS;
   return safe * 24 * 60 * 60 * 1000;
 }
 const EXPORT_LIMIT = 1000;
@@ -59,12 +60,18 @@ export class UserSettingsService {
     };
   }
 
-  async updateNotificationPrefs(userId: string, dto: UpdateNotificationPrefsDto) {
+  async updateNotificationPrefs(
+    userId: string,
+    dto: UpdateNotificationPrefsDto,
+  ) {
     const patch: Partial<NotificationPrefs> = {};
     for (const key of NOTIFICATION_PREF_KEYS) {
       if (typeof dto[key] === 'boolean') patch[key] = dto[key];
     }
-    if (Object.keys(patch).length === 0 && dto.notificationsEnabled === undefined) {
+    if (
+      Object.keys(patch).length === 0 &&
+      dto.notificationsEnabled === undefined
+    ) {
       throwApi(400, 'validation_error', 'لا توجد إعدادات للتحديث');
     }
     const current = await this.getNotificationPrefs(userId);
@@ -104,7 +111,9 @@ export class UserSettingsService {
         update: {},
       });
     } else {
-      await this.prisma.userMute.deleteMany({ where: { muterId, mutedId: targetId } });
+      await this.prisma.userMute.deleteMany({
+        where: { muterId, mutedId: targetId },
+      });
     }
     await this.redis.cacheDel(`stories:feed:${muterId}`);
     return { muted };
@@ -151,9 +160,10 @@ export class UserSettingsService {
       },
     });
     const ttlMs = sessionTtlMs();
-    const current = typeof currentRefreshToken === 'string' && currentRefreshToken.length > 0
-      ? currentRefreshToken
-      : null;
+    const current =
+      typeof currentRefreshToken === 'string' && currentRefreshToken.length > 0
+        ? currentRefreshToken
+        : null;
     return {
       sessions: rows.map((row) => {
         const device = describeSessionDevice(row.deviceInfo);
@@ -164,7 +174,8 @@ export class UserSettingsService {
           platform: device.platform,
           ip: maskIp(row.ipAddress),
           signedInAt: row.createdAt,
-          lastActiveAt: refreshedAt > row.createdAt ? refreshedAt : row.createdAt,
+          lastActiveAt:
+            refreshedAt > row.createdAt ? refreshedAt : row.createdAt,
           expiresAt: row.expiresAt,
           current: current !== null && row.refreshToken === current,
         };
@@ -188,11 +199,19 @@ export class UserSettingsService {
       where: { userId, refreshToken: currentRefreshToken },
       select: { id: true },
     });
-    if (!keep) throwApi(400, 'session_unknown', 'تعذّر التعرّف على هذا الجهاز، سجّل الدخول من جديد');
+    if (!keep)
+      throwApi(
+        400,
+        'session_unknown',
+        'تعذّر التعرّف على هذا الجهاز، سجّل الدخول من جديد',
+      );
     const result = await this.prisma.userSession.deleteMany({
       where: { userId, id: { not: keep.id } },
     });
-    this.logger.info({ userId, revoked: result.count }, 'Other sessions revoked by owner');
+    this.logger.info(
+      { userId, revoked: result.count },
+      'Other sessions revoked by owner',
+    );
     return { revoked: result.count };
   }
 
@@ -272,7 +291,13 @@ export class UserSettingsService {
     ] = await Promise.all([
       this.prisma.subscription.findUnique({
         where: { userId },
-        select: { planId: true, status: true, billingCycle: true, renewDate: true, autoRenew: true },
+        select: {
+          planId: true,
+          status: true,
+          billingCycle: true,
+          renewDate: true,
+          autoRenew: true,
+        },
       }),
       this.prisma.listing.findMany({
         where: { sellerId: userId, deletedAt: null },
@@ -297,7 +322,14 @@ export class UserSettingsService {
         where: { authorId: userId, deletedAt: null },
         orderBy: { createdAt: 'desc' },
         take,
-        select: { id: true, content: true, image: true, likesCount: true, commentsCount: true, createdAt: true },
+        select: {
+          id: true,
+          content: true,
+          image: true,
+          likesCount: true,
+          commentsCount: true,
+          createdAt: true,
+        },
       }),
       this.prisma.postComment.findMany({
         where: { authorId: userId },
@@ -314,20 +346,32 @@ export class UserSettingsService {
       this.prisma.follow.findMany({
         where: { followerId: userId },
         take,
-        select: { createdAt: true, following: { select: { id: true, username: true } } },
+        select: {
+          createdAt: true,
+          following: { select: { id: true, username: true } },
+        },
       }),
       this.prisma.follow.findMany({
         where: { followingId: userId },
         take,
-        select: { createdAt: true, follower: { select: { id: true, username: true } } },
+        select: {
+          createdAt: true,
+          follower: { select: { id: true, username: true } },
+        },
       }),
       this.prisma.userBlock.findMany({
         where: { blockerId: userId },
-        select: { createdAt: true, blocked: { select: { id: true, username: true } } },
+        select: {
+          createdAt: true,
+          blocked: { select: { id: true, username: true } },
+        },
       }),
       this.prisma.userMute.findMany({
         where: { muterId: userId },
-        select: { createdAt: true, muted: { select: { id: true, username: true } } },
+        select: {
+          createdAt: true,
+          muted: { select: { id: true, username: true } },
+        },
       }),
       this.prisma.userReview.findMany({
         where: { reviewerId: userId },
@@ -338,7 +382,13 @@ export class UserSettingsService {
         where: { reporterId: userId, deletedAt: null },
         orderBy: { createdAt: 'desc' },
         take: 200,
-        select: { ticketNumber: true, category: true, subject: true, status: true, createdAt: true },
+        select: {
+          ticketNumber: true,
+          category: true,
+          subject: true,
+          status: true,
+          createdAt: true,
+        },
       }),
       this.listSessions(userId).then((r) => r.sessions),
     ]);

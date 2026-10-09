@@ -2,8 +2,13 @@ import { describeSessionDevice, maskIp } from './session-device';
 
 describe('session device display', () => {
   it('labels common user agents', () => {
-    expect(describeSessionDevice('Sarh/1 CFNetwork/1490 Darwin/23.0.0').platform).toBe('ios');
-    expect(describeSessionDevice('okhttp/4.12.0')).toEqual({ label: 'Android', platform: 'android' });
+    expect(
+      describeSessionDevice('Sarh/1 CFNetwork/1490 Darwin/23.0.0').platform,
+    ).toBe('ios');
+    expect(describeSessionDevice('okhttp/4.12.0')).toEqual({
+      label: 'Android',
+      platform: 'android',
+    });
     expect(
       describeSessionDevice(
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36',

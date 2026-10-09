@@ -82,7 +82,9 @@ const NEARBY_SCAN_BATCH = 100;
 const NEARBY_MAX_SCAN_BATCHES = 10;
 
 /** Parses "lat,lng" (DTO already checked the shape). */
-export function parseNearParam(raw: string | undefined): { lat: number; lng: number } | null {
+export function parseNearParam(
+  raw: string | undefined,
+): { lat: number; lng: number } | null {
   if (!raw) return null;
   const [a, b] = raw.split(',').map((x) => Number(x.trim()));
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
@@ -161,7 +163,12 @@ export class ListingsService {
   }
 
   private resolveGeoOrThrow(
-    input: { cityId?: string; lat?: number; lng?: number; geoSource?: 'CITY' | 'GPS' },
+    input: {
+      cityId?: string;
+      lat?: number;
+      lng?: number;
+      geoSource?: 'CITY' | 'GPS';
+    },
     texts: Array<string | null | undefined>,
   ): ListingGeoFields | null {
     try {
@@ -206,7 +213,9 @@ export class ListingsService {
         break;
       }
       const allowed = new Set(
-        await this.repo.filterIds({ AND: [where, { id: { in: rows.map((r) => r.id) } }] }),
+        await this.repo.filterIds({
+          AND: [where, { id: { in: rows.map((r) => r.id) } }],
+        }),
       );
       for (const r of rows) {
         scanCursor = r.id;
@@ -221,7 +230,8 @@ export class ListingsService {
       }
     }
 
-    const hasMore = picked.length > PAGE_SIZE || (!exhausted && scanCursor !== null);
+    const hasMore =
+      picked.length > PAGE_SIZE || (!exhausted && scanCursor !== null);
     const pageRows = picked.slice(0, PAGE_SIZE);
     const nextCursor = hasMore
       ? picked.length > PAGE_SIZE
@@ -658,10 +668,7 @@ export class ListingsService {
       parentRequiresWeight,
     );
 
-    const geo = this.resolveGeoOrThrow(dto, [
-      dto.arabicLocation,
-      dto.location,
-    ]);
+    const geo = this.resolveGeoOrThrow(dto, [dto.arabicLocation, dto.location]);
 
     try {
       const listing = await this.repo.createListingWithFee({
@@ -899,7 +906,12 @@ export class ListingsService {
     if (!textChanged) return {};
     const geo = this.resolveGeoOrThrow({}, [dto.arabicLocation, dto.location]);
     if (!geo) {
-      return { lat: null, lng: null, geoSource: null, city: { disconnect: true } };
+      return {
+        lat: null,
+        lng: null,
+        geoSource: null,
+        city: { disconnect: true },
+      };
     }
     return {
       lat: geo.lat,
@@ -1068,7 +1080,11 @@ export class ListingsService {
     }
 
     // Replies are one level deep: replying to a reply attaches to its top-level comment.
-    let parent: { id: string; authorId: string; parentId: string | null } | null = null;
+    let parent: {
+      id: string;
+      authorId: string;
+      parentId: string | null;
+    } | null = null;
     if (dto.parentId) {
       const target = await this.repo.findCommentMeta(dto.parentId, listingId);
       if (!target) throwApi(404, 'not_found', 'التعليق غير موجود');
@@ -1101,7 +1117,11 @@ export class ListingsService {
         .catch(() => {});
     }
 
-    if (listing.sellerId && listing.sellerId !== user.userId && listing.sellerId !== replyTarget) {
+    if (
+      listing.sellerId &&
+      listing.sellerId !== user.userId &&
+      listing.sellerId !== replyTarget
+    ) {
       void this.notifications
         .notifyUser({
           userId: listing.sellerId,

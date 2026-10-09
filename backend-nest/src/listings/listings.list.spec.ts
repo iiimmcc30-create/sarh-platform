@@ -219,7 +219,9 @@ describe('ListingsService.list pagination', () => {
       },
     );
 
-    const { ids, pages, lastHasMore } = await collectAllPages({ sort: 'oldest' });
+    const { ids, pages, lastHasMore } = await collectAllPages({
+      sort: 'oldest',
+    });
     expect(pages).toBe(3);
     expect(lastHasMore).toBe(false);
     expect(ids).toEqual(ascending.map((row) => row.id));

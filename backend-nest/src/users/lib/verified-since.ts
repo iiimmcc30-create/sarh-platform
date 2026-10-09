@@ -7,17 +7,23 @@
  * Read-only; nothing is written.
  */
 export type VerificationRequestStamp =
-  | { status: string; reviewedAt: Date | string | null }
-  | null
-  | undefined;
+  { status: string; reviewedAt: Date | string | null } | null | undefined;
 
 export function resolveVerifiedSince(
   verified: boolean | null | undefined,
   request: VerificationRequestStamp,
 ): string | null {
-  if (verified !== true || !request || request.status !== 'VERIFIED' || !request.reviewedAt) {
+  if (
+    verified !== true ||
+    !request ||
+    request.status !== 'VERIFIED' ||
+    !request.reviewedAt
+  ) {
     return null;
   }
-  const at = request.reviewedAt instanceof Date ? request.reviewedAt : new Date(request.reviewedAt);
+  const at =
+    request.reviewedAt instanceof Date
+      ? request.reviewedAt
+      : new Date(request.reviewedAt);
   return Number.isNaN(at.getTime()) ? null : at.toISOString();
 }

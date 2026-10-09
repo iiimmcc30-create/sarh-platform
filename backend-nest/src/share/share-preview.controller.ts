@@ -50,7 +50,9 @@ export class SharePreviewController {
       url,
       type: 'product',
       title: price ? `${name} — ${price}` : name,
-      description: [listing.location, clip(listing.description, 160)].filter(Boolean).join(' · '),
+      description: [listing.location, clip(listing.description, 160)]
+        .filter(Boolean)
+        .join(' · '),
       image: listing.images?.[0] ?? null,
     });
   }
@@ -66,14 +68,33 @@ export class SharePreviewController {
           select: {
             content: true,
             images: true,
-            media: { select: { url: true, type: true }, orderBy: { sortOrder: 'asc' }, take: 4 },
-            author: { select: { arabicName: true, displayName: true, username: true, avatar: true, isActive: true } },
+            media: {
+              select: { url: true, type: true },
+              orderBy: { sortOrder: 'asc' },
+              take: 4,
+            },
+            author: {
+              select: {
+                arabicName: true,
+                displayName: true,
+                username: true,
+                avatar: true,
+                isActive: true,
+              },
+            },
           },
         })
       : null;
-    if (!post || post.author?.isActive === false) return this.send(res, this.fallback(url), 404);
-    const author = post.author?.arabicName || post.author?.displayName || post.author?.username || 'سرح';
-    const mediaImage = post.media?.find((m) => String(m.type).toUpperCase() === 'IMAGE')?.url;
+    if (!post || post.author?.isActive === false)
+      return this.send(res, this.fallback(url), 404);
+    const author =
+      post.author?.arabicName ||
+      post.author?.displayName ||
+      post.author?.username ||
+      'سرح';
+    const mediaImage = post.media?.find(
+      (m) => String(m.type).toUpperCase() === 'IMAGE',
+    )?.url;
     return this.send(res, {
       url,
       type: 'article',
@@ -90,8 +111,18 @@ export class SharePreviewController {
     const url = `${SHARE_SITE}/u/${encodeURIComponent(username)}`;
     const user = USERNAME_RE.test(username)
       ? await this.prisma.user.findFirst({
-          where: { username: { equals: username, mode: 'insensitive' }, isActive: true, deletedAt: null },
-          select: { arabicName: true, displayName: true, username: true, bio: true, avatar: true },
+          where: {
+            username: { equals: username, mode: 'insensitive' },
+            isActive: true,
+            deletedAt: null,
+          },
+          select: {
+            arabicName: true,
+            displayName: true,
+            username: true,
+            bio: true,
+            avatar: true,
+          },
         })
       : null;
     if (!user) return this.send(res, this.fallback(url), 404);
@@ -106,14 +137,22 @@ export class SharePreviewController {
   }
 
   private fallback(url: string): SharePreview {
-    return { url, title: 'سرح', description: SHARE_DEFAULT_DESCRIPTION, image: null };
+    return {
+      url,
+      title: 'سرح',
+      description: SHARE_DEFAULT_DESCRIPTION,
+      image: null,
+    };
   }
 
   private send(res: Response, preview: SharePreview, status = 200) {
     res
       .status(status)
       .setHeader('Content-Type', 'text/html; charset=utf-8')
-      .setHeader('Cache-Control', status === 200 ? 'public, max-age=600' : 'public, max-age=60')
+      .setHeader(
+        'Cache-Control',
+        status === 200 ? 'public, max-age=600' : 'public, max-age=60',
+      )
       .send(renderSharePreview(preview));
   }
 }

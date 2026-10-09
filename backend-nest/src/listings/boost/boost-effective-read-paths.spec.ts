@@ -162,7 +162,10 @@ describe('stale Redis explore cache never shows an expired boost', () => {
             title: 'l',
             items: [
               cachedListing('regular'),
-              cachedListing('expiredPin', { pinned: true, pinnedUntil: iso(-1) }),
+              cachedListing('expiredPin', {
+                pinned: true,
+                pinnedUntil: iso(-1),
+              }),
               cachedListing('featuredPlan', { featured: true }),
               cachedListing('expiredFeat', {
                 featured: true,
@@ -198,12 +201,20 @@ describe('Promotion expiry (promotedUntil) in the effective state and ranking', 
   it('withEffectiveBoostState drops an expired Promotion, keeps an active one', () => {
     expect(
       withEffectiveBoostState(
-        cachedListing('a', { promoted: true, promotedUntil: iso(-1), promotionWeight: 150 }),
+        cachedListing('a', {
+          promoted: true,
+          promotedUntil: iso(-1),
+          promotionWeight: 150,
+        }),
       ),
     ).toMatchObject({ promoted: false, promotionWeight: 0 });
     expect(
       withEffectiveBoostState(
-        cachedListing('b', { promoted: true, promotedUntil: iso(5), promotionWeight: 150 }),
+        cachedListing('b', {
+          promoted: true,
+          promotedUntil: iso(5),
+          promotionWeight: 150,
+        }),
       ),
     ).toMatchObject({ promoted: true, promotionWeight: 150 });
   });

@@ -105,7 +105,6 @@ describe('Messaging + notifications', () => {
   });
 });
 
-
 describe('Payments — success / fail / cancel / expire', () => {
   const cases: Array<{
     niState: string;

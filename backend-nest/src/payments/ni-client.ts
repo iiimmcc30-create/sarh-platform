@@ -228,7 +228,9 @@ export function extractNiOrderReference(
  * Log-safe view of an NI identity (access-token) response: never the token itself.
  * Keeps token_type / expiry / token length and NI error codes for diagnostics.
  */
-export function summarizeNiAuthResponse(data: unknown): Record<string, unknown> {
+export function summarizeNiAuthResponse(
+  data: unknown,
+): Record<string, unknown> {
   if (!data || typeof data !== 'object') {
     return { bodyType: data == null ? 'empty' : typeof data };
   }
@@ -238,7 +240,12 @@ export function summarizeNiAuthResponse(data: unknown): Record<string, unknown> 
     hasAccessToken: Boolean(token),
     ...(token ? { accessTokenLength: token.length } : {}),
   };
-  for (const key of ['token_type', 'expires_in', 'refresh_expires_in', 'scope']) {
+  for (const key of [
+    'token_type',
+    'expires_in',
+    'refresh_expires_in',
+    'scope',
+  ]) {
     if (body[key] !== undefined) summary[key] = body[key];
   }
   const errors = Array.isArray(body.errors) ? body.errors : null;

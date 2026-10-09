@@ -434,7 +434,6 @@ describe('AuthService signup uniqueness', () => {
       messageAr: SIGNUP_PHONE_TAKEN_AR,
     });
   });
-
 });
 
 describe('AuthService Google identity hardening', () => {

@@ -37,15 +37,25 @@ describe('collectPushTokens per-type prefs (Settings → الإشعارات)', (
   });
 
   it('keeps other categories and account notices on', () => {
-    const user = { ...base, notificationPrefs: { messages: false, councils: false } };
+    const user = {
+      ...base,
+      notificationPrefs: { messages: false, councils: false },
+    };
     expect(collectPushTokens(user, { type: 'follow' })).toEqual(['tok']);
-    expect(collectPushTokens(user, { type: 'subscription_renew' })).toEqual(['tok']);
+    expect(collectPushTokens(user, { type: 'subscription_renew' })).toEqual([
+      'tok',
+    ]);
     expect(
-      collectPushTokens(user, { type: 'system', data: { kind: 'council_live', councilId: 'c' } }),
+      collectPushTokens(user, {
+        type: 'system',
+        data: { kind: 'council_live', councilId: 'c' },
+      }),
     ).toEqual([]);
   });
 
   it('ignores prefs when no notification is given (legacy callers)', () => {
-    expect(collectPushTokens({ ...base, notificationPrefs: { messages: false } })).toEqual(['tok']);
+    expect(
+      collectPushTokens({ ...base, notificationPrefs: { messages: false } }),
+    ).toEqual(['tok']);
   });
 });

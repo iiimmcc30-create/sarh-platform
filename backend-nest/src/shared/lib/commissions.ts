@@ -18,7 +18,12 @@ export type ListingCat =
 export function calculateCommission(
   _category: ListingCat,
   price: number,
-): { commission: number; isExempt: boolean; dueDate: Date | null; ruleDescription: string } {
+): {
+  commission: number;
+  isExempt: boolean;
+  dueDate: Date | null;
+  ruleDescription: string;
+} {
   return {
     commission: calculateListingFeeAmount(price),
     isExempt: false,
@@ -27,7 +32,10 @@ export function calculateCommission(
   };
 }
 
-export function shouldCreateFee(_category: ListingCat, _planId?: string): boolean {
+export function shouldCreateFee(
+  _category: ListingCat,
+  _planId?: string,
+): boolean {
   return true;
 }
 

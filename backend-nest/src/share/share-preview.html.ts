@@ -4,7 +4,8 @@
 export const SHARE_SITE = 'https://sarhsa.online';
 export const SHARE_SITE_NAME = 'سرح';
 export const SHARE_DEFAULT_IMAGE = `${SHARE_SITE}/icon-512.png`;
-export const SHARE_DEFAULT_DESCRIPTION = 'سرح — المنصة الوطنية للثروة الحيوانية';
+export const SHARE_DEFAULT_DESCRIPTION =
+  'سرح — المنصة الوطنية للثروة الحيوانية';
 
 export type SharePreview = {
   /** Canonical public URL (the same /l/, /post/, /u/ link that was shared). */
@@ -31,7 +32,8 @@ export function clip(value: string | null | undefined, max: number): string {
   return `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
 }
 
-const CLOUDINARY_UPLOAD = /^(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.+)$/i;
+const CLOUDINARY_UPLOAD =
+  /^(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.+)$/i;
 
 /**
  * Absolute preview image: Cloudinary images get a 1200px-wide JPEG delivery
@@ -44,11 +46,15 @@ export function previewImageUrl(raw: string | null | undefined): string {
   if (value.startsWith('/')) return `${SHARE_SITE}${value}`;
   if (!/^https?:\/\//i.test(value)) return SHARE_DEFAULT_IMAGE;
   const match = value.match(CLOUDINARY_UPLOAD);
-  if (!match) return /\/video\/upload\//i.test(value) ? SHARE_DEFAULT_IMAGE : value;
+  if (!match)
+    return /\/video\/upload\//i.test(value) ? SHARE_DEFAULT_IMAGE : value;
   return `${match[1]}w_1200,c_limit,q_auto,f_jpg/${match[2]}`;
 }
 
-export function formatPriceAr(price: number | null | undefined, currency?: string | null): string | null {
+export function formatPriceAr(
+  price: number | null | undefined,
+  currency?: string | null,
+): string | null {
   if (price == null || !Number.isFinite(price) || price <= 0) return null;
   const cur = (currency || 'SAR').toUpperCase();
   const label = cur === 'SAR' ? 'ريال' : cur;
@@ -57,7 +63,9 @@ export function formatPriceAr(price: number | null | undefined, currency?: strin
 
 export function renderSharePreview(p: SharePreview): string {
   const title = escapeHtml(clip(p.title, 90) || SHARE_SITE_NAME);
-  const description = escapeHtml(clip(p.description, 200) || SHARE_DEFAULT_DESCRIPTION);
+  const description = escapeHtml(
+    clip(p.description, 200) || SHARE_DEFAULT_DESCRIPTION,
+  );
   const image = escapeHtml(previewImageUrl(p.image));
   const url = escapeHtml(p.url);
   return `<!DOCTYPE html>

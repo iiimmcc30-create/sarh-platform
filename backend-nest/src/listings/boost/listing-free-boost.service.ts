@@ -179,7 +179,11 @@ export class ListingFreeBoostService {
         type: 'system',
         titleAr: '⭐ تم تمييز إعلانك مجاناً',
         bodyAr: `إعلانك "${result.title}" مميز حتى ${result.expiresAt.toLocaleDateString('ar-SA')}.`,
-        data: { boostId: result.boostId, listingId, boostType: FREE_BOOST_TYPE },
+        data: {
+          boostId: result.boostId,
+          listingId,
+          boostType: FREE_BOOST_TYPE,
+        },
       })
       .catch(() => {});
     this.logger.info(

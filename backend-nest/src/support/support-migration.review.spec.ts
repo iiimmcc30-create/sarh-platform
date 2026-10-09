@@ -47,11 +47,19 @@ describe('help_center_faq_kb migration review', () => {
   );
 
   it('is additive only', () => {
-    for (const v of ['SUBSCRIPTIONS', 'COUNCILS', 'SAFETY', 'PROMOTION', 'COMMUNITY']) {
+    for (const v of [
+      'SUBSCRIPTIONS',
+      'COUNCILS',
+      'SAFETY',
+      'PROMOTION',
+      'COMMUNITY',
+    ]) {
       expect(sql).toContain(`ADD VALUE IF NOT EXISTS '${v}'`);
     }
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS "key" TEXT;/);
-    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS "keywords" TEXT\[\] NOT NULL DEFAULT/);
+    expect(sql).toMatch(
+      /ADD COLUMN IF NOT EXISTS "keywords" TEXT\[\] NOT NULL DEFAULT/,
+    );
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS "actionRoute" TEXT;/);
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS "actionLabel" TEXT;/);
     expect(sql).toContain('CREATE UNIQUE INDEX IF NOT EXISTS "Faq_key_key"');

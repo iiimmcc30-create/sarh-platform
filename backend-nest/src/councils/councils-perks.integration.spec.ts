@@ -44,7 +44,8 @@ suite('Council subscriber perks (real Postgres)', () => {
   const env = { ...process.env };
   const as = (name: string) =>
     ({ userId: users[name], username: name }) as unknown as JwtPayload;
-  const inMinutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
+  const inMinutes = (m: number) =>
+    new Date(Date.now() + m * 60_000).toISOString();
 
   async function makeUser(name: string, slug = 'free') {
     const user = await prisma.user.create({
@@ -65,13 +66,25 @@ suite('Council subscriber perks (real Postgres)', () => {
     process.env.AGORA_APP_CERTIFICATE = 'fedcba9876543210fedcba9876543210';
     prisma = new PrismaClient({ datasources: { db: { url: DB_URL } } });
     const db = prisma as unknown as PrismaService;
-    const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+    const logger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    };
     const cache = new TestCache(logger as never);
     const presence = new CouncilPresenceService(cache);
     const bridge = { toCouncil: jest.fn(), toUser: jest.fn() };
-    const realtime = new CouncilRealtimeService(db, cache, presence, bridge as never);
+    const realtime = new CouncilRealtimeService(
+      db,
+      cache,
+      presence,
+      bridge as never,
+    );
     const entitlements = {
-      getEffectivePlanSlugForUser: jest.fn(async (id: string) => slugs[id] ?? 'free'),
+      getEffectivePlanSlugForUser: jest.fn(
+        async (id: string) => slugs[id] ?? 'free',
+      ),
     };
     service = new CouncilsService(
       db,
@@ -148,7 +161,10 @@ suite('Council subscriber perks (real Postgres)', () => {
     expect(res.state.council.followersOnly).toBe(true);
 
     const blocked = await apiError(() => service.join(as('stranger'), id, {}));
-    expect(blocked).toMatchObject({ status: 403, error: 'council_followers_only' });
+    expect(blocked).toMatchObject({
+      status: 403,
+      error: 'council_followers_only',
+    });
 
     const joined = await service.join(as('fan'), id, {});
     expect(joined.state.me.joined).toBe(true);
@@ -207,16 +223,24 @@ suite('Council subscriber perks (real Postgres)', () => {
 
     const up = await service.upcoming(as('fan'));
     const card = up.councils.find((c) => c.id === id);
-    expect(card).toMatchObject({ remindMe: false, reminderCount: 0, isOwner: false });
+    expect(card).toMatchObject({
+      remindMe: false,
+      reminderCount: 0,
+      isOwner: false,
+    });
 
     await expect(service.remind(as('fan'), id, true)).resolves.toEqual({
       remindMe: true,
       reminderCount: 1,
     });
-    await expect(service.remind(as('stranger'), id, true)).resolves.toMatchObject({
+    await expect(
+      service.remind(as('stranger'), id, true),
+    ).resolves.toMatchObject({
       reminderCount: 2,
     });
-    await expect(service.remind(as('stranger'), id, false)).resolves.toMatchObject({
+    await expect(
+      service.remind(as('stranger'), id, false),
+    ).resolves.toMatchObject({
       remindMe: false,
       reminderCount: 1,
     });
@@ -234,7 +258,10 @@ suite('Council subscriber perks (real Postgres)', () => {
     expect(row.remindersSentAt).not.toBeNull();
     expect(notifyUsers).toHaveBeenCalledTimes(1);
     expect(notifyUsers.mock.calls[0][0]).toEqual([users.fan]);
-    expect(notifyUsers.mock.calls[0][1].data).toEqual({ kind: 'council_live', councilId: id });
+    expect(notifyUsers.mock.calls[0][1].data).toEqual({
+      kind: 'council_live',
+      councilId: id,
+    });
 
     // Re-running never starts or notifies twice; now joinable.
     notifyUsers.mockClear();
@@ -264,7 +291,10 @@ suite('Council subscriber perks (real Postgres)', () => {
         scheduledFor: inMinutes(90),
       }),
     );
-    expect(limit).toMatchObject({ status: 409, error: 'council_schedule_limit' });
+    expect(limit).toMatchObject({
+      status: 409,
+      error: 'council_schedule_limit',
+    });
 
     await service.remind(as('fan'), ids[0], true);
     const notOwner = await apiError(() => service.start(as('fan'), ids[0]));
@@ -285,7 +315,9 @@ suite('Council subscriber perks (real Postgres)', () => {
     });
     await service.end(as('gold'), ids[0]);
     await service.startDueScheduled(new Date());
-    const stale = await prisma.council.findUniqueOrThrow({ where: { id: ids[2] } });
+    const stale = await prisma.council.findUniqueOrThrow({
+      where: { id: ids[2] },
+    });
     expect(stale.status).toBe('ENDED');
     await service.end(as('gold'), ids[1]);
   });

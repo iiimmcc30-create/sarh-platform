@@ -113,7 +113,14 @@ export class PostsService {
         { posts: items, nextCursor, hasMore },
         followingOnly ? 30 : 60,
       );
-      return this.personalizeFeed(items, nextCursor, hasMore, user, authorId, !authorId);
+      return this.personalizeFeed(
+        items,
+        nextCursor,
+        hasMore,
+        user,
+        authorId,
+        !authorId,
+      );
     }
 
     return this.personalizeFeed(
@@ -145,7 +152,14 @@ export class PostsService {
     const hasMore = posts.length > PAGE_SIZE;
     const items = hasMore ? posts.slice(0, -1) : posts;
     const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
-    return this.personalizeFeed(items, nextCursor, hasMore, user, undefined, true);
+    return this.personalizeFeed(
+      items,
+      nextCursor,
+      hasMore,
+      user,
+      undefined,
+      true,
+    );
   }
 
   private async personalizeFeed(
