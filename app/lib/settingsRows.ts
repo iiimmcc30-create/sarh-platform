@@ -183,11 +183,11 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
     },
     {
       key: 'verification',
-      title: 'توثيق الحساب',
+      title: 'التوثيق',
       icon: 'badge-check',
       description: sub.planLabel
         ? `${sub.trialActive ? 'تجربة' : 'مشترك'} ${sub.planLabel}${sub.until ? ` · ${sub.until}` : ''}`
-        : 'اطّلع على مزايا التوثيق وشارة الحساب، وأدِر اشتراكك.',
+        : 'شارة التوثيق ومزاياها، واشتراكك وإعدادات ظهور الشارة.',
       direct: true,
       rows: [
         {
@@ -199,14 +199,16 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
               : 'اشتراكك'
             : sub.trialEligible
               ? 'جرّب أزرق+ مجاناً لأسبوع'
-              : 'توثيق الحساب',
+              : 'التوثيق',
           description: sub.planLabel
             ? sub.until
               ? `${sub.planLabel} · ${sub.until}`
               : sub.planLabel
             : 'شارة التوثيق ومزايا الحسابات الموثّقة.',
-          route: '/verification',
-          keywords: ['اشتراك', 'خطة', 'تجديد', 'ذهبي', 'ازرق', 'توثيق', 'شارة', 'تجربة'],
+          // The «التوثيق» hub (status, usage, switches); it gates its own
+          // upgrade / price rows when digital purchases are off.
+          route: '/settings/verification',
+          keywords: ['اشتراك', 'خطة', 'تجديد', 'ذهبي', 'ازرق', 'توثيق', 'التوثيق', 'شارة', 'تجربة', 'إخفاء الشارة', 'بائع ذهبي'],
         },
       ],
     },

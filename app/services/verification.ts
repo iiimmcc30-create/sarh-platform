@@ -36,7 +36,15 @@ export type VerificationPlan = {
   visibilityBoost: number;
   /** 1 = Blue, 2 = Blue+, 3 = Gold (highest). */
   visibilityLevel?: number;
+  /** Free 24h boosts every 7 days (absent on older API builds). */
+  weeklyFreeBoosts?: number;
 };
+
+/** Weekly free boosts of a tier (plan value first, then the server defaults). */
+export function weeklyFreeBoostsFor(plan: VerificationPlan | undefined, tier: VerificationTierId): number {
+  if (typeof plan?.weeklyFreeBoosts === 'number') return Math.max(0, Math.floor(plan.weeklyFreeBoosts));
+  return tier === 'gold' ? 4 : tier === 'blue_plus' ? 2 : 0;
+}
 
 export type VerificationState =
   | 'not_started'
@@ -89,7 +97,40 @@ export type VerificationStatus = {
     color?: 'blue' | 'gold' | null;
     legacy: boolean;
   };
-  billing: { cycle: 'monthly'; automaticCharge: boolean; renewal: string };
+  billing: {
+    cycle: 'monthly';
+    automaticCharge: boolean;
+    renewal: string;
+    /** Where the current period is billed (absent on older API builds). */
+    source?: BillingSource;
+    autoRenew?: boolean;
+    expiresAt?: string | null;
+  };
+  /** Live perk usage for the «التوثيق» hub (absent on older API builds). */
+  perks?: VerificationPerks | null;
+  /** «إخفاء الشارة» / «إخفاء بائع ذهبي» (absent on older API builds). */
+  preferences?: BadgePreferences;
+};
+
+/** app_store / google_play: managed and cancelled in the store only. */
+export type BillingSource = 'app_store' | 'google_play' | 'ngenius' | 'trial' | 'none';
+
+export function isStoreBillingSource(source: BillingSource | null | undefined): source is 'app_store' | 'google_play' {
+  return source === 'app_store' || source === 'google_play';
+}
+
+export type VerificationPerks = {
+  tier: VerificationTierId | null;
+  freeBoosts: { limit: number; used: number; remaining: number; nextResetAt: string | null };
+  dailyListings: { limit: number; used: number; resetsAt: string | null };
+  profileViews30d: { count: number; unlocked: boolean };
+  prioritySupport: boolean;
+  councils: { canSchedule: boolean; canFollowersOnly: boolean };
+};
+
+export type BadgePreferences = {
+  hideVerifiedBadge: boolean;
+  hideGoldSellerLabel: boolean;
 };
 
 /**
@@ -298,13 +339,21 @@ export async function initiateVerificationSubscription(params: {
   }
 }
 
-/** Stops the next renewal; benefits stay until the paid period ends. */
-export async function cancelVerificationSubscription(): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Stops the next renewal; benefits stay until the paid period ends. Store
+ * subscriptions are refused by the API with `manage_in_store` (cancel them in
+ * App Store / Google Play).
+ */
+export async function cancelVerificationSubscription(): Promise<{ ok: boolean; error?: string; code?: string }> {
   try {
     const res = await authFetch(`${API_BASE}/api/subscriptions/cancel`, { method: 'POST' });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) {
-      return { ok: false, error: json.messageAr ?? json.message ?? 'تعذّر إلغاء التجديد' };
+      return {
+        ok: false,
+        code: typeof json.error === 'string' ? json.error : undefined,
+        error: json.messageAr ?? json.message ?? 'تعذّر إلغاء التجديد',
+      };
     }
     return { ok: true };
   } catch {
@@ -344,5 +393,26 @@ export async function startFreeTrial(): Promise<{
     return { ok: true, trial: json.data?.trial as FreeTrialStatus | undefined };
   } catch {
     return { ok: false, error: 'تعذّر الاتصال بالخادم' };
+  }
+}
+
+/** Saves «إخفاء الشارة» / «إخفاء بائع ذهبي»; returns the stored values or null. */
+export async function updateBadgePreferences(
+  patch: Partial<BadgePreferences>,
+): Promise<BadgePreferences | null> {
+  try {
+    const res = await authFetch(`${API_BASE}/api/verification/preferences`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success || !json.data) return null;
+    return {
+      hideVerifiedBadge: json.data.hideVerifiedBadge === true,
+      hideGoldSellerLabel: json.data.hideGoldSellerLabel === true,
+    };
+  } catch {
+    return null;
   }
 }

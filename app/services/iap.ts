@@ -504,3 +504,28 @@ export async function openStoreSubscriptionManagement(productId?: string): Promi
         }`;
   await Linking.openURL(url).catch(() => undefined);
 }
+
+/**
+ * «إدارة الاشتراك» for a known billing source: the native store sheet when the
+ * subscription belongs to this platform's store, else that store's web page
+ * (e.g. an App Store subscription opened from the website or Android).
+ */
+export async function openStoreSubscriptionManagementFor(
+  source: 'app_store' | 'google_play',
+  productId?: string,
+): Promise<void> {
+  const sameStore =
+    (source === 'app_store' && Platform.OS === 'ios') ||
+    (source === 'google_play' && Platform.OS === 'android');
+  if (sameStore) {
+    await openStoreSubscriptionManagement(productId);
+    return;
+  }
+  const url =
+    source === 'app_store'
+      ? 'https://apps.apple.com/account/subscriptions'
+      : `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE}${
+          productId ? `&sku=${encodeURIComponent(productId)}` : ''
+        }`;
+  await Linking.openURL(url).catch(() => undefined);
+}

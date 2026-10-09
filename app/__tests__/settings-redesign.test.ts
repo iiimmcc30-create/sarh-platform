@@ -67,7 +67,7 @@ describe('settings hub sections (X look)', () => {
     expect(groups.map((g) => g.title)).toEqual([
       'حسابك',
       'الأمان والوصول إلى الحساب',
-      'توثيق الحساب',
+      'التوثيق',
       'الخصوصية والأمان',
       'الإشعارات',
       'المدفوعات',
@@ -100,7 +100,7 @@ describe('settings hub sections (X look)', () => {
   it('single-row sections open their page directly, the rest open the section page', () => {
     const by = (k: string) => groups.find((g) => g.key === k)!;
     expect(settingsSectionHref(by('notifications'))).toBe('/settings/notifications');
-    expect(settingsSectionHref(by('verification'))).toBe('/verification');
+    expect(settingsSectionHref(by('verification'))).toBe('/settings/verification');
     expect(settingsSectionHref(by('privacy'))).toBe('/settings/section?key=privacy');
     expect(routeFileExists('/settings/section')).toBe(true);
   });
@@ -129,7 +129,7 @@ describe('settings hub sections (X look)', () => {
     expect(groups.find((g) => g.key === 'resources')!.rows[0].route).toBe('/support');
   });
 
-  it('verification shows the active plan, the trial offer, or «توثيق الحساب»', () => {
+  it('verification shows the active plan, the trial offer, or «التوثيق»', () => {
     const subscribed = buildSettingsGroups(
       ctx({ subscription: { planLabel: 'ذهبي', until: 'حتى ١ نوفمبر', trialEligible: false, trialActive: false } }),
     );
@@ -138,13 +138,16 @@ describe('settings hub sections (X look)', () => {
     expect(v(subscribed).description).toBe('مشترك ذهبي · حتى ١ نوفمبر');
     expect(v(groups).rows[0].title).toContain('مجاناً');
     const plain = buildSettingsGroups(ctx({ subscription: { planLabel: null, until: null, trialEligible: false, trialActive: false } }));
-    expect(v(plain).title).toBe('توثيق الحساب');
-    expect(v(plain).rows[0].title).toBe('توثيق الحساب');
+    expect(v(plain).title).toBe('التوثيق');
+    expect(v(plain).rows[0].title).toBe('التوثيق');
+    expect(v(plain).rows[0].route).toBe('/settings/verification');
   });
 
-  it('hides «توثيق الحساب» (and boosts) when digital purchases are off', () => {
+  it('keeps the «التوثيق» hub (status + switches) but hides boosts when digital purchases are off', () => {
     const off = withoutDigitalPurchaseRows(groups, false);
-    expect(off.map((g) => g.key)).not.toContain('verification');
+    // The hub gates its own upgrade / comparison / trial / price rows.
+    expect(off.map((g) => g.key)).toContain('verification');
+    expect(off.find((g) => g.key === 'verification')!.rows[0].route).toBe('/settings/verification');
     expect(off.find((g) => g.key === 'payments')!.rows.map((r) => r.key)).toEqual(['payments', 'fees']);
   });
 
@@ -311,11 +314,12 @@ describe('settings follow-up: account card, audience, notifications, devices, ex
     expect(src('lib/settingsRows.ts')).not.toContain('حساب مجاني');
   });
 
-  it('the subscription entry reads «توثيق الحساب», never «ترقية الحساب»', () => {
+  it('the subscription entry reads «التوثيق», never «ترقية الحساب» / «توثيق الحساب»', () => {
     const rows = src('lib/settingsRows.ts');
-    expect(rows).toContain("'توثيق الحساب'");
+    expect(rows).toContain("'التوثيق'");
     expect(rows).not.toContain('ترقية الحساب');
-    expect(rows).toContain("title: 'توثيق الحساب'");
+    expect(rows).not.toContain('توثيق الحساب');
+    expect(rows).toContain("title: 'التوثيق'");
   });
 
   it('audience selection maps to the same privacy patches as before', () => {

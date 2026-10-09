@@ -29,14 +29,14 @@ type NavItem = {
 const ALL_PRIMARY_ITEMS: NavItem[] = [
   { key: 'profile', icon: 'person-outline', label: 'الملف الشخصي', route: '/(tabs)/profile' },
   { key: 'create-listing', icon: 'add-circle-outline', label: 'إضافة عرض', route: '/create/listing' },
-  { key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },
+  { key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },
   { key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },
   { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
   { key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },
   { key: 'promote', icon: 'megaphone-outline', label: 'التعزيز', route: '/promote' },
 ];
 
-/** Store builds hide «Verification» and «التعزيز» (lib/storePurchases.ts; build-time flag). */
+/** Store builds hide «التوثيق» and «التعزيز» (lib/storePurchases.ts; build-time flag). */
 const PRIMARY_ITEMS: NavItem[] = digitalPurchasesEnabled()
   ? ALL_PRIMARY_ITEMS
   : ALL_PRIMARY_ITEMS.filter((item) => !isDigitalPurchaseRoute(item.route));

@@ -162,7 +162,7 @@ describe('sidebar - العلامات المرجعية is a plain menu row', () =
     const createAt = panel.indexOf("key: 'create-listing'");
     const nextRowAt = panel.indexOf('\n', createAt) + 1;
     // Verification sits directly under إضافة عرض, then المجالس, then bookmarks, then القوائم.
-    const verificationRow = "{ key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },";
+    const verificationRow = "{ key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },";
     expect(panel.indexOf(verificationRow)).toBe(panel.indexOf('{', nextRowAt));
     const afterVerification = panel.indexOf('\n', panel.indexOf(verificationRow)) + 1;
     const councilsRow = "{ key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },";

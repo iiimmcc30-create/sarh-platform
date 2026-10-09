@@ -13,7 +13,7 @@ import { digitalPurchasesEnabled, usesStoreBilling } from '@/lib/storePurchases'
 import { STORE_PRODUCTS, subscriptionProductForTier } from '@/lib/storeProducts';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { SwipeTabIndicator } from '@/components/ui/SwipeTabIndicator';
@@ -34,6 +34,7 @@ import { launchPaymentCheckout } from '@/services/payments';
 import {
   getOwnedStoreSubscriptions,
   openStoreSubscriptionManagement,
+  openStoreSubscriptionManagementFor,
   purchaseStoreProduct,
   restoreStorePurchases,
   storeName,
@@ -52,6 +53,7 @@ import {
   fetchVerificationStatus,
   formatArabicDate,
   initiateVerificationSubscription,
+  isStoreBillingSource,
   startFreeTrial,
   subscriptionStateLabelAr,
   tierRank,
@@ -60,6 +62,7 @@ import {
   type VerificationPlan,
   type VerificationStatus,
   type VerificationTierId,
+  weeklyFreeBoostsFor,
 } from '@/services/verification';
 
 const TIERS = VERIFICATION_TIER_ORDER;
@@ -107,9 +110,34 @@ const HEADLINE: Record<VerificationTierId, string> = {
   gold: 'الشارة الذهبية للتجار الموثّقين',
 };
 
+/** «تمييزان» / «4 تمييزات» (Arabic dual). */
+function boostsCountAr(n: number): string {
+  if (n === 1) return 'تمييز مجاني واحد';
+  if (n === 2) return 'تمييزان مجانيان';
+  return `${ltr(String(n))} تمييزات مجانية`;
+}
+
 /** Real benefits only (all enforced by the backend today). */
 function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefined): Feature[] {
   const extra = extraDailyFor(plan, tier);
+  const weeklyBoosts = weeklyFreeBoostsFor(plan, tier);
+  const profileViews: Feature = {
+    icon: 'eye-outline',
+    label: 'من شاهد ملفك',
+    info: 'أسماء زوار ملفك ووقت الزيارة خلال آخر 30 يوماً.',
+  };
+  const freeBoosts: Feature | null =
+    weeklyBoosts > 0
+      ? {
+          icon: 'rocket-outline',
+          label: `${boostsCountAr(weeklyBoosts)} كل أسبوع`,
+          info: 'تمييز أي إعلان من إعلاناتك لمدة 24 ساعة بدون دفع، ويتجدد الرصيد كل 7 أيام.',
+        }
+      : null;
+  const councilsSchedule: Feature = {
+    icon: 'mic',
+    label: tier === 'gold' ? 'جدولة المجالس ومجالس للمتابعين فقط' : 'جدولة المجالس مسبقاً',
+  };
   const daily: Feature = {
     icon: 'add-circle-outline',
     label: `${ltr(`+${extra}`)} إعلانات إضافية يومياً`,
@@ -126,7 +154,25 @@ function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefine
         label: 'أعلى أولوية ظهور لحسابك وإعلاناتك',
         info: 'تظهر إعلاناتك قبل Blue وBlue+ في ترتيب الإعلانات ونتائج البحث.',
       },
+      {
+        icon: 'ribbon',
+        label: '«بائع ذهبي» تحت اسمك',
+        info: 'وصف «بائع ذهبي» يظهر مع اسمك في الإعلانات والملف بعد قبول توثيق التاجر.',
+      },
+      {
+        icon: 'location-outline',
+        label: 'إعلاناتك أولاً في منطقتك',
+        info: 'عند البحث في منطقة محددة تظهر إعلانات البائعين الذهبيين قبل غيرهم.',
+      },
       daily,
+      ...(freeBoosts ? [freeBoosts] : []),
+      profileViews,
+      councilsSchedule,
+      {
+        icon: 'lifebuoy',
+        label: 'دعم فني بأولوية',
+        info: 'تذاكر الدعم من حسابك تصل للفريق بأولوية عالية.',
+      },
       shown,
       {
         icon: 'document-text-outline',
@@ -145,6 +191,9 @@ function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefine
         info: 'تظهر إعلاناتك قبل مشتركي Blue في ترتيب الإعلانات ونتائج البحث.',
       },
       { ...daily, label: `${ltr(`+${extra}`)} إعلانات إضافية يومياً للمستخدمين النشطين` },
+      ...(freeBoosts ? [freeBoosts] : []),
+      profileViews,
+      councilsSchedule,
       shown,
       noDocs,
       active,
@@ -158,6 +207,8 @@ function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefine
       info: 'أولوية في ترتيب الإعلانات ونتائج البحث.',
     },
     daily,
+    ...(freeBoosts ? [freeBoosts] : []),
+    profileViews,
     shown,
     noDocs,
     active,
@@ -258,7 +309,11 @@ function VerificationScreen() {
   const [plans, setPlans] = useState<VerificationPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<VerificationTierId | null>(null);
+  // «ترقية إلى Gold» / trial rows in the «التوثيق» hub open a given tab.
+  const params = useLocalSearchParams<{ tier?: string }>();
+  const initialTier =
+    params.tier === 'blue' || params.tier === 'blue_plus' || params.tier === 'gold' ? params.tier : null;
+  const [selected, setSelected] = useState<VerificationTierId | null>(initialTier);
 
   const load = useCallback(async () => {
     if (isAuthenticated) {
@@ -311,8 +366,18 @@ function VerificationScreen() {
   const price = storeBilling ? (storePrices[storeProductId]?.displayPrice ?? null) : priceAmount(plan);
   const ownedSubFor = (t: VerificationTierId | null | undefined) =>
     t ? ownedStoreSubs.find((o) => o.productId === subscriptionProductForTier(t).productId) : undefined;
-  // Paid through App Store / Google Play (renews automatically; managed in the store).
-  const storeBilledHere = storeBilling && !!ownedSubFor(sub?.tier);
+  // Paid through App Store / Google Play (renews automatically; managed in the
+  // store, never the N-Genius cancel). The API's billing.source is the truth on
+  // every platform; the on-device purchase list covers older API builds.
+  const billingSource = status?.billing?.source;
+  const storeSource = isStoreBillingSource(billingSource) ? billingSource : null;
+  const storeBilledHere = !!storeSource || (storeBilling && !!ownedSubFor(sub?.tier));
+  const manageStoreName = storeSource === 'app_store' ? 'App Store' : storeSource === 'google_play' ? 'Google Play' : store;
+  const openManage = () => {
+    const productId = ownedSubFor(sub?.tier)?.productId ?? (sub?.tier ? subscriptionProductForTier(sub.tier).productId : undefined);
+    if (storeSource) void openStoreSubscriptionManagementFor(storeSource, productId);
+    else void openStoreSubscriptionManagement(productId);
+  };
 
   // Tabs: one sliding underline (existing SwipeTabIndicator pattern).
   const { layouts, onTabLayout } = useTabLayouts(TIERS.length);
@@ -477,7 +542,9 @@ function VerificationScreen() {
     setBusy(true);
     const res = await cancelVerificationSubscription();
     setBusy(false);
-    if (!res.ok) void alertMessage('تعذّر الإلغاء', res.error);
+    if (!res.ok) {
+      void alertMessage(res.code === 'manage_in_store' ? 'إدارة الاشتراك من المتجر' : 'تعذّر الإلغاء', res.error);
+    }
     void load();
   };
 
@@ -525,7 +592,7 @@ function VerificationScreen() {
         : 'يبدأ اشتراكك المدفوع بعد نهاية التجربة، فلا تخسر أي يوم منها.';
     }
     if (subscribedHere && sub?.state === 'active' && storeBilledHere) {
-      return `يتجدد اشتراكك تلقائياً في ${formatArabicDate(sub.renewDate)} عبر ${store}.`;
+      return `يتجدد اشتراكك تلقائياً في ${formatArabicDate(status?.billing?.expiresAt ?? sub.renewDate)} عبر ${manageStoreName}.`;
     }
     if (subscribedHere && sub?.state === 'active') {
       return `اشتراكك فعّال حتى ${formatArabicDate(sub.renewDate)}. جدّد بدفعة جديدة عند موعد التجديد.`;
@@ -783,13 +850,13 @@ function VerificationScreen() {
         ) : null}
         {subscribedHere && storeBilledHere ? (
           <Pressable
-            onPress={() => void openStoreSubscriptionManagement(ownedSubFor(sub?.tier)?.productId)}
+            onPress={openManage}
             disabled={busy}
             accessibilityRole="button"
             style={styles.cancel}
           >
             <AppText variant="caption" align="center" style={styles.text}>
-              {`إدارة الاشتراك أو إلغاؤه في ${store}`}
+              {`إدارة الاشتراك أو إلغاؤه في ${manageStoreName}`}
             </AppText>
           </Pressable>
         ) : subscribedHere && sub?.state === 'active' ? (

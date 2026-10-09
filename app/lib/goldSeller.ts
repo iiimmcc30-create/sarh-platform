@@ -6,10 +6,23 @@ import { isListingPinnedActive, type ListingBoostFields } from '@/lib/listingBoo
 
 export const GOLD_SELLER_LABEL = 'بائع ذهبي';
 
-type SellerFields = { verified?: boolean | null; verifiedTier?: string | null } | null | undefined;
+type SellerFields =
+  | {
+      verified?: boolean | null;
+      verifiedTier?: string | null;
+      /** Set by the API when a Gold seller hid «بائع ذهبي» («التوثيق» hub). */
+      hideGoldSellerLabel?: boolean | null;
+    }
+  | null
+  | undefined;
 
 export function isGoldSeller(user: SellerFields): boolean {
   return Boolean(user && user.verified === true && user.verifiedTier === 'gold');
+}
+
+/** «بائع ذهبي» label: a Gold seller who did not hide it (ranking ignores this). */
+export function showsGoldSellerLabel(user: SellerFields): boolean {
+  return isGoldSeller(user) && user?.hideGoldSellerLabel !== true;
 }
 
 /**
