@@ -49,6 +49,7 @@ import { ListingFeePaymentSheet } from '@/components/listing/ListingFeePaymentSh
 import { ListingFeePaidBadge } from '@/components/listing/ListingFeePaidBadge';
 import { canPayListingFee, listingFeeButtonState, normalizeListingFee } from '@/lib/listingFeeState';
 import { ListingDeleteDialog } from '@/components/listing/ListingDeleteDialog';
+import { listingCommissionPercent, shouldShowCommissionReminder } from '@/lib/listingDeleteReminder';
 import { ListingVideoPlayer } from '@/components/listing/ListingVideoPlayer';
 import { listingPhotoUris, listingVideoUrl, avatarUrl } from '@/lib/listingMedia';
 import { isManagedListing, managedSeller } from '@/lib/managedListing';
@@ -959,6 +960,20 @@ export default function ListingDetailScreen() {
         visible={deleteDialogVisible}
         onClose={() => setDeleteDialogVisible(false)}
         onConfirm={(choice) => void confirmDeleteListing(choice)}
+        commissionReminder={
+          listing &&
+          shouldShowCommissionReminder({
+            sold: true,
+            feesEnabled: paidFlags.listingFeesEnabled,
+            managedListing: isManagedListing(listing),
+          })
+            ? { percent: listingCommissionPercent(listing.category) }
+            : null
+        }
+        onPayCommission={() => {
+          setDeleteDialogVisible(false);
+          setTimeout(() => setFeeModalVisible(true), 320);
+        }}
       />
     </Screen>
   );

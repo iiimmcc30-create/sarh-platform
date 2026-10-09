@@ -1,17 +1,25 @@
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRtlText, getRtlRow } from '@/lib/rtl';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 import { SarhButton } from '@/design-system/components';
+import { COMMISSION_REMINDER_TITLE, commissionReminderNote } from '@/lib/listingDeleteReminder';
 
 type ListingDeleteDialogProps = {
   visible: boolean;
   onClose: () => void;
   onConfirm: (result: { sold: boolean; reason: string }) => void;
   submitting?: boolean;
+  /**
+   * When set, choosing «تم البيع» shows a soft commission reminder before the final delete.
+   * Parent decides applicability (fees enabled, not admin-managed, fee not paid).
+   */
+  commissionReminder?: { percent: number } | null;
+  /** «سدّد الآن» — parent opens the existing ListingFeePaymentSheet. */
+  onPayCommission?: () => void;
 };
 
 export function ListingDeleteDialog({
@@ -19,14 +27,51 @@ export function ListingDeleteDialog({
   onClose,
   onConfirm,
   submitting,
+  commissionReminder,
+  onPayCommission,
 }: ListingDeleteDialogProps) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const [sold, setSold] = useState<boolean | null>(null);
   const [reason, setReason] = useState('');
+  const [step, setStep] = useState<'form' | 'reminder'>('form');
+  const reminderAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (step !== 'reminder') return;
+    reminderAnim.setValue(0);
+    Animated.timing(reminderAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+  }, [step, reminderAnim]);
+
+  useEffect(() => {
+    if (!visible) {
+      setSold(null);
+      setReason('');
+      setStep('form');
+    }
+  }, [visible]);
 
   const reset = () => {
     setSold(null);
     setReason('');
+    setStep('form');
+  };
+
+  const handleConfirm = () => {
+    if (sold === null) return;
+    if (sold === true && commissionReminder) {
+      setStep('reminder');
+      return;
+    }
+    onConfirm({ sold, reason: reason.trim() });
+  };
+
+  const handleLater = () => {
+    onConfirm({ sold: true, reason: reason.trim() });
+  };
+
+  const handlePayNow = () => {
+    reset();
+    onPayCommission?.();
   };
 
   const handleClose = () => {
@@ -40,6 +85,35 @@ export function ListingDeleteDialog({
   return (
     <SheetModal visible={visible} onClose={handleClose} dismissible={!submitting} keyboardAvoiding>
       <SheetSurface style={styles.dialog}>
+        {step === 'reminder' && commissionReminder ? (
+          <Animated.View
+            style={[
+              styles.reminder,
+              {
+                opacity: reminderAnim,
+                transform: [
+                  {
+                    translateY: reminderAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Text style={[styles.title, getRtlText()]}>{COMMISSION_REMINDER_TITLE}</Text>
+            <Text style={[styles.reminderNote, getRtlText()]}>
+              {commissionReminderNote(commissionReminder.percent)}
+            </Text>
+            <SarhButton title="سدّد الآن" onPress={handlePayNow} disabled={submitting} fullWidth />
+            <SarhButton
+              title="لاحقاً"
+              variant="ghost"
+              onPress={handleLater}
+              disabled={submitting}
+              fullWidth
+            />
+          </Animated.View>
+        ) : (
+        <>
           <Text style={[styles.title, getRtlText()]}>هل تم بيع هذا الإعلان؟</Text>
           <View style={[styles.choices, getRtlRow()]}>
             <Pressable
@@ -68,7 +142,7 @@ export function ListingDeleteDialog({
               />
               <SarhButton
                 title="تأكيد حذف الإعلان"
-                onPress={() => onConfirm({ sold, reason: reason.trim() })}
+                onPress={handleConfirm}
                 disabled={!canConfirm || submitting}
                 fullWidth
               />
@@ -81,6 +155,8 @@ export function ListingDeleteDialog({
               <Text style={[styles.cancelText, getRtlText()]}>إلغاء</Text>
             </Pressable>
           )}
+        </>
+        )}
       </SheetSurface>
     </SheetModal>
   );
@@ -113,6 +189,8 @@ function createStyles(colors: ThemeColors) {
       color: colors.textPrimary,
       ...typography.body,
     },
+    reminder: { gap: spacing.md },
+    reminderNote: { ...typography.secondary, color: colors.textSecondary },
     cancel: { alignItems: 'center', paddingVertical: spacing.sm },
     cancelText: { ...typography.bodyStrong, color: colors.textMuted },
   });
