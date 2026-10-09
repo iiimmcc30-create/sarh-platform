@@ -102,8 +102,8 @@ describe('Dark mode white accent', () => {
       "thumbColor={muted ? colors.onElectric : '#FFFFFF'}",
     );
     expect(src('app/councils/create.tsx')).toContain("thumbColor={mods[t.key] ? colors.onElectric : '#fff'}");
-    expect(src('app/profile/settings/privacy.tsx')).toContain(
-      "thumbColor={settings[item.key] ? colors.onElectric : '#fff'}",
+    expect(src('design-system/components/SarhSettingsRow.tsx')).toContain(
+      'thumbColor={switchValue ? functional.onAccent : functional.onPrimary}',
     );
   });
 

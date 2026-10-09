@@ -2,7 +2,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Share, StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { AppText } from '@/design-system/components';
 import { Stack } from '@/design-system/layout';
 import { space } from '@/design-system/tokens';
@@ -34,12 +34,14 @@ import { RatingModal } from '@/components/feature/RatingModal';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
 import { presentActionSheet, confirmDestructive, alertMessage } from '@/lib/actionSheet';
+import { fetchMutedUsers, setMuteUser } from '@/services/userSettings';
 import { MEMBER_OF_MENU_ITEM, openMemberOfCollections } from '@/lib/profileCollectionsMenu';
 import { showToast } from '@/lib/toast';
 import { resolveProfileBack } from '@/lib/profileHeader';
 import { safeReplace } from '@/lib/safeNavigate';
 import { SHARE_ICON } from '@/lib/interactionActions';
 import { parseProfileLinks } from '@/lib/profileLinks';
+import { showAlert } from '@/lib/confirmDialog';
 
 /** Layout only — an empty tab still needs vertical presence in the feed. */
 /** Stand-in identity while the profile request is in flight (rendered as skeleton). */
@@ -192,7 +194,7 @@ export default function UserProfileScreen() {
 
   const handleFollow = async () => {
     if (!profile || !accessToken || followLoading) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
       return;
     }
     setFollowLoading(true);
@@ -202,7 +204,7 @@ export default function UserProfileScreen() {
       await fetchAuthoritativeProfile(true);
     } catch {
       await fetchAuthoritativeProfile(true);
-      Alert.alert('خطأ', 'تعذّرت المتابعة، حاول مجدداً');
+      showAlert('خطأ', 'تعذّرت المتابعة، حاول مجدداً');
     } finally {
       setFollowLoading(false);
     }
@@ -211,11 +213,11 @@ export default function UserProfileScreen() {
   const handleChat = () => {
     if (!profile) return;
     if (profile.allowPrivateMessages === false) {
-      Alert.alert('الرسائل الخاصة', 'هذا المستخدم لا يقبل الرسائل الخاصة');
+      showAlert('الرسائل الخاصة', 'هذا المستخدم لا يقبل الرسائل الخاصة');
       return;
     }
     if (!accessToken) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لبدء محادثة');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول لبدء محادثة');
       return;
     }
     router.push({
@@ -442,7 +444,7 @@ export default function UserProfileScreen() {
 
   const handleBlock = async () => {
     if (!profile || !accessToken) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لحظر الحساب');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول لحظر الحساب');
       return;
     }
     const confirmed = await confirmDestructive(
@@ -470,7 +472,23 @@ export default function UserProfileScreen() {
     void showToast('تم إلغاء الحظر', 'info');
   };
 
+  const handleMute = async (muted: boolean) => {
+    if (!profile || !accessToken) {
+      await alertMessage('تسجيل الدخول', 'يجب تسجيل الدخول لكتم الحساب');
+      return;
+    }
+    const result = await setMuteUser(profile.id, !muted);
+    if (!result.ok) {
+      await alertMessage('تعذّر الحفظ', result.message ?? 'حاول مجدداً');
+      return;
+    }
+    void showToast(muted ? 'تم إلغاء الكتم' : 'تم كتم الحساب، لن ترى منشوراته وقصصه', 'success');
+  };
+
   const handleMenu = async () => {
+    // Muted state is only needed for the menu label: read it when the menu opens.
+    const mutedList = accessToken ? await fetchMutedUsers() : null;
+    const isMuted = !!mutedList?.some((u) => u.id === profile.id);
     const key = await presentActionSheet({
       title: 'خيارات',
       message: profile.arabicName || profile.displayName,
@@ -481,6 +499,15 @@ export default function UserProfileScreen() {
           label: 'مشاركة الملف',
           icon: SHARE_ICON,
         },
+        ...(accessToken
+          ? [
+              {
+                key: 'mute',
+                label: isMuted ? 'إلغاء الكتم' : 'كتم الحساب',
+                icon: 'volume-mute-outline',
+              },
+            ]
+          : []),
         {
           key: 'block',
           label: profile.isBlocked ? 'إلغاء الحظر' : 'حظر الحساب',
@@ -498,6 +525,7 @@ export default function UserProfileScreen() {
     });
     if (key === MEMBER_OF_MENU_ITEM.key) openMemberOfCollections(router, profile.id);
     if (key === 'share') handleShareProfile();
+    if (key === 'mute') void handleMute(isMuted);
     if (key === 'block') void handleBlock();
     if (key === 'report') promptReport('user', profile.id, !!accessToken);
   };
@@ -518,7 +546,7 @@ export default function UserProfileScreen() {
         onMessage={profile.allowPrivateMessages === false ? undefined : handleChat}
         onRatePress={() => {
           if (!accessToken) {
-            Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لتقييم الحساب');
+            showAlert('تسجيل الدخول', 'يجب تسجيل الدخول لتقييم الحساب');
             return;
           }
           setRatingVisible(true);

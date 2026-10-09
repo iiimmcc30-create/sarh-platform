@@ -17,6 +17,11 @@ export type SarhSettingsRowProps = {
   showDivider?: boolean;
   disabled?: boolean;
   accessibilityLabel?: string;
+  /** `danger`: muted-red title and icon (logout / delete). */
+  tone?: 'default' | 'danger';
+  /** Optional second line under the title. */
+  subtitle?: string;
+  testID?: string;
 };
 
 export const SETTINGS_ROW = {
@@ -39,6 +44,9 @@ export function SarhSettingsRow({
   showDivider = true,
   disabled = false,
   accessibilityLabel,
+  tone = 'default',
+  subtitle,
+  testID,
 }: SarhSettingsRowProps) {
   useTheme();
   const isSwitch = typeof switchValue === 'boolean' && !!onSwitchChange;
@@ -59,12 +67,29 @@ export function SarhSettingsRow({
         },
       ]}
     >
-      {icon ? <AppIcon name={icon} size={SETTINGS_ROW.icon} color={colors.textSecondary} /> : null}
-      <AppText variant="label" color="textPrimary" numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
-        {title}
-      </AppText>
+      {icon ? (
+        <AppIcon
+          name={icon}
+          size={SETTINGS_ROW.icon}
+          color={tone === 'danger' ? colors.danger : colors.textSecondary}
+        />
+      ) : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <AppText
+          variant="label"
+          color={tone === 'danger' ? 'danger' : 'textPrimary'}
+          numberOfLines={1}
+        >
+          {title}
+        </AppText>
+        {subtitle ? (
+          <AppText variant="caption" color="textMuted" numberOfLines={2}>
+            {subtitle}
+          </AppText>
+        ) : null}
+      </View>
       {value ? (
-        <AppText variant="caption" color="textMuted" numberOfLines={1} style={{ flexShrink: 1 }}>
+        <AppText variant="caption" color="textMuted" numberOfLines={1} style={{ flexShrink: 1, maxWidth: '55%' }}>
           {value}
         </AppText>
       ) : null}
@@ -77,6 +102,7 @@ export function SarhSettingsRow({
           thumbColor={switchValue ? functional.onAccent : functional.onPrimary}
           ios_backgroundColor={colors.surfaceElevated}
           accessibilityLabel={label}
+          testID={testID}
         />
       ) : null}
       {chevron ? (
@@ -89,6 +115,7 @@ export function SarhSettingsRow({
     <View>
       {onPress && !isSwitch ? (
         <Pressable
+          testID={testID}
           accessibilityRole="button"
           accessibilityLabel={label}
           accessibilityState={{ disabled }}

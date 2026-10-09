@@ -2,9 +2,8 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
-import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
+import { alertMessage } from '@/lib/actionSheet';
 import {
-  deleteAccount,
   fetchAccountSettings,
   updateAccountSettings,
   type AccountSettings,
@@ -36,11 +35,10 @@ function formatBirthDate(value: string | null | undefined) {
 
 export default function AccountInfoScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [account, setAccount] = useState<AccountSettings | null>(null);
   const [email, setEmail] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -100,26 +98,6 @@ export default function AccountInfoScreen() {
     setAccount(result.account);
     setBirthDate(result.account.birthDate ?? '');
     await alertMessage('تم الحفظ', 'تم تحديث تاريخ الميلاد');
-  };
-
-  const handleDeleteAccount = async () => {
-    const confirmed = await confirmDestructive(
-      'حذف الحساب نهائياً',
-      'سيتم حذف حسابك وبياناتك وإعلاناتك ومنشوراتك نهائياً. لا يمكن التراجع عن هذا الإجراء.',
-      'حذف حسابي',
-    );
-    if (!confirmed) return;
-
-    setDeleting(true);
-    const result = await deleteAccount(user?.id ?? '');
-    if (!result.ok) {
-      setDeleting(false);
-      await alertMessage('تعذّر حذف الحساب', result.message ?? 'حاول مجدداً لاحقاً');
-      return;
-    }
-
-    await signOut();
-    router.replace('/auth/phone' as any);
   };
 
   if (loading && !account) {
@@ -205,25 +183,6 @@ export default function AccountInfoScreen() {
           </AppText>
         </Row>
 
-        <SarhDivider />
-
-        <Section title="حذف الحساب">
-          <Stack gap="md">
-            <AppText variant="bodySmall" color="textSecondary">
-              عند حذف حسابك سيتم إلغاء تفعيله وإزالة بياناتك وإعلاناتك ومنشوراتك بشكل نهائي. لا
-              يمكن التراجع عن هذا الإجراء.
-            </AppText>
-            <SarhButton
-              title="حذف حسابي نهائياً"
-              variant="danger"
-              onPress={() => void handleDeleteAccount()}
-              loading={deleting}
-              fullWidth
-              leftIcon="trash-outline"
-              accessibilityLabel="حذف الحساب نهائياً"
-            />
-          </Stack>
-        </Section>
       </ScreenBody>
     </Screen>
   );

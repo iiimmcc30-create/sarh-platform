@@ -154,7 +154,8 @@ export type PrivacySettings = {
   allowPrivateMessages: boolean;
   showFollowingList: boolean;
   commentsAudience: 'everyone' | 'followers';
-  privateMessagesAudience: 'everyone' | 'following';
+  /** following = people I follow; followers = people who follow me. */
+  privateMessagesAudience: 'everyone' | 'following' | 'followers';
   notificationsEnabled: boolean;
 };
 
@@ -184,8 +185,10 @@ function parsePrivacySettings(data: unknown): PrivacySettings | null {
     typeof row.showFollowingList === 'boolean' ? row.showFollowingList : true;
   const commentsAudience =
     row.commentsAudience === 'followers' ? 'followers' : 'everyone';
-  const privateMessagesAudience =
-    row.privateMessagesAudience === 'following' ? 'following' : 'everyone';
+  const privateMessagesAudience: PrivacySettings['privateMessagesAudience'] =
+    row.privateMessagesAudience === 'following' || row.privateMessagesAudience === 'followers'
+      ? row.privateMessagesAudience
+      : 'everyone';
   const notificationsEnabled =
     typeof row.notificationsEnabled === 'boolean' ? row.notificationsEnabled : true;
 

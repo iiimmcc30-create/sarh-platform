@@ -1,28 +1,6 @@
-import { SettingsMenuScreen, type SettingsMenuItem } from '@/components/ui/SettingsMenuScreen';
+import { Redirect } from 'expo-router';
 
-const ITEMS: SettingsMenuItem[] = [
-  {
-    icon: 'shield-check-outline',
-    label: 'التحقق من الحساب والأمان',
-    route: '/profile/edit',
-  },
-  {
-    icon: 'lock-outline',
-    label: 'تغيير كلمة المرور والبريد',
-    route: '/auth/forgot-password',
-  },
-  {
-    icon: 'block',
-    label: 'المحظورين',
-    route: '/settings/blocked',
-  },
-];
-
+/** Legacy «الحساب» menu: unified into the settings home. */
 export default function AccountSettingsScreen() {
-  return (
-    <SettingsMenuScreen
-      title="الحساب"
-      items={ITEMS}
-    />
-  );
+  return <Redirect href={'/settings' as never} />;
 }

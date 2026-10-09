@@ -129,7 +129,7 @@ describe('contact form', () => {
 
 describe('entry points are unified on /support', () => {
   it('settings and the legacy support menu lead to the hub', () => {
-    expect(src('app/settings/index.tsx')).toContain("route: '/support'");
+    expect(src('lib/settingsRows.ts')).toContain("route: '/support'");
     expect(src('app/settings/support.tsx')).toContain("href={'/support' as never}");
     expect(src('app/settings/info.tsx')).toContain("route: '/support'");
     expect(src('app/(tabs)/more.tsx')).toContain('/support');

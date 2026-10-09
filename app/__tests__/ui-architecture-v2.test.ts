@@ -463,14 +463,13 @@ describe('Architecture V2 — permanent guardrails', () => {
 /** Screens that own their own shell. */
 const WAVE_2_SHELLS = [
   'components/feature/ProfileScreenLayout.tsx',
-  'components/feature/ProfileSettingsMenuScreen.tsx',
+  'components/settings/SettingsHomeScreen.tsx',
   'components/feature/ProfileFieldEditScreen.tsx',
   'app/profile/edit/index.tsx',
   'app/profile/connections.tsx',
   'app/profile/settings/account.tsx',
   'app/profile/settings/password.tsx',
   'app/profile/settings/change-phone.tsx',
-  'app/profile/settings/privacy.tsx',
   'app/settings/blocked.tsx',
 ];
 
@@ -541,7 +540,7 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
   });
 
   it('keeps profile-linked settings on the flat row and section patterns', () => {
-    const menu = src('components/feature/ProfileSettingsMenuScreen.tsx');
+    const menu = src('components/settings/SettingsHomeScreen.tsx');
     expect(menu).toContain('SarhSettingsSection');
     expect(menu).toContain('SarhSettingsRow');
     expect(menu).toContain('gutter={false}');
@@ -549,7 +548,6 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
 
     for (const file of [
       'app/profile/settings/account.tsx',
-      'app/profile/settings/privacy.tsx',
       'app/settings/blocked.tsx',
     ]) {
       const text = code(file);
@@ -591,10 +589,12 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
 
     const account = src('app/profile/settings/account.tsx');
     expect(account).toContain('updateAccountSettings');
-    expect(account).toContain('deleteAccount');
-    expect(account).toContain('confirmDestructive');
+    // Account deletion lives on its own confirmation page.
+    const deletion = src('app/settings/delete-account.tsx');
+    expect(deletion).toContain('deleteAccount');
+    expect(deletion).toContain('presentConfirm');
 
-    expect(src('app/profile/settings/privacy.tsx')).toContain('updatePrivacySettings');
+    expect(src('components/settings/SettingsHomeScreen.tsx')).toContain('updatePrivacySettings');
     expect(src('app/profile/settings/change-phone.tsx')).toContain('changeAccountPhone');
     expect(src('app/profile/edit/index.tsx')).toContain('updateMe');
   });

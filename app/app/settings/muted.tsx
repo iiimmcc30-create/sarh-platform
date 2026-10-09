@@ -4,9 +4,9 @@ import { UserIdentityRow, USER_IDENTITY } from '@/components/ui/UserIdentityRow'
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
-import { confirmDestructive, alertMessage } from '@/lib/actionSheet';
+import { alertMessage } from '@/lib/actionSheet';
 import { showToast } from '@/lib/toast';
-import { fetchBlockedUsers, setBlockUser, type BlockedUser } from '@/services/users';
+import { fetchMutedUsers, setMuteUser, type MutedUser } from '@/services/userSettings';
 import { motion } from '@/design-system';
 import { AppText, SarhDivider } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
@@ -15,15 +15,15 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { SkeletonRegion, UserIdentityRowSkeleton } from '@/components/ui/skeleton';
 
-export default function BlockedUsersScreen() {
+export default function MutedUsersScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
-  const [users, setUsers] = useState<BlockedUser[]>([]);
+  const [users, setUsers] = useState<MutedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const data = await fetchBlockedUsers();
+    const data = await fetchMutedUsers();
     setUsers(data);
     setLoading(false);
   }, []);
@@ -34,35 +34,28 @@ export default function BlockedUsersScreen() {
     }, [load]),
   );
 
-  const handleUnblock = async (user: BlockedUser) => {
-    const confirmed = await confirmDestructive(
-      'إلغاء الحظر',
-      `هل تريد إلغاء حظر ${user.arabicName || user.displayName}؟`,
-      'إلغاء الحظر',
-    );
-    if (!confirmed) return;
-
+  const handleUnmute = async (user: MutedUser) => {
     setActionId(user.id);
-    const result = await setBlockUser(user.id, false);
+    const result = await setMuteUser(user.id, false);
     setActionId(null);
     if (!result.ok) {
-      await alertMessage('تعذّر إلغاء الحظر', result.message, 'close-circle-outline');
+      await alertMessage('تعذّر إلغاء الكتم', result.message ?? 'حاول مجدداً');
       return;
     }
     setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    void showToast('تم إلغاء الحظر', 'success');
+    void showToast('تم إلغاء الكتم', 'success');
   };
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="الحسابات المحظورة" showBack />
+      <ScreenHeader variant="screen" title="الحسابات المكتومة" showBack />
       <ScreenBody padTop="lg" gap="lg" padBottom="xxxl">
         <AppText variant="caption" color="textMuted" style={styles.description}>
-          الحسابات المحظورة لن تظهر منشوراتها وإعلاناتها في خلاصتك، ولا يمكنها التواصل معك.
+          لن تظهر منشورات وقصص الحسابات المكتومة في خلاصتك. الكتم صامت: لا يعرف الحساب أنك كتمته، ويبقى بإمكانه مراسلتك.
         </AppText>
 
         {loading && users.length === 0 ? (
-          // First load: identity rows with the unblock pill (96 × caption + 2×8).
+          // First load: identity rows with the unmute pill (96 × caption + 2×8).
           <SkeletonRegion>
             {[0, 1, 2, 3].map((i) => (
               <Stack key={i} gap="none">
@@ -73,9 +66,9 @@ export default function BlockedUsersScreen() {
           </SkeletonRegion>
         ) : users.length === 0 ? (
           <Stack gap="sm" align="center" style={styles.emptyBox}>
-            <AppIcon name="block" size={32} color={colors.textMuted} />
+            <AppIcon name="volume-mute-outline" size={32} color={colors.textMuted} />
             <AppText variant="body" color="textMuted">
-              لا يوجد حسابات محظورة
+              لا توجد حسابات مكتومة
             </AppText>
           </Stack>
         ) : (
@@ -101,16 +94,16 @@ export default function BlockedUsersScreen() {
                       styles.unblockBtn,
                       { opacity: pressed ? motion.press.opacity : 1 },
                     ]}
-                    onPress={() => void handleUnblock(user)}
+                    onPress={() => void handleUnmute(user)}
                     disabled={actionId === user.id}
                     accessibilityRole="button"
-                    accessibilityLabel="إلغاء الحظر"
+                    accessibilityLabel="إلغاء الكتم"
                   >
                     {actionId === user.id ? (
                       <ActivityIndicator size="small" color={colors.textPrimary} />
                     ) : (
                       <AppText variant="caption" color="textPrimary" align="center">
-                        إلغاء الحظر
+                        إلغاء الكتم
                       </AppText>
                     )}
                   </Pressable>
