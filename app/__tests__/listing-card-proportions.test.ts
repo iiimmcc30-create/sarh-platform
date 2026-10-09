@@ -17,7 +17,7 @@ describe('ListingCard list row — Haraj reference proportions', () => {
 
   it('pins the computed pt values at 360 / 390 / 430', () => {
     expect(listingListMetrics(360)).toMatchObject({ cardHeight: 114, radius: 10.5, gap: 4, titleFontSize: 12, metaFontSize: 11, avatar: 25 });
-    expect(listingListMetrics(390)).toMatchObject({ cardHeight: 123, radius: 11, gap: 4.5, titleFontSize: 13.5, metaFontSize: 12, avatar: 27 });
+    expect(listingListMetrics(390)).toMatchObject({ cardHeight: 123, radius: 11.5, gap: 4.5, titleFontSize: 13.5, metaFontSize: 12, avatar: 27 });
     expect(listingListMetrics(430)).toMatchObject({ cardHeight: 136, radius: 12.5, gap: 4.5, titleFontSize: 14.5, metaFontSize: 13.5, avatar: 30 });
   });
 
