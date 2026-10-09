@@ -91,17 +91,17 @@ describe('home launch layout', () => {
   });
 
   it('reorders settings account rows onto existing screens and drops the duplicate info hub', () => {
-    const settings = src('app/settings/index.tsx');
-    expect(settings).toContain("label: 'إدارة الملف الشخصي'");
-    expect(settings).toContain("route: '/profile/edit'");
-    expect(settings).toContain("label: 'التحقق من الحساب والأمان'");
-    expect(settings).toContain("route: '/profile/settings'");
-    expect(settings).toContain("label: 'تغيير كلمة المرور'");
+    // Settings home (redesign): rows are data in lib/settingsRows.ts; the account card opens edit profile.
+    const settings = src('lib/settingsRows.ts');
+    expect(src('app/settings/index.tsx')).toContain('SettingsHomeScreen');
+    expect(src('components/settings/SettingsHomeScreen.tsx')).toContain("'/profile/edit'");
+    expect(settings).toContain("route: '/profile/settings/account'");
+    expect(settings).toContain("title: 'كلمة المرور'");
     expect(settings).toContain("route: '/profile/settings/password'");
-    expect(settings).toContain("label: 'المحظورين'");
+    expect(settings).toContain("title: 'الحسابات المحظورة'");
     expect(settings).toContain("route: '/settings/blocked'");
     expect(settings).not.toContain("route: '/settings/info'");
-    expect(settings).not.toContain("label: 'مركز المعلومات'");
+    expect(settings).not.toContain("'مركز المعلومات'");
     expect(src('app/profile/edit/index.tsx')).toContain('export default function EditProfileScreen');
     expect(src('app/profile/settings/index.tsx')).toContain('export default function ProfileSettingsScreen');
     expect(src('app/profile/settings/password.tsx')).toContain('currentPassword');

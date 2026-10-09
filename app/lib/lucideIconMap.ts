@@ -1,12 +1,11 @@
 /**
  * Lucide stroke icons — unified 20–22px, strokeWidth 2.
  */
-import type { LucideIcon   Smartphone,
+import type { LucideIcon } from 'lucide-react-native';
+import {
+  Smartphone,
   Download,
   SunMoon,
-  VolumeX,
-} from 'lucide-react-native';
-import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,

@@ -31,14 +31,14 @@ export function normalizeArabic(input: string): string {
     .trim();
 }
 
-export function filterSettingsGroups<R extends SearchableSettingsRow>(
-  groups: SearchableSettingsGroup<R>[],
+export function filterSettingsGroups<G extends SearchableSettingsGroup<SearchableSettingsRow>>(
+  groups: G[],
   query: string,
-): SearchableSettingsGroup<R>[] {
+): G[] {
   const q = normalizeArabic(query);
   if (!q) return groups;
   const terms = q.split(' ').filter(Boolean);
-  const out: SearchableSettingsGroup<R>[] = [];
+  const out: G[] = [];
   for (const group of groups) {
     const groupText = normalizeArabic(group.title);
     const rows = group.rows.filter((row) => {
@@ -47,7 +47,7 @@ export function filterSettingsGroups<R extends SearchableSettingsRow>(
       );
       return terms.every((t) => hay.includes(t));
     });
-    if (rows.length > 0) out.push({ ...group, rows });
+    if (rows.length > 0) out.push({ ...group, rows } as G);
   }
   return out;
 }

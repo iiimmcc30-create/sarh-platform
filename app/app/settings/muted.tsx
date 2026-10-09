@@ -24,7 +24,7 @@ export default function MutedUsersScreen() {
 
   const load = useCallback(async () => {
     const data = await fetchMutedUsers();
-    setUsers(data);
+    setUsers(data ?? []);
     setLoading(false);
   }, []);
 

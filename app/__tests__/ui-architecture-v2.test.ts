@@ -333,7 +333,7 @@ describe('Architecture V2 — navigation chrome', () => {
 
 const WAVE_1 = [
   'app/listing/[id]/promote.tsx',
-  'app/settings/index.tsx',
+  'components/settings/SettingsHomeScreen.tsx',
   'components/ui/SettingsMenuScreen.tsx',
   'app/info/about.tsx',
   'app/info/contact.tsx',
@@ -394,7 +394,7 @@ describe('Architecture V2 — Wave 1 migrated screens', () => {
   });
 
   it('keeps settings and info hubs flat instead of card stacks', () => {
-    for (const file of ['app/settings/index.tsx', 'components/ui/SettingsMenuScreen.tsx']) {
+    for (const file of ['components/settings/SettingsHomeScreen.tsx', 'components/ui/SettingsMenuScreen.tsx']) {
       const text = src(file);
       expect(text).toContain('SarhSettingsSection');
       expect(text).toContain('SarhSettingsRow');
