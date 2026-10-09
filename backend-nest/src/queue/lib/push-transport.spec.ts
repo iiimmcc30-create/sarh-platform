@@ -64,7 +64,10 @@ describe('sendExpoPush', () => {
       accessToken: 'secret',
     });
     expect(res).toEqual({ ok: true, ticketId: 't1' });
-    const [url, init] = fetchImpl.mock.calls[0];
+    const [url, init] = fetchImpl.mock.calls[0] as [
+      string,
+      { headers: Record<string, string>; body: string },
+    ];
     expect(url).toBe(EXPO_PUSH_URL);
     expect(init.headers.Authorization).toBe('Bearer secret');
     expect(JSON.parse(init.body)).toEqual(message);

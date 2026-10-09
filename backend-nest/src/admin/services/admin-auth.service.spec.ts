@@ -242,7 +242,11 @@ describe('AdminAuthService.refresh / logout', () => {
 });
 
 describe('AdminAuthService 2FA management', () => {
-  const actor = { userId: 'admin-1', username: 'admin', role: 'ADMIN' } as never;
+  const actor = {
+    userId: 'admin-1',
+    username: 'admin',
+    role: 'ADMIN',
+  } as never;
 
   it('setup → enable with a valid code', async () => {
     const { service, prisma } = setup();

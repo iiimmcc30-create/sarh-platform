@@ -77,7 +77,8 @@ export async function sendExpoPush(
   message: ExpoPushMessage,
   opts: { accessToken?: string; fetchImpl?: FetchLike } = {},
 ): Promise<ExpoSendResult> {
-  const fetchImpl = opts.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+  const fetchImpl =
+    opts.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Accept-Encoding': 'gzip, deflate',

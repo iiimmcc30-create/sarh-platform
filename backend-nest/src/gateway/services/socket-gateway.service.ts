@@ -79,7 +79,9 @@ export class SocketGatewayService {
     // Only from an allowed Origin and only for staff roles.
     const origin = client.handshake.headers?.origin;
     const cookieToken =
-      !explicitToken && typeof origin === 'string' && isAllowedCorsOrigin(origin)
+      !explicitToken &&
+      typeof origin === 'string' &&
+      isAllowedCorsOrigin(origin)
         ? readCookie(client.handshake.headers?.cookie, ADMIN_ACCESS_COOKIE)
         : undefined;
     const token = explicitToken || cookieToken;

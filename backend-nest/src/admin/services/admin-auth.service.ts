@@ -18,11 +18,7 @@ import {
   recordLoginFailure,
   type LockoutRedis,
 } from '../lib/admin-login-lockout';
-import {
-  buildOtpAuthUrl,
-  generateTotpSecret,
-  verifyTotp,
-} from '../lib/totp';
+import { buildOtpAuthUrl, generateTotpSecret, verifyTotp } from '../lib/totp';
 import { openSecret, sealSecret } from '../lib/secret-box';
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -134,7 +130,11 @@ export class AdminAuthService {
         { userId: row.userId, err: err instanceof Error ? err.message : err },
         'Admin 2FA secret could not be decrypted (ADMIN_TOTP_ENC_KEY / JWT_SECRET changed?)',
       );
-      throwApi(500, 'two_factor_unavailable', 'تعذّر التحقق بخطوتين، تواصل مع المسؤول');
+      throwApi(
+        500,
+        'two_factor_unavailable',
+        'تعذّر التحقق بخطوتين، تواصل مع المسؤول',
+      );
     }
     return verifyTotp(secret, code, { afterStep: row.lastUsedStep });
   }
@@ -188,11 +188,7 @@ export class AdminAuthService {
     const twoFactor = await this.findTwoFactor(user.id);
     if (twoFactor?.enabledAt) {
       if (!otp) {
-        throwApi(
-          401,
-          'otp_required',
-          'أدخل رمز التحقق من تطبيق المصادقة',
-        );
+        throwApi(401, 'otp_required', 'أدخل رمز التحقق من تطبيق المصادقة');
       }
       const step = this.verifyRowCode(twoFactor, otp);
       if (step === null) {
@@ -237,9 +233,9 @@ export class AdminAuthService {
    * token is rejected without wiping the user's other sessions, so two open
    * panel tabs refreshing at once cannot log the admin out of the app.
    */
-  async refresh(refreshToken: string | undefined): Promise<
-    { user: AdminUserView } & AdminSessionTokens
-  > {
+  async refresh(
+    refreshToken: string | undefined,
+  ): Promise<{ user: AdminUserView } & AdminSessionTokens> {
     if (!refreshToken) {
       throwApi(401, 'no_session', 'انتهت الجلسة، سجّل الدخول مجدداً');
     }

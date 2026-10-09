@@ -97,7 +97,10 @@ export function serializeCookie(
 }
 
 /** Seconds until a JWT's `exp` (0 when missing/expired/malformed). */
-export function secondsUntilJwtExpiry(token: string, nowMs = Date.now()): number {
+export function secondsUntilJwtExpiry(
+  token: string,
+  nowMs = Date.now(),
+): number {
   const payload = token.split('.')[1];
   if (!payload) return 0;
   try {
