@@ -25,6 +25,7 @@ import {
   HELP_TOP_QUESTIONS_LIMIT,
   isHelpSearchReady,
 } from '@/lib/helpCenter';
+import { MY_REPORTS_ROUTE } from '@/lib/myReports';
 import {
   FAQ_CATEGORY_LABEL_AR,
   SERVICE_STATUS_DEFAULT,
@@ -37,7 +38,7 @@ import {
 /**
  * Help center hub — one screen for every entry point (More tab, sidebar, settings).
  * Order: status → search → categories → top questions → fraud → «اسأل مساعد سرح»
- * → تذاكري → create ticket (last). A "my reports" row is hidden: there is no my-reports endpoint.
+ * → تذاكري / بلاغاتي → create ticket (last).
  */
 export default function SupportHubScreen() {
   const router = useRouter();
@@ -226,13 +227,18 @@ export default function SupportHubScreen() {
           </Pressable>
         </View>
 
-        {/* 7. My tickets (a "my reports" row stays hidden until a my-reports endpoint exists) */}
+        {/* 7. My tickets + my reports */}
         <SarhSettingsSection title="طلباتي">
           <SarhSettingsRow
             icon="ticket-outline"
             title="تذاكري"
-            showDivider={false}
             onPress={() => router.push('/support/tickets' as never)}
+          />
+          <SarhSettingsRow
+            icon="flag-outline"
+            title="بلاغاتي"
+            showDivider={false}
+            onPress={() => router.push(MY_REPORTS_ROUTE as never)}
           />
         </SarhSettingsSection>
 

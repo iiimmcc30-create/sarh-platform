@@ -30,6 +30,7 @@ describe('help center hub', () => {
       'fraud',
       'assistant',
       'tickets',
+      'reports',
       'createTicket',
     ]);
     const markers = [
@@ -40,6 +41,7 @@ describe('help center hub', () => {
       'accessibilityLabel="بلّغ عن احتيال"',
       'accessibilityLabel="اسأل مساعد سرح"',
       'title="تذاكري"',
+      'title="بلاغاتي"',
       'title="إنشاء تذكرة"',
     ];
     const at = markers.map((m) => hub.lastIndexOf(m));
@@ -49,8 +51,9 @@ describe('help center hub', () => {
     expect([...jsx].sort((a, b) => a - b)).toEqual(jsx);
   });
 
-  it('hides «بلاغاتي» (no my-reports endpoint) and has no delivery content', () => {
-    expect(hub).not.toContain('بلاغاتي');
+  it('shows «بلاغاتي» linking to the my-reports screen and has no delivery content', () => {
+    expect(hub).toContain('title="بلاغاتي"');
+    expect(hub).toContain('router.push(MY_REPORTS_ROUTE');
     expect(hub).not.toMatch(/توصيل|مندوب|ملحم|جزار/);
   });
 

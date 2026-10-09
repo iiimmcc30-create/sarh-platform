@@ -103,7 +103,7 @@ export default function SupportFraudScreen() {
             onPress={() => void submit()}
           />
           <AppText variant="caption" color="textMuted" align="center">
-            بلاغات الاحتيال يتابعها فريقنا بأولوية، والرد يجيك في تذاكري.
+            بلاغات الاحتيال يتابعها فريقنا بأولوية، وتتابع حالتها من «بلاغاتي».
           </AppText>
         </Stack>
       </ScreenBody>

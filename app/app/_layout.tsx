@@ -166,6 +166,7 @@ function RootNavigator() {
         <Stack.Screen name="support/index" />
         <Stack.Screen name="support/faq" />
         <Stack.Screen name="support/fraud" />
+        <Stack.Screen name="support/reports" />
         <Stack.Screen name="support/verification" />
         <Stack.Screen name="support/tickets/index" />
         <Stack.Screen name="support/tickets/create" />

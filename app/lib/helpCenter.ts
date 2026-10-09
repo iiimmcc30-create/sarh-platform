@@ -5,7 +5,7 @@ import type { FaqCategory } from '@/services/support';
  * Sarh is a livestock marketplace: help content covers Sarh features only.
  */
 
-/** Hub sections, top to bottom. «بلاغاتي» is intentionally absent: no my-reports endpoint yet. */
+/** Hub sections, top to bottom. «بلاغاتي» sits with «تذاكري» under «طلباتي». */
 export const HELP_HUB_SECTIONS = [
   'status',
   'search',
@@ -14,6 +14,7 @@ export const HELP_HUB_SECTIONS = [
   'fraud',
   'assistant',
   'tickets',
+  'reports',
   'createTicket',
 ] as const;
 

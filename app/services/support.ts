@@ -192,6 +192,30 @@ export async function fetchMyTickets(page = 1): Promise<Paginated<SupportTicketS
   return json.success ? json.data : null;
 }
 
+/** One «بلاغاتي» row from GET /api/support/reports (own tickets only). */
+export type UserReportSummary = {
+  id: string;
+  ticketNumber: string;
+  kind: 'REPORT' | 'FRAUD';
+  subject: string;
+  reason: string;
+  targetType: string | null;
+  status: SupportTicketStatus;
+  state: 'open' | 'review' | 'closed';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function fetchMyReports(page = 1): Promise<Paginated<UserReportSummary> | null> {
+  const res = await authFetch(`${API_BASE}/api/support/reports?page=${page}`, {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' },
+  });
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  return json?.success ? json.data : null;
+}
+
 export async function fetchTicket(id: string): Promise<SupportTicketDetail | null> {
   const res = await authFetch(`${API_BASE}/api/support/tickets/${id}`, {
     cache: 'no-store',
