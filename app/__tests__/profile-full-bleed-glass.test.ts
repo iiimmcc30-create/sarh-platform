@@ -4,7 +4,10 @@ import {
   PROFILE_COVER_ICON_BUTTON_SIZE,
   PROFILE_COVER_ICON_GLYPH,
   PROFILE_COVER_ICON_HIT_AREA,
+  PROFILE_STICKY_BAR_HEIGHT,
+  PROFILE_STICKY_BLUR_RANGE,
   profileStatusBarStyle,
+  profileStickyHeaderRanges,
   shouldPinProfileTabs,
 } from '@/lib/profileHeader';
 import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
@@ -20,7 +23,7 @@ describe('profile cover: full bleed behind the status bar (X-style)', () => {
     expect(layout).not.toContain("<Screen edges={['top']}");
     expect(layout).toContain('const insets = useSafeAreaInsets();');
     expect(layout).toContain('{ height: PROFILE_COVER_HEIGHT + insets.top }');
-    expect(layout).toContain('{ paddingTop: spacing.xs + insets.top }');
+    expect(layout).toContain('{ paddingTop: insets.top, paddingBottom: 0, height: stickyHeight }');
     expect(layout).toContain('progressViewOffset={insets.top}');
   });
 
@@ -39,20 +42,62 @@ describe('profile cover: full bleed behind the status bar (X-style)', () => {
     expect(profileStatusBarStyle({ hasCoverImage: true, isDark: false, tabsPinned: false })).toBe('light');
     // No photo in light mode: the plain band is light, so dark content stays readable.
     expect(profileStatusBarStyle({ hasCoverImage: false, isDark: false, tabsPinned: false })).toBe('dark');
-    expect(profileStatusBarStyle({ hasCoverImage: true, isDark: false, tabsPinned: true })).toBe('dark');
+    // Collapsed: the frosted, dark-tinted cover is still behind the status bar → light.
+    expect(profileStatusBarStyle({ hasCoverImage: true, isDark: false, tabsPinned: true })).toBe('light');
+    expect(profileStatusBarStyle({ hasCoverImage: false, isDark: false, tabsPinned: true })).toBe('dark');
     expect(profileStatusBarStyle({ hasCoverImage: false, isDark: true, tabsPinned: false })).toBe('light');
     expect(profileStatusBarStyle({ hasCoverImage: true, isDark: true, tabsPinned: true })).toBe('light');
   });
 
-  it('sticky tabs pin below the status bar with a top-inset spacer', () => {
+  it('sticky tabs pin right under the fixed sticky header', () => {
     expect(shouldPinProfileTabs(0, 400, 47)).toBe(false);
     expect(shouldPinProfileTabs(352, 400, 47)).toBe(false);
     expect(shouldPinProfileTabs(353, 400, 47)).toBe(true);
     expect(shouldPinProfileTabs(900, null, 47)).toBe(false);
     expect(shouldPinProfileTabs(900, 400, 0)).toBe(false);
-    expect(layout).toContain('onLayout={onTabsLayout}');
-    expect(layout).toContain('tabsPinned ? { marginTop: spacing.md - insets.top } : null');
-    expect(layout).toContain('updateTabsPinned(event);');
+    expect(layout).toContain('<View onLayout={onTabsLayout} style={styles.tabsBar} testID="profile-tabs-inline">');
+    expect(layout).toContain('tabsTopRef.current = event.nativeEvent.layout.y;');
+    expect(layout).toContain('shouldPinProfileTabs(y, tabsTopRef.current, stickyHeight)');
+    expect(layout).toContain('updateStickyHeader(event);');
+    // No ScrollView sticky wrapper (its onLayout y was wrapper-relative → pinned far too early).
+    expect(layout).not.toContain('stickyHeaderIndices');
+    const pinned = layout.slice(layout.indexOf('testID="profile-tabs-pinned"') - 120);
+    expect(pinned).toContain('{ top: stickyHeight }');
+    expect(pinned).toContain('<ProfileTabs');
+  });
+});
+
+describe('profile sticky header: X-style frosted cover', () => {
+  it('ranges: cover collapses into the bar, frosts, then the title fades in', () => {
+    const r = profileStickyHeaderRanges({ topInset: 54, coverHeight: 112, nameBottom: 400 });
+    expect(r.headerHeight).toBe(54 + PROFILE_STICKY_BAR_HEIGHT);
+    expect(r.coverFull).toBe(166);
+    expect(r.collapseAt).toBe(166 - r.headerHeight);
+    expect(r.blurEnd).toBe(r.collapseAt + PROFILE_STICKY_BLUR_RANGE);
+    expect(r.titleAt).toBe(400 - r.headerHeight);
+    // Unmeasured / very short header: the title never shows before the bar is frosted.
+    const early = profileStickyHeaderRanges({ topInset: 54, coverHeight: 112, nameBottom: 120 });
+    expect(early.titleAt).toBe(early.blurEnd);
+  });
+
+  it('fixed header over the scroll view: blurred cover + DS scrim, theme surface without a cover', () => {
+    const at = layout.indexOf('testID="profile-sticky-header"');
+    expect(at).toBeGreaterThan(layout.indexOf('</ScreenBody>'));
+    const header = layout.slice(at, layout.indexOf('testID="profile-tabs-pinned"'));
+    expect(header).toContain('blurRadius={PROFILE_STICKY_BLUR_RADIUS}');
+    expect(header).toContain('{ opacity: frostOpacity }');
+    expect(header).toContain('styles.stickyTint, { opacity: tintOpacity }');
+    expect(header).toContain('top: stickyHeight - sticky.coverFull');
+    expect(header).toContain('styles.stickySurface');
+    expect(header).toContain('{formatStatCount(user.postsCount)} من المنشورات');
+    expect(header).toContain('opacity: titleProgress, transform: [{ translateY: titleTranslate }]');
+    expect(layout).toContain('backgroundColor: sarh.color.overlay');
+    expect(layout).toContain('const stickyTextColor = hasCover ? sarh.color.fab : themeColors.textPrimary;');
+    // Title fade on the native driver; scroll-linked layers follow the JS scroll value.
+    expect(layout).toMatch(/Animated\.timing\(titleProgress, \{[^}]*useNativeDriver: true/);
+    expect(layout).toContain('scrollY.setValue(y);');
+    expect(layout).not.toContain('expo-blur');
+    expect(layout).not.toContain('reanimated');
   });
 });
 
@@ -61,11 +106,12 @@ describe('profile cover controls: glass, one step smaller', () => {
     expect(PROFILE_COVER_ICON_BUTTON_SIZE).toBe(36);
     expect(PROFILE_COVER_ICON_GLYPH).toBe(18);
     expect(PROFILE_COVER_ICON_HIT_AREA).toBeGreaterThanOrEqual(44);
-    expect(layout.match(/chrome="glass"/g)).toHaveLength(6);
-    expect(layout.match(/iconSize=\{PROFILE_COVER_ICON_GLYPH\}/g)).toHaveLength(2);
-    expect(layout.match(/iconSize=\{PROFILE_COVER_NAV_GLYPH\}/g)).toHaveLength(4);
-    expect(layout).toContain('testID="profile-compact-bar"');
-    expect(layout.match(/style=\{styles\.coverIcon\}/g)).toHaveLength(6);
+    // One set of controls, in the fixed sticky header (no duplicate compact bar any more).
+    expect(layout.match(/chrome="glass"/g)).toHaveLength(3);
+    expect(layout.match(/iconSize=\{PROFILE_COVER_ICON_GLYPH\}/g)).toHaveLength(1);
+    expect(layout.match(/iconSize=\{PROFILE_COVER_NAV_GLYPH\}/g)).toHaveLength(2);
+    expect(layout).not.toContain('testID="profile-compact-bar"');
+    expect(layout.match(/style=\{styles\.coverIcon\}/g)).toHaveLength(3);
     const block = layout.slice(layout.indexOf('    coverIcon: {'), layout.indexOf('\n    },', layout.indexOf('    coverIcon: {')));
     expect(block).toContain('borderRadius: PROFILE_COVER_ICON_BUTTON_SIZE / 2');
     expect(block).toContain('minWidth: PROFILE_COVER_ICON_BUTTON_SIZE');

@@ -39,7 +39,9 @@ describe('Profile cover: full screen width', () => {
   });
 
   it('cover toolbar buttons stay inside the gutter and below the top inset', () => {
-    expect(layout).toContain('style={[styles.toolbar, inset, { paddingTop: spacing.xs + insets.top }]}');
+    expect(layout).toContain(
+      'style={[styles.toolbar, inset, { paddingTop: insets.top, paddingBottom: 0, height: stickyHeight }]}',
+    );
     expect(layout).not.toContain("chrome={user.coverImage ? 'glass' : 'ghost'}");
   });
 });

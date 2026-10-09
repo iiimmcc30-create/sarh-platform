@@ -66,13 +66,16 @@ describe('Profile stats: X-style inline («677 المتابعون»), compact, n
     expect(row).not.toContain('Divider');
   });
 
-  it('keeps order and tap actions (followers, following, posts)', () => {
+  it('keeps order and tap actions (followers, following); posts only in the sticky header', () => {
     const f = layout.indexOf("key: 'followers'");
     const g = layout.indexOf("key: 'following'");
-    const p = layout.indexOf("key: 'posts'");
     expect(f).toBeGreaterThan(-1);
     expect(g).toBeGreaterThan(f);
-    expect(p).toBeGreaterThan(g);
+    expect(layout).not.toContain("key: 'posts'");
+    expect(layout).not.toContain("label: 'المنشورات'");
+    const sticky = layout.slice(layout.indexOf('testID="profile-sticky-title"'));
+    expect(sticky).toContain('{formatStatCount(user.postsCount)} من المنشورات');
+    expect(src('components/ui/skeleton/ProfileHeaderSkeleton.tsx')).toContain('{[0, 1].map((i) => (');
     expect(layout).toContain('onPress: onFollowersPress');
     expect(layout).toContain('onPress: onFollowingPress');
     expect(row).toContain('onPress={stat.onPress}');

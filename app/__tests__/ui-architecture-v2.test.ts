@@ -539,7 +539,9 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
     // The card language on a profile comes from the ads tab content only.
     expect(layout).not.toContain('ListingCard');
     expect(layout).toContain('<Screen');
-    expect(layout).toContain('stickyHeaderIndices');
+    // Tabs pin under the fixed X-style sticky header (not via ScrollView sticky indices).
+    expect(layout).toContain('testID="profile-sticky-header"');
+    expect(layout).toContain('testID="profile-tabs-pinned"');
   });
 
   it('keeps profile-linked settings on the flat row and section patterns', () => {

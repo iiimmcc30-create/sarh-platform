@@ -45,21 +45,59 @@ export type ProfileBackAction = { kind: 'back' } | { kind: 'replace'; href: stri
 export function resolveProfileBack(canGoBack: boolean): ProfileBackAction {
   return canGoBack ? { kind: 'back' } : { kind: 'replace', href: PROFILE_BACK_FALLBACK_ROUTE };
 }
-/** Status-bar content over the full-bleed cover (photo → light; plain band follows the theme). */
+/**
+ * Status-bar content over the full-bleed cover. A cover photo stays behind the status bar
+ * the whole time (sharp at rest, then the blurred, dark-tinted sticky header) → light.
+ * A plain band / theme-surface header follows the theme.
+ */
 export function profileStatusBarStyle(input: {
   hasCoverImage: boolean;
   isDark: boolean;
-  /** Sticky tabs pinned under the status bar (opaque tab-bar surface behind it). */
+  /** Sticky header collapsed (kept for call sites; the header now carries the cover). */
   tabsPinned: boolean;
 }): 'light' | 'dark' {
   if (input.isDark) return 'light';
-  if (input.tabsPinned) return 'dark';
   return input.hasCoverImage ? 'light' : 'dark';
 }
 
 /**
- * Sticky tabs vs. the top inset: once the tabs reach the status bar they pin with a
- * top-inset spacer (tab-bar surface) so they never slide under the status bar.
+ * X-style sticky profile header: back / more and (once scrolled) name + posts count over
+ * the user's cover, blurred and dark-tinted. Height below the top inset; the 36pt glass
+ * controls get 6pt above and below.
+ */
+export const PROFILE_STICKY_BAR_HEIGHT = PROFILE_COVER_ICON_BUTTON_SIZE + 12;
+/** expo-image blurRadius for the frosted cover (no expo-blur dependency). */
+export const PROFILE_STICKY_BLUR_RADIUS = 24;
+/** Scroll distance over which the collapsed cover frosts (blur + tint fade in). */
+export const PROFILE_STICKY_BLUR_RANGE = 48;
+/** Max opacity of the DS overlay scrim on the frosted cover (white text stays legible on any photo). */
+export const PROFILE_STICKY_TINT_OPACITY = 0.45;
+
+/**
+ * Scroll offsets that drive the sticky header.
+ * - `collapseAt`: the content cover's bottom edge reaches the header's bottom edge; from
+ *   here the header shows the same cover crop (seamless), so the cover "collapses" into it.
+ * - `blurEnd`: fully frosted.
+ * - `titleAt`: the profile name has scrolled under the header → name + count fade in.
+ */
+export function profileStickyHeaderRanges(input: {
+  topInset: number;
+  coverHeight: number;
+  /** Content offset of the bottom of the name block, when measured. */
+  nameBottom: number | null;
+}): { headerHeight: number; coverFull: number; collapseAt: number; blurEnd: number; titleAt: number } {
+  const headerHeight = input.topInset + PROFILE_STICKY_BAR_HEIGHT;
+  const coverFull = input.coverHeight + input.topInset;
+  const collapseAt = Math.max(0, coverFull - headerHeight);
+  const blurEnd = collapseAt + PROFILE_STICKY_BLUR_RANGE;
+  const titleAt = Math.max(blurEnd, (input.nameBottom ?? coverFull + 96) - headerHeight);
+  return { headerHeight, coverFull, collapseAt, blurEnd, titleAt };
+}
+
+/**
+ * Sticky tabs vs. the sticky header: once the tabs reach the header's bottom edge they pin
+ * with a spacer of that height (pass the header height as `topInset`) so they sit right
+ * under the frosted header and never slide beneath it.
  * `tabsTop` is the tabs strip's natural content offset (without the spacer).
  */
 export function shouldPinProfileTabs(scrollY: number, tabsTop: number | null, topInset: number): boolean {

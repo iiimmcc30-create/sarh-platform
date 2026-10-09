@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ds } from '@/constants/designSystem';
+import { sarh } from '@/constants/sarhTokens';
 import {
   AppText,
   SarhBackButton,
@@ -54,7 +55,10 @@ import {
   PROFILE_COVER_NAV_GLYPH,
   PROFILE_EDIT_LABEL,
   PROFILE_SHARE_LABEL,
+  PROFILE_STICKY_BLUR_RADIUS,
+  PROFILE_STICKY_TINT_OPACITY,
   profileStatusBarStyle,
+  profileStickyHeaderRanges,
   shouldPinProfileTabs,
 } from '@/lib/profileHeader';
 import { ABOUT_ACCOUNT_ROUTE, ABOUT_ACCOUNT_TITLE } from '@/lib/aboutAccount';
@@ -216,25 +220,85 @@ export function ProfileScreenLayout({
       return () => setFocused(false);
     }, []),
   );
+  /**
+   * X-style sticky header: a fixed bar (back / more, then name + posts count) over the
+   * user's cover. Scroll-linked layers (cover crop, frost) follow a JS-set Animated value
+   * (the shared ScrollView reports scroll on the JS thread); the title fade runs on the
+   * native driver once its threshold is crossed.
+   */
+  const [nameBottom, setNameBottom] = useState<number | null>(null);
+  const sticky = profileStickyHeaderRanges({
+    topInset: insets.top,
+    coverHeight: PROFILE_COVER_HEIGHT,
+    nameBottom,
+  });
+  const stickyHeight = sticky.headerHeight;
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const [titleProgress] = useState(() => new Animated.Value(0));
+  const [titleShown, setTitleShown] = useState(false);
+  const titleShownRef = useRef(false);
+  useEffect(() => {
+    Animated.timing(titleProgress, {
+      toValue: titleShown ? 1 : 0,
+      duration: duration.fast,
+      useNativeDriver: true,
+    }).start();
+  }, [titleProgress, titleShown]);
   const [tabsPinned, setTabsPinned] = useState(false);
   const tabsPinnedRef = useRef(false);
   const tabsTopRef = useRef<number | null>(null);
   const onTabsLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      // Natural offset, without the pinned spacer (which shifts the strip up by the inset).
-      tabsTopRef.current = event.nativeEvent.layout.y + (tabsPinnedRef.current ? insets.top : 0);
+      // Direct child of the scroll content (no sticky wrapper), so y is the content offset.
+      tabsTopRef.current = event.nativeEvent.layout.y;
     },
-    [insets.top],
+    [],
   );
-  const updateTabsPinned = useCallback(
+  const updateStickyHeader = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const next = shouldPinProfileTabs(event.nativeEvent.contentOffset.y, tabsTopRef.current, insets.top);
+      const y = event.nativeEvent.contentOffset.y;
+      scrollY.setValue(y);
+      const showTitle = y >= sticky.titleAt;
+      if (showTitle !== titleShownRef.current) {
+        titleShownRef.current = showTitle;
+        setTitleShown(showTitle);
+      }
+      const next = shouldPinProfileTabs(y, tabsTopRef.current, stickyHeight);
       if (next === tabsPinnedRef.current) return;
       tabsPinnedRef.current = next;
       setTabsPinned(next);
     },
+    [scrollY, sticky.titleAt, stickyHeight],
+  );
+  /** Bottom of the name block in scroll-content coordinates (cover band + header Stack offset). */
+  const onNameBlockLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { y, height } = event.nativeEvent.layout;
+      setNameBottom(PROFILE_COVER_HEIGHT + insets.top + y + height);
+    },
     [insets.top],
   );
+  const hasCover = Boolean(user.coverImage);
+  /** Cover is sharp until it reaches the bar, then the bar holds the same crop (seamless). */
+  const coverLayerOpacity = scrollY.interpolate({
+    inputRange: [sticky.collapseAt - 1, sticky.collapseAt],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const frostOpacity = scrollY.interpolate({
+    inputRange: [sticky.collapseAt, sticky.blurEnd],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const tintOpacity = scrollY.interpolate({
+    inputRange: [sticky.collapseAt, sticky.blurEnd],
+    outputRange: [0, PROFILE_STICKY_TINT_OPACITY],
+    extrapolate: 'clamp',
+  });
+  const titleTranslate = titleProgress.interpolate({ inputRange: [0, 1], outputRange: [10, 0] });
+  /** Literal white (DS media/FAB white) over the frosted photo; theme text on the plain surface. */
+  const stickyTextColor = hasCover ? sarh.color.fab : themeColors.textPrimary;
+  const stickySubColor = hasCover ? sarh.color.fab : themeColors.textSecondary;
   /** Full-screen avatar / cover (shared in-app image viewer). */
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -307,16 +371,11 @@ export function ProfileScreenLayout({
         label: 'المتابَعون',
         onPress: onFollowingPress,
       },
-      {
-        key: 'posts',
-        value: formatStatCount(user.postsCount),
-        label: 'المنشورات',
-      },
+      // Posts count lives only in the sticky header (X-style), not in the stats row.
     ],
     [
       user.followersCount,
       user.followingCount,
-      user.postsCount,
       onFollowersPress,
       onFollowingPress,
     ],
@@ -330,12 +389,11 @@ export function ProfileScreenLayout({
       {focused ? <StatusBar style={statusBarStyle} /> : null}
       <ScreenBody
         gutter={false}
-        stickyHeaderIndices={[1]}
         bottomInset="tabBar"
         padBottom="md"
         onScroll={(event) => {
           onChromeScroll(event);
-          updateTabsPinned(event);
+          updateStickyHeader(event);
           if (activeTab !== 'ads' || !onAdsNearEnd) return;
           if (isSellerListNearEnd(event.nativeEvent)) onAdsNearEnd();
         }}
@@ -372,51 +430,6 @@ export function ProfileScreenLayout({
             ) : (
               <View style={[StyleSheet.absoluteFill, styles.coverDefault]} />
             )}
-          <Row
-            align="center"
-            justify="between"
-            pointerEvents="box-none"
-            style={[styles.toolbar, inset, { paddingTop: spacing.xs + insets.top }]}
-          >
-            <Row gap="xs" align="center" pointerEvents="box-none" style={styles.toolbarSide}>
-              {/* Back sits at the inline start (right in Arabic); the shared back button flips the chevron. */}
-              {onBack ? (
-                <SarhBackButton
-                  size="sm"
-                  chrome="glass"
-                  iconSize={PROFILE_COVER_NAV_GLYPH}
-                  onPress={onBack}
-                  accessibilityLabel={PROFILE_BACK_LABEL}
-                  style={styles.coverIcon}
-                />
-              ) : null}
-            </Row>
-
-            <Row gap="xs" align="center" pointerEvents="box-none" style={styles.toolbarSide}>
-              {mode === 'own' && onSettings ? (
-                <SarhIconButton
-                  icon="settings-outline"
-                  chrome="glass"
-                  size="sm"
-                  iconSize={PROFILE_COVER_ICON_GLYPH}
-                  style={styles.coverIcon}
-                  onPress={onSettings}
-                  accessibilityLabel="إعدادات الحساب"
-                />
-              ) : null}
-              {onMenu ? (
-                <SarhIconButton
-                  icon="menu-dots"
-                  chrome="glass"
-                  size="sm"
-                  iconSize={PROFILE_COVER_NAV_GLYPH}
-                  style={styles.coverIcon}
-                  onPress={onMenu}
-                  accessibilityLabel="المزيد"
-                />
-              ) : null}
-            </Row>
-          </Row>
           </View>
 
           <Animated.View style={{ transform: [{ translateY: headerTranslate }] }}>
@@ -465,6 +478,7 @@ export function ProfileScreenLayout({
               </Row>
 
               {/* Name directly under the avatar; @handle + «★ 4.8 (23)» on one line under it. */}
+              <View onLayout={onNameBlockLayout}>
               <Stack gap="none" style={styles.nameBlock}>
                 <Row
                   gap="xs"
@@ -535,6 +549,7 @@ export function ProfileScreenLayout({
                   <GoldSellerLabel user={user} />
                 </Row>
               </Stack>
+              </View>
 
               {/* Bio under the @handle (clear 16pt gap): readable standard white / near-black, regular weight. */}
               {user.bio ? (
@@ -615,65 +630,7 @@ export function ProfileScreenLayout({
           </Animated.View>
         </Animated.View>
 
-        <View
-          onLayout={onTabsLayout}
-          style={[
-            styles.tabsBar,
-            // Pinned: a top-inset spacer on the same surface keeps the tabs below the status bar.
-            tabsPinned ? { marginTop: spacing.md - insets.top } : null,
-          ]}
-        >
-          {tabsPinned ? (
-            <Row
-              align="center"
-              gap="sm"
-              style={[styles.compactBar, inset, { paddingTop: insets.top }]}
-              testID="profile-compact-bar"
-            >
-              {onBack ? (
-                <SarhBackButton
-                  size="sm"
-                  chrome="glass"
-                  iconSize={PROFILE_COVER_NAV_GLYPH}
-                  onPress={onBack}
-                  accessibilityLabel={PROFILE_BACK_LABEL}
-                  style={styles.coverIcon}
-                />
-              ) : (
-                <View style={styles.compactSide} />
-              )}
-              <Stack gap="none" style={styles.compactTitle}>
-                <AppText variant="label" color="textPrimary" numberOfLines={1}>
-                  {displayName}
-                </AppText>
-                <AppText variant="caption" color="textSecondary" numberOfLines={1}>
-                  {formatStatCount(user.postsCount)} من المنشورات
-                </AppText>
-              </Stack>
-              {mode === 'own' && onSettings ? (
-                <SarhIconButton
-                  icon="settings-outline"
-                  chrome="glass"
-                  size="sm"
-                  iconSize={PROFILE_COVER_ICON_GLYPH}
-                  style={styles.coverIcon}
-                  onPress={onSettings}
-                  accessibilityLabel="إعدادات الحساب"
-                />
-              ) : null}
-              {onMenu ? (
-                <SarhIconButton
-                  icon="menu-dots"
-                  chrome="glass"
-                  size="sm"
-                  iconSize={PROFILE_COVER_NAV_GLYPH}
-                  style={styles.coverIcon}
-                  onPress={onMenu}
-                  accessibilityLabel="المزيد"
-                />
-              ) : null}
-            </Row>
-          ) : null}
+        <View onLayout={onTabsLayout} style={styles.tabsBar} testID="profile-tabs-inline">
           <ProfileTabs
             isOwnProfile={isOwnProfile}
             activeTab={activeTab}
@@ -701,6 +658,118 @@ export function ProfileScreenLayout({
           }}
         />
       </ScreenBody>
+
+      {/* X-style sticky header: fixed over the scroll view. The cover scrolls up into it, the
+          bar keeps the same crop, then frosts (blurred cover + DS scrim) and the name + posts
+          count fade in. No cover → the tab-bar theme surface. */}
+      <View
+        pointerEvents="box-none"
+        style={[styles.stickyHeader, { height: stickyHeight }]}
+        testID="profile-sticky-header"
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, styles.stickyBg, { opacity: coverLayerOpacity }]}
+          testID="profile-sticky-bg"
+        >
+          {hasCover ? (
+            <>
+              <Image
+                source={uriSource(user.coverImage)}
+                style={[styles.stickyCover, { height: sticky.coverFull, top: stickyHeight - sticky.coverFull }]}
+                contentFit="cover"
+              />
+              <Animated.View style={[StyleSheet.absoluteFill, { opacity: frostOpacity }]}>
+                <Image
+                  source={uriSource(user.coverImage)}
+                  style={[styles.stickyCover, { height: sticky.coverFull, top: stickyHeight - sticky.coverFull }]}
+                  contentFit="cover"
+                  blurRadius={PROFILE_STICKY_BLUR_RADIUS}
+                  testID="profile-sticky-blur"
+                />
+              </Animated.View>
+              <Animated.View style={[StyleSheet.absoluteFill, styles.stickyTint, { opacity: tintOpacity }]} />
+            </>
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.stickySurface]} />
+          )}
+        </Animated.View>
+          <Row
+          align="center"
+          justify="between"
+          pointerEvents="box-none"
+          style={[styles.toolbar, inset, { paddingTop: insets.top, paddingBottom: 0, height: stickyHeight }]}
+        >
+          <Row gap="xs" align="center" pointerEvents="box-none" style={styles.toolbarSide}>
+            {/* Back sits at the inline start (right in Arabic); the shared back button flips the chevron. */}
+            {onBack ? (
+              <SarhBackButton
+                size="sm"
+                chrome="glass"
+                iconSize={PROFILE_COVER_NAV_GLYPH}
+                onPress={onBack}
+                accessibilityLabel={PROFILE_BACK_LABEL}
+                style={styles.coverIcon}
+              />
+            ) : null}
+          </Row>
+
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.stickyTitle, { opacity: titleProgress, transform: [{ translateY: titleTranslate }] }]}
+            testID="profile-sticky-title"
+          >
+            <AppText variant="label" numberOfLines={1} style={{ color: stickyTextColor }}>
+              {displayName}
+            </AppText>
+            <AppText
+              variant="caption"
+              numberOfLines={1}
+              style={[{ color: stickySubColor }, hasCover ? styles.stickySubOnCover : null]}
+            >
+              {formatStatCount(user.postsCount)} من المنشورات
+            </AppText>
+          </Animated.View>
+
+          <Row gap="xs" align="center" pointerEvents="box-none" style={styles.toolbarSide}>
+            {mode === 'own' && onSettings ? (
+              <SarhIconButton
+                icon="settings-outline"
+                chrome="glass"
+                size="sm"
+                iconSize={PROFILE_COVER_ICON_GLYPH}
+                style={styles.coverIcon}
+                onPress={onSettings}
+                accessibilityLabel="إعدادات الحساب"
+              />
+            ) : null}
+            {onMenu ? (
+              <SarhIconButton
+                icon="menu-dots"
+                chrome="glass"
+                size="sm"
+                iconSize={PROFILE_COVER_NAV_GLYPH}
+                style={styles.coverIcon}
+                onPress={onMenu}
+                accessibilityLabel="المزيد"
+              />
+            ) : null}
+          </Row>
+        </Row>
+      </View>
+
+      {/* Tabs pin right under the sticky header (the in-content strip scrolls beneath it at the
+          same spot, so the hand-off is seamless on native and web alike). */}
+      {tabsPinned ? (
+        <View style={[styles.tabsBar, styles.tabsPinned, { top: stickyHeight }]} testID="profile-tabs-pinned">
+          <ProfileTabs
+            isOwnProfile={isOwnProfile}
+            activeTab={activeTab}
+            onTabChange={selectTab}
+            progress={tabPager.progress}
+          />
+        </View>
+      ) : null}
 
       <VerifiedInfoSheet
         visible={verifiedSheetOpen}
@@ -814,16 +883,39 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       paddingVertical: 1,
       flexShrink: 0,
     },
-    compactBar: {
-      minHeight: 44,
-      paddingBottom: spacing.xs,
+    /** Fixed over the scroll view (absolute, top), above the content. */
+    stickyHeader: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 10,
+      overflow: 'hidden',
     },
-    compactTitle: {
+    stickyBg: {
+      overflow: 'hidden',
+    },
+    /** Full cover-band height, bottom-aligned to the bar (top = bar − band) so the crop matches. */
+    stickyCover: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      width: '100%',
+    },
+    stickyTint: {
+      backgroundColor: sarh.color.overlay,
+    },
+    /** No cover: the same surface as the sticky tab strip. */
+    stickySurface: {
+      backgroundColor: (scheme === 'light' ? ds.light : ds.dark).tabBar,
+    },
+    stickyTitle: {
       flex: 1,
       minWidth: 0,
+      paddingHorizontal: spacing.sm,
     },
-    compactSide: {
-      width: PROFILE_COVER_ICON_BUTTON_SIZE,
+    stickySubOnCover: {
+      opacity: 0.85,
     },
     /** 8 (Stack gap) + 12 = 20pt between the bio and the stats. */
     statsRow: {
@@ -887,6 +979,14 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     tabsBar: {
       backgroundColor: (scheme === 'light' ? ds.light : ds.dark).tabBar,
       marginTop: spacing.md,
+    },
+    /** Pinned copy of the tab strip under the fixed header. */
+    tabsPinned: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      marginTop: 0,
+      zIndex: 9,
     },
     postsFeed: {
       paddingTop: spacing.sm,

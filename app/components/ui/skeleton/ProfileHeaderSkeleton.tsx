@@ -31,7 +31,8 @@ export function ProfileHeaderSkeleton({ style }: { style?: StyleProp<ViewStyle> 
         <SkeletonText fontSize={ds.label.fontSize} lineHeight={ds.label.lineHeight} widths={['32%']} />
       </View>
       <View style={[styles.statsRow, getRtlRow()]}>
-        {[0, 1, 2].map((i) => (
+        {/* Followers + following only (the posts count lives in the sticky header). */}
+        {[0, 1].map((i) => (
           <SkeletonText
             key={i}
             fontSize={ds.caption.fontSize}
