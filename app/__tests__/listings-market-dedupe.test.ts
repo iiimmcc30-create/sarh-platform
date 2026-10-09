@@ -181,7 +181,8 @@ describe('P0-3 default listings page is shared, other queries are not', () => {
     expect(market).toContain('toggleFeedSortMode');
     // Oldest-first is a server filter: it bypasses the newest bootstrap page.
     expect(market).toContain('apiFilters.subcategoryId || apiFilters.sort');
-    expect(market).toContain('resolveNearbyRegionSelection');
+    // «القريب» is a server radius query (near/cityId + radiusKm), not a region text filter.
+    expect(market).toContain('nearbyApiParams(nearby)');
     expect(market).not.toContain('searchListingsPage({ ...apiFilters, sort');
   });
 

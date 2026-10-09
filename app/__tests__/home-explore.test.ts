@@ -244,7 +244,7 @@ describe('HomeAppBar chrome', () => {
     expect(feed).toMatch(/sortLabel=\{nearby \? .+ : feedSortLabelAr\(sortMode\)\}/);
     expect(feed).toContain('listingMatchesRegionSelection');
     expect(feed).toContain('nearbyActive={nearbyActive}');
-    expect(feed).toContain("sortActive={sortMode !== 'newest'}");
+    expect(feed).toContain("sortActive={nearby ? nearby.nearestFirst : sortMode !== 'newest'}");
     expect(feed).not.toContain('searchListingsPage({ ...apiFilters, sort');
     expect(feed).not.toContain("id: 'nearby'");
   });
