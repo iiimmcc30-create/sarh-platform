@@ -11,6 +11,7 @@ export class NotificationRepository {
       select: {
         fcmToken: true,
         notificationsEnabled: true,
+        notificationPrefs: true,
         deviceTokens: { select: { token: true } },
       },
     });

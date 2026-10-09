@@ -405,6 +405,16 @@ export class UsersRepository {
     });
   }
 
+  /** Accounts this user muted (one-way; hides their posts/stories in feeds). */
+  async findMutedUserIds(muterId: string): Promise<string[]> {
+    const rows = await this.prisma.userMute.findMany({
+      where: { muterId },
+      select: { mutedId: true },
+      take: 2000,
+    });
+    return rows.map((row) => row.mutedId);
+  }
+
   async findBlockedRelationshipIds(userId: string): Promise<string[]> {
     const [initiated, received] = await Promise.all([
       this.prisma.userBlock.findMany({

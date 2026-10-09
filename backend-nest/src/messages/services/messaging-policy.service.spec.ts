@@ -55,6 +55,35 @@ describe('MessagingPolicyService', () => {
     ).rejects.toMatchObject({ error: 'messages_restricted' });
   });
 
+  it('enforces privateMessagesAudience=followers (sender must follow receiver)', async () => {
+    repo.findUserById.mockResolvedValue({
+      id: 'recv',
+      allowPrivateMessages: true,
+      privateMessagesAudience: 'followers',
+    });
+    repo.findFollow.mockImplementation(async (follower: string, following: string) =>
+      follower === 'fan' && following === 'recv' ? { id: 'f1' } : null,
+    );
+
+    await expect(
+      policy.assertCanSendMessage({ senderId: 'stranger', receiverId: 'recv' }),
+    ).rejects.toMatchObject({ error: 'messages_restricted' });
+    await expect(
+      policy.assertCanSendMessage({ senderId: 'fan', receiverId: 'recv' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('nobody: allowPrivateMessages=false rejects everyone', async () => {
+    repo.findUserById.mockResolvedValue({
+      id: 'recv',
+      allowPrivateMessages: false,
+      privateMessagesAudience: 'everyone',
+    });
+    await expect(
+      policy.assertCanSendMessage({ senderId: 'fan', receiverId: 'recv' }),
+    ).rejects.toMatchObject({ error: 'messages_disabled' });
+  });
+
   it('allows direct message when not blocked and audience is everyone', async () => {
     repo.findUserById.mockResolvedValue({
       id: 'recv',

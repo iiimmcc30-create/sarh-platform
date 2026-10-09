@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { throwApi } from '../common/exceptions/api.exception';
 import { LoggerService } from '../common/services/logger.service';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
@@ -48,7 +49,23 @@ export class StoriesService {
     private readonly notifications: AppNotificationsService,
     private readonly messages: MessagesService,
     private readonly logger: LoggerService,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
+
+  /** Accounts the viewer muted: their stories leave the viewer's tray. */
+  private async mutedIds(viewerId: string): Promise<Set<string>> {
+    if (!this.prisma) return new Set();
+    try {
+      const rows = await this.prisma.userMute.findMany({
+        where: { muterId: viewerId },
+        select: { mutedId: true },
+        take: 2000,
+      });
+      return new Set(rows.map((r) => r.mutedId));
+    } catch {
+      return new Set();
+    }
+  }
 
   private mapStory(
     story: StoryRow,
@@ -168,8 +185,9 @@ export class StoriesService {
       const myStories = viewerId
         ? (items.find((i) => i.user.id === viewerId) ?? null)
         : null;
+      const muted = viewerId ? await this.mutedIds(viewerId) : new Set<string>();
       const others = viewerId
-        ? items.filter((i) => i.user.id !== viewerId)
+        ? items.filter((i) => i.user.id !== viewerId && !muted.has(i.user.id))
         : items;
 
       const payload: StoriesFeedPayload = { items: others, myStories };

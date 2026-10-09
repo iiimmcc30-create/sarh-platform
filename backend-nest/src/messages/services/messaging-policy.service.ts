@@ -46,6 +46,17 @@ export class MessagingPolicyService {
         );
       }
     }
+    if (receiver.privateMessagesAudience === 'followers') {
+      // Only the receiver's followers (sender follows receiver).
+      const allowed = await this.repo.findFollow(senderId, receiverId);
+      if (!allowed) {
+        throwApi(
+          403,
+          'messages_restricted',
+          'هذا المستخدم يقبل الرسائل من متابعيه فقط',
+        );
+      }
+    }
   }
 
   async assertCanSendMessage(params: {

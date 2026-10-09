@@ -50,6 +50,9 @@ model User {
   commentsAudience                    String                            @default("everyone")
   privateMessagesAudience             String                            @default("everyone")
   notificationsEnabled                Boolean                           @default(true)
+  /// Per-type push preferences: JSON object { messages, follows, interactions,
+  /// followingPosts, councils, offers } of booleans. NULL / missing key = on.
+  notificationPrefs                   Json?
   createdAt                           DateTime                          @default(now())
   updatedAt                           DateTime                          @updatedAt
   nameChangedAt                       DateTime?
@@ -103,6 +106,8 @@ model User {
   councilReminders                    CouncilReminder[]                 @relation("CouncilReminderUser")
   profileViewsReceived                ProfileView[]                     @relation("ProfileViewsReceived")
   profileViewsGiven                   ProfileView[]                     @relation("ProfileViewsGiven")
+  mutesInitiated                      UserMute[]                        @relation("MutesInitiated")
+  mutesReceived                       UserMute[]                        @relation("MutesReceived")
 
   @@index([username])
   @@index([email])
@@ -165,6 +170,21 @@ model ProfileView {
   @@unique([profileId, viewerId, day])
   @@index([profileId, viewedAt])
   @@index([viewerId])
+}
+
+/// Muted account: the muter no longer sees the muted user's posts or stories in
+/// feeds. Silent and one-way (unlike a block, nothing changes for the muted user).
+model UserMute {
+  id        String   @id @default(uuid())
+  muterId   String
+  mutedId   String
+  createdAt DateTime @default(now())
+  muter     User     @relation("MutesInitiated", fields: [muterId], references: [id], onDelete: Cascade)
+  muted     User     @relation("MutesReceived", fields: [mutedId], references: [id], onDelete: Cascade)
+
+  @@unique([muterId, mutedId])
+  @@index([muterId])
+  @@index([mutedId])
 }
 
 model UserBlock {

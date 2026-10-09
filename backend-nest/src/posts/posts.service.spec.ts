@@ -36,6 +36,7 @@ describe('PostsService feed cache isolation', () => {
   };
   const usersRepo = {
     findBlockedRelationshipIds: jest.fn(),
+    findMutedUserIds: jest.fn().mockResolvedValue([]),
     findUserCommentsAudience: jest.fn(),
     findFollow: jest.fn(),
   };
@@ -102,6 +103,26 @@ describe('PostsService feed cache isolation', () => {
         username: 'a',
         role: 'USER',
       },
+    );
+
+    expect(result.posts.map((p) => p.id)).toEqual(['p2']);
+  });
+
+  it('hides muted authors from the home feed', async () => {
+    cache.get.mockResolvedValue({
+      posts: [post('p1', 'muted-user'), post('p2', 'ok-user')],
+      nextCursor: null,
+      hasMore: false,
+    });
+    usersRepo.findBlockedRelationshipIds.mockResolvedValue([]);
+    usersRepo.findMutedUserIds.mockResolvedValueOnce(['muted-user']);
+    repo.findLikesByUser.mockResolvedValue([]);
+    repo.findRepostsByUser.mockResolvedValue([]);
+    repo.findBookmarksByUser.mockResolvedValue([]);
+
+    const result = await service.getFeed(
+      {},
+      { userId: 'viewer-m', username: 'm', role: 'USER' },
     );
 
     expect(result.posts.map((p) => p.id)).toEqual(['p2']);
@@ -313,6 +334,7 @@ describe('PostsService block enforcement on mutations (H5)', () => {
   };
   const usersRepo = {
     findBlockedRelationshipIds: jest.fn(),
+    findMutedUserIds: jest.fn().mockResolvedValue([]),
     findUserCommentsAudience: jest.fn(),
     findFollow: jest.fn(),
   };

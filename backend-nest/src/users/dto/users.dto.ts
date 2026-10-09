@@ -149,8 +149,8 @@ export class UpdateUserDto {
   commentsAudience?: 'everyone' | 'followers';
 
   @IsOptional()
-  @IsEnum(['everyone', 'following'])
-  privateMessagesAudience?: 'everyone' | 'following';
+  @IsEnum(['everyone', 'following', 'followers'])
+  privateMessagesAudience?: 'everyone' | 'following' | 'followers';
 
   @IsOptional()
   @IsBoolean()
@@ -207,8 +207,8 @@ export class UpdatePrivacySettingsDto {
   commentsAudience?: 'everyone' | 'followers';
 
   @IsOptional()
-  @IsEnum(['everyone', 'following'])
-  privateMessagesAudience?: 'everyone' | 'following';
+  @IsEnum(['everyone', 'following', 'followers'])
+  privateMessagesAudience?: 'everyone' | 'following' | 'followers';
 
   @IsOptional()
   @IsBoolean()

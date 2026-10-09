@@ -29,7 +29,10 @@ export class NotificationPersistService {
     try {
       const user = await this.notifications.findUserPushTargets(params.userId);
       if (!user) return;
-      const tokens = collectPushTokens(user);
+      const tokens = collectPushTokens(user, {
+        type: params.type,
+        data: params.data,
+      });
       if (tokens.length === 0) return;
 
       await Promise.all(

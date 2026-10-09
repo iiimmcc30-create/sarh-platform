@@ -113,7 +113,7 @@ export class PostsService {
         { posts: items, nextCursor, hasMore },
         followingOnly ? 30 : 60,
       );
-      return this.personalizeFeed(items, nextCursor, hasMore, user, authorId);
+      return this.personalizeFeed(items, nextCursor, hasMore, user, authorId, !authorId);
     }
 
     return this.personalizeFeed(
@@ -122,6 +122,7 @@ export class PostsService {
       cached.hasMore,
       user,
       authorId,
+      !authorId,
     );
   }
 
@@ -144,7 +145,7 @@ export class PostsService {
     const hasMore = posts.length > PAGE_SIZE;
     const items = hasMore ? posts.slice(0, -1) : posts;
     const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
-    return this.personalizeFeed(items, nextCursor, hasMore, user);
+    return this.personalizeFeed(items, nextCursor, hasMore, user, undefined, true);
   }
 
   private async personalizeFeed(
@@ -153,18 +154,27 @@ export class PostsService {
     hasMore: boolean,
     user: JwtPayload | undefined,
     authorId?: string,
+    /** Feeds (home / scoped) hide muted accounts; profiles and bookmarks don't. */
+    hideMuted = false,
   ) {
     let visible = items;
     if (user?.userId) {
-      const blockedIds = await this.usersRepo.findBlockedRelationshipIds(
-        user.userId,
-      );
+      const [blockedIds, mutedIds] = await Promise.all([
+        this.usersRepo.findBlockedRelationshipIds(user.userId),
+        hideMuted
+          ? this.usersRepo.findMutedUserIds(user.userId)
+          : Promise.resolve([] as string[]),
+      ]);
+      if (mutedIds.length > 0) {
+        const muted = new Set(mutedIds);
+        visible = visible.filter((p) => !muted.has(p.authorId));
+      }
       if (authorId && blockedIds.includes(authorId)) {
         return { posts: [], nextCursor: null, hasMore: false };
       }
       if (blockedIds.length > 0) {
         const blocked = new Set(blockedIds);
-        visible = items.filter((p) => !blocked.has(p.authorId));
+        visible = visible.filter((p) => !blocked.has(p.authorId));
       }
     }
 
