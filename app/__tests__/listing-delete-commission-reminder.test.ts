@@ -4,8 +4,11 @@ import {
   COMMISSION_REMINDER_TITLE,
   commissionReminderNote,
   listingCommissionPercent,
+  isListingFeeSettled,
   shouldShowCommissionReminder,
 } from '@/lib/listingDeleteReminder';
+import { normalizeListingFee } from '@/lib/listingFeeState';
+import type { Listing } from '@/services/types';
 import { calculateCommission } from '@/services/commissions';
 
 const root = join(__dirname, '..');
@@ -21,6 +24,24 @@ describe('listing delete commission reminder', () => {
     expect(shouldShowCommissionReminder({ ...base, sold: true, feesEnabled: false })).toBe(false);
     expect(shouldShowCommissionReminder({ ...base, sold: true, managedListing: true })).toBe(false);
     expect(shouldShowCommissionReminder({ ...base, sold: true, feePaid: true })).toBe(false);
+  });
+
+  it('skips when the real listing fee is paid or exempt (waived); shows when payable', () => {
+    const base = { sold: true, feesEnabled: true, managedListing: false };
+    const fee = (status: NonNullable<Listing['fee']>['status']): Listing['fee'] =>
+      normalizeListingFee({ id: 'fee_1', status });
+    expect(shouldShowCommissionReminder({ ...base, fee: fee('paid') })).toBe(false);
+    expect(shouldShowCommissionReminder({ ...base, fee: fee('waived') })).toBe(false);
+    expect(shouldShowCommissionReminder({ ...base, fee: fee('pending') })).toBe(true);
+    expect(shouldShowCommissionReminder({ ...base, fee: fee('overdue') })).toBe(true);
+    // legacy listing (no fee row yet) is still payable → reminder shows
+    expect(shouldShowCommissionReminder({ ...base, fee: null })).toBe(true);
+    expect(shouldShowCommissionReminder({ ...base, fee: normalizeListingFee(undefined) })).toBe(true);
+    // not-sold never shows, even when payable
+    expect(shouldShowCommissionReminder({ ...base, sold: false, fee: fee('pending') })).toBe(false);
+    expect(isListingFeeSettled({ status: 'paid' })).toBe(true);
+    expect(isListingFeeSettled({ status: 'waived' })).toBe(true);
+    expect(isListingFeeSettled({ status: 'pending' })).toBe(false);
   });
 
   it('reads the commission percent from calculateCommission (not hardcoded)', () => {
@@ -50,6 +71,8 @@ describe('listing delete commission reminder', () => {
     expect(screen).toMatch(/onPayCommission=\{\(\) => \{[\s\S]*?setFeeModalVisible\(true\)/);
     expect(screen).toContain('feesEnabled: paidFlags.listingFeesEnabled');
     expect(screen).toContain('managedListing: isManagedListing(listing)');
+    expect(screen).toContain('fee: listing.fee,');
+    expect(screen).toContain('fee: normalizeListingFee(raw.fee)');
     expect(screen).toContain('listingCommissionPercent(listing.category)');
   });
 });

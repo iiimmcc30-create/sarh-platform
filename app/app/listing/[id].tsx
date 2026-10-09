@@ -966,6 +966,7 @@ export default function ListingDetailScreen() {
             sold: true,
             feesEnabled: paidFlags.listingFeesEnabled,
             managedListing: isManagedListing(listing),
+            fee: listing.fee,
           })
             ? { percent: listingCommissionPercent(listing.category) }
             : null

@@ -1,4 +1,9 @@
 import { calculateCommission, type ListingCategory } from '@/services/commissions';
+import {
+  canPayListingFee,
+  listingFeeButtonState,
+  type ListingFeeSummary,
+} from '@/lib/listingFeeState';
 
 /** Fallback category used only to probe the commission rate (the rate is category-independent today). */
 const PROBE_CATEGORY = 'sheep' as ListingCategory;
@@ -16,9 +21,19 @@ export type CommissionReminderInput = {
   sold: boolean | null;
   feesEnabled: boolean;
   managedListing: boolean;
-  /** Pass true only when the client knows the fee is already paid. */
+  /**
+   * Listing fee summary from the detail API (`Listing.fee`). Omitted → no fee info
+   * known; null → legacy listing without a fee row (still payable → reminder shows).
+   */
+  fee?: ListingFeeSummary | null;
+  /** Explicit override when the caller already knows the fee is settled. */
   feePaid?: boolean;
 };
+
+/** True when the listing fee is paid or exempt (waived) — nothing left to remind about. */
+export function isListingFeeSettled(fee: ListingFeeSummary | null | undefined): boolean {
+  return !canPayListingFee(listingFeeButtonState(fee));
+}
 
 /** Soft reminder shows only when the owner chose «تم البيع» and listing fees apply. Never blocks deletion. */
 export function shouldShowCommissionReminder(input: CommissionReminderInput): boolean {
@@ -26,6 +41,7 @@ export function shouldShowCommissionReminder(input: CommissionReminderInput): bo
   if (!input.feesEnabled) return false;
   if (input.managedListing) return false;
   if (input.feePaid) return false;
+  if (isListingFeeSettled(input.fee)) return false;
   return true;
 }
 
