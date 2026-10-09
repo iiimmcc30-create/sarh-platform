@@ -18,43 +18,16 @@ export type SupportFlowChoice = {
  * Do not invent backend taxonomy here.
  */
 export const SUPPORT_FLOW_CHOICES: SupportFlowChoice[] = [
-  {
-    id: 'ACCOUNT',
-    helpKind: 'OTHER_HELP',
-    category: 'ACCOUNT',
-    label: 'مشكلة في حسابي',
-  },
-  {
-    id: 'ADS',
-    helpKind: 'OTHER_HELP',
-    category: 'ADS',
-    label: 'مشكلة في إعلان',
-  },
-  {
-    id: 'BUY_SELL',
-    helpKind: 'OTHER_HELP',
-    category: 'BUY_SELL',
-    label: 'مشكلة في معاملة',
-  },
-  {
-    id: 'PAYMENT',
-    helpKind: 'OTHER_HELP',
-    category: 'PAYMENT',
-    label: TICKET_CATEGORY_LABEL_AR.PAYMENT,
-  },
-  {
-    id: 'TECHNICAL',
-    helpKind: 'OTHER_HELP',
-    category: 'TECHNICAL',
-    label: TICKET_CATEGORY_LABEL_AR.TECHNICAL,
-  },
-  {
-    id: 'OTHER',
-    helpKind: 'OTHER_HELP',
-    category: 'OTHER',
-    label: TICKET_CATEGORY_LABEL_AR.OTHER_HELP,
-  },
+  { id: 'ACCOUNT', helpKind: 'OTHER_HELP', category: 'ACCOUNT', label: 'حسابي والدخول' },
+  { id: 'ADS', helpKind: 'OTHER_HELP', category: 'ADS', label: 'إعلاناتي' },
+  { id: 'SUBSCRIPTIONS', helpKind: 'OTHER_HELP', category: 'SUBSCRIPTIONS', label: 'الاشتراكات' },
+  { id: 'PAYMENT', helpKind: 'OTHER_HELP', category: 'PAYMENT', label: 'الدفع والاسترداد' },
+  { id: 'COUNCILS', helpKind: 'OTHER_HELP', category: 'COUNCILS', label: 'المجالس' },
+  { id: 'TECHNICAL', helpKind: 'OTHER_HELP', category: 'TECHNICAL', label: TICKET_CATEGORY_LABEL_AR.TECHNICAL },
+  { id: 'OTHER', helpKind: 'OTHER_HELP', category: 'OTHER', label: 'شي ثاني' },
 ];
+
+export const DEFAULT_SUPPORT_FLOW_CHOICE_ID = 'OTHER';
 
 export const SUPPORT_DESCRIPTION_MIN = 3;
 
@@ -68,9 +41,9 @@ export function isSupportDescriptionValid(text: string): boolean {
 }
 
 export function supportDescriptionError(text: string): string | null {
-  if (!text.trim()) return 'اكتب وصف المشكلة قبل الإرسال.';
+  if (!text.trim()) return 'اكتب سؤالك قبل الإرسال.';
   if (text.trim().length < SUPPORT_DESCRIPTION_MIN) {
-    return 'الوصف قصير جداً. أضف تفاصيل أوضح.';
+    return 'السؤال قصير مرة. وضّح أكثر.';
   }
   return null;
 }

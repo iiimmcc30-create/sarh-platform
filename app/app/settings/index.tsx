@@ -27,13 +27,13 @@ const SECTIONS = [
   {
     title: 'الدعم والمساعدة',
     items: [
-      { icon: 'ticket-outline', label: 'تذاكر الدعم', route: '/support/tickets' },
+      { icon: 'lifebuoy', label: 'مركز المساعدة', route: '/support' },
+      { icon: 'ticket-outline', label: 'تذاكري', route: '/support/tickets' },
       {
         icon: 'check-decagram-outline',
         label: 'إنشاء طلب توثيق الحسابات',
         route: '/support/verification',
       },
-      { icon: 'help-circle-outline', label: 'الأسئلة الشائعة', route: '/support/faq' },
       { icon: 'email-outline', label: 'تواصل معنا', route: '/info/contact' },
     ],
   },

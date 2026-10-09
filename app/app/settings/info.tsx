@@ -9,7 +9,6 @@ export default function InfoCenterScreen() {
           title: 'المساعدة',
           items: [
             { icon: 'lifebuoy', label: 'مركز المساعدة', route: '/support' },
-            { icon: 'help-circle-outline', label: 'الأسئلة الشائعة', route: '/support/faq' },
             { icon: 'email-outline', label: 'تواصل معنا', route: '/info/contact' },
           ],
         },

@@ -1,63 +1,49 @@
 import { SkeletonBox, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
-import { useCallback, useMemo, useState } from 'react';
-import {
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  StyleSheet,
-  UIManager,
-  View,
-} from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { FaqAnswerList } from '@/components/support/FaqAnswerList';
 import { spacing } from '@/constants/theme';
-import { motion, typography as dsType } from '@/design-system';
-import { useTheme } from '@/hooks/useTheme';
+import { typography as dsType } from '@/design-system';
 import { AppText, SarhButton, SarhChip, SarhChipRow, SarhDivider, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
-import {
-  fetchFaqs,
-  FAQ_CATEGORY_LABEL_AR,
-  type FaqCategory,
-  type FaqItem,
-} from '@/services/support';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { HELP_SEARCH_DEBOUNCE_MS, isFaqCategory } from '@/lib/helpCenter';
+import { fetchFaqs, FAQ_CATEGORY_LABEL_AR, type FaqItem } from '@/services/support';
 
 export default function SupportFaqScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const params = useLocalSearchParams<{ category?: string; q?: string }>();
+  const initialCategory = isFaqCategory(params.category) ? params.category : undefined;
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [categories, setCategories] = useState<{ value: string; labelAr: string }[]>([]);
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<string | undefined>();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState(typeof params.q === 'string' ? params.q : '');
+  const [debounced, setDebounced] = useState(search);
+  const [category, setCategory] = useState<string | undefined>(initialCategory);
   const [loading, setLoading] = useState(true);
+  const seq = useRef(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search), HELP_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const load = useCallback(async () => {
-    const data = await fetchFaqs({ search: search.trim() || undefined, category });
+    const mine = ++seq.current;
+    const data = await fetchFaqs({ search: debounced.trim() || undefined, category });
+    if (mine !== seq.current) return;
     if (data) {
       setFaqs(data.faqs ?? []);
       setCategories(data.categories ?? []);
     }
     setLoading(false);
-  }, [search, category]);
+  }, [debounced, category]);
 
   useFocusEffect(
     useCallback(() => {
       void load();
     }, [load]),
   );
-
-  const toggle = (id: string) => {
-    LayoutAnimation.configureNext(
-      LayoutAnimation.create(motion.duration.screen, 'easeInEaseOut', 'opacity'),
-    );
-    setExpandedId((prev) => (prev === id ? null : id));
-  };
 
   const categoryChips = useMemo(
     () => [{ value: '', labelAr: 'الكل' }, ...categories],
@@ -66,7 +52,7 @@ export default function SupportFaqScreen() {
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="الأسئلة الشائعة" showBack />
+      <ScreenHeader variant="screen" title={category && isFaqCategory(category) ? FAQ_CATEGORY_LABEL_AR[category] : 'الأسئلة الشائعة'} showBack />
       <ScreenBody padTop="lg" gap="section" padBottom="xxxl">
         <Stack gap="md">
           <SarhInput
@@ -75,7 +61,7 @@ export default function SupportFaqScreen() {
             value={search}
             onChangeText={setSearch}
             placeholder="ابحث عن سؤال..."
-            onSubmitEditing={() => void load()}
+            onSubmitEditing={() => setDebounced(search)}
           />
           <SarhChipRow contentPaddingHorizontal={0}>
             {categoryChips.map((cat) => (
@@ -114,54 +100,21 @@ export default function SupportFaqScreen() {
           </SkeletonRegion>
         ) : faqs.length === 0 ? (
           <AppText variant="body" color="textMuted" align="center">
-            لا توجد أسئلة مطابقة
+            ما لقينا سؤال مطابق
           </AppText>
         ) : (
-          <Stack gap="none">
-            {faqs.map((faq, i) => {
-              const open = expandedId === faq.id;
-              return (
-                <View key={faq.id}>
-                  <Pressable
-                    onPress={() => toggle(faq.id)}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: open }}
-                    accessibilityLabel={faq.questionAr}
-                    style={({ pressed }) => [{ opacity: pressed ? motion.press.opacity : 1 }]}
-                  >
-                    <Stack gap="sm" style={styles.faqRow}>
-                      <Row gap="md" align="start">
-                        <Stack gap="xs" style={styles.fill}>
-                          <AppText variant="meta" color="primary">
-                            {FAQ_CATEGORY_LABEL_AR[faq.category as FaqCategory] ?? faq.category}
-                          </AppText>
-                          <AppText variant="cardTitle" color="textPrimary">
-                            {faq.questionAr}
-                          </AppText>
-                        </Stack>
-                        <AppIcon
-                          name={open ? 'chevron-up' : 'chevron-down'}
-                          size={18}
-                          color={colors.textMuted}
-                        />
-                      </Row>
-                      {open ? (
-                        <AppText variant="body" color="textSecondary">
-                          {faq.answerAr}
-                        </AppText>
-                      ) : null}
-                    </Stack>
-                  </Pressable>
-                  {i < faqs.length - 1 ? <SarhDivider /> : null}
-                </View>
-              );
-            })}
-          </Stack>
+          <FaqAnswerList faqs={faqs} showCategory={!category} />
         )}
 
-        <Section title="لم تجد إجابة لسؤالك؟" gap="md">
+        <Section title="ما لقيت جوابك؟" gap="md">
           <SarhButton
-            title="إنشاء تذكرة دعم"
+            title="اسأل مساعد سرح"
+            fullWidth
+            onPress={() => router.push('/support/help' as never)}
+          />
+          <SarhButton
+            title="إنشاء تذكرة"
+            variant="secondary"
             fullWidth
             onPress={() => router.push('/support/tickets/create' as never)}
           />

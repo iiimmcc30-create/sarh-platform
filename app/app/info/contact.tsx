@@ -10,6 +10,10 @@ import { resolveAppTextStyle } from '@/design-system/components/resolvers';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 import { Alert, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { contactMessageError, contactTicketPayload } from '@/lib/helpCenter';
+import { createTicket } from '@/services/support';
 
 const CHANNELS = [
   {
@@ -40,21 +44,34 @@ const CHANNELS = [
 
 export default function ContactScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
+  /** «أرسل رسالة» opens a real support ticket (no mailto) so the reply lands in تذاكري. */
   const handleSend = async () => {
-    if (!name.trim() || !message.trim()) {
-      Alert.alert('تنبيه', 'يرجى تعبئة الاسم والرسالة');
+    const err = contactMessageError({ name, message });
+    if (err) {
+      Alert.alert('تنبيه', err);
+      return;
+    }
+    if (!isAuthenticated) {
+      Alert.alert('سجّل دخولك', 'سجّل دخولك عشان نقدر نرد عليك داخل التطبيق، أو راسلنا على البريد.');
       return;
     }
     setSending(true);
-    const subject = encodeURIComponent(`رسالة من ${name} - تطبيق سرح`);
-    const body = encodeURIComponent(`الاسم: ${name}\n\n${message}`);
-    await Linking.openURL(`mailto:sarh@sarhsa.online?subject=${subject}&body=${body}`);
+    const res = await createTicket(contactTicketPayload({ name, message }));
     setSending(false);
+    if (!res.ok || !res.ticket?.id) {
+      Alert.alert('تعذر الإرسال', res.error ?? 'حاول مرة ثانية.');
+      return;
+    }
+    setName('');
+    setMessage('');
+    router.push({ pathname: '/support/tickets/[id]', params: { id: res.ticket.id } } as never);
   };
 
   return (
@@ -114,7 +131,7 @@ export default function ContactScreen() {
             />
           </SarhCard>
           <SarhButton
-            title={sending ? 'جارٍ الإرسال…' : 'إرسال عبر البريد'}
+            title={sending ? 'جارٍ الإرسال…' : 'أرسل الرسالة'}
             leftIcon="send"
             fullWidth
             loading={sending}
@@ -122,6 +139,10 @@ export default function ContactScreen() {
             onPress={() => void handleSend()}
           />
         </Section>
+
+        <AppText variant="caption" color="textMuted">
+          رسالتك توصل لفريق خدمة العملاء كتذكرة، وتلقى الرد في تذاكري.
+        </AppText>
 
         <Section title="أوقات العمل">
           <AppText variant="body" color="textSecondary">

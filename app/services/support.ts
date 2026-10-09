@@ -10,6 +10,9 @@ export type SupportTicketCategory =
   | 'PAYMENT'
   | 'VERIFICATION'
   | 'TECHNICAL'
+  | 'SUBSCRIPTIONS'
+  | 'COUNCILS'
+  | 'FRAUD'
   | 'OTHER'
   | 'OTHER_HELP';
 
@@ -27,10 +30,15 @@ export type SupportTicketStatus =
 export type FaqCategory =
   | 'ACCOUNT'
   | 'ADS'
+  | 'PROMOTION'
+  | 'SUBSCRIPTIONS'
+  | 'VERIFICATION'
+  | 'COUNCILS'
+  | 'COMMUNITY'
   | 'MARKET'
   | 'BUY_SELL'
+  | 'SAFETY'
   | 'PAYMENT'
-  | 'VERIFICATION'
   | 'TECHNICAL'
   | 'GENERAL';
 
@@ -76,10 +84,27 @@ export type SupportTicketDetail = SupportTicketSummary & {
 
 export type FaqItem = {
   id: string;
+  key?: string | null;
   questionAr: string;
   answerAr: string;
   category: FaqCategory;
   sortOrder: number;
+  keywords?: string[];
+  /** Optional in-app deep link shown as a button under the answer. */
+  actionRoute?: string | null;
+  actionLabel?: string | null;
+};
+
+/** Help-center service status line (admin-controlled). */
+export type ServiceStatus = {
+  state: 'ok' | 'degraded';
+  textAr: string;
+  updatedAt?: string | null;
+};
+
+export const SERVICE_STATUS_DEFAULT: ServiceStatus = {
+  state: 'ok',
+  textAr: 'كل الخدمات تعمل بشكل طبيعي',
 };
 
 export type VerificationDocument = {
@@ -133,17 +158,31 @@ export async function fetchSupportMeta(): Promise<{
   return json.success ? json.data : null;
 }
 
-export async function fetchFaqs(params?: { search?: string; category?: string }): Promise<{
+export async function fetchFaqs(params?: { search?: string; category?: string; top?: number }): Promise<{
   faqs: FaqItem[];
   categories: { value: string; labelAr: string }[];
 } | null> {
   const qs = new URLSearchParams();
   if (params?.search) qs.set('search', params.search);
   if (params?.category) qs.set('category', params.category);
+  if (params?.top) qs.set('top', String(params.top));
   const res = await fetch(`${API_BASE}/api/support/faqs?${qs.toString()}`);
   if (!res.ok) return null;
   const json = await res.json();
   return json.success ? json.data : null;
+}
+
+export async function fetchServiceStatus(): Promise<ServiceStatus> {
+  try {
+    const res = await fetch(`${API_BASE}/api/support/status`);
+    if (!res.ok) return SERVICE_STATUS_DEFAULT;
+    const json = await res.json();
+    const data = json?.success ? json.data : null;
+    if (!data || typeof data.textAr !== 'string') return SERVICE_STATUS_DEFAULT;
+    return { state: data.state === 'degraded' ? 'degraded' : 'ok', textAr: data.textAr, updatedAt: data.updatedAt ?? null };
+  } catch {
+    return SERVICE_STATUS_DEFAULT;
+  }
 }
 
 export async function fetchMyTickets(page = 1): Promise<Paginated<SupportTicketSummary> | null> {
@@ -257,7 +296,7 @@ export async function submitVerificationRequest(): Promise<{ ok: boolean; error?
 export const TICKET_STATUS_LABEL_AR: Record<SupportTicketStatus, string> = {
   OPEN: 'جديدة',
   IN_REVIEW: 'قيد المراجعة',
-  AI_ASSISTING: 'سرحان يساعد',
+  AI_ASSISTING: 'مساعد سرح يساعدك',
   WAITING_FOR_CUSTOMER: 'بانتظار ردك',
   WAITING_FOR_SUPPORT: 'بانتظار خدمة العملاء',
   IN_PROGRESS: 'قيد المعالجة',
@@ -275,12 +314,17 @@ export const VERIFICATION_STATUS_LABEL_AR: Record<VerificationRequest['status'],
 };
 
 export const FAQ_CATEGORY_LABEL_AR: Record<FaqCategory, string> = {
-  ACCOUNT: 'الحساب',
+  ACCOUNT: 'الحساب والدخول',
   ADS: 'الإعلانات',
-  MARKET: 'السوق',
-  BUY_SELL: 'البيع والشراء',
-  PAYMENT: 'الدفع',
+  PROMOTION: 'التعزيز والترويج',
+  SUBSCRIPTIONS: 'الاشتراكات',
   VERIFICATION: 'التوثيق',
+  COUNCILS: 'المجالس',
+  COMMUNITY: 'المجتمع والرسائل',
+  MARKET: 'السوق والبحث',
+  BUY_SELL: 'البيع والشراء',
+  SAFETY: 'الأمان والبلاغات',
+  PAYMENT: 'الدفع والاسترداد',
   TECHNICAL: 'المشاكل التقنية',
   GENERAL: 'عام',
 };
@@ -293,6 +337,9 @@ export const TICKET_CATEGORY_LABEL_AR: Record<SupportTicketCategory, string> = {
   PAYMENT: 'الدفع',
   VERIFICATION: 'التوثيق',
   TECHNICAL: 'المشاكل التقنية',
+  SUBSCRIPTIONS: 'الاشتراكات',
+  COUNCILS: 'المجالس',
+  FRAUD: 'بلاغ احتيال',
   OTHER: 'أخرى',
   OTHER_HELP: 'مساعدة في شيء آخر',
 };

@@ -7,6 +7,7 @@ import {
   supportDescriptionError,
   userFacingTicketStatus,
 } from '../lib/supportFlow';
+import { SUPPORT_ASSISTANT_NAME } from '../constants/supportAssistant';
 
 describe('support flow sheet', () => {
   const hub = readFileSync(path.join(__dirname, '../app/support/index.tsx'), 'utf8');
@@ -21,23 +22,27 @@ describe('support flow sheet', () => {
   );
   const layout = readFileSync(path.join(__dirname, '../app/_layout.tsx'), 'utf8');
 
-  it('opens the help center as a large bottom sheet, not a card hub', () => {
-    expect(hub).toContain('SupportFlowSheet');
+  it('/support is a full hub screen; the sheet is «اسأل مساعد سرح»', () => {
+    expect(hub).not.toContain('SupportFlowSheet');
     expect(hub).not.toContain('SettingsMenuScreen');
-    expect(sheet).toContain("<SheetModal");
-    expect(sheet).toContain('مركز المساعدة');
-    expect(sheet).toContain('كيف يمكننا مساعدتك؟');
-    expect(sheet).toContain('بلاغاتي');
-    expect(layout).toContain("name=\"support/index\"");
+    expect(hub).toContain('مركز المساعدة');
+    expect(sheet).toContain('<SheetModal');
+    expect(sheet).toContain('اسأل مساعد سرح');
+    expect(sheet).toContain('وش سؤالك؟');
+    expect(sheet).not.toContain('بلاغاتي');
+    expect(layout).toContain('name="support/index"');
+    expect(layout).toContain('name="support/fraud"');
     expect(layout).toContain("presentation: 'transparentModal'");
   });
 
   it('maps choices onto existing ticket categories without a new taxonomy', () => {
     const ids = SUPPORT_FLOW_CHOICES.map((c) => c.category);
     expect(ids).toEqual(
-      expect.arrayContaining(['ACCOUNT', 'ADS', 'PAYMENT', 'OTHER']),
+      expect.arrayContaining(['ACCOUNT', 'ADS', 'SUBSCRIPTIONS', 'PAYMENT', 'COUNCILS', 'OTHER']),
     );
     expect(findSupportFlowChoice('ACCOUNT')?.helpKind).toBe('OTHER_HELP');
+    expect(ids).not.toContain('ORDERS');
+    expect(SUPPORT_FLOW_CHOICES.map((c) => c.label).join(' ')).not.toMatch(/طلب|توصيل|ملحم|جزار/);
   });
 
   it('validates description before submit', () => {
@@ -51,14 +56,17 @@ describe('support flow sheet', () => {
   it('creates a real ticket then routes into the same support conversation', () => {
     expect(sheet).toContain('createTicket');
     expect(sheet).toContain("pathname: '/support/tickets/[id]'");
-    expect(sheet).toContain('helpKind: choice.helpKind');
+    expect(sheet).toContain('helpKind: picked.helpKind');
     expect(sheet).not.toContain('fake');
     expect(sheet).not.toContain('mock');
   });
 
-  it('uses a single bundled Sarhan avatar asset', () => {
+  it('uses a single bundled assistant avatar and the «مساعد سرح» name', () => {
     expect(identity).toContain("require('../assets/images/sarhan-avatar.jpg')");
-    expect(identity).toContain("assistantName: 'سرحان'");
+    expect(identity).toContain('assistantName: SUPPORT_ASSISTANT_NAME');
+    expect(SUPPORT_ASSISTANT_NAME).toBe('مساعد سرح');
+    expect(sheet).not.toContain('سرحان');
+    expect(hub).not.toContain('سرحان');
     expect(sheet).toContain('avatarSource');
     expect(sheet).not.toContain('https://');
   });
@@ -75,7 +83,7 @@ describe('support flow sheet', () => {
   });
 
   it('never shows internal bot-off copy to the user', () => {
-    expect(sheet).not.toContain('سرحان لن يرد');
+    expect(sheet).not.toContain('لن يرد');
     expect(sheet).not.toContain('تم تعطيل البوت');
     expect(userFacingTicketStatus('WAITING_FOR_SUPPORT')).toBe(
       'تم تحويل طلبك للفريق المختص',

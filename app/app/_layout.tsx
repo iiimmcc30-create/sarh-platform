@@ -163,16 +163,9 @@ function RootNavigator() {
         <Stack.Screen name="settings/blocked" />
         <Stack.Screen name="settings/info" />
         <Stack.Screen name="settings/support" />
-        <Stack.Screen
-          name="support/index"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'slide_from_bottom',
-            headerShown: false,
-            contentStyle: { backgroundColor: 'transparent', ...getRtlDirection() },
-          }}
-        />
+        <Stack.Screen name="support/index" />
         <Stack.Screen name="support/faq" />
+        <Stack.Screen name="support/fraud" />
         <Stack.Screen name="support/verification" />
         <Stack.Screen name="support/tickets/index" />
         <Stack.Screen name="support/tickets/create" />

@@ -60,7 +60,6 @@ export function composerModalOptions(): NativeStackNavigationOptions {
 export const OWN_BACKGROUND_ROUTES = new Set<string>([
   '(tabs)',
   'sidebar',
-  'support/index',
   'support/help',
   'stories/view',
   'expo-auth-session',

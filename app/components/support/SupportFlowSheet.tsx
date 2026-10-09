@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,15 +9,27 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { AppText, SarhAvatar, SarhButton, SarhDivider, SarhInput, SarhSurface } from '@/design-system/components';
+import {
+  AppText,
+  SarhAvatar,
+  SarhButton,
+  SarhChip,
+  SarhChipRow,
+  SarhDivider,
+  SarhInput,
+  SarhSurface,
+} from '@/design-system/components';
+import { FaqAnswerList } from '@/components/support/FaqAnswerList';
+import { HELP_SEARCH_DEBOUNCE_MS, isHelpSearchReady } from '@/lib/helpCenter';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { motion } from '@/design-system';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppUser } from '@/hooks/useApp';
 import { getRtlRow } from '@/lib/rtl';
-import { createTicket } from '@/services/support';
+import { createTicket, fetchFaqs, type FaqItem } from '@/services/support';
 import {
+  DEFAULT_SUPPORT_FLOW_CHOICE_ID,
   SUPPORT_FLOW_CHOICES,
   findSupportFlowChoice,
   greetingFirstName,
@@ -28,7 +40,7 @@ import {
 import { SUPPORT_CUSTOMER_SERVICE } from '@/constants/supportIdentity';
 import { SheetModal } from '@/components/ui/SheetModal';
 
-type FlowStep = 'welcome' | 'describe' | 'sending' | 'handoff';
+type FlowStep = 'ask' | 'sending' | 'handoff';
 
 type SupportFlowSheetProps = {
   visible: boolean;
@@ -36,6 +48,11 @@ type SupportFlowSheetProps = {
   initialChoiceId?: string;
 };
 
+/**
+ * «اسأل مساعد سرح» — the user types a question in their own words; matching
+ * FAQ answers appear inline while typing. Sending opens a real support ticket
+ * where مساعد سرح answers from the FAQ and hands off to a human when needed.
+ */
 export function SupportFlowSheet({
   visible,
   onClose,
@@ -47,26 +64,25 @@ export function SupportFlowSheet({
   const { me } = useAppUser();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
 
-  const [step, setStep] = useState<FlowStep>('welcome');
-  const [choice, setChoice] = useState<SupportFlowChoice | undefined>(
-    findSupportFlowChoice(initialChoiceId),
-  );
+  const presetChoice = () =>
+    findSupportFlowChoice(initialChoiceId) ?? findSupportFlowChoice(DEFAULT_SUPPORT_FLOW_CHOICE_ID);
+
+  const [step, setStep] = useState<FlowStep>('ask');
+  const [choice, setChoice] = useState<SupportFlowChoice | undefined>(presetChoice);
   const [description, setDescription] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<FaqItem[]>([]);
+  const suggestSeq = useRef(0);
 
   const firstName = greetingFirstName(me.arabicName, me.displayName);
-  const hello = firstName ? `مرحباً ${firstName}` : 'مرحباً';
+  const hello = firstName ? `هلا ${firstName}` : 'هلا';
 
   const reset = useCallback(() => {
-    const preset = findSupportFlowChoice(initialChoiceId);
-    if (preset) {
-      setStep('describe');
-    } else {
-      setStep('welcome');
-    }
-    setChoice(preset);
+    setStep('ask');
+    setChoice(findSupportFlowChoice(initialChoiceId) ?? findSupportFlowChoice(DEFAULT_SUPPORT_FLOW_CHOICE_ID));
     setDescription('');
     setSubmitError(null);
+    setSuggestions([]);
   }, [initialChoiceId]);
 
   useEffect(() => {
@@ -74,16 +90,23 @@ export function SupportFlowSheet({
     reset();
   }, [visible, reset]);
 
-  const pickChoice = (next: SupportFlowChoice) => {
-    setChoice(next);
-    setSubmitError(null);
-    setStep('describe');
-  };
-
-  const goBackStep = () => {
-    setSubmitError(null);
-    setStep('welcome');
-  };
+  // Instant answers from the FAQ while the user types (debounced).
+  useEffect(() => {
+    const q = description.trim();
+    if (!isHelpSearchReady(q) || q.length < 4) {
+      suggestSeq.current += 1;
+      setSuggestions([]);
+      return;
+    }
+    const seq = ++suggestSeq.current;
+    const timer = setTimeout(() => {
+      void fetchFaqs({ search: q }).then((data) => {
+        if (seq !== suggestSeq.current) return;
+        setSuggestions((data?.faqs ?? []).slice(0, 2));
+      });
+    }, HELP_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [description]);
 
   const submit = async () => {
     const err = supportDescriptionError(description);
@@ -91,17 +114,18 @@ export function SupportFlowSheet({
       setSubmitError(err);
       return;
     }
-    if (!choice) return;
+    const picked = choice ?? findSupportFlowChoice(DEFAULT_SUPPORT_FLOW_CHOICE_ID);
+    if (!picked) return;
     setSubmitError(null);
     setStep('sending');
     const res = await createTicket({
-      helpKind: choice.helpKind,
-      category: choice.category,
+      helpKind: picked.helpKind,
+      category: picked.category,
       description: description.trim(),
     });
     if (!res.ok || !res.ticket?.id) {
-      setStep('describe');
-      setSubmitError(res.error ?? 'تعذر إرسال الطلب. حاول مرة أخرى.');
+      setStep('ask');
+      setSubmitError(res.error ?? 'تعذر الإرسال. حاول مرة ثانية.');
       return;
     }
     setStep('handoff');
@@ -113,8 +137,6 @@ export function SupportFlowSheet({
       } as never);
     });
   };
-
-  const describePrompt = 'اشرح لنا المشكلة';
 
   return (
     <SheetModal
@@ -145,7 +167,7 @@ export function SupportFlowSheet({
             <AppIcon name="close" size={22} color={colors.textPrimary} />
           </Pressable>
           <AppText variant="heading3" style={styles.headerTitle}>
-            مركز المساعدة
+            اسأل مساعد سرح
           </AppText>
           <View style={styles.headerSpacer} />
         </View>
@@ -155,7 +177,7 @@ export function SupportFlowSheet({
           contentContainerStyle={styles.body}
           showsVerticalScrollIndicator={false}
         >
-          {step === 'welcome' ? (
+          {step === 'ask' || step === 'sending' ? (
             <>
               <View style={[styles.intro, getRtlRow()]}>
                 <SarhAvatar
@@ -166,22 +188,53 @@ export function SupportFlowSheet({
                 />
                 <View style={styles.introCopy}>
                   <AppText variant="body" color="textSecondary">
-                    {hello}
+                    {hello}، معك {SUPPORT_CUSTOMER_SERVICE.assistantName}
                   </AppText>
-                  <AppText variant="heading2">كيف يمكننا مساعدتك؟</AppText>
+                  <AppText variant="heading2">وش سؤالك؟</AppText>
                 </View>
               </View>
-              {SUPPORT_FLOW_CHOICES.map((item) => (
-                <Pressable
-                  key={item.id}
-                  onPress={() => pickChoice(item)}
-                  style={({ pressed }) => [styles.optionRow, pressed && styles.pressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.label}
-                >
-                  <AppText variant="body">{item.label}</AppText>
-                </Pressable>
-              ))}
+              <AppText variant="caption" color="textMuted">
+                اكتب سؤالك بكلامك، وإذا احتجت موظف أحوّلك له.
+              </AppText>
+              <SarhChipRow contentPaddingHorizontal={0}>
+                {SUPPORT_FLOW_CHOICES.map((item) => (
+                  <SarhChip
+                    appearance="filter"
+                    key={item.id}
+                    label={item.label}
+                    selected={choice?.id === item.id}
+                    onPress={() => setChoice(item)}
+                  />
+                ))}
+              </SarhChipRow>
+              <SarhInput
+                label="سؤالك"
+                value={description}
+                onChangeText={(t) => {
+                  setDescription(t);
+                  if (submitError) setSubmitError(null);
+                }}
+                placeholder="مثلاً: كيف أعزز إعلاني؟"
+                multiline
+                numberOfLines={4}
+                style={styles.textArea}
+                errorText={submitError ?? undefined}
+              />
+              {suggestions.length > 0 ? (
+                <View style={styles.suggestions}>
+                  <AppText variant="caption" color="textMuted">
+                    يمكن هذا جوابك
+                  </AppText>
+                  <FaqAnswerList faqs={suggestions} showCategory={false} />
+                </View>
+              ) : null}
+              <SarhButton
+                title={`أرسل لـ${SUPPORT_CUSTOMER_SERVICE.assistantName}`}
+                fullWidth
+                loading={step === 'sending'}
+                disabled={step === 'sending' || !isSupportDescriptionValid(description)}
+                onPress={() => void submit()}
+              />
               <SarhDivider style={styles.footerRule} />
               <Pressable
                 onPress={() => {
@@ -189,45 +242,11 @@ export function SupportFlowSheet({
                   router.push('/support/tickets' as never);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="بلاغاتي"
+                accessibilityLabel="تذاكري"
+                style={({ pressed }) => [pressed && styles.pressed]}
               >
                 <AppText variant="label" color="primary" align="center">
-                  بلاغاتي
-                </AppText>
-              </Pressable>
-            </>
-          ) : null}
-
-          {step === 'describe' || step === 'sending' ? (
-            <>
-              <AppText variant="heading3">{describePrompt}</AppText>
-              {choice ? (
-                <AppText variant="caption" color="textMuted">
-                  {choice.label}
-                </AppText>
-              ) : null}
-              <SarhInput
-                label="تفاصيل المشكلة"
-                value={description}
-                onChangeText={(t) => {
-                  setDescription(t);
-                  if (submitError) setSubmitError(null);
-                }}
-                multiline
-                numberOfLines={6}
-                style={styles.textArea}
-                errorText={submitError ?? undefined}
-              />
-              <SarhButton
-                title="إرسال الطلب"
-                fullWidth
-                loading={step === 'sending'}
-                disabled={step === 'sending' || !isSupportDescriptionValid(description)}
-                onPress={() => void submit()}
-              />
-              <Pressable onPress={goBackStep} disabled={step === 'sending'}>
-                <AppText variant="caption" color="primary" align="center">
-                  رجوع
+                  تذاكري
                 </AppText>
               </Pressable>
             </>
@@ -237,10 +256,10 @@ export function SupportFlowSheet({
             <View style={styles.handoff}>
               <ActivityIndicator color={colors.electric} />
               <AppText variant="heading3" align="center">
-                تم استلام تفاصيل طلبك
+                وصلني سؤالك
               </AppText>
               <AppText variant="body" color="textSecondary" align="center">
-                سننقلك الآن إلى فريق الدعم لمتابعة المشكلة.
+                لحظة، أفتح لك المحادثة.
               </AppText>
             </View>
           ) : null}
@@ -293,14 +312,15 @@ function createStyles(colors: ThemeColors) {
       marginBottom: spacing.md,
     },
     introCopy: { flex: 1, gap: 4 },
-    optionRow: {
-      paddingVertical: spacing.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
-      gap: 2,
+    suggestions: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderHairline,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
     },
     pressed: { opacity: motion.press.opacity },
-    textArea: { minHeight: 140, textAlignVertical: 'top' },
+    textArea: { minHeight: 110, textAlignVertical: 'top' },
     footerRule: { marginVertical: spacing.md },
     handoff: {
       paddingVertical: spacing.xxl,

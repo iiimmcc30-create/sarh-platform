@@ -1,4 +1,5 @@
 import type { SupportTicketMessage } from '@/services/support';
+import { SUPPORT_ASSISTANT_NAME } from '@/constants/supportAssistant';
 
 export type SupportSocketLike = {
   emit: (event: string, ...args: unknown[]) => void;
@@ -21,7 +22,7 @@ export function attachSupportTicketListener(
 }
 
 export function messageAuthorLabel(msg: Pick<SupportTicketMessage, 'authorKind' | 'isStaffReply'>): string {
-  if (msg.authorKind === 'SARHAN') return 'سرحان';
+  if (msg.authorKind === 'SARHAN') return SUPPORT_ASSISTANT_NAME;
   if (msg.authorKind === 'STAFF' || msg.isStaffReply) return 'خدمة العملاء';
   return 'أنت';
 }

@@ -5,7 +5,7 @@ import { messageAuthorLabel } from '../lib/supportRealtime';
 
 describe('customer support UI phase 3', () => {
   it('labels Sarhan / staff / customer and shows human handoff statuses', () => {
-    expect(messageAuthorLabel({ authorKind: 'SARHAN', isStaffReply: true })).toBe('سرحان');
+    expect(messageAuthorLabel({ authorKind: 'SARHAN', isStaffReply: true })).toBe('مساعد سرح');
     expect(messageAuthorLabel({ authorKind: 'STAFF', isStaffReply: true })).toBe('خدمة العملاء');
     expect(messageAuthorLabel({ authorKind: 'CUSTOMER', isStaffReply: false })).toBe('أنت');
     expect(TICKET_STATUS_LABEL_AR.WAITING_FOR_SUPPORT).toBeTruthy();

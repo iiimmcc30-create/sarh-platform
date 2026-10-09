@@ -1,31 +1,6 @@
-import { SettingsMenuScreen } from '@/components/ui/SettingsMenuScreen';
+import { Redirect } from 'expo-router';
 
+/** Legacy «الدعم والمساعدة» menu — unified onto the help-center hub. */
 export default function SupportScreen() {
-  return (
-    <SettingsMenuScreen
-      title="الدعم والمساعدة"
-      items={[
-        {
-          icon: 'ticket-outline',
-          label: 'تذاكر الدعم',
-          route: '/support/tickets',
-        },
-        {
-          icon: 'shield-check-outline',
-          label: 'إنشاء طلب توثيق الحسابات',
-          route: '/support/verification',
-        },
-        {
-          icon: 'help-circle-outline',
-          label: 'الأسئلة الشائعة',
-          route: '/support/faq',
-        },
-        {
-          icon: 'phone',
-          label: 'تواصل معنا',
-          route: '/info/contact',
-        },
-      ]}
-    />
-  );
+  return <Redirect href={'/support' as never} />;
 }
