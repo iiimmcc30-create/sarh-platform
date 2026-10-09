@@ -52,6 +52,7 @@ import { ListingDeleteDialog } from '@/components/listing/ListingDeleteDialog';
 import { listingCommissionPercent, shouldShowCommissionReminder } from '@/lib/listingDeleteReminder';
 import { ListingVideoPlayer } from '@/components/listing/ListingVideoPlayer';
 import { listingPhotoUris, listingVideoUrl, avatarUrl } from '@/lib/listingMedia';
+import { avatarHairlineColor } from '@/constants/storyRing';
 import { isManagedListing, managedSeller } from '@/lib/managedListing';
 import { isListingFavorited, toggleListingFavorite } from '@/lib/listingFavorite';
 import { SHARE_ICON, SHARE_LABEL } from '@/lib/interactionActions';
@@ -104,7 +105,7 @@ export default function ListingDetailScreen() {
   const router = useRouter();
   const { accessToken, isAuthenticated, user } = useAuth();
   const { colors } = useTheme();
-  const styles = useThemedStyles(({ colors }) => createStyles(colors));
+  const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
   const { listings, me, removeListing } = useApp();
   const { width: screenWidth } = useWindowDimensions();
   const cachedListing = useMemo(
@@ -980,7 +981,7 @@ export default function ListingDetailScreen() {
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   return StyleSheet.create({
     notFound: { marginTop: 80 },
     headerSection: {
@@ -1101,8 +1102,9 @@ function createStyles(colors: ThemeColors) {
       height: 28,
       borderRadius: 14,
       backgroundColor: colors.bgElevated,
-      borderWidth: 1.5,
-      borderColor: colors.electric,
+      // X-style: no accent ring, only a barely-there hairline.
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: avatarHairlineColor(scheme),
       flexShrink: 0,
     },
     sellerInlineName: {

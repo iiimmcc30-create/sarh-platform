@@ -1,5 +1,6 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
+import { StoryRing } from '@/components/ui/StoryRing';
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { VerifiedInfoSheet } from '@/components/ui/VerifiedInfoSheet';
@@ -428,8 +429,15 @@ export function ProfileScreenLayout({
                   style={styles.avatarCol}
                 >
                   {hasStoryRing ? (
-                    // Solid identity story ring: black in Light, white in Dark (same for everyone).
-                    <View style={styles.avatarRing}>
+                    // Shared TikTok-style story ring (blue → green gradient, same in Dark & Light);
+                    // the gap is the page background so the ring separates from the cover.
+                    <StoryRing
+                      size={PROFILE_STORY_RING_SIZE}
+                      avatarSize={PROFILE_STORY_AVATAR_SIZE}
+                      state="unseen"
+                      strokeWidth={PROFILE_STORY_RING_STROKE}
+                      gapColor={themeColors.screenRoot}
+                    >
                       <View style={styles.avatarClip}>
                         <Image
                           source={uriSource(avatarUrl(user.avatar, 'large'))}
@@ -437,7 +445,7 @@ export function ProfileScreenLayout({
                           contentFit="cover"
                         />
                       </View>
-                    </View>
+                    </StoryRing>
                   ) : (
                     <View style={styles.avatarPlain}>
                       <Image
@@ -738,6 +746,11 @@ export function ProfileScreenLayout({
 /** Profile cover band height and how much of the avatar rides over it. */
 export const PROFILE_COVER_HEIGHT = 112;
 export const PROFILE_AVATAR_COVER_OVERLAP = 44;
+/** Story-ring frame keeps the old 92px footprint; the photo matches the plain avatar's visible 82px. */
+export const PROFILE_STORY_RING_SIZE = 92;
+export const PROFILE_STORY_AVATAR_SIZE = 82;
+/** ~3.5% of the ring diameter, leaving a 1.75px page-background gap before the photo. */
+export const PROFILE_STORY_RING_STROKE = 3.25;
 /** Verified seal next to the 18px name (cardTitle). */
 export const PROFILE_NAME_BADGE_SIZE = 18;
 /** Single rating star on the handle line (15pt label). */
@@ -878,13 +891,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       // Top of the avatar sits over the cover, the rest on the page background.
       marginTop: -PROFILE_AVATAR_COVER_OVERLAP,
     },
-    avatarRing: {
-      width: 92,
-      height: 92,
-      borderRadius: 46,
-      padding: 2.5,
-      backgroundColor: colors.electric,
-    },
     avatarPlain: {
       width: 88,
       height: 88,
@@ -895,9 +901,9 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       borderColor: colors.screenRoot,
     },
     avatarClip: {
-      width: '100%',
-      height: '100%',
-      borderRadius: 44,
+      width: PROFILE_STORY_AVATAR_SIZE,
+      height: PROFILE_STORY_AVATAR_SIZE,
+      borderRadius: PROFILE_STORY_AVATAR_SIZE / 2,
       overflow: 'hidden',
       backgroundColor: colors.bgElevated,
     },

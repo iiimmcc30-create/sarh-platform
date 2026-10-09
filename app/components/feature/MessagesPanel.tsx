@@ -37,6 +37,7 @@ import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import type { ChatContact } from '@/services/chatApi';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 import { avatarUrl } from '@/lib/listingMedia';
+import { avatarHairlineColor } from '@/constants/storyRing';
 
 function formatThreadTime(iso: string): string {
   const date = new Date(iso);
@@ -95,7 +96,7 @@ export function MessagesPanel({
 }: MessagesPanelProps) {
   const { colors } = useTheme();
   const { gutter } = useLayout();
-  const styles = useThemedStyles(({ colors: c }) => createStyles(c));
+  const styles = useThemedStyles(({ colors: c, scheme }) => createStyles(c, scheme));
   const router = useRouter();
   const listBottomPadding = variant === 'embedded' ? space[16] : space[24];
   const { accessToken } = useAuth();
@@ -437,7 +438,7 @@ export function MessagesPanel({
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   return StyleSheet.create({
     // Chats list page: exactly #FFFFFF in light mode (screenRoot), calm rows.
     root: { flex: 1, backgroundColor: colors.screenRoot },
@@ -457,8 +458,9 @@ function createStyles(colors: ThemeColors) {
       height: 52,
       borderRadius: 26,
       backgroundColor: colors.bgElevated,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
+      // X-style: barely-there hairline instead of a 1px grey ring.
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: avatarHairlineColor(scheme),
     },
     chatBody: { flex: 1, minWidth: 0 },
     skeletonTime: { alignSelf: 'auto', width: 28 },

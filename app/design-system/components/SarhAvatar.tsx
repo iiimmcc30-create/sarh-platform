@@ -4,6 +4,8 @@ import { colors, functional, radius, space } from '../tokens';
 import { AppText } from './AppText';
 import { AVATAR_SIZE, avatarInitials, type SarhAvatarSize } from './resolvers';
 import { avatarUrl } from '@/lib/listingMedia';
+import { avatarHairlineColor } from '@/constants/storyRing';
+import { useTheme } from '@/hooks/useTheme';
 
 export type SarhAvatarProps = {
   uri?: string | null;
@@ -29,6 +31,7 @@ export function SarhAvatar({
   accessibilityLabel,
   style,
 }: SarhAvatarProps) {
+  const { scheme } = useTheme();
   const flat = StyleSheet.flatten(style);
   const box = typeof flat?.width === 'number' ? flat.width : AVATAR_SIZE[size];
   const initials = avatarInitials(name, fallback);
@@ -64,6 +67,18 @@ export function SarhAvatar({
           </AppText>
         )}
       </View>
+      {/* X-style edge: no white ring, only a barely-there hairline over the photo's rim. */}
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            borderRadius: radius[999],
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: avatarHairlineColor(scheme),
+          },
+        ]}
+      />
       {online ? (
         <View
           accessibilityLabel="متصل"

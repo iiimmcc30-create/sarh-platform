@@ -188,8 +188,8 @@ function createColorStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       backgroundColor: tokens.tabBar,
       borderBottomColor: tokens.glassBorder,
     },
+    /** X-style: no accent ring — SarhAvatar draws its own subtle hairline. */
     avatar: {
-      borderColor: colors.electric,
       backgroundColor: colors.bgField,
     },
   });
@@ -271,7 +271,6 @@ const styles = StyleSheet.create({
     width: AVATAR,
     height: AVATAR,
     borderRadius: radius[999],
-    borderWidth: 2,
   },
 });
 

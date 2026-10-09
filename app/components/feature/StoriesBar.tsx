@@ -1,5 +1,6 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
+import { StoryRing as RingFrame } from '@/components/ui/StoryRing';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
@@ -12,6 +13,8 @@ import { StoryViewer } from '@/components/feature/StoryViewer';
 /** Default ring diameter (unchanged); callers may pass a smaller `size`. */
 const DEFAULT_CIRCLE = 64;
 const RING_BORDER = 2;
+/** Ring + gap per side; the avatar is `size - 2 × AVATAR_INSET` (unchanged: 52 in a 64 ring). */
+const AVATAR_INSET = 6;
 
 type StoriesBarProps = {
   feed: StoryGroup[];
@@ -53,17 +56,17 @@ function StoryRing({
     );
   }
 
-  // One solid identity ring for everyone (no gradient, no tier colours):
-  // unseen = theme accent (white in Dark, black in Light), seen = theme hairline grey.
-  if (unseen) {
-    return (
-      <View style={[styles.ring, styles.ringUnseen]}>
-        <View style={styles.ringInner}>{children}</View>
-      </View>
-    );
-  }
-
-  return <View style={[styles.ring, styles.ringSeen]}>{children}</View>;
+  // TikTok-style ring (shared component, react-native-svg): unseen = blue → green
+  // gradient (same in Dark & Light), seen = thin theme grey; gap in the page bg (bgDeep).
+  return (
+    <RingFrame
+      size={size}
+      avatarSize={size - AVATAR_INSET * 2}
+      state={unseen ? 'unseen' : 'seen'}
+    >
+      {children}
+    </RingFrame>
+  );
 }
 
 export function buildStoryGroups(
@@ -208,7 +211,6 @@ function createBarStyles(
   scheme: 'light' | 'dark',
   CIRCLE: number = DEFAULT_CIRCLE,
 ) {
-  const INNER = CIRCLE - 8;
   const isDark = scheme === 'dark';
   return StyleSheet.create({
     wrap: {
@@ -225,18 +227,6 @@ function createBarStyles(
       gap: spacing.md,
     },
     itemWrap: { alignItems: 'center', gap: spacing.xs, width: CIRCLE + spacing.sm },
-    ringUnseen: {
-      backgroundColor: colors.electric,
-    },
-    ringInner: {
-      width: INNER,
-      height: INNER,
-      borderRadius: INNER / 2,
-      backgroundColor: colors.bgDeep,
-      padding: RING_BORDER,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     ring: {
       width: CIRCLE,
       height: CIRCLE,
@@ -245,12 +235,6 @@ function createBarStyles(
       alignItems: 'center',
       justifyContent: 'center',
     },
-    ringSeen: {
-      borderWidth: RING_BORDER,
-      borderColor: colors.borderSoft,
-      backgroundColor: colors.bgDeep,
-      padding: RING_BORDER,
-    },
     ringEmpty: {
       borderWidth: RING_BORDER,
       borderColor: colors.borderSoft,
@@ -258,9 +242,9 @@ function createBarStyles(
       backgroundColor: colors.bgElevated,
     },
     avatar: {
-      width: INNER - RING_BORDER * 2,
-      height: INNER - RING_BORDER * 2,
-      borderRadius: (INNER - RING_BORDER * 2) / 2,
+      width: CIRCLE - AVATAR_INSET * 2,
+      height: CIRCLE - AVATAR_INSET * 2,
+      borderRadius: (CIRCLE - AVATAR_INSET * 2) / 2,
       backgroundColor: colors.bgElevated,
     },
     addIcon: {
