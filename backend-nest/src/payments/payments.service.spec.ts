@@ -35,6 +35,12 @@ describe('PaymentsService', () => {
   const repo = {
     findSubscriptionForPayment: jest.fn(),
     findPendingFee: jest.fn(),
+    ensurePayableListingFee: jest.fn().mockResolvedValue({
+      id: 'fee-a',
+      listingId: 'listing-a',
+      status: 'pending',
+      created: false,
+    }),
     recordListingFeeSaleAmount: jest.fn().mockResolvedValue({ count: 1 }),
     findOwnedListingForCommission: jest.fn(),
     findUserContact: jest.fn().mockResolvedValue({
@@ -146,6 +152,68 @@ describe('PaymentsService', () => {
         } as never,
       ),
     ).rejects.toMatchObject({ error: 'fee_not_found', status: 404 });
+  });
+
+  it('rejects listing fee payment for an already PAID fee with fee_already_paid', async () => {
+    const { ApiException } = jest.requireActual(
+      '../common/exceptions/api.exception',
+    );
+    repo.ensurePayableListingFee.mockRejectedValueOnce(
+      new ApiException(
+        409,
+        'fee_already_paid',
+        'تم سداد رسوم هذا الإعلان مسبقاً',
+      ),
+    );
+
+    await expect(
+      service.initiate(
+        { userId: 'u1', role: 'USER' } as never,
+        {
+          amount: 100,
+          saleAmount: 10000,
+          method: 'visa',
+          type: 'listing_fee',
+          referenceId: 'listing-a',
+        } as never,
+      ),
+    ).rejects.toMatchObject({ error: 'fee_already_paid', status: 409 });
+    expect(repo.createPendingPaymentOrReturnExisting).not.toHaveBeenCalled();
+  });
+
+  it('ensures (lazily creates) the owner fee before initiating a listing fee payment', async () => {
+    repo.findPendingFee.mockResolvedValue({
+      id: 'fee-a',
+      listingId: 'listing-a',
+      status: 'pending',
+      commission: 50,
+    });
+    repo.createPendingPaymentOrReturnExisting.mockResolvedValue({
+      payment: { id: 'pay-1', orderId: 'SFAT-U1-TEST' },
+    });
+    jest.spyOn(service as any, 'createCheckoutForPayment').mockResolvedValue({
+      paymentId: 'pay-1',
+      orderId: 'SFAT-U1-TEST',
+      checkoutUrl: 'https://checkout.example/pay-1',
+      status: 'pending',
+      devMode: true,
+    } as never);
+
+    await service.initiate(
+      { userId: 'u1', role: 'USER' } as never,
+      {
+        amount: 100,
+        saleAmount: 10000,
+        method: 'visa',
+        type: 'listing_fee',
+        referenceId: 'listing-a',
+      } as never,
+    );
+    expect(repo.ensurePayableListingFee).toHaveBeenCalledWith(
+      'listing-a',
+      'u1',
+      true,
+    );
   });
 
   it('quotes 1% of sale amount 10000 → 100 and stores listing_fee', async () => {

@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { COMMISSION_TABLE } from '../lib/commissions';
 import { throwApi } from '../common/exceptions/api.exception';
+import { PaidServicesService } from '../settings/paid-services.service';
+import { ensurePayableListingFee } from '../listings/listing-fee-ensure';
 import {
   calculateListingFeeAmount,
   LISTING_COMMISSION_PERCENT,
@@ -10,7 +12,10 @@ import {
 
 @Injectable()
 export class FeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paidServices: PaidServicesService,
+  ) {}
 
   getRules() {
     return { rules: COMMISSION_TABLE };
@@ -69,13 +74,14 @@ export class FeesService {
       throwApi(400, 'invalid_sale_amount', 'أدخل مبلغ بيع صالحاً أكبر من صفر');
     }
 
-    const fee = await this.prisma.listingFee.findFirst({
-      where: { listingId, userId },
-      select: { id: true, status: true, listingId: true },
+    // Only pending/overdue fees are quotable (paid → fee_already_paid, same as
+    // payment initiation). Legacy listings without a fee row get one created here.
+    const flags = await this.paidServices.getFlags();
+    const fee = await ensurePayableListingFee(this.prisma, {
+      referenceId: listingId,
+      userId,
+      listingFeesEnabled: flags.listingFeesEnabled === true,
     });
-    if (!fee) {
-      throwApi(404, 'fee_not_found', 'لا توجد رسوم إعلان مرتبطة بهذا الإعلان');
-    }
 
     return {
       listingId: fee.listingId,

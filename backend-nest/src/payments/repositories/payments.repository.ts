@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentReferenceType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ensurePayableListingFee } from '../../listings/listing-fee-ensure';
 import { buildPermissions, normalizePlanSlug } from '../../plans/plan.types';
 import {
   HOUR_MS,
@@ -24,6 +25,23 @@ export class PaymentsRepository {
         // Read-only: lets a running free trial be upgraded to a paid plan.
         status: true,
       },
+    });
+  }
+
+  /**
+   * Payable (pending/overdue) fee for the owner; lazily creates the row for legacy
+   * listings published without one. Throws fee_already_paid / fee_not_applicable /
+   * fee_not_found / listing_deleted / service_disabled.
+   */
+  ensurePayableListingFee(
+    referenceId: string,
+    userId: string,
+    listingFeesEnabled: boolean,
+  ) {
+    return ensurePayableListingFee(this.prisma, {
+      referenceId,
+      userId,
+      listingFeesEnabled,
     });
   }
 

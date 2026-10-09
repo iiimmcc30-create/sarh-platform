@@ -176,10 +176,8 @@ export class PaymentsService
 
     if (type === 'fee' || type === 'listing_fee' || type === 'commission') {
       await this.paidServices.assertListingFeesEnabled();
-      const fee = await this.repo.findPendingFee(referenceId, userId);
-      if (!fee) {
-        throwApi(404, 'fee_not_found', 'الرسوم غير موجودة أو مسددة بالفعل');
-      }
+      // Paid → fee_already_paid (same as the quote); legacy listing → row created.
+      await this.repo.ensurePayableListingFee(referenceId, userId, true);
       const declared = parsePositiveMoneyAmount(saleAmount);
       if (declared == null) {
         throwApi(
