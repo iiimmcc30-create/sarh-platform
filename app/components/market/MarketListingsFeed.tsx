@@ -52,11 +52,17 @@ import {
   View,
   useWindowDimensions,
   type ListRenderItemInfo,
+  type ViewToken,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { goldSellersFirstInRegion } from '@/lib/goldSeller';
+import {
+  PROMOTION_VIEWABILITY,
+  trackPromotedClick,
+  trackPromotedImpression,
+} from '@/lib/promotionTracking';
 
 const MARKET_FOCUS_TTL_MS = 60_000;
 const EMPTY_LISTINGS: Listing[] = [];
@@ -398,13 +404,21 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           listing={item}
           variant="list"
           listMode="market"
-          onPress={() =>
-            safePush({ pathname: '/listing/[id]', params: { id: item.id } }, undefined, router)
-          }
+          onPress={() => {
+            trackPromotedClick(item);
+            safePush({ pathname: '/listing/[id]', params: { id: item.id } }, undefined, router);
+          }}
         />
       ),
       [router],
     );
+
+    /** Paid promotion impressions: promoted rows that were really on screen (once per session). */
+    const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      for (const token of viewableItems) {
+        if (token.isViewable) trackPromotedImpression(token.item as Listing);
+      }
+    }).current;
 
     const ListSeparator = useCallback(() => <View style={styles.listSeparator} />, []);
 
@@ -439,6 +453,8 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           data={orderLoading ? EMPTY_LISTINGS : filtered}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={PROMOTION_VIEWABILITY}
           ListHeaderComponent={ListHeader}
           ItemSeparatorComponent={ListSeparator}
           ListEmptyComponent={

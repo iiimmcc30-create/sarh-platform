@@ -45,6 +45,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { trackPromotedClick } from '@/lib/promotionTracking';
 
 /**
  * "العلامات المرجعية": two tabs (المفضلة / المحفوظات) over a horizontal pager.
@@ -249,9 +250,10 @@ function FavoritesPage() {
         listing={item}
         variant="list"
         listMode="market"
-        onPress={() =>
-          safePush({ pathname: '/listing/[id]', params: { id: item.id } }, undefined, router)
-        }
+        onPress={() => {
+          trackPromotedClick(item);
+          safePush({ pathname: '/listing/[id]', params: { id: item.id } }, undefined, router);
+        }}
       />
     ),
     [router],
