@@ -102,13 +102,17 @@ describe('Profile tabs swipe', () => {
   it('renders every existing tab content inside the content-height pager, same styles', () => {
     expect(layout).toContain('<SwipeTabPager');
     expect(layout).toContain('fit="content"');
-    expect(layout).toContain('pageStyle={[styles.postsFeed, inset]}');
+    // Posts rows are full-bleed (no double gutter since 59c33c1b).
+    expect(layout).toContain('pageStyle={styles.postsFeed}');
     for (const node of ['postsContent', 'adsContent', 'repliesContent', 'repostsContent', 'likesContent']) {
       expect(layout).toContain(`? ${node}`.replace('? likesContent', ': likesContent'));
     }
     expect(layout).toContain('onTabChange?.(activeTab);');
     expect(layout).toContain("activeTab !== 'ads'");
-    expect(layout).toContain('stickyHeaderIndices={[1]}');
+    // Tabs pin under the fixed sticky header (both copies follow the same pager progress).
+    expect(layout).toContain('testID="profile-tabs-pinned"');
+    expect(layout.match(/progress=\{tabPager\.progress\}/g)).toHaveLength(2);
+    expect(layout.match(/onTabChange=\{selectTab\}/g)).toHaveLength(2);
     expect(pagerView).toContain("alignItems: 'flex-start'");
     expect(pagerView).toContain("overflow: 'hidden'");
   });

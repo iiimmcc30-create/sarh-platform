@@ -195,8 +195,9 @@ export function ProfileScreenLayout({
     count: profileTabs.length,
     width: windowWidth,
     initialIndex: Math.max(0, profileTabs.findIndex((tab) => tab.key === initialTab)),
-    // ProfileTabs animates transform / opacity only: follow the pager on the UI thread.
-    nativeDriver: true,
+    // JS-driven progress, like /bookmarks and search. The native-driven scroll event left the
+    // tab icons / underline frozen on device (new architecture) while the pages still swiped;
+    // ProfileTabs still animates transform / opacity only, so the JS path stays cheap.
   });
   const activeTab: ProfileTabKey = profileTabs[tabPager.index]?.key ?? 'posts';
   const { goTo: goToTab, jumpTo: jumpToTab } = tabPager;

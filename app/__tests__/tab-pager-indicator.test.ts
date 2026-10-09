@@ -265,9 +265,10 @@ describe('wiring', () => {
     expect(layoutsHook).toContain('export function useRevealActiveTab');
   });
 
-  it('Profile tabs: computed track + pager progress on the native driver (no per-frame layout)', () => {
+  it('Profile tabs: computed track + JS pager progress, like /bookmarks (no per-frame layout)', () => {
     expect(layout).toContain('progress={tabPager.progress}');
-    expect(layout).toContain('nativeDriver: true,');
+    // The native-driven scroll event froze the bar on device: profile uses the JS driver.
+    expect(layout).not.toContain('nativeDriver: true');
     expect(layout).toContain('keepMounted');
     expect(profileTabs).toContain('profileTabTrack(count, {');
     expect(profileTabs).toContain('inset: spacing.md,');
