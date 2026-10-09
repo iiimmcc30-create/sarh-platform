@@ -31,7 +31,7 @@ const ALL_PRIMARY_ITEMS: NavItem[] = [
   { key: 'create-listing', icon: 'add-circle-outline', label: 'إضافة عرض', route: '/create/listing' },
   { key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },
   { key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },
-  { key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },
+  { key: 'bookmarks', icon: 'bookmark-outline', label: 'المحفوظات', route: '/bookmarks' },
   { key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },
   { key: 'promote', icon: 'megaphone-outline', label: 'التعزيز', route: '/promote' },
 ];

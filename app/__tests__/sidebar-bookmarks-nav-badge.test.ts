@@ -148,7 +148,7 @@ describe('verified badge - unified with the Feed', () => {
   });
 });
 
-describe('sidebar - العلامات المرجعية is a plain menu row', () => {
+describe('sidebar - المحفوظات is a plain menu row', () => {
   const panel = src('components/feature/AppSidebar.tsx');
 
   it('drops the standalone favorites row', () => {
@@ -157,7 +157,7 @@ describe('sidebar - العلامات المرجعية is a plain menu row', () =
   });
 
   it('sits under إضافة عرض / التوثيق and opens /bookmarks with close-then-navigate', () => {
-    const row = "{ key: 'bookmarks', icon: 'bookmark-outline', label: 'العلامات المرجعية', route: '/bookmarks' },";
+    const row = "{ key: 'bookmarks', icon: 'bookmark-outline', label: 'المحفوظات', route: '/bookmarks' },";
     expect(panel).toContain(row);
     const createAt = panel.indexOf("key: 'create-listing'");
     const nextRowAt = panel.indexOf('\n', createAt) + 1;

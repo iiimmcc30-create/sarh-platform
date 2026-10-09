@@ -194,7 +194,7 @@ describe('Councils: gating, wiring and design constraints', () => {
     }
   });
 
-  it('sidebar entry sits directly above العلامات المرجعية (Home quick access removed)', () => {
+  it('sidebar entry sits directly above المحفوظات (Home quick access removed)', () => {
     const panel = src('components/feature/AppSidebar.tsx');
     const row = "{ key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },";
     expect(panel).toContain(row);
