@@ -1,15 +1,21 @@
-export const SUPPORT_ISSUE_TYPES = [
-  'ORDER_NOT_RECEIVED',
-  'ORDER_ITEM_MISSING',
-  'WRONG_ITEM',
-  'DAMAGED_ITEM',
-  'PAYMENT_ISSUE',
-  'REFUND_ISSUE',
-  'DELIVERY_ISSUE',
-  'OTHER',
-] as const;
+import {
+  SUPPORT_ISSUE_TYPES,
+  type SupportIssueType,
+} from '../constants/support.constants';
 
-export type SupportIssueType = (typeof SUPPORT_ISSUE_TYPES)[number];
+export { SUPPORT_ISSUE_TYPES };
+export type { SupportIssueType };
+
+/** A knowledge-base FAQ retrieved for the current customer message. */
+export type SupportKnowledgeSnippet = {
+  key: string | null;
+  questionAr: string;
+  answerAr: string;
+  actionRoute?: string | null;
+  actionLabel?: string | null;
+  /** Retrieval score 0..1. */
+  score: number;
+};
 
 export type SupportAiContext = {
   ticketNumber: string;
@@ -20,9 +26,15 @@ export type SupportAiContext = {
   summary?: string | null;
   missingInformation: string[];
   recentMessages: Array<{ authorKind: string; body: string }>;
+  /** Top FAQ matches for the latest customer message (best first). */
+  knowledge: SupportKnowledgeSnippet[];
 };
 
 export type SarhanDecision = {
+  /**
+   * Reply text. When `escalate` is true this holds only the informational
+   * part (may be empty); the standard handoff line is appended by the service.
+   */
   replyAr: string;
   issueType?: SupportIssueType;
   escalate: boolean;
@@ -36,3 +48,11 @@ export interface AiProvider {
 }
 
 export const AI_PROVIDER = Symbol('AI_PROVIDER');
+
+/** Latest customer text (falls back to the ticket description). */
+export function lastCustomerText(context: SupportAiContext): string {
+  const last = [...context.recentMessages]
+    .reverse()
+    .find((m) => m.authorKind === 'CUSTOMER');
+  return (last?.body || context.customerDescription || '').trim();
+}

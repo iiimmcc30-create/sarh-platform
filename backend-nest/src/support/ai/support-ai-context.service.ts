@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { firstNameFromUser } from '../constants/support.constants';
+import { FaqService } from '../services/faq.service';
 import type { SupportAiContext } from './ai-provider';
 
 type TicketRow = {
@@ -25,7 +26,10 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 @Injectable()
 export class SupportAiContextService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly faq: FaqService,
+  ) {}
 
   async build(ticket: TicketRow): Promise<SupportAiContext> {
     const meta = asRecord(ticket.metadata);
@@ -38,6 +42,16 @@ export class SupportAiContextService {
           })
         : null);
 
+    const recentMessages = (ticket.messages ?? []).slice(-12).map((m) => ({
+      authorKind: m.authorKind || 'CUSTOMER',
+      body: m.body.slice(0, 800),
+    }));
+    const lastCustomer = [...recentMessages]
+      .reverse()
+      .find((m) => m.authorKind === 'CUSTOMER');
+    const query = (lastCustomer?.body || ticket.description || '').slice(0, 500);
+    const matches = await this.faq.retrieveForAssistant(query, 3);
+
     return {
       ticketNumber: ticket.ticketNumber,
       category: ticket.category,
@@ -48,11 +62,15 @@ export class SupportAiContextService {
       missingInformation: Array.isArray(meta.missingInformation)
         ? meta.missingInformation.map(String)
         : [],
-      recentMessages: (ticket.messages ?? []).slice(-12).map((m) => ({
-        authorKind: m.authorKind || 'CUSTOMER',
-        body: m.body.slice(0, 800),
+      recentMessages,
+      knowledge: matches.map(({ faq, score }) => ({
+        key: faq.key ?? null,
+        questionAr: faq.questionAr,
+        answerAr: faq.answerAr,
+        actionRoute: faq.actionRoute ?? null,
+        actionLabel: faq.actionLabel ?? null,
+        score,
       })),
     };
   }
-
 }

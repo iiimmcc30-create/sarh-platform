@@ -35,7 +35,7 @@ Sarh lets people:
 - Discover **butcher shops**, browse products and offers, place meat orders, and track fulfillment.
 - Pay for **subscriptions**, **listing fees**, and **paid listing boosts** (feature / pin / promote) through a hosted card gateway.
 - Read **Ministry of Environment, Water and Agriculture (MEWA)** official-account content and **ministry-published services**.
-- Open **in-app support** (tickets, with an assistant named Sarhan).
+- Open **in-app support** (tickets, with the «مساعد سرح» (Sarh Assistant) bot answering from the FAQ knowledge base).
 - Host or watch **live streams** (Agora RTC).
 
 Four clients exist in the repository:
@@ -409,7 +409,7 @@ Owner flows also exist **inside the Expo app** (butcher mode). The dashboard did
 | **Firebase Admin** | FCM only | Push processor | Invalid tokens cleared; no Analytics/Crashlytics in repo |
 | **pino** | Structured logs | `LoggerService` | Always on |
 | **Sentry** | Error tracking | Optional init | No-op if DSN unset |
-| **OpenAI** | Sarhan support replies | Support AI provider | Heuristic provider fallback on failure |
+| **OpenAI** | «مساعد سرح» support replies (FAQ-grounded) | Support AI provider | Heuristic provider fallback on failure |
 | **Nodemailer** | Transactional email | Email queue | Queue no-op if Redis disabled |
 | **AWS S3** | Alternate storage | Upload | Used when `STORAGE_PROVIDER` is not Cloudinary |
 

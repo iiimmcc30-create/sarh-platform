@@ -65,12 +65,13 @@ export class SarhanSupportService {
         ticketNumber: context.ticketNumber,
         issueType: metadata.issueType,
       },
-      'Sarhan support turn',
+      'Support assistant turn',
     );
 
+    const info = (decision.replyAr || '').trim();
     const replyAr = decision.escalate
-      ? sarhanHandoff(context.ticketNumber)
-      : decision.replyAr;
+      ? [info, sarhanHandoff(context.ticketNumber)].filter(Boolean).join('\n\n')
+      : info;
 
     return {
       replyAr,
