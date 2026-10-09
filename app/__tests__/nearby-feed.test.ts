@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { __mock as locationMock } from 'expo-location';
+// Same module instance jest maps 'expo-location' to.
+import { __mock as locationMock } from './mocks/expo-location';
 import {
   formatDistanceKm,
   haversineKm,

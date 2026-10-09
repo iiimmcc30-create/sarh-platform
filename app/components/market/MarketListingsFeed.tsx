@@ -147,6 +147,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     // the previous order are hidden (never shown under the new label).
     const [orderLoading, setOrderLoading] = useState(false);
     const orderSwitchFromRef = useRef<FeedSortMode | null>(null);
+    const queryResetRef = useRef(false);
     const sortModeRef = useRef<FeedSortMode>(sortMode);
     sortModeRef.current = sortMode;
     hasItemsRef.current = items.length > 0;
@@ -159,21 +160,18 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         subcategoryId: activeSubId ?? undefined,
         // Sorting happens at the API (createdAt DESC/ASC + matching cursor), so the
         // order is part of every page request and of the fetch/dedupe URL key.
-        sort: nearby ? undefined : sortMode === 'oldest' ? ('oldest' as const) : undefined,
+        sort: sortMode === 'oldest' ? ('oldest' as const) : undefined,
+        // «القريب»: origin + radius, and its own order (nearest / newest) overrides `sort`.
         ...nearbyApiParams(nearby),
       }),
-      [showFeaturedOnly, activeParentId, activeSubId, sortMode, nearby],
+      [nearby, showFeaturedOnly, activeParentId, activeSubId, sortMode],
     );
 
     const loadFirstPage = useCallback(async () => {
       const gen = ++loadGenRef.current;
       const hasServerFilters = Boolean(
-        apiFilters.featured ||
-          apiFilters.categoryId ||
-          apiFilters.subcategoryId ||
-          apiFilters.sort ||
-          apiFilters.near ||
-          apiFilters.nearCityId,
+        apiFilters.featured || apiFilters.categoryId || apiFilters.subcategoryId ||
+          apiFilters.sort || apiFilters.near || apiFilters.nearCityId,
       );
       if (!hasServerFilters) {
         const boot = getBootstrappedListingsPage(accessToken);
@@ -185,6 +183,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           setLoadFailed(false);
           setLoading(false);
           orderSwitchFromRef.current = null;
+          queryResetRef.current = false;
           setOrderLoading(false);
           return;
         }
@@ -199,11 +198,19 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         setHasMore(page.hasMore);
         setLoadFailed(false);
         orderSwitchFromRef.current = null;
+        queryResetRef.current = false;
         setOrderLoading(false);
       } catch {
         if (gen !== loadGenRef.current) return;
         // Keep the last good page — HTTP/network failure must not wipe the list.
         setLoadFailed(true);
+        if (queryResetRef.current) {
+          // A new «القريب» origin/radius failed: the hidden rows belong to the old
+          // query, so fall back to the error/retry state instead of showing them.
+          queryResetRef.current = false;
+          setOrderLoading(false);
+          setItems(EMPTY_LISTINGS);
+        }
         const previousOrder = orderSwitchFromRef.current;
         if (previousOrder) {
           // The new order could not load: return the toggle to the order the
@@ -314,7 +321,8 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
 
       // Server order is final for the radius feed (nearest / newest within radius) and
       // for oldest-first; re-ranking or promotion interleaving here would undo it.
-      if (nearbyActive || sortMode === 'oldest') return list;
+      if (nearbyActive) return list;
+      if (sortMode === 'oldest') return list;
 
       list = [...list].sort(compareListingBoostPriority);
       const ranked = interleavePromotedListings(list);
@@ -358,10 +366,11 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
       loadingMoreRef.current = false;
       setLoadingMore(false);
       setLoadFailed(false);
-      setItems([]);
+      // Old rows are hidden (not wiped) until the new first page lands.
+      queryResetRef.current = true;
+      setOrderLoading(true);
       setNextCursor(null);
       setHasMore(false);
-      setLoading(true);
       listRef.current?.scrollToOffset({ offset: 0, animated: false });
     }, []);
 

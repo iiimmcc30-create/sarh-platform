@@ -236,7 +236,9 @@ describe('HomeAppBar chrome', () => {
     );
     expect(feed).toContain('onNearbyPress={onNearbyPress}');
     expect(feed).toContain('onSortPress={onSortPress}');
-    expect(feed).toContain('resolveNearbyRegionSelection');
+    // «القريب» is a server radius query now (no reverse-geocode → region text filter).
+    expect(feed).toContain('nearbyApiParams(nearby)');
+    expect(feed).not.toContain('resolveNearbyRegionSelection');
     expect(feed).toContain('toggleFeedSortMode');
     expect(feed).toContain('sortLabel={feedSortLabelAr(sortMode)}');
     expect(feed).toContain('listingMatchesRegionSelection');

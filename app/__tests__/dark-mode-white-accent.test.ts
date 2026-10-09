@@ -121,8 +121,7 @@ describe('Dark mode white accent', () => {
       'app/live/create.tsx',
       'components/feature/StoryVideoTrimmer.tsx',
       'app/live/watch/[id].tsx',
-      'components/market/MarketCategoryPicker.tsx',
-      'components/market/RegionCityPicker.tsx',
+      // MarketCategoryPicker / RegionCityPicker: no accent «تطبيق» button — tapping a row applies and closes.
       'app/(tabs)/more.tsx',
       'components/feature/StoryViewer.tsx',
       'components/feature/PostCommentsSection.tsx',
