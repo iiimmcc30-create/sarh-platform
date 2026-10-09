@@ -153,7 +153,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     hasItemsRef.current = items.length > 0;
     loadingRef.current = loading;
 
-    const apiFilters = useMemo(
+    const marketFilters = useMemo(
       () => ({
         featured: showFeaturedOnly || undefined,
         categoryId: activeSubId ?? activeParentId ?? undefined,
@@ -161,17 +161,20 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
         // Sorting happens at the API (createdAt DESC/ASC + matching cursor), so the
         // order is part of every page request and of the fetch/dedupe URL key.
         sort: sortMode === 'oldest' ? ('oldest' as const) : undefined,
-        // «القريب»: origin + radius, and its own order (nearest / newest) overrides `sort`.
-        ...nearbyApiParams(nearby),
       }),
-      [nearby, showFeaturedOnly, activeParentId, activeSubId, sortMode],
+      [showFeaturedOnly, activeParentId, activeSubId, sortMode],
+    );
+    // «القريب»: origin + radius, and its own order (nearest / newest) overrides `sort`.
+    const apiFilters = useMemo(
+      () => ({ ...marketFilters, ...nearbyApiParams(nearby) }),
+      [marketFilters, nearby],
     );
 
     const loadFirstPage = useCallback(async () => {
       const gen = ++loadGenRef.current;
       const hasServerFilters = Boolean(
-        apiFilters.featured || apiFilters.categoryId || apiFilters.subcategoryId ||
-          apiFilters.sort || apiFilters.near || apiFilters.nearCityId,
+        apiFilters.featured || apiFilters.categoryId || apiFilters.subcategoryId || apiFilters.sort ||
+          apiFilters.near || apiFilters.nearCityId,
       );
       if (!hasServerFilters) {
         const boot = getBootstrappedListingsPage(accessToken);

@@ -240,7 +240,8 @@ describe('HomeAppBar chrome', () => {
     expect(feed).toContain('nearbyApiParams(nearby)');
     expect(feed).not.toContain('resolveNearbyRegionSelection');
     expect(feed).toContain('toggleFeedSortMode');
-    expect(feed).toContain('sortLabel={feedSortLabelAr(sortMode)}');
+    // In «القريب» the same chip reads «الأقرب أولاً» / «الأحدث» (server distance order).
+    expect(feed).toMatch(/sortLabel=\{nearby \? .+ : feedSortLabelAr\(sortMode\)\}/);
     expect(feed).toContain('listingMatchesRegionSelection');
     expect(feed).toContain('nearbyActive={nearbyActive}');
     expect(feed).toContain("sortActive={sortMode !== 'newest'}");
