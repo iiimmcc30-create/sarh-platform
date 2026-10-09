@@ -27,6 +27,27 @@ import {
   VerifyOtpDto,
 } from '../dto/auth.dto';
 import { isValidSaudiMobileE164, normalizeE164Phone } from '../../lib/phone';
+import {
+  REFRESH_REUSE_GRACE_MS,
+  hashRefreshToken,
+  isLegacyPlaintextRefreshToken,
+  openGracePair,
+  sealGracePair,
+} from '../lib/refresh-token-hash';
+
+type TokenPair = { accessToken: string; refreshToken: string };
+type RefreshSession = NonNullable<
+  Awaited<ReturnType<AuthRepository['findSessionForRefresh']>>
+>;
+
+const GRACE_CACHE_PREFIX = 'auth:refresh_grace:';
+const GRACE_CACHE_TTL_SEC = Math.ceil(REFRESH_REUSE_GRACE_MS / 1000);
+/** A concurrent winner writes its pair right after its DB swap; wait this long for it. */
+const GRACE_CACHE_WAIT_MS = [0, 60, 150];
+const GRACE_REISSUE_ATTEMPTS = 3;
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const DEFAULT_SESSION_TTL_DAYS = 30;
 
@@ -250,8 +271,8 @@ export class AuthService {
     if (dto.password) {
       passwordHash = await bcrypt.hash(dto.password, 12);
     } else {
-      const randomPassword =
-        Math.random().toString(36).slice(-8) + Date.now().toString(36);
+      // Unusable random password for passwordless (OTP / Google) signups.
+      const randomPassword = crypto.randomBytes(32).toString('base64url');
       passwordHash = await bcrypt.hash(randomPassword, 12);
     }
 
@@ -358,54 +379,70 @@ export class AuthService {
     };
   }
 
-  async refresh(dto: RefreshDto) {
+  /**
+   * Rotate a refresh token.
+   *
+   * - Atomic: the swap only lands while the row still holds the presented
+   *   token (compare-and-swap), so two concurrent refreshes cannot both win.
+   * - Grace: the token a rotation replaced keeps working for 30s. A replay in
+   *   that window (the app never got the response on a weak network, or two
+   *   requests raced) gets the same new pair back when it is still cached, or
+   *   a fresh one, instead of signing the user out everywhere.
+   * - Reuse of an unknown token, or of a replaced one after the grace window,
+   *   still revokes every session of the user (token theft signal).
+   * - Legacy rows that still hold the plaintext token are accepted and stored
+   *   as a hash from this rotation on.
+   */
+  async refresh(dto: RefreshDto): Promise<TokenPair> {
     if (!dto.refreshToken) {
       throwApi(400, 'missing_token', 'الرمز مطلوب');
     }
 
     try {
-      const decoded = this.jwt.verifyRefreshToken(dto.refreshToken);
-      const session = await this.repo.findSessionByRefreshToken(
-        dto.refreshToken,
-      );
+      const token = dto.refreshToken;
+      const decoded = this.jwt.verifyRefreshToken(token);
+      const tokenHash = hashRefreshToken(token);
+      const session = await this.repo.findSessionForRefresh(token);
 
-      if (!session) {
-        this.logger.warn(
-          { userId: decoded.userId },
-          'Refresh token reuse detected — invalidating all sessions',
-        );
-        await this.repo.deleteAllSessions(decoded.userId);
-        throwApi(
-          401,
-          'token_reuse',
-          'تم إلغاء جميع الجلسات لأسباب أمنية. سجّل دخولك مجدداً.',
-        );
+      if (!session || session.user.id !== decoded.userId) {
+        return await this.revokeOnReuse(decoded.userId);
       }
 
-      if (session.expiresAt < new Date()) {
-        await this.repo.deleteSession(session.id);
-        throwApi(401, 'session_expired', 'انتهت الجلسة، يرجى تسجيل الدخول');
+      this.assertSessionUsable(session);
+      const isCurrent =
+        session.refreshToken === tokenHash || session.refreshToken === token;
+      if (!isCurrent) {
+        return await this.refreshWithinGrace(session, token, decoded.userId);
       }
 
-      if (!session.user.isActive) {
-        throwApi(401, 'account_disabled', 'الحساب موقوف');
-      }
-
-      const newAccessToken = this.jwt.signAccessToken({
-        userId: session.user.id,
-        username: session.user.username,
-        role: session.user.role,
-        passwordVersion: session.user.passwordVersion,
+      const pair = this.issuePair(session.user);
+      const swapped = await this.repo.rotateSessionIfCurrent({
+        sessionId: session.id,
+        expectedStored: session.refreshToken,
+        newRefreshToken: pair.refreshToken,
+        previousTokenHash: tokenHash,
+        expiresAt: this.sessionExpiresAt(),
       });
-      const newRefreshToken = this.jwt.signRefreshToken(session.user.id);
 
-      await this.repo.rotateSession(
-        session.id,
-        newRefreshToken,
-        this.sessionExpiresAt(),
-      );
+      if (swapped === 0) {
+        // A concurrent refresh with the same token won the swap; this request
+        // is now a replay of the previous token and is served from the grace.
+        const latest = await this.repo.findSessionForRefresh(token);
+        if (!latest || latest.user.id !== decoded.userId) {
+          throwApi(401, 'invalid_refresh', 'رمز غير صالح');
+        }
+        this.assertSessionUsable(latest);
+        return await this.refreshWithinGrace(latest, token, decoded.userId);
+      }
 
-      return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+      await this.cacheGracePair(token, tokenHash, pair);
+      if (isLegacyPlaintextRefreshToken(session.refreshToken)) {
+        this.logger.info(
+          { userId: session.user.id },
+          'Legacy plaintext refresh session re-hashed',
+        );
+      }
+      return pair;
     } catch (err) {
       if (err instanceof ApiException) throw err;
       if (
@@ -416,6 +453,127 @@ export class AuthService {
       }
       this.logger.error({ err }, 'Refresh error');
       throwApi(500, 'server_error', 'خطأ في الخادم');
+    }
+  }
+
+  private issuePair(user: RefreshSession['user']): TokenPair {
+    return {
+      accessToken: this.jwt.signAccessToken({
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        passwordVersion: user.passwordVersion,
+      }),
+      refreshToken: this.jwt.signRefreshToken(user.id),
+    };
+  }
+
+  private assertSessionUsable(session: RefreshSession) {
+    if (session.expiresAt < new Date()) {
+      void this.repo.deleteSession(session.id).catch(() => undefined);
+      throwApi(401, 'session_expired', 'انتهت الجلسة، يرجى تسجيل الدخول');
+    }
+    if (!session.user.isActive) {
+      throwApi(401, 'account_disabled', 'الحساب موقوف');
+    }
+  }
+
+  private async revokeOnReuse(userId: string): Promise<never> {
+    this.logger.warn(
+      { userId },
+      'Refresh token reuse detected — invalidating all sessions',
+    );
+    await this.repo.deleteAllSessions(userId);
+    throwApi(
+      401,
+      'token_reuse',
+      'تم إلغاء جميع الجلسات لأسباب أمنية. سجّل دخولك مجدداً.',
+    );
+  }
+
+  /** `token` is the session's previous token (matched by `previousTokenHash`). */
+  private async refreshWithinGrace(
+    session: RefreshSession,
+    token: string,
+    userId: string,
+  ): Promise<TokenPair> {
+    const rotatedAt = session.rotatedAt?.getTime() ?? 0;
+    if (!rotatedAt || Date.now() - rotatedAt > REFRESH_REUSE_GRACE_MS) {
+      return this.revokeOnReuse(userId);
+    }
+    const tokenHash = hashRefreshToken(token);
+
+    for (const wait of GRACE_CACHE_WAIT_MS) {
+      if (wait) await sleep(wait);
+      const cached = await this.readGracePair(token, tokenHash);
+      if (cached) {
+        this.logger.info(
+          { userId },
+          'Refresh replay inside grace — returned the rotated pair',
+        );
+        return cached;
+      }
+    }
+
+    // Cache miss (Redis off / restarted): mint a fresh pair. The previous
+    // token stays the grace anchor; the grace window is not extended.
+    let current: RefreshSession | null = session;
+    for (
+      let attempt = 0;
+      attempt < GRACE_REISSUE_ATTEMPTS && current;
+      attempt++
+    ) {
+      if (current.previousTokenHash !== tokenHash) break;
+      const pair = this.issuePair(current.user);
+      const swapped = await this.repo.reissueSessionInGrace({
+        sessionId: current.id,
+        expectedStored: current.refreshToken,
+        newRefreshToken: pair.refreshToken,
+        expiresAt: this.sessionExpiresAt(),
+      });
+      if (swapped > 0) {
+        await this.cacheGracePair(token, tokenHash, pair);
+        this.logger.info(
+          { userId },
+          'Refresh replay inside grace — issued a fresh pair',
+        );
+        return pair;
+      }
+      current = await this.repo.findSessionForRefresh(token);
+    }
+    // Transient contention, not theft: the client may retry.
+    throwApi(503, 'refresh_busy', 'تعذّر تجديد الجلسة، حاول مجدداً');
+  }
+
+  private async cacheGracePair(
+    previousToken: string,
+    previousHash: string,
+    pair: TokenPair,
+  ) {
+    try {
+      await this.sessions.set(
+        `${GRACE_CACHE_PREFIX}${previousHash}`,
+        sealGracePair(previousToken, pair),
+        GRACE_CACHE_TTL_SEC,
+      );
+    } catch {
+      /* best effort: the DB grace path still works without Redis */
+    }
+  }
+
+  private async readGracePair(
+    previousToken: string,
+    previousHash: string,
+  ): Promise<TokenPair | null> {
+    try {
+      const sealed = await this.sessions.get<string>(
+        `${GRACE_CACHE_PREFIX}${previousHash}`,
+      );
+      return typeof sealed === 'string'
+        ? openGracePair(previousToken, sealed)
+        : null;
+    } catch {
+      return null;
     }
   }
 
@@ -677,7 +835,7 @@ export class AuthService {
 
   private async verifyGoogleToken(idToken: string) {
     const res = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
     );
     if (!res.ok) return null;
     const data = (await res.json()) as Record<string, string>;

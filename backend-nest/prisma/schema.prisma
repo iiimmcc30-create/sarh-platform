@@ -125,18 +125,25 @@ model User {
   @@index([deletedAt])
 }
 
+/// `refreshToken` stores the SHA-256 hex of the refresh JWT (legacy rows: the
+/// raw JWT until their next rotation). `previousTokenHash` + `rotatedAt` keep the
+/// token the last rotation replaced so a replay inside 30s (lost response,
+/// concurrent refresh) is not treated as theft.
 model UserSession {
-  id           String   @id @default(uuid())
-  userId       String
-  refreshToken String   @unique
-  deviceInfo   String?
-  ipAddress    String?
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String    @id @default(uuid())
+  userId            String
+  refreshToken      String    @unique
+  previousTokenHash String?
+  rotatedAt         DateTime?
+  deviceInfo        String?
+  ipAddress         String?
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([previousTokenHash])
 }
 
 /// Optional TOTP 2FA for admin-panel staff (ADMIN / MODERATOR).

@@ -10,6 +10,10 @@ import {
   type NotificationPrefs,
 } from '../../notifications/notification-prefs';
 import { describeSessionDevice, maskIp } from '../lib/session-device';
+import {
+  refreshTokenLookupValues,
+  storedRefreshTokenMatches,
+} from '../../auth/lib/refresh-token-hash';
 import type { UpdateNotificationPrefsDto } from '../dto/user-settings.dto';
 
 const MUTED_LIST_LIMIT = 200;
@@ -177,7 +181,9 @@ export class UserSettingsService {
           lastActiveAt:
             refreshedAt > row.createdAt ? refreshedAt : row.createdAt,
           expiresAt: row.expiresAt,
-          current: current !== null && row.refreshToken === current,
+          current:
+            current !== null &&
+            storedRefreshTokenMatches(row.refreshToken, current),
         };
       }),
     };
@@ -196,7 +202,10 @@ export class UserSettingsService {
   /** Sign out every other device, keeping the session that owns `currentRefreshToken`. */
   async revokeOtherSessions(userId: string, currentRefreshToken: string) {
     const keep = await this.prisma.userSession.findFirst({
-      where: { userId, refreshToken: currentRefreshToken },
+      where: {
+        userId,
+        refreshToken: { in: refreshTokenLookupValues(currentRefreshToken) },
+      },
       select: { id: true },
     });
     if (!keep)

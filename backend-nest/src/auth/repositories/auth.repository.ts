@@ -1,6 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  hashRefreshToken,
+  refreshTokenLookupValues,
+} from '../lib/refresh-token-hash';
+
+const SESSION_USER_SELECT = {
+  id: true,
+  username: true,
+  role: true,
+  isActive: true,
+  passwordVersion: true,
+} as const;
 
 @Injectable()
 export class AuthRepository {
@@ -39,7 +51,9 @@ export class AuthRepository {
     ipAddress?: string;
     deviceInfo?: string;
   }) {
-    return this.prisma.userSession.create({ data });
+    return this.prisma.userSession.create({
+      data: { ...data, refreshToken: hashRefreshToken(data.refreshToken) },
+    });
   }
 
   updateLastSeen(userId: string) {
@@ -60,7 +74,11 @@ export class AuthRepository {
   ) {
     return this.prisma.$transaction([
       this.prisma.userSession.create({
-        data: { userId, ...session },
+        data: {
+          userId,
+          ...session,
+          refreshToken: hashRefreshToken(session.refreshToken),
+        },
       }),
       this.prisma.user.update({
         where: { id: userId },
@@ -69,21 +87,72 @@ export class AuthRepository {
     ]);
   }
 
+  /** Session whose *current* token is `refreshToken` (hashed, or a legacy plaintext row). */
   findSessionByRefreshToken(refreshToken: string) {
-    return this.prisma.userSession.findUnique({
-      where: { refreshToken },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            role: true,
-            isActive: true,
-            passwordVersion: true,
-          },
-        },
+    return this.prisma.userSession.findFirst({
+      where: { refreshToken: { in: refreshTokenLookupValues(refreshToken) } },
+      include: { user: { select: SESSION_USER_SELECT } },
+    });
+  }
+
+  /**
+   * Session for a refresh: the token is either the current one (hashed or
+   * legacy plaintext) or the one the last rotation replaced (grace window).
+   */
+  findSessionForRefresh(refreshToken: string) {
+    const hash = hashRefreshToken(refreshToken);
+    return this.prisma.userSession.findFirst({
+      where: {
+        OR: [
+          { refreshToken: { in: [hash, refreshToken] } },
+          { previousTokenHash: hash },
+        ],
+      },
+      include: { user: { select: SESSION_USER_SELECT } },
+    });
+  }
+
+  /**
+   * Atomic rotation: only succeeds while the row still holds `expectedStored`
+   * (compare-and-swap). Returns the number of rows changed (0 = lost a race).
+   */
+  async rotateSessionIfCurrent(args: {
+    sessionId: string;
+    expectedStored: string;
+    newRefreshToken: string;
+    previousTokenHash: string;
+    expiresAt: Date;
+  }): Promise<number> {
+    const res = await this.prisma.userSession.updateMany({
+      where: { id: args.sessionId, refreshToken: args.expectedStored },
+      data: {
+        refreshToken: hashRefreshToken(args.newRefreshToken),
+        previousTokenHash: args.previousTokenHash,
+        rotatedAt: new Date(),
+        expiresAt: args.expiresAt,
       },
     });
+    return res.count;
+  }
+
+  /**
+   * Grace re-issue: replace the current token but keep `previousTokenHash` /
+   * `rotatedAt`, so the grace window is never extended by replays.
+   */
+  async reissueSessionInGrace(args: {
+    sessionId: string;
+    expectedStored: string;
+    newRefreshToken: string;
+    expiresAt: Date;
+  }): Promise<number> {
+    const res = await this.prisma.userSession.updateMany({
+      where: { id: args.sessionId, refreshToken: args.expectedStored },
+      data: {
+        refreshToken: hashRefreshToken(args.newRefreshToken),
+        expiresAt: args.expiresAt,
+      },
+    });
+    return res.count;
   }
 
   deleteAllSessions(userId: string) {
@@ -92,14 +161,17 @@ export class AuthRepository {
 
   deleteSessionsByRefreshToken(userId: string, refreshToken: string) {
     return this.prisma.userSession.deleteMany({
-      where: { userId, refreshToken },
+      where: {
+        userId,
+        refreshToken: { in: refreshTokenLookupValues(refreshToken) },
+      },
     });
   }
 
   rotateSession(sessionId: string, refreshToken: string, expiresAt: Date) {
     return this.prisma.userSession.update({
       where: { id: sessionId },
-      data: { refreshToken, expiresAt },
+      data: { refreshToken: hashRefreshToken(refreshToken), expiresAt },
     });
   }
 
