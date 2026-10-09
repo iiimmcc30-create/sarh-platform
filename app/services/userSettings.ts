@@ -166,14 +166,12 @@ export type SessionsResult = {
   canRevoke: boolean;
 };
 
-/** Same AsyncStorage key AuthContext writes; read-only here. */
-const REFRESH_TOKEN_KEY = 'safat_refresh_token';
-
+/** Same token store AuthContext writes (Keychain / Keystore; AsyncStorage on web); read-only here. */
 async function readRefreshToken(): Promise<string | null> {
   try {
     // Lazy: keeps this module importable in plain-node tests.
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
-    return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    const { tokenStore } = await import('@/lib/secureTokenStore');
+    return await tokenStore.getRefreshToken();
   } catch {
     return null;
   }

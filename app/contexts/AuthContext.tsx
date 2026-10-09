@@ -15,6 +15,7 @@ import {
   evaluateRefreshResult,
   isSessionStillTrusted,
 } from '@/lib/sessionRefresh';
+import { TOKEN_KEYS, tokenStore } from '@/lib/secureTokenStore';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface AuthUser {
@@ -87,9 +88,13 @@ export interface RegisterData {
   avatar?:      string;
 }
 
+/**
+ * Tokens live in the Keychain / Keystore (lib/secureTokenStore, AsyncStorage on
+ * web). The token keys stay listed here so sign-out also wipes any legacy copy.
+ */
 const STORAGE_KEYS = {
-  ACCESS_TOKEN:  'safat_access_token',
-  REFRESH_TOKEN: 'safat_refresh_token',
+  ACCESS_TOKEN:  TOKEN_KEYS.ACCESS,
+  REFRESH_TOKEN: TOKEN_KEYS.REFRESH,
   USER:          'safat_user',
   LAST_AUTH_OK:  'safat_last_auth_ok',
 } as const;
@@ -121,11 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeMode, setActiveMode]   = useState<'USER'>('USER');
   const accessTokenRef = useRef<string | null>(null);
   accessTokenRef.current = accessToken;
-  /** Single-flight lock — concurrent callers await the same refresh promise. */
-  const refreshInFlightRef = useRef<Promise<boolean> | null>(null);
   const lastRefreshAtRef = useRef(0);
 
   const clearSession = useCallback(async () => {
+    await tokenStore.clearTokens();
     await AsyncStorage.multiRemove([...Object.values(STORAGE_KEYS), 'safat_active_mode']);
     setUser(null);
     setAccessToken(null);
@@ -141,13 +145,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persistTokens = useCallback(async (access: string, refresh?: string) => {
-    const pairs: [string, string][] = [[STORAGE_KEYS.ACCESS_TOKEN, access]];
-    if (refresh) pairs.push([STORAGE_KEYS.REFRESH_TOKEN, refresh]);
-    await AsyncStorage.multiSet(pairs);
+    await tokenStore.setTokens(access, refresh);
     setAccessToken(access);
     await markAuthOk();
   }, [markAuthOk]);
 
+  /** Single-flight lock — concurrent callers (parallel 401s, foreground, timer) await the same refresh. */
+  const refreshInFlightRef = useRef<Promise<boolean> | null>(null);
   const refreshSession = useCallback(async (): Promise<boolean> => {
     if (refreshInFlightRef.current) {
       return refreshInFlightRef.current;
@@ -155,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const task = (async (): Promise<boolean> => {
       try {
-        const refresh = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+        const refresh = await tokenStore.getRefreshToken();
         if (!refresh) {
           await clearSession();
           return false;
@@ -177,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
         if (outcome.kind === 'transient_failure') {
+          // 5xx / 429 / refresh_busy: keep stored credentials.
           return false;
         }
 
@@ -209,18 +214,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       let restoredAccess: string | null = null;
       try {
-        const [storedToken, storedUser, storedMode, storedRefresh, storedAuthOk] =
-          await AsyncStorage.multiGet([
-          STORAGE_KEYS.ACCESS_TOKEN,
-          STORAGE_KEYS.USER,
-          'safat_active_mode',
-          STORAGE_KEYS.REFRESH_TOKEN,
-          STORAGE_KEYS.LAST_AUTH_OK,
+        // First launch after the update moves legacy AsyncStorage tokens into
+        // the secure store (read old → write secure → delete old).
+        const [tokens, [storedUser, storedMode, storedAuthOk]] = await Promise.all([
+          tokenStore.getTokens(),
+          AsyncStorage.multiGet([
+            STORAGE_KEYS.USER,
+            'safat_active_mode',
+            STORAGE_KEYS.LAST_AUTH_OK,
+          ]),
         ]);
-        const token    = storedToken[1];
+        const token    = tokens.accessToken;
         const userJson = storedUser[1];
         const mode     = storedMode[1];
-        const refresh  = storedRefresh[1];
+        const refresh  = tokens.refreshToken;
         const persisted = evaluatePersistedTokens({
           accessToken: token,
           refreshToken: refresh,
@@ -273,11 +280,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Helper: حفظ الجلسة ────────────────────────────────────────────────────
   const saveSession = useCallback(async (userData: AuthUser, access: string, refresh: string) => {
     const normalized = normalizeAuthUser({ ...userData }) as unknown as AuthUser;
-    await AsyncStorage.multiSet([
-      [STORAGE_KEYS.ACCESS_TOKEN,  access],
-      [STORAGE_KEYS.REFRESH_TOKEN, refresh],
-      [STORAGE_KEYS.USER,          JSON.stringify(normalized)],
-    ]);
+    await tokenStore.setTokens(access, refresh);
+    await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(normalized));
     setAccessToken(access);
     setUser(normalized);
     await markAuthOk();
@@ -510,7 +514,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── تسجيل الخروج ──────────────────────────────────────────────────────────
   const signOut = useCallback(async () => {
     try {
-      const refresh = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      const refresh = await tokenStore.getRefreshToken();
       if (user?.id && accessToken) {
         await clearPushTokenOnLogout(user.id, accessToken);
       }

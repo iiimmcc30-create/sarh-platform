@@ -33,8 +33,15 @@ export async function authFetch(
 
   if (res.status !== 401 || !deps) return res;
 
-  const refreshed = await deps.refresh();
-  if (!refreshed) return res;
+  // Another request already rotated the session while this one was in flight:
+  // retry with the new access token instead of rotating again. Concurrent 401s
+  // otherwise share AuthContext's single in-flight refresh.
+  const current = deps.getToken();
+  const alreadyRotated = !!current && current !== token;
+  if (!alreadyRotated) {
+    const refreshed = await deps.refresh();
+    if (!refreshed) return res;
+  }
 
   const newToken = deps.getToken();
   if (!newToken) return res;
