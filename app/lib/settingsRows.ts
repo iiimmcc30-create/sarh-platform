@@ -1,14 +1,11 @@
 /**
  * Settings home (iOS Settings / X look): the groups and rows in display order.
  * Pure data so the order, routes and search can be unit-tested; the screen maps
- * `action` rows to handlers (pickers, logout) and `route` rows to navigation.
+ * `action` rows to handlers (switches, appearance, logout) and `route` rows to navigation.
  */
 import type { SearchableSettingsGroup, SearchableSettingsRow } from '@/lib/settingsSearch';
 
 export type SettingsAction =
-  | 'messages-audience'
-  | 'comments-audience'
-  | 'following-list'
   | 'show-in-search'
   | 'appearance'
   | 'logout';
@@ -92,7 +89,7 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
         {
           key: 'subscription',
           icon: 'diamond-outline',
-          title: sub.trialEligible ? 'جرّب أزرق+ مجاناً لأسبوع' : 'ترقية الحساب',
+          title: sub.trialEligible ? 'جرّب أزرق+ مجاناً لأسبوع' : 'توثيق الحساب',
           value: sub.trialEligible ? 'مجاناً' : undefined,
           route: '/verification',
           keywords: ['اشتراك', 'ترقية', 'تجربة', 'توثيق', 'شارة'],
@@ -154,7 +151,7 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
           icon: 'chatbubble-ellipses-outline',
           title: 'من يمكنه مراسلتي',
           value: ctx.privacy.messages,
-          action: 'messages-audience',
+          route: '/settings/audience?kind=messages',
           keywords: ['رسائل', 'مراسلة', 'خاص'],
         },
         {
@@ -162,7 +159,7 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
           icon: 'chatbubble-ellipses-outline',
           title: 'من يمكنه التعليق',
           value: ctx.privacy.comments,
-          action: 'comments-audience',
+          route: '/settings/audience?kind=comments',
           keywords: ['تعليقات'],
         },
         {
@@ -170,7 +167,7 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
           icon: 'people-outline',
           title: 'من يرى قائمة متابعاتي',
           value: ctx.privacy.followingList,
-          action: 'following-list',
+          route: '/settings/audience?kind=following',
           keywords: ['متابعة', 'قائمة'],
         },
         {

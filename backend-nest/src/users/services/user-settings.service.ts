@@ -13,6 +13,14 @@ import { describeSessionDevice, maskIp } from '../lib/session-device';
 import type { UpdateNotificationPrefsDto } from '../dto/user-settings.dto';
 
 const MUTED_LIST_LIMIT = 200;
+/** Same default as AuthService (SESSION_TTL_DAYS); used to derive the last refresh time. */
+const DEFAULT_SESSION_TTL_DAYS = 30;
+
+function sessionTtlMs(): number {
+  const days = parseInt(process.env.SESSION_TTL_DAYS ?? '', 10);
+  const safe = Number.isFinite(days) && days > 0 ? days : DEFAULT_SESSION_TTL_DAYS;
+  return safe * 24 * 60 * 60 * 1000;
+}
 const EXPORT_LIMIT = 1000;
 
 const PUBLIC_USER_SELECT = {
@@ -123,26 +131,69 @@ export class UserSettingsService {
    * is never selected; the IP is coarsened. Signing a device out needs an auth
    * change (current-session id), so it is not offered here.
    */
-  async listSessions(userId: string) {
+  /**
+   * Signed-in devices. `currentRefreshToken` (optional, the caller's own token)
+   * marks «هذا الجهاز»; the token itself is never returned. `lastActiveAt` is
+   * the last refresh: rotation pushes `expiresAt` to now + session TTL.
+   */
+  async listSessions(userId: string, currentRefreshToken?: string | null) {
     const rows = await this.prisma.userSession.findMany({
       where: { userId, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
       take: 20,
-      select: { id: true, deviceInfo: true, ipAddress: true, createdAt: true, expiresAt: true },
+      select: {
+        id: true,
+        deviceInfo: true,
+        ipAddress: true,
+        createdAt: true,
+        expiresAt: true,
+        refreshToken: true,
+      },
     });
+    const ttlMs = sessionTtlMs();
+    const current = typeof currentRefreshToken === 'string' && currentRefreshToken.length > 0
+      ? currentRefreshToken
+      : null;
     return {
       sessions: rows.map((row) => {
         const device = describeSessionDevice(row.deviceInfo);
+        const refreshedAt = new Date(row.expiresAt.getTime() - ttlMs);
         return {
           id: row.id,
           label: device.label,
           platform: device.platform,
           ip: maskIp(row.ipAddress),
           signedInAt: row.createdAt,
+          lastActiveAt: refreshedAt > row.createdAt ? refreshedAt : row.createdAt,
           expiresAt: row.expiresAt,
+          current: current !== null && row.refreshToken === current,
         };
       }),
     };
+  }
+
+  /** Sign one of the caller's own sessions out (the device must sign in again). */
+  async revokeSession(userId: string, sessionId: string) {
+    const result = await this.prisma.userSession.deleteMany({
+      where: { id: sessionId, userId },
+    });
+    if (result.count === 0) throwApi(404, 'not_found', 'الجهاز غير موجود');
+    this.logger.info({ userId, sessionId }, 'Session revoked by owner');
+    return { revoked: result.count };
+  }
+
+  /** Sign out every other device, keeping the session that owns `currentRefreshToken`. */
+  async revokeOtherSessions(userId: string, currentRefreshToken: string) {
+    const keep = await this.prisma.userSession.findFirst({
+      where: { userId, refreshToken: currentRefreshToken },
+      select: { id: true },
+    });
+    if (!keep) throwApi(400, 'session_unknown', 'تعذّر التعرّف على هذا الجهاز، سجّل الدخول من جديد');
+    const result = await this.prisma.userSession.deleteMany({
+      where: { userId, id: { not: keep.id } },
+    });
+    this.logger.info({ userId, revoked: result.count }, 'Other sessions revoked by owner');
+    return { revoked: result.count };
   }
 
   /** Own payments history (receipts), read-only; no checkout URLs or gateway metadata. */

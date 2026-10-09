@@ -237,3 +237,63 @@ export function SettingsCheckLine({ label, met }: { label: string; met: boolean 
     </View>
   );
 }
+
+export type SettingsPillTone = 'neutral' | 'success' | 'warning' | 'danger';
+
+/** Small status capsule (payments, devices): tinted text + hairline, no fill colour. */
+export function SettingsPill({ label, tone = 'neutral' }: { label: string; tone?: SettingsPillTone }) {
+  const { colors } = useTheme();
+  const tint =
+    tone === 'success'
+      ? colors.success
+      : tone === 'warning'
+        ? colors.warning
+        : tone === 'danger'
+          ? colors.danger
+          : colors.textSecondary;
+  return (
+    <View
+      style={{
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 999,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: tone === 'neutral' ? colors.borderMid : tint,
+        alignSelf: 'center',
+      }}
+    >
+      <AppText variant="micro" style={{ color: tint }} numberOfLines={1}>
+        {label}
+      </AppText>
+    </View>
+  );
+}
+
+/** Centered intro block at the top of a page: icon tile, title, one-paragraph explanation. */
+export function SettingsHero({ icon, title, body }: { icon: string; title: string; body: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 16, gap: 8 }}>
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 18,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.bgElevated,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.borderSoft,
+        }}
+      >
+        <AppIcon name={icon} size={30} color={colors.textPrimary} />
+      </View>
+      <AppText variant="heading3" color="textPrimary" align="center">
+        {title}
+      </AppText>
+      <AppText variant="bodySmall" color="textMuted" align="center">
+        {body}
+      </AppText>
+    </View>
+  );
+}

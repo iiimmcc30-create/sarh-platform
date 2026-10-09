@@ -3,6 +3,22 @@ import path from 'path';
 import { buildSettingsGroups, type SettingsContext } from '../lib/settingsRows';
 import { filterSettingsGroups, normalizeArabic } from '../lib/settingsSearch';
 import {
+  AUDIENCE_PAGES,
+  EXPORT_INCLUDED,
+  NOTIFICATION_CATEGORIES,
+  audiencePatch,
+  audienceSelected,
+} from '../lib/settingsCopy';
+import {
+  formatPaymentAmount,
+  groupPaymentsByMonth,
+  paymentStatusTone,
+  paymentType,
+} from '../lib/paymentHistory';
+import {
+  NOTIFICATION_PREF_KEYS,
+  publicIpLabel,
+  type PaymentRecord,
   normalizeNotificationSettings,
   notificationsSummary,
   summarizeExport,
@@ -83,7 +99,7 @@ describe('settings home groups', () => {
     expect(subscribed[0].rows[0].value).toBe('ذهبي · حتى ١ نوفمبر');
     expect(groups[0].rows[0].title).toContain('مجاناً');
     const plain = buildSettingsGroups(ctx({ subscription: { planLabel: null, until: null, trialEligible: false, trialActive: false } }));
-    expect(plain[0].rows[0].title).toBe('ترقية الحساب');
+    expect(plain[0].rows[0].title).toBe('توثيق الحساب');
   });
 
   it('shows counts only when there is something to count', () => {
@@ -144,10 +160,15 @@ describe('settings screens wiring', () => {
     expect(src('app/settings/account.tsx')).toContain('<Redirect');
   });
 
-  it('pickers use the shared option picker and messages offer followers', () => {
+  it('privacy audiences open their own checkmark page and messages offer followers', () => {
     const home = src('components/settings/SettingsHomeScreen.tsx');
-    expect(home).toContain('presentOptionPicker');
-    expect(home).toContain('followers');
+    expect(home).not.toContain("case 'messages-audience'");
+    const privacy = buildSettingsGroups(ctx()).find((g) => g.key === 'privacy')!;
+    const routes = Object.fromEntries(privacy.rows.map((r) => [r.key, r.route]));
+    expect(routes['messages-audience']).toBe('/settings/audience?kind=messages');
+    expect(routes['comments-audience']).toBe('/settings/audience?kind=comments');
+    expect(routes['following-list']).toBe('/settings/audience?kind=following');
+    expect(AUDIENCE_PAGES.messages.options.map((o) => o.key)).toEqual(['everyone', 'followers', 'following', 'nobody']);
     expect(src('services/users.ts')).toContain("'followers'");
   });
 
@@ -173,6 +194,8 @@ describe('settings inner pages (iOS inset-grouped)', () => {
     'app/settings/payments.tsx',
     'app/settings/export.tsx',
     'app/settings/delete-account.tsx',
+    'app/settings/audience.tsx',
+    'app/settings/payment.tsx',
   ];
 
   it('every inner page uses the shared settings shell, no legacy header or cards', () => {
@@ -221,5 +244,101 @@ describe('settings inner pages (iOS inset-grouped)', () => {
     expect(row).toContain('checked?: boolean');
     expect(row).toContain('name="checkmark"');
     expect(src('app/settings/delete-account.tsx')).toContain('checked={understood}');
+  });
+});
+
+describe('settings follow-up: account card, audience, notifications, devices, export, payments', () => {
+  it('the hub card shows the name in a themed DS text and no «حساب مجاني» line', () => {
+    const card = src('components/settings/SettingsAccountCard.tsx');
+    expect(card).toContain('color="textPrimary"');
+    expect(card).toContain('testID="settings-account-name"');
+    expect(card).toContain('planLine ? (');
+    const home = src('components/settings/SettingsHomeScreen.tsx');
+    expect(home).not.toContain('حساب مجاني');
+  });
+
+  it('the subscription entry reads «توثيق الحساب», never «ترقية الحساب»', () => {
+    const rows = src('lib/settingsRows.ts');
+    expect(rows).toContain("'توثيق الحساب'");
+    expect(rows).not.toContain('ترقية الحساب');
+  });
+
+  it('audience selection maps to the same privacy patches as before', () => {
+    const p = {
+      allowPrivateMessages: true,
+      privateMessagesAudience: 'everyone' as const,
+      commentsAudience: 'everyone' as const,
+      showFollowingList: true,
+    };
+    expect(audienceSelected('messages', p)).toBe('everyone');
+    expect(audienceSelected('messages', { ...p, allowPrivateMessages: false })).toBe('nobody');
+    expect(audienceSelected('following', { ...p, showFollowingList: false })).toBe('private');
+    expect(audiencePatch('messages', 'nobody')).toEqual({ allowPrivateMessages: false });
+    expect(audiencePatch('messages', 'followers')).toEqual({ privateMessagesAudience: 'followers', allowPrivateMessages: true });
+    expect(audiencePatch('comments', 'followers')).toEqual({ commentsAudience: 'followers' });
+    expect(audiencePatch('following', 'private')).toEqual({ showFollowingList: false });
+    expect(audiencePatch('comments', 'nobody')).toBeNull();
+    const page = src('app/settings/audience.tsx');
+    expect(page).toContain('checked={selected === option.key}');
+    expect(page).toContain('updatePrivacySettings(patch, user?.id, previous)');
+    for (const kind of ['messages', 'comments', 'following'] as const) expect(AUDIENCE_PAGES[kind].footer.length).toBeGreaterThan(10);
+  });
+
+  it('notification categories cover every preference exactly once, each with a footer', () => {
+    const keys = NOTIFICATION_CATEGORIES.flatMap((c) => c.prefs);
+    expect([...keys].sort()).toEqual([...NOTIFICATION_PREF_KEYS].sort());
+    for (const c of NOTIFICATION_CATEGORIES) expect(c.footer.length).toBeGreaterThan(5);
+  });
+
+  it('device cards: this-device badge, last activity, per-device and bulk sign-out', () => {
+    const card = src('components/settings/SessionDeviceCard.tsx');
+    expect(card).toContain('هذا الجهاز');
+    expect(card).toContain('sessionActivityLabel');
+    const page = src('app/settings/sessions.tsx');
+    expect(page).toContain('revokeSession(session.id)');
+    expect(page).toContain('revokeOtherSessions()');
+    expect(page).toContain('تسجيل الخروج من جميع الأجهزة الأخرى');
+    expect(publicIpLabel('172.18.0.5')).toBeNull();
+    expect(publicIpLabel('10.0.0.1')).toBeNull();
+    expect(publicIpLabel('::ffff:192.168.1.4')).toBeNull();
+    expect(publicIpLabel('51.36.10.20')).toBe('51.36.10.20');
+  });
+
+  it('export page explains, lists what is included and shows the request status', () => {
+    const page = src('app/settings/export.tsx');
+    expect(page).toContain('<SettingsHero');
+    expect(page).toContain('EXPORT_INCLUDED.map');
+    expect(page).toContain('testID="export-status"');
+    expect(EXPORT_INCLUDED.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('payments group by month with type icon, amount and status pill, and open a detail page', () => {
+    const pay = (id: string, at: string, over: Partial<PaymentRecord> = {}): PaymentRecord => ({
+      id,
+      orderId: `o-${id}`,
+      amount: 10,
+      currency: 'SAR',
+      status: 'paid',
+      method: 'mada',
+      createdAt: at,
+      ...over,
+    });
+    const groups = groupPaymentsByMonth([
+      pay('a', '2026-08-03T10:00:00Z'),
+      pay('b', '2026-10-01T10:00:00Z', { referenceType: 'featured_ad' }),
+      pay('c', '2026-10-05T10:00:00Z'),
+    ]);
+    expect(groups.map((g) => g.key)).toEqual(['2026-10', '2026-08']);
+    expect(groups[0].items.map((p) => p.id)).toEqual(['c', 'b']);
+    expect(groups[0].label).toBe('أكتوبر 2026');
+    expect(paymentType({ referenceType: 'featured_ad' }).icon).toBe('star-outline');
+    expect(paymentType({ referenceType: 'unknown' }).icon).toBe('card-outline');
+    expect(paymentStatusTone('failed')).toBe('danger');
+    expect(formatPaymentAmount({ amount: 10, currency: 'SAR' })).toContain('ر.س');
+    const list = src('app/settings/payments.tsx');
+    expect(list).toContain('/settings/payment?id=');
+    expect(list).toContain('<SettingsPill');
+    expect(list).toContain('لا توجد مدفوعات بعد');
+    expect(existsSync(path.join(root, 'app/settings/payment.tsx'))).toBe(true);
   });
 });

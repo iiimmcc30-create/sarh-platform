@@ -154,12 +154,74 @@ export type ConnectedSession = {
   ip: string | null;
   signedInAt: string;
   expiresAt: string;
+  /** Last token refresh (server ≥ sessions v2); falls back to signedInAt. */
+  lastActiveAt?: string | null;
+  /** «هذا الجهاز» — only when the lookup sent this device's refresh token. */
+  current?: boolean;
 };
+
+export type SessionsResult = {
+  sessions: ConnectedSession[];
+  /** False on an older server: hide per-device sign-out. */
+  canRevoke: boolean;
+};
+
+/** Same AsyncStorage key AuthContext writes; read-only here. */
+const REFRESH_TOKEN_KEY = 'safat_refresh_token';
+
+async function readRefreshToken(): Promise<string | null> {
+  try {
+    // Lazy: keeps this module importable in plain-node tests.
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchSessions(): Promise<ConnectedSession[] | null> {
   const data = await getJson<{ sessions?: ConnectedSession[] }>('/api/users/me/sessions');
   if (!data) return null;
   return Array.isArray(data.sessions) ? data.sessions : [];
+}
+
+/** Sessions with «هذا الجهاز» marked; falls back to the read-only list on older servers. */
+export async function fetchSessionsDetailed(): Promise<SessionsResult | null> {
+  const refreshToken = await readRefreshToken();
+  const res = await sendJson<{ sessions?: ConnectedSession[] }>('/api/users/me/sessions/lookup', 'POST', {
+    ...(refreshToken ? { refreshToken } : {}),
+  });
+  if (res.data && Array.isArray(res.data.sessions)) {
+    return { sessions: res.data.sessions, canRevoke: true };
+  }
+  const legacy = await fetchSessions();
+  return legacy ? { sessions: legacy, canRevoke: false } : null;
+}
+
+export async function revokeSession(sessionId: string): Promise<{ ok: boolean; message?: string }> {
+  const res = await sendJson<{ revoked?: number }>(
+    `/api/users/me/sessions/${encodeURIComponent(sessionId)}/revoke`,
+    'POST',
+    {},
+  );
+  return res.data ? { ok: true } : { ok: false, message: res.message };
+}
+
+export async function revokeOtherSessions(): Promise<{ ok: boolean; revoked?: number; message?: string }> {
+  const refreshToken = await readRefreshToken();
+  if (!refreshToken) return { ok: false, message: 'سجّل الدخول من جديد ثم حاول مرة أخرى' };
+  const res = await sendJson<{ revoked?: number }>('/api/users/me/sessions/revoke-others', 'POST', {
+    refreshToken,
+  });
+  return res.data ? { ok: true, revoked: res.data.revoked } : { ok: false, message: res.message };
+}
+
+/** Proxy / private addresses say nothing to the user — hide them. */
+export function publicIpLabel(ip: string | null | undefined): string | null {
+  if (!ip) return null;
+  const v = ip.trim().replace(/^::ffff:/i, '');
+  if (!v || /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|fc|fd|fe80)/i.test(v)) return null;
+  return v;
 }
 
 export type PaymentRecord = {

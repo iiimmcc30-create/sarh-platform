@@ -11,8 +11,8 @@ export type SettingsAccountCardProps = {
   avatar?: string | null;
   verified: boolean;
   tier?: string | null;
-  /** «مشترك ذهبي» / «حساب مجاني». */
-  planLine: string;
+  /** «مشترك ذهبي» for subscribers; omitted for free accounts (no plan line). */
+  planLine?: string | null;
   onPress: () => void;
 };
 
@@ -45,15 +45,32 @@ export function SettingsAccountCard({
       >
         <SarhAvatar uri={avatar} name={name} size="lg" />
         <View style={styles.texts}>
-          <VerifiedInlineName name={name} verified={verified} tier={tier} username={username} />
+          {/*
+            Pass a themed DS AppText: VerifiedInlineName's fallback is the legacy
+            AppText with no colour, which renders RN's default black and was
+            invisible on the dark card.
+          */}
+          <VerifiedInlineName name={name} verified={verified} tier={tier} username={username}>
+            <AppText
+              testID="settings-account-name"
+              variant="heading3"
+              color="textPrimary"
+              numberOfLines={1}
+              style={styles.name}
+            >
+              {name}
+            </AppText>
+          </VerifiedInlineName>
           {username ? (
             <AppText variant="caption" color="textMuted" numberOfLines={1}>
               @{username}
             </AppText>
           ) : null}
-          <AppText variant="caption" color="textSecondary" numberOfLines={1}>
-            {planLine}
-          </AppText>
+          {planLine ? (
+            <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+              {planLine}
+            </AppText>
+          ) : null}
         </View>
         <AppIcon name={rtlForwardIcon()} size={16} color={colors.textMuted} />
       </Pressable>
@@ -71,6 +88,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   texts: { flex: 1, minWidth: 0, gap: 2 },
+  name: { flexShrink: 1 },
 });
 
 export default SettingsAccountCard;

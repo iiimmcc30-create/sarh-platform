@@ -1,24 +1,31 @@
 import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SettingsScreen } from '@/components/settings/SettingsScreen';
-import { SettingsGroup, SettingsStatus } from '@/components/settings/SettingsRows';
+import { SettingsGroup, SettingsHero, SettingsPill, SettingsStatus } from '@/components/settings/SettingsRows';
 import { SarhSettingsRow } from '@/design-system/components';
+import {
+  formatPaymentAmount,
+  groupPaymentsByMonth,
+  paymentStatusTone,
+  paymentTitle,
+  paymentType,
+  rememberPayments,
+} from '@/lib/paymentHistory';
+import { safePush } from '@/lib/safeNavigate';
 import { fetchPayments, PAYMENT_STATUS_AR, type PaymentRecord } from '@/services/userSettings';
 import { formatArabicDate } from '@/services/verification';
 
-function amountLabel(p: PaymentRecord): string {
-  const n = Number.isFinite(p.amount) ? p.amount : 0;
-  return `${n.toLocaleString('ar-SA', { maximumFractionDigits: 2 })} ${p.currency === 'SAR' ? 'ر.س' : p.currency}`;
-}
-
-/** «سجل المدفوعات»: own payments / receipts (read-only). */
+/** «سجل المدفوعات»: transactions grouped by month; tap one for its receipt details. */
 export default function PaymentsHistoryScreen() {
+  const router = useRouter();
   const [payments, setPayments] = useState<PaymentRecord[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setPayments(await fetchPayments());
+    const list = await fetchPayments();
+    if (list) rememberPayments(list);
+    setPayments(list);
     setLoading(false);
   }, []);
 
@@ -27,6 +34,8 @@ export default function PaymentsHistoryScreen() {
       void load();
     }, [load]),
   );
+
+  const groups = payments ? groupPaymentsByMonth(payments) : [];
 
   return (
     <SettingsScreen title="سجل المدفوعات" largeTitle>
@@ -40,23 +49,36 @@ export default function PaymentsHistoryScreen() {
           onRetry={() => void load()}
         />
       ) : payments.length === 0 ? (
-        <SettingsStatus state="empty" icon="receipt-outline" message="لا توجد مدفوعات بعد" />
+        <SettingsHero
+          icon="receipt-outline"
+          title="لا توجد مدفوعات بعد"
+          body="ستظهر هنا عمليات الدفع التي تجريها في سرح، مثل الاشتراكات وتمييز الإعلانات، مع إيصال لكل عملية."
+        />
       ) : (
-        <SettingsGroup
-          title={`العمليات · ${payments.length}`}
-          footer="رقم الطلب يفيد الدعم عند الاستفسار عن أي عملية."
-        >
-          {payments.map((p, i) => (
-            <SarhSettingsRow
-              key={p.id}
-              icon="receipt-outline"
-              title={p.descriptionAr || p.description || 'عملية دفع'}
-              subtitle={`${formatArabicDate(p.paidAt ?? p.createdAt)} · ${PAYMENT_STATUS_AR[p.status] ?? p.status} · ${p.orderId}`}
-              value={amountLabel(p)}
-              showDivider={i < payments.length - 1}
-            />
-          ))}
-        </SettingsGroup>
+        groups.map((group, gi) => (
+          <SettingsGroup
+            key={group.key}
+            title={group.label}
+            footer={gi === groups.length - 1 ? 'اضغط على أي عملية لعرض تفاصيلها ورقم الطلب.' : undefined}
+          >
+            {group.items.map((p, i) => (
+              <SarhSettingsRow
+                key={p.id}
+                testID={`payment-${p.id}`}
+                icon={paymentType(p).icon}
+                iconTile
+                title={paymentTitle(p)}
+                subtitle={formatArabicDate(p.paidAt ?? p.createdAt)}
+                value={formatPaymentAmount(p)}
+                accessory={
+                  <SettingsPill label={PAYMENT_STATUS_AR[p.status] ?? p.status} tone={paymentStatusTone(p.status)} />
+                }
+                showDivider={i < group.items.length - 1}
+                onPress={() => safePush(`/settings/payment?id=${encodeURIComponent(p.id)}`, undefined, router)}
+              />
+            ))}
+          </SettingsGroup>
+        ))
       )}
     </SettingsScreen>
   );

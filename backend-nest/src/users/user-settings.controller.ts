@@ -14,7 +14,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { successResponse } from '../common/utils/response.util';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import { UserSettingsService } from './services/user-settings.service';
-import { SetMuteDto, UpdateNotificationPrefsDto } from './dto/user-settings.dto';
+import {
+  RevokeOtherSessionsDto,
+  SessionLookupDto,
+  SetMuteDto,
+  UpdateNotificationPrefsDto,
+} from './dto/user-settings.dto';
 
 /** Settings redesign endpoints (auth required, own data only). */
 @Controller('users')
@@ -64,6 +69,29 @@ export class UserSettingsController {
   @HttpCode(HttpStatus.OK)
   async listSessions(@CurrentUser() user: JwtPayload) {
     return successResponse(await this.settings.listSessions(user.userId));
+  }
+
+  /** Same list, plus `current` for the device that sends its own refresh token. */
+  @RateLimit('api')
+  @Post('me/sessions/lookup')
+  @Header('Cache-Control', 'private, no-store')
+  @HttpCode(HttpStatus.OK)
+  async lookupSessions(@CurrentUser() user: JwtPayload, @Body() dto: SessionLookupDto) {
+    return successResponse(await this.settings.listSessions(user.userId, dto.refreshToken));
+  }
+
+  @RateLimit('api')
+  @Post('me/sessions/revoke-others')
+  @HttpCode(HttpStatus.OK)
+  async revokeOtherSessions(@CurrentUser() user: JwtPayload, @Body() dto: RevokeOtherSessionsDto) {
+    return successResponse(await this.settings.revokeOtherSessions(user.userId, dto.refreshToken));
+  }
+
+  @RateLimit('api')
+  @Post('me/sessions/:sessionId/revoke')
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(@CurrentUser() user: JwtPayload, @Param('sessionId') sessionId: string) {
+    return successResponse(await this.settings.revokeSession(user.userId, sessionId));
   }
 
   @RateLimit('api')

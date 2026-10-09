@@ -147,49 +147,6 @@ export function SettingsHomeScreen() {
 
   const runAction = async (action: SettingsAction, row: SettingsRow, next?: boolean) => {
     switch (action) {
-      case 'messages-audience': {
-        const key = await presentOptionPicker({
-          title: 'من يمكنه مراسلتي',
-          selectedKey: messagesChoiceOf(privacy),
-          options: [
-            { key: 'everyone', label: MESSAGES_AUDIENCE_LABELS.everyone },
-            { key: 'followers', label: MESSAGES_AUDIENCE_LABELS.followers, subtitle: 'من يتابعونك' },
-            { key: 'following', label: MESSAGES_AUDIENCE_LABELS.following },
-            { key: 'nobody', label: MESSAGES_AUDIENCE_LABELS.nobody },
-          ],
-        });
-        if (key === 'nobody') await patchPrivacy({ allowPrivateMessages: false });
-        else if (key === 'everyone' || key === 'followers' || key === 'following') {
-          await patchPrivacy({ privateMessagesAudience: key, allowPrivateMessages: true });
-        }
-        return;
-      }
-      case 'comments-audience': {
-        const key = await presentOptionPicker({
-          title: 'من يمكنه التعليق',
-          message: 'على منشوراتك وإعلاناتك',
-          selectedKey: privacy.commentsAudience,
-          options: [
-            { key: 'everyone', label: COMMENTS_AUDIENCE_LABELS.everyone },
-            { key: 'followers', label: COMMENTS_AUDIENCE_LABELS.followers },
-          ],
-        });
-        if (key === 'everyone' || key === 'followers') await patchPrivacy({ commentsAudience: key });
-        return;
-      }
-      case 'following-list': {
-        const key = await presentOptionPicker({
-          title: 'من يرى قائمة متابعاتي',
-          selectedKey: privacy.showFollowingList ? 'public' : 'private',
-          options: [
-            { key: 'public', label: FOLLOWING_LIST_LABELS.public },
-            { key: 'private', label: FOLLOWING_LIST_LABELS.private },
-          ],
-        });
-        if (key === 'public') await patchPrivacy({ showFollowingList: true });
-        else if (key === 'private') await patchPrivacy({ showFollowingList: false });
-        return;
-      }
       case 'show-in-search':
         await patchPrivacy({ showInSearch: next ?? !row.switchValue });
         return;
@@ -257,9 +214,7 @@ export function SettingsHomeScreen() {
             verified={sidebarShowsVerifiedBadge(true, me.verified)}
             tier={me.verifiedTier}
             planLine={
-              plan
-                ? `${plan.trial ? 'تجربة' : 'مشترك'} ${TIER_LABEL_AR[plan.tier] ?? ''}`.trim()
-                : 'حساب مجاني · عرض الملف وتعديله'
+              plan ? `${plan.trial ? 'تجربة' : 'مشترك'} ${TIER_LABEL_AR[plan.tier] ?? ''}`.trim() : null
             }
             onPress={() => safePush('/profile/edit', undefined, router)}
           />

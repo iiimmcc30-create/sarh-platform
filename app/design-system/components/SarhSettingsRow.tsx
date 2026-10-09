@@ -1,8 +1,9 @@
+import type { ReactNode } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow, rtlForwardIcon } from '@/lib/rtl';
-import { colors, functional, motion, space } from '../tokens';
+import { colors, functional, motion, radius, space } from '../tokens';
 import { AppText } from './AppText';
 import { SarhDivider } from './SarhDivider';
 
@@ -25,6 +26,10 @@ export type SarhSettingsRowProps = {
   checked?: boolean;
   /** Latin / numeric value (phone, email): keep LTR digits inside the RTL row. */
   valueLtr?: boolean;
+  /** iOS Settings look: the icon sits in a small rounded tile (theme surface, no colour fill). */
+  iconTile?: boolean;
+  /** Optional trailing node before the chevron (e.g. a status pill). */
+  accessory?: ReactNode;
   testID?: string;
 };
 
@@ -35,6 +40,8 @@ export const SETTINGS_ROW = {
   gap: space[12],
   icon: space[20],
   chevron: space[16],
+  tile: space[32] - 2,
+  tileIcon: space[16] + 2,
 } as const;
 
 export function SarhSettingsRow({
@@ -52,6 +59,8 @@ export function SarhSettingsRow({
   subtitle,
   checked,
   valueLtr = false,
+  iconTile = false,
+  accessory,
   testID,
 }: SarhSettingsRowProps) {
   useTheme();
@@ -74,7 +83,24 @@ export function SarhSettingsRow({
         },
       ]}
     >
-      {icon ? (
+      {icon && iconTile ? (
+        <View
+          style={{
+            width: SETTINGS_ROW.tile,
+            height: SETTINGS_ROW.tile,
+            borderRadius: radius[8],
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceElevated,
+          }}
+        >
+          <AppIcon
+            name={icon}
+            size={SETTINGS_ROW.tileIcon}
+            color={tone === 'danger' ? colors.danger : colors.textPrimary}
+          />
+        </View>
+      ) : icon ? (
         <AppIcon
           name={icon}
           size={SETTINGS_ROW.icon}
@@ -105,6 +131,7 @@ export function SarhSettingsRow({
           {value}
         </AppText>
       ) : null}
+      {accessory ?? null}
       {isSwitch ? (
         <Switch
           value={switchValue}

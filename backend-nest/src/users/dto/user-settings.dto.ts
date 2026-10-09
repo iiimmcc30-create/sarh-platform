@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateNotificationPrefsDto {
   @IsOptional()
@@ -35,4 +35,19 @@ export class SetMuteDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   muted: boolean;
+}
+
+/** The caller's own refresh token: marks «هذا الجهاز» / keeps it when signing others out. */
+export class SessionLookupDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  refreshToken?: string;
+}
+
+export class RevokeOtherSessionsDto {
+  @IsString()
+  @MinLength(10)
+  @MaxLength(4096)
+  refreshToken: string;
 }
