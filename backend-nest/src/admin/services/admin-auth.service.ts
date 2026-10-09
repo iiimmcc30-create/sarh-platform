@@ -113,7 +113,7 @@ export class AdminAuthService {
       if (isMissingTable(err)) {
         this.logger.warn(
           { userId },
-          'AdminTwoFactor table missing — apply migration 20261009170000_admin_two_factor',
+          'AdminTwoFactor table missing — apply migration 20261009180000_admin_two_factor',
         );
         return null;
       }

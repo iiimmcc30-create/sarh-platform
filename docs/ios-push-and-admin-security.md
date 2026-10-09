@@ -32,5 +32,5 @@
 - Socket الدعم يتوثّق بنفس الكوكي، من Origin مسموح فقط.
 - **قفل الحساب:** 5 محاولات خاطئة (كلمة مرور أو رمز) خلال 15 دقيقة تقفل الحساب لنهاية المدة، وهذا فوق حد الـ IP الموجود.
 - **التحقق بخطوتين (TOTP) اختياري لكل مشرف:** من اللوحة ← «الأمان والتحقق بخطوتين». يشتغل مع Google Authenticator وMicrosoft Authenticator و1Password. ولو فقد مشرف جواله، يقدر أي ADMIN يعيد ضبطه عبر `POST /api/admin/auth/2fa/reset/:userId`. ولو ما فيه ADMIN ثاني: `DELETE FROM "AdminTwoFactor" WHERE "userId"='...';`.
-- **Migration:** `20261009170000_admin_two_factor` تنشئ جدول `AdminTwoFactor` (إضافة فقط). قبل تطبيقها يبقى الدخول شغال بدون 2FA.
+- **Migration:** `20261009180000_admin_two_factor` تنشئ جدول `AdminTwoFactor` (إضافة فقط). قبل تطبيقها يبقى الدخول شغال بدون 2FA.
 - **اختياري:** `ADMIN_TOTP_ENC_KEY` (`openssl rand -hex 32`) لتشفير أسرار 2FA. بدونه يُشتق المفتاح من `JWT_SECRET`، يعني لو غيّرت `JWT_SECRET` لازم كل مشرف يعيد إعداد 2FA.
