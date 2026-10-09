@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.com.sarh.app"],
+        "components": [
+          { "/": "/l/*" },
+          { "/": "/post/*" },
+          { "/": "/u/*" },
+          { "/": "/councils/join/*" }
+        ]
+      }
+    ]
+  }
+}

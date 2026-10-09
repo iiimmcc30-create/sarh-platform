@@ -16,6 +16,7 @@ services:
       - ./nginx/admin-location.conf:/etc/nginx/includes/admin-location.conf:ro
       - ./nginx/web-location.conf:/etc/nginx/includes/web-location.conf:ro
       - ./nginx/payment-bridge.conf:/etc/nginx/includes/payment-bridge.conf:ro
+      - ./nginx/well-known:/etc/nginx/well-known:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       # Bind-mount so host certbot and nginx share ACME webroot
       - /var/www/certbot:/var/www/certbot:ro
