@@ -147,18 +147,19 @@ describe('profile header', () => {
 
     it('Other User Profile shows only Follow + Message (no Share, no Edit Profile)', () => {
       expect(visitorBlock).toContain('title="رسالة"');
-      expect(visitorBlock).toContain("'متابعة'");
+      expect(visitorBlock).toContain("'تابِع'");
       expect(visitorBlock).toContain('onPress={onMessage}');
       expect(visitorBlock).toContain('onPress={onFollow}');
       expect(visitorBlock).not.toContain('PROFILE_SHARE_LABEL');
       expect(visitorBlock).not.toContain('onShare');
       expect(visitorBlock).not.toContain('PROFILE_EDIT_LABEL');
       expect(visitorBlock).not.toContain('onEditProfile');
-      // Restored exactly as before b2a9b78: gap sm, original flex style.
-      expect(visitorBlock).toContain('<Row gap="sm" align="center" style={[styles.actionsRow, inset]}>');
-      // Same flex style; outline (secondary) pills add only the quick-access border colour.
-      expect(visitorBlock).toContain('style={[styles.actionBtnFlex, styles.pillBorder]}');
-      expect(visitorBlock).toContain('style={[styles.actionBtnFlex, isFollowing ? styles.pillBorder : null]}');
+      // X capsules: gap sm, two equal-width pills (same metrics as Share / Edit), bold text only.
+      expect(visitorBlock).toContain('<Row gap="sm" align="center" style={[styles.actionsRow, inset]} testID="profile-visitor-actions">');
+      expect(visitorBlock).toContain('style={[styles.pill, styles.pillBorder]}');
+      expect(visitorBlock).toContain('style={[styles.pill, isFollowing ? styles.pillBorder : null]}');
+      expect(visitorBlock.match(/emphasis="strong"/g)).toHaveLength(2);
+      expect(visitorBlock).not.toContain('leftIcon');
       // Share and Edit pills appear exactly once in the whole layout (own row only).
       expect(layout.match(/title=\{PROFILE_SHARE_LABEL\}/g)).toHaveLength(1);
       expect(layout.match(/title=\{PROFILE_EDIT_LABEL\}/g)).toHaveLength(1);

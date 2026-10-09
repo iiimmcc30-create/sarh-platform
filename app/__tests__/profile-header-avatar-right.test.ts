@@ -10,7 +10,7 @@ function styleBlock(file: string, name: string): string {
   return file.slice(start, file.indexOf('\n    },', start));
 }
 
-describe('Profile header: avatar right, name under it, stars opposite', () => {
+describe('Profile header: avatar right, name under it, rating inline with the handle', () => {
   const layout = src('components/feature/ProfileScreenLayout.tsx');
   const avatarRow = layout.indexOf('testID="profile-avatar-row"');
   const avatar = layout.indexOf('testID="profile-avatar"');
@@ -36,13 +36,33 @@ describe('Profile header: avatar right, name under it, stars opposite', () => {
     expect(username).toBeLessThan(stats);
   });
 
-  it('rating stars share the name row on the opposite side (left in RTL)', () => {
-    const nameRowTag = layout.slice(nameRow - 160, nameRow);
-    expect(nameRowTag).toContain('justify="between"');
-    expect(rating).toBeGreaterThan(name);
-    expect(rating).toBeLessThan(username);
+  it('one star + average + count on the @handle line (single line, handle truncates)', () => {
+    const handleRow = layout.indexOf('testID="profile-handle-row"');
+    expect(handleRow).toBeGreaterThan(name);
+    expect(username).toBeGreaterThan(handleRow);
+    expect(rating).toBeGreaterThan(username);
+    expect(rating).toBeLessThan(stats);
+    const ratingBlock = layout.slice(rating, layout.indexOf('</Pressable>', rating));
+    // Exactly one star glyph (no five-star row), monochrome textPrimary when rated.
+    expect(ratingBlock.match(/<AppIcon/g)).toHaveLength(1);
+    expect(ratingBlock).toContain("name={rating ? 'star' : 'star-outline'}");
+    expect(ratingBlock).toContain('color={rating ? themeColors.textPrimary : themeColors.textSecondary}');
+    expect(ratingBlock).toContain('{rating.average}');
+    expect(ratingBlock).toContain('{rating.count}');
+    expect(layout).not.toContain('[1, 2, 3, 4, 5].map');
+    expect(layout).not.toContain('testID="profile-since"');
+    expect(styleBlock(layout, 'handleRow')).toContain("flexWrap: 'nowrap'");
     expect(styleBlock(layout, 'ratingRow')).toContain('flexShrink: 0');
+    expect(styleBlock(layout, 'usernamePress')).toContain('flexShrink: 1');
     expect(styleBlock(layout, 'nameCluster')).toContain('flexShrink: 1');
+  });
+
+  it('name and @handle open «عن هذا الحساب»', () => {
+    const nameAt = layout.indexOf('testID="profile-name"');
+    expect(layout.slice(nameAt, layout.indexOf('style={styles.nameCluster}', nameAt))).toContain('onPress={openAbout}');
+    const handleAt = layout.indexOf('testID="profile-username-press"');
+    expect(layout.slice(layout.lastIndexOf('<Pressable', handleAt), handleAt)).toContain('onPress={openAbout}');
+    expect(layout).toContain('router.push({ pathname: ABOUT_ACCOUNT_ROUTE, params: { id: user.id } } as never)');
   });
 
   it('username is larger and clearer than the old caption/muted, still lighter than the name', () => {
@@ -60,7 +80,7 @@ describe('Profile header: avatar right, name under it, stars opposite', () => {
     expect(layout).toContain('{user.bio ? (');
     expect(layout).toContain('title={PROFILE_SHARE_LABEL}');
     expect(layout).toContain('title={PROFILE_EDIT_LABEL}');
-    expect(layout).toContain("title={isFollowing ? 'متابَع' : followsYou ? 'رد المتابعة' : 'متابعة'}");
+    expect(layout).toContain("title={isFollowing ? 'متابَع' : followsYou ? 'رد المتابعة' : 'تابِع'}");
     expect(layout).toContain('title="رسالة"');
     expect(layout).toContain('onPress={onRatePress}');
     // Camera shortcut on the avatar removed: the avatar is changed from Edit profile.

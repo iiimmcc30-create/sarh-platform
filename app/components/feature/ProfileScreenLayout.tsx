@@ -10,7 +10,7 @@ import { GoldSellerLabel } from '@/components/feature/GoldSellerLabel';
 import { ProfileLinksRow } from '@/components/feature/ProfileLinksRow';
 import { SwipeTabPager } from '@/components/ui/SwipeTabPager';
 import { ProfileActionsSkeleton, ProfileHeaderSkeleton } from '@/components/ui/skeleton';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -56,7 +56,7 @@ import {
   profileStatusBarStyle,
   shouldPinProfileTabs,
 } from '@/lib/profileHeader';
-import { profileSinceLabel } from '@/lib/accountAge';
+import { ABOUT_ACCOUNT_ROUTE, ABOUT_ACCOUNT_TITLE, profileRatingInline } from '@/lib/aboutAccount';
 import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
 import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
@@ -86,7 +86,7 @@ export type ProfileDisplayUser = {
   postsCount: number;
   rating?: number | null;
   reviewCount?: number;
-  /** Account createdAt from the profile API. Drives «منذ …» under the stars. */
+  /** Account createdAt from the profile API. Shown as «تاريخ الانضمام» in «عن هذا الحساب». */
   createdAt?: string | null;
 };
 
@@ -249,6 +249,12 @@ export function ProfileScreenLayout({
   const [verifiedSheetOpen, setVerifiedSheetOpen] = useState(false);
   const isVerified = !loading && shouldShowVerifiedBadge(user.verified);
   const openVerifiedSheet = isVerified ? () => setVerifiedSheetOpen(true) : undefined;
+  /** Name / @handle: X-style «عن هذا الحساب» (joined, country, verified since). */
+  const router = useRouter();
+  const openAbout =
+    !loading && user.id
+      ? () => router.push({ pathname: ABOUT_ACCOUNT_ROUTE, params: { id: user.id } } as never)
+      : undefined;
 
   const statusBarStyle = profileStatusBarStyle({
     hasCoverImage: Boolean(user.coverImage),
@@ -277,13 +283,7 @@ export function ProfileScreenLayout({
   }, [activeTab, onTabChange]);
 
   const displayName = user.arabicName || user.displayName || user.username;
-  const hasRating = user.rating != null && (user.reviewCount ?? 0) > 0;
-  const ratingLabel = hasRating ? user.rating!.toFixed(1) : null;
-  const filledStars = hasRating ? Math.round(user.rating!) : 0;
-  const sinceLabel = profileSinceLabel({
-    createdAt: user.createdAt,
-    verifiedSince: user.verifiedSince,
-  });
+  const rating = profileRatingInline(user.rating, user.reviewCount);
 
   const stats = useMemo(
     () => [
@@ -449,86 +449,53 @@ export function ProfileScreenLayout({
                 </Pressable>
               </Row>
 
-              {/* Name directly under the avatar; rating stars on the opposite side (left in Arabic). */}
+              {/* Name directly under the avatar; @handle + «★ 4.8 (23)» on one line under it. */}
               <Stack gap="none" style={styles.nameBlock}>
                 <Row
-                  gap="sm"
+                  gap="xs"
                   align="center"
-                  justify="between"
+                  justify="start"
                   style={styles.nameRow}
                   testID="profile-name-row"
                 >
+                  {/* Name (and @handle) open «عن هذا الحساب»; the seal keeps the verified sheet. */}
                   <Pressable
                     testID="profile-name"
-                    onPress={openVerifiedSheet}
-                    disabled={!openVerifiedSheet}
-                    accessibilityRole={openVerifiedSheet ? 'button' : undefined}
+                    onPress={openAbout}
+                    disabled={!openAbout}
+                    accessibilityRole={openAbout ? 'button' : undefined}
+                    accessibilityHint={openAbout ? ABOUT_ACCOUNT_TITLE : undefined}
                     style={styles.nameCluster}
                   >
-                    <Row gap="xs" align="center" style={styles.nameInner}>
-                      <AppText
-                        variant="cardTitle"
-                        color="textPrimary"
-                        numberOfLines={2}
-                        style={styles.nameShell}
-                      >
-                        {displayName}
-                      </AppText>
-                      {user.verified ? (
-                        <VerificationBadge size={PROFILE_NAME_BADGE_SIZE} tier={user.verifiedTier} />
-                      ) : null}
-                      <FounderBadge username={user.username} verificationBadgeSize={PROFILE_NAME_BADGE_SIZE} />
-                    </Row>
+                    <AppText
+                      variant="cardTitle"
+                      color="textPrimary"
+                      numberOfLines={2}
+                      style={styles.nameShell}
+                    >
+                      {displayName}
+                    </AppText>
                   </Pressable>
-                  <Pressable
-                    testID="profile-rating"
-                    onPress={onRatePress}
-                    disabled={!onRatePress}
-                    style={({ pressed }) => [
-                      styles.ratingRow,
-                      pressed && onRatePress ? styles.ratingRowPressed : null,
-                    ]}
-                  >
-                    <Stack gap="none" style={styles.ratingCol}>
-                      <Row gap="xs" align="center">
-                        <Row gap="none" align="center" style={styles.starsRow}>
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <AppIcon
-                              key={n}
-                              name={hasRating && n <= filledStars ? 'star' : 'star-outline'}
-                              size={14}
-                              color={
-                                hasRating && n <= filledStars
-                                  ? themeColors.gold
-                                  : themeColors.textSecondary
-                              }
-                            />
-                          ))}
-                        </Row>
-                        {ratingLabel ? (
-                          <AppText variant="caption" color="textPrimary">
-                            {ratingLabel}
-                          </AppText>
-                        ) : null}
-                        {(user.reviewCount ?? 0) > 0 ? (
-                          <AppText variant="caption" color="textSecondary">
-                            ({user.reviewCount})
-                          </AppText>
-                        ) : null}
-                      </Row>
-                      {sinceLabel ? (
-                        <AppText variant="caption" color="textSecondary" style={styles.sinceLabel} testID="profile-since">
-                          {sinceLabel}
-                        </AppText>
-                      ) : null}
-                    </Stack>
-                  </Pressable>
+                  {user.verified ? (
+                    <Pressable
+                      testID="profile-verified-badge"
+                      onPress={openVerifiedSheet}
+                      disabled={!openVerifiedSheet}
+                      accessibilityRole={openVerifiedSheet ? 'button' : undefined}
+                      accessibilityLabel="حساب موثّق"
+                      hitSlop={BADGE_HIT_SLOP}
+                      style={styles.nameBadge}
+                    >
+                      <VerificationBadge size={PROFILE_NAME_BADGE_SIZE} tier={user.verifiedTier} />
+                    </Pressable>
+                  ) : null}
+                  <FounderBadge username={user.username} verificationBadgeSize={PROFILE_NAME_BADGE_SIZE} />
                 </Row>
 
-                <Row gap="sm" align="center">
+                <Row gap="xs" align="center" style={styles.handleRow} testID="profile-handle-row">
                   <Pressable
-                    onPress={openVerifiedSheet}
-                    disabled={!openVerifiedSheet}
+                    onPress={openAbout}
+                    disabled={!openAbout}
                     style={styles.usernamePress}
                     testID="profile-username-press"
                   >
@@ -541,6 +508,42 @@ export function ProfileScreenLayout({
                     >
                       @{user.username}
                     </AppText>
+                  </Pressable>
+                  {/* One star + average + count (X-style, monochrome), same line as the handle. */}
+                  <Pressable
+                    testID="profile-rating"
+                    onPress={onRatePress}
+                    disabled={!onRatePress}
+                    hitSlop={RATING_HIT_SLOP}
+                    accessibilityRole={onRatePress ? 'button' : undefined}
+                    accessibilityLabel={
+                      rating ? `التقييم ${rating.average} من ${user.reviewCount ?? 0} تقييم` : 'لا توجد تقييمات بعد'
+                    }
+                    style={({ pressed }) => [
+                      styles.ratingRow,
+                      pressed && onRatePress ? styles.ratingRowPressed : null,
+                    ]}
+                  >
+                    <Row gap="none" align="center" style={styles.ratingInner}>
+                    <AppText variant="label" color="textSecondary" style={styles.ratingDot}>
+                      ·
+                    </AppText>
+                    <AppIcon
+                      name={rating ? 'star' : 'star-outline'}
+                      size={PROFILE_RATING_STAR_SIZE}
+                      color={rating ? themeColors.textPrimary : themeColors.textSecondary}
+                    />
+                    {rating ? (
+                      <>
+                        <AppText variant="label" color="textPrimary" style={styles.ratingNum} testID="profile-rating-average">
+                          {rating.average}
+                        </AppText>
+                        <AppText variant="label" color="textSecondary" style={styles.ratingNum} testID="profile-rating-count">
+                          {rating.count}
+                        </AppText>
+                      </>
+                    ) : null}
+                    </Row>
                   </Pressable>
                   {mode === 'visitor' && followsYou ? (
                     <AppText variant="caption" color="textSecondary" style={styles.followsYou} testID="profile-follows-you">
@@ -600,25 +603,30 @@ export function ProfileScreenLayout({
           {loading && mode === 'visitor' ? <ProfileActionsSkeleton style={inset} /> : null}
 
           {mode === 'visitor' && (onFollow || onMessage) ? (
-            <Row gap="sm" align="center" style={[styles.actionsRow, inset]}>
+            // X capsules: two equal full-row pills, bold text only. Row order follows the
+            // reference (RTL): «رسالة» outlined at the inline start, «تابِع» filled beside it.
+            <Row gap="sm" align="center" style={[styles.actionsRow, inset]} testID="profile-visitor-actions">
               {onMessage ? (
                 <SarhButton
                   title="رسالة"
                   variant="secondary"
                   shape="pill"
+                  emphasis="strong"
                   onPress={onMessage}
-                  style={[styles.actionBtnFlex, styles.pillBorder]}
+                  style={[styles.pill, styles.pillBorder]}
+                  testID="profile-message"
                 />
               ) : null}
               {onFollow ? (
                 <SarhButton
-                  title={isFollowing ? 'متابَع' : followsYou ? 'رد المتابعة' : 'متابعة'}
+                  title={isFollowing ? 'متابَع' : followsYou ? 'رد المتابعة' : 'تابِع'}
                   variant={isFollowing ? 'secondary' : 'primary'}
                   shape="pill"
-                  leftIcon={isFollowing ? 'checkmark-circle-outline' : 'person-add-outline'}
+                  emphasis="strong"
                   onPress={onFollow}
                   loading={followLoading}
-                  style={[styles.actionBtnFlex, isFollowing ? styles.pillBorder : null]}
+                  style={[styles.pill, isFollowing ? styles.pillBorder : null]}
+                  testID="profile-follow"
                 />
               ) : null}
             </Row>
@@ -731,6 +739,11 @@ export const PROFILE_COVER_HEIGHT = 112;
 export const PROFILE_AVATAR_COVER_OVERLAP = 44;
 /** Verified seal next to the 18px name (cardTitle). */
 export const PROFILE_NAME_BADGE_SIZE = 18;
+/** Single rating star on the handle line (15pt label). */
+export const PROFILE_RATING_STAR_SIZE = 14;
+/** Small controls on the name / handle lines still get a ≥ 44pt touch target. */
+const BADGE_HIT_SLOP = { top: 13, bottom: 13, left: 10, right: 10 } as const;
+const RATING_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 } as const;
 
 function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   /** Glass chrome (translucent fill + light white hairline) for controls over the cover. */
@@ -782,9 +795,14 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       flexShrink: 1,
       minWidth: 0,
     },
-    nameInner: {
-      flexShrink: 1,
-      minWidth: 0,
+    nameBadge: {
+      flexShrink: 0,
+    },
+    /** @handle · ★ 4.8 (23) — one line, the handle truncates first. */
+    handleRow: {
+      flexWrap: 'nowrap',
+      width: '100%',
+      maxWidth: '100%',
     },
     nameShell: {
       flexShrink: 1,
@@ -794,10 +812,19 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     nameBlock: {
       marginTop: spacing.sm,
     },
-    /** Stars hold the inline end of the name row (left in Arabic) and never shrink. */
+    /** Rating sits right after the handle on the same line and never shrinks. */
     ratingRow: {
       paddingVertical: 2,
       flexShrink: 0,
+    },
+    ratingInner: {
+      gap: 3,
+    },
+    ratingDot: {
+      marginEnd: 1,
+    },
+    ratingNum: {
+      writingDirection: 'ltr',
     },
     /** Larger than the old 12px caption (15/500 label) on the stronger secondary token; still under the 18px name. */
     username: {
@@ -806,15 +833,11 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     usernamePress: {
       alignSelf: 'flex-start',
+      flexShrink: 1,
+      minWidth: 0,
     },
     ratingRowPressed: {
       opacity: 0.75,
-    },
-    ratingCol: {
-      alignItems: 'flex-end',
-    },
-    sinceLabel: {
-      marginTop: 2,
     },
     followsYou: {
       borderWidth: StyleSheet.hairlineWidth,
@@ -834,9 +857,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     },
     compactSide: {
       width: PROFILE_COVER_ICON_BUTTON_SIZE,
-    },
-    starsRow: {
-      gap: 2,
     },
     /** 8 (Stack gap) + 12 = 20pt between the bio and the stats. */
     statsRow: {
@@ -890,10 +910,6 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     ownActionsRow: {
       paddingTop: spacing.md,
       gap: PROFILE_ACTION_PILL_GAP,
-    },
-    actionBtnFlex: {
-      flexGrow: 1,
-      flexShrink: 0,
     },
     /** Outline pills on the profile: the softer quick-access hairline (colour only). */
     pillBorder: {

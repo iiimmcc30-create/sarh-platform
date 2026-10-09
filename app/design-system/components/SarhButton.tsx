@@ -7,7 +7,7 @@ import {
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow } from '@/lib/rtl';
-import { buttonMetrics, colors, motion } from '../tokens';
+import { buttonMetrics, colors, fontFamily, fontWeight, motion } from '../tokens';
 import { AppText } from './AppText';
 import { SpringPressable } from './SpringPressable';
 import {
@@ -24,6 +24,8 @@ export type SarhButtonProps = {
   variant?: SarhButtonVariant;
   size?: SarhButtonSize;
   shape?: SarhButtonShape;
+  /** `strong`: bold label (X-style profile Follow / Message capsules). Default keeps the medium label. */
+  emphasis?: 'default' | 'strong';
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
@@ -36,6 +38,9 @@ export type SarhButtonProps = {
 
 export { BUTTON_SIZE, resolveSarhButtonColors } from './resolvers';
 export type { SarhButtonShape, SarhButtonSize, SarhButtonState, SarhButtonVariant } from './resolvers';
+
+/** Bold label weight for `emphasis="strong"` (same size / line height as the role). */
+const STRONG_LABEL = { fontFamily: fontFamily.bold, fontWeight: fontWeight.bold } as const;
 
 function renderIcon(icon: ReactNode | string | undefined, color: string, size: number) {
   if (!icon) return null;
@@ -51,6 +56,7 @@ export function SarhButton({
   variant = 'primary',
   size = 'md',
   shape = 'rounded',
+  emphasis = 'default',
   disabled = false,
   loading = false,
   fullWidth = false,
@@ -120,7 +126,10 @@ export function SarhButton({
               color="textPrimary"
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={{ color: palette.contentColor, flexShrink: 0 }}
+              style={[
+                { color: palette.contentColor, flexShrink: 0 },
+                emphasis === 'strong' ? STRONG_LABEL : null,
+              ]}
             >
               {title}
             </AppText>

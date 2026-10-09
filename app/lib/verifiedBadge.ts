@@ -89,10 +89,16 @@ const AR_MONTHS = [
   'ديسمبر',
 ] as const;
 
-/** «موثّق منذ أكتوبر 2026» from an ISO date; null when absent/invalid (the sheet hides the line). */
-export function formatVerifiedSince(iso: string | null | undefined): string | null {
+/** «أكتوبر 2026» from an ISO date (Arabic month, app digit convention); null when absent/invalid. */
+export function formatArMonthYear(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return `موثّق منذ ${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return `${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** «موثّق منذ أكتوبر 2026» from an ISO date; null when absent/invalid (the sheet hides the line). */
+export function formatVerifiedSince(iso: string | null | undefined): string | null {
+  const monthYear = formatArMonthYear(iso);
+  return monthYear ? `موثّق منذ ${monthYear}` : null;
 }

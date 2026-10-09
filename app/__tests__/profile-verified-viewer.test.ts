@@ -63,20 +63,16 @@ describe('Verified info sheet', () => {
     expect(sheet).toContain('{since ? (');
   });
 
-  it('opens from the name / @handle only on verified profiles', () => {
+  it('opens from the seal next to the name only on verified profiles', () => {
     const layout = src('components/feature/ProfileScreenLayout.tsx');
     expect(layout).toContain('const isVerified = !loading && shouldShowVerifiedBadge(user.verified);');
     expect(layout).toContain('const openVerifiedSheet = isVerified ? () => setVerifiedSheetOpen(true) : undefined;');
-    const nameAt = layout.indexOf('<Pressable\n                    testID="profile-name"');
-    expect(nameAt).toBeGreaterThan(-1);
-    const name = layout.slice(nameAt, layout.indexOf('style={styles.nameCluster}', nameAt));
-    expect(name).toContain('onPress={openVerifiedSheet}');
-    expect(name).toContain('disabled={!openVerifiedSheet}');
-    const handle = layout.slice(
-      layout.lastIndexOf('<Pressable', layout.indexOf('testID="profile-username-press"')),
-      layout.indexOf('testID="profile-username-press"'),
-    );
-    expect(handle).toContain('onPress={openVerifiedSheet}');
+    const badgeAt = layout.indexOf('testID="profile-verified-badge"');
+    expect(badgeAt).toBeGreaterThan(-1);
+    const badge = layout.slice(badgeAt, layout.indexOf('</Pressable>', badgeAt));
+    expect(badge).toContain('onPress={openVerifiedSheet}');
+    expect(badge).toContain('disabled={!openVerifiedSheet}');
+    expect(badge).toContain('<VerificationBadge size={PROFILE_NAME_BADGE_SIZE} tier={user.verifiedTier} />');
     expect(layout).toContain('verifiedSince={user.verifiedSince}');
   });
 

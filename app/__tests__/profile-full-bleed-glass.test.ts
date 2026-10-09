@@ -90,9 +90,9 @@ describe('profile pills: quick-access border (colour only)', () => {
     expect(quickAccessBorderColor('dark')).toBe('#2F3336');
     expect(quickAccessBorderColor('light')).toBe('#E6E8EB');
     expect(layout).toContain('borderColor: quickAccessBorderColor(scheme)');
-    expect(layout.match(/style=\{\[styles\.pill, styles\.pillBorder\]\}/g)).toHaveLength(2);
-    expect(layout).toContain('style={[styles.actionBtnFlex, styles.pillBorder]}');
-    expect(layout).toContain('style={[styles.actionBtnFlex, isFollowing ? styles.pillBorder : null]}');
+    // Share + Edit (own) and Message (visitor) outline pills; Follow only outlined when following.
+    expect(layout.match(/style=\{\[styles\.pill, styles\.pillBorder\]\}/g)).toHaveLength(3);
+    expect(layout).toContain('style={[styles.pill, isFollowing ? styles.pillBorder : null]}');
     const block = layout.slice(layout.indexOf('    pillBorder: {'), layout.indexOf('\n    },', layout.indexOf('    pillBorder: {')));
     expect(block).not.toMatch(/height|width|padding|radius/i);
     // The shared DS secondary variant is untouched.
