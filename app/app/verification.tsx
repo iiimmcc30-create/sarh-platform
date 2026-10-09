@@ -2,14 +2,17 @@
 // Layout follows the approved X-Premium-style mobile sheet: close, hero badge,
 // headline, Blue/Blue+/Gold tabs, one rounded
 // feature list, the monthly plan, a pill CTA and fine print. The page is
-// ALWAYS dark (black) in light and dark mode. Prices come from the plans API
-// only; renewal is manual (no auto-charge). Gold needs a document before
-// payment (the API enforces it too). Accounts that never subscribed can start
+// ALWAYS dark (black) in light and dark mode. Website: prices from the plans
+// API, N-Genius checkout, manual renewal. iOS / Android apps: Apple IAP /
+// Google Play auto-renewable subscriptions (services/iap.ts) with the
+// store-localized price, «استعادة المشتريات» and the auto-renew disclosure.
+// Gold needs a document before payment (the API enforces it too). Accounts that never subscribed can start
 // a one-week free Blue+ trial here (no card, no payment, ends by itself).
 import { DigitalPurchasesUnavailable } from '@/components/feature/DigitalPurchasesUnavailable';
-import { digitalPurchasesEnabled } from '@/lib/storePurchases';
+import { digitalPurchasesEnabled, usesStoreBilling } from '@/lib/storePurchases';
+import { STORE_PRODUCTS, subscriptionProductForTier } from '@/lib/storeProducts';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -28,6 +31,15 @@ import { getRtlDirection, getRtlRow } from '@/lib/rtl';
 import { VERIFIED_BADGE_COLORS } from '@/lib/verifiedBadge';
 import { invalidateFreeTrialEligibility } from '@/hooks/useFreeTrialEligibility';
 import { launchPaymentCheckout } from '@/services/payments';
+import {
+  getOwnedStoreSubscriptions,
+  openStoreSubscriptionManagement,
+  purchaseStoreProduct,
+  restoreStorePurchases,
+  storeName,
+  type StorePurchaseOutcome,
+} from '@/services/iap';
+import { useStorePrices } from '@/hooks/useStorePrices';
 import {
   VERIFICATION_STATE_LABEL_AR,
   VERIFICATION_TIER_COPY,
@@ -84,6 +96,10 @@ function priceAmount(plan: VerificationPlan | undefined): string | null {
 }
 
 type Feature = { icon: string; label: string; info?: string };
+
+const STORE_SUBSCRIPTION_IDS = STORE_PRODUCTS.filter((p) => p.storeType === 'subs').map((p) => p.productId);
+
+type OwnedStoreSub = { productId: string; purchaseToken: string | null };
 
 const HEADLINE: Record<VerificationTierId, string> = {
   blue: 'وثّق حسابك بالشارة الزرقاء',
@@ -230,8 +246,13 @@ function TrialCard({
 function VerificationScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
-  const { isAuthenticated, accessToken } = useAuth();
+  const { isAuthenticated, accessToken, user } = useAuth();
   const { isCompact } = useLayout();
+  // iOS / Android: Apple IAP / Google Play Billing only (no external checkout).
+  const storeBilling = usesStoreBilling();
+  const store = storeName();
+  const { prices: storePrices } = useStorePrices(storeBilling ? STORE_SUBSCRIPTION_IDS : []);
+  const [ownedStoreSubs, setOwnedStoreSubs] = useState<OwnedStoreSub[]>([]);
 
   const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [plans, setPlans] = useState<VerificationPlan[]>([]);
@@ -244,12 +265,16 @@ function VerificationScreen() {
       const data = await fetchVerificationStatus();
       setStatus(data);
       if (data) setPlans(data.plans);
+      if (storeBilling) {
+        const owned = await getOwnedStoreSubscriptions();
+        setOwnedStoreSubs(owned.map((p) => ({ productId: p.productId, purchaseToken: p.purchaseToken ?? null })));
+      }
     } else {
       setStatus(null);
       setPlans(await fetchVerificationPlans());
     }
     setLoading(false);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, storeBilling]);
 
   useFocusEffect(
     useCallback(() => {
@@ -282,7 +307,12 @@ function VerificationScreen() {
     !!sub && !trialActive && sub.tier === tier && (sub.state === 'grace_period' || sub.state === 'expired');
   const trialTab = tier === 'blue_plus';
   const trialDaysLabel = trial ? trialStatusLabelAr(trial) : '';
-  const price = priceAmount(plan);
+  const storeProductId = subscriptionProductForTier(tier).productId;
+  const price = storeBilling ? (storePrices[storeProductId]?.displayPrice ?? null) : priceAmount(plan);
+  const ownedSubFor = (t: VerificationTierId | null | undefined) =>
+    t ? ownedStoreSubs.find((o) => o.productId === subscriptionProductForTier(t).productId) : undefined;
+  // Paid through App Store / Google Play (renews automatically; managed in the store).
+  const storeBilledHere = storeBilling && !!ownedSubFor(sub?.tier);
 
   // Tabs: one sliding underline (existing SwipeTabIndicator pattern).
   const { layouts, onTabLayout } = useTabLayouts(TIERS.length);
@@ -317,9 +347,72 @@ function VerificationScreen() {
   const verificationLine = VERIFICATION_STATE_LABEL_AR[goldVerificationState];
   const docLocked = docRequired && !goldReady;
 
+  const showStoreOutcome = (outcome: StorePurchaseOutcome) => {
+    if (outcome.kind === 'cancelled') return;
+    if (outcome.kind === 'granted') {
+      void alertMessage(
+        'تم الاشتراك',
+        tier === 'gold' && !goldApproved
+          ? 'تم تفعيل مزايا Gold. تظهر الشارة الذهبية بعد قبول توثيق التاجر.'
+          : `تم تفعيل اشتراك ${ltr(copy.label)}. يتجدد تلقائياً عبر ${store} ويمكنك إلغاؤه من إعدادات الاشتراكات.`,
+      );
+      return;
+    }
+    const title =
+      outcome.kind === 'pending'
+        ? 'بانتظار إتمام الدفع'
+        : outcome.kind === 'verify_failed'
+          ? 'جارٍ تأكيد الشراء'
+          : outcome.kind === 'already_owned'
+            ? 'مشترك بالفعل'
+            : 'تعذّر الاشتراك';
+    void alertMessage(title, outcome.message);
+  };
+
+  /** Native: App Store / Google Play auto-renewable subscription. */
+  const subscribeWithStore = async () => {
+    if (!user?.id) return;
+    const current = ownedSubFor(sub?.tier);
+    const replace =
+      Platform.OS === 'android' && current?.purchaseToken && current.productId !== storeProductId
+        ? { oldProductId: current.productId, purchaseToken: current.purchaseToken }
+        : null;
+    setBusy(true);
+    const outcome = await purchaseStoreProduct({ productId: storeProductId, userId: user.id, replace });
+    setBusy(false);
+    showStoreOutcome(outcome);
+    void load();
+  };
+
+  /** «استعادة المشتريات» (required by App Review for subscriptions). */
+  const restore = async () => {
+    if (!isAuthenticated) {
+      router.push('/auth/phone');
+      return;
+    }
+    setBusy(true);
+    const res = await restoreStorePurchases();
+    setBusy(false);
+    if (!res.available) {
+      void alertMessage('استعادة المشتريات', 'الشراء داخل التطبيق غير متاح على هذا الجهاز حالياً.');
+    } else if (res.restored > 0) {
+      void alertMessage('تمت الاستعادة', 'تمت استعادة اشتراكك وربطه بحسابك في سرح.');
+    } else if (res.failed > 0) {
+      void alertMessage('تعذّرت الاستعادة', `الاشتراك في حساب ${store} هذا مرتبط بحساب آخر في سرح أو تعذّر تأكيده.`);
+    } else {
+      void alertMessage('استعادة المشتريات', `لا توجد اشتراكات فعّالة في حساب ${store} هذا.`);
+    }
+    void load();
+  };
+
   const subscribe = async () => {
     if (!isAuthenticated || !accessToken) {
       router.push('/auth/phone');
+      return;
+    }
+    if (storeBilling) {
+      if (!plan?.available) return;
+      await subscribeWithStore();
       return;
     }
     if (!plan?.available || !sub?.id) return;
@@ -427,7 +520,12 @@ function VerificationScreen() {
       return `مجاناً لمدة ${trial?.durationDays ?? 7} أيام بدون بطاقة ولا أي خصم، وتعود للباقة المجانية تلقائياً بعد انتهائها.`;
     }
     if (trialActive && trialTab) {
-      return 'يبدأ اشتراكك المدفوع بعد نهاية التجربة، فلا تخسر أي يوم منها.';
+      return storeBilling
+        ? `يبدأ اشتراكك المدفوع فور الشراء عبر ${store}.`
+        : 'يبدأ اشتراكك المدفوع بعد نهاية التجربة، فلا تخسر أي يوم منها.';
+    }
+    if (subscribedHere && sub?.state === 'active' && storeBilledHere) {
+      return `يتجدد اشتراكك تلقائياً في ${formatArabicDate(sub.renewDate)} عبر ${store}.`;
     }
     if (subscribedHere && sub?.state === 'active') {
       return `اشتراكك فعّال حتى ${formatArabicDate(sub.renewDate)}. جدّد بدفعة جديدة عند موعد التجديد.`;
@@ -438,6 +536,11 @@ function VerificationScreen() {
     if (docLocked) return 'Gold يتطلب إرفاق السجل التجاري وإرساله للمراجعة قبل الدفع.';
     if (tier === 'gold' && !goldApproved) {
       return 'تبدأ المزايا بعد الدفع، وتظهر الشارة الذهبية بعد قبول توثيق التاجر.';
+    }
+    if (storeBilling) {
+      return price
+        ? `${price} شهرياً عبر ${store}، ويتجدد تلقائياً حتى تلغيه.`
+        : `اشتراك شهري عبر ${store} يتجدد تلقائياً حتى تلغيه.`;
     }
     return price
       ? `تجديد يدوي: ${price} كل شهر عند موعد التجديد، بدون أي خصم تلقائي.`
@@ -636,7 +739,9 @@ function VerificationScreen() {
             <AppText variant="heading3" style={styles.text}>
               {price ? `${price} / الشهر` : '—'}
             </AppText>
-            <AppText variant="caption" style={styles.secondary}>تجديد يدوي كل شهر</AppText>
+            <AppText variant="caption" style={styles.secondary}>
+              {storeBilling ? 'يتجدد تلقائياً كل شهر' : 'تجديد يدوي كل شهر'}
+            </AppText>
           </Stack>
           <AppIcon name="checkmark-circle" size={22} color={D.text} />
         </View>
@@ -676,7 +781,18 @@ function VerificationScreen() {
             </AppText>
           </Pressable>
         ) : null}
-        {subscribedHere && sub?.state === 'active' ? (
+        {subscribedHere && storeBilledHere ? (
+          <Pressable
+            onPress={() => void openStoreSubscriptionManagement(ownedSubFor(sub?.tier)?.productId)}
+            disabled={busy}
+            accessibilityRole="button"
+            style={styles.cancel}
+          >
+            <AppText variant="caption" align="center" style={styles.text}>
+              {`إدارة الاشتراك أو إلغاؤه في ${store}`}
+            </AppText>
+          </Pressable>
+        ) : subscribedHere && sub?.state === 'active' ? (
           <Pressable
             onPress={() => void cancelRenewal()}
             disabled={busy}
@@ -687,16 +803,43 @@ function VerificationScreen() {
           </Pressable>
         ) : null}
 
+        {storeBilling ? (
+          <View style={[styles.storeLinks, getRtlRow()]}>
+            <Pressable onPress={() => void restore()} disabled={busy} accessibilityRole="button" hitSlop={8}>
+              <AppText variant="caption" style={styles.text}>استعادة المشتريات</AppText>
+            </Pressable>
+            <AppText variant="caption" style={styles.secondary}>·</AppText>
+            <Pressable onPress={() => router.push('/info/terms' as never)} accessibilityRole="link" hitSlop={8}>
+              <AppText variant="caption" style={styles.text}>شروط الاستخدام</AppText>
+            </Pressable>
+            <AppText variant="caption" style={styles.secondary}>·</AppText>
+            <Pressable onPress={() => router.push('/info/privacy' as never)} accessibilityRole="link" hitSlop={8}>
+              <AppText variant="caption" style={styles.text}>سياسة الخصوصية</AppText>
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* Fine print */}
-        <AppText variant="caption" style={[styles.secondary, styles.finePrint]}>
-          بالاشتراك، فإنك توافق على شروط الاستخدام في سرح. الاشتراك شهري ويُجدَّد يدوياً فقط: لا نحفظ
-          بطاقتك ولا نخصم أي مبلغ تلقائياً. نذكّرك قبل موعد التجديد بـ 7 أيام و3 أيام ويوم واحد وفي يوم
-          التجديد، ولديك مهلة 3 أيام بعده قبل إيقاف المزايا والشارة. يمكنك إلغاء الاشتراك في أي وقت وتبقى
-          المزايا حتى نهاية الفترة المدفوعة. التجربة المجانية لـ {ltr('Blue+')} أسبوع واحد ومرة واحدة لكل حساب
-          لم يسبق له الاشتراك، بدون بطاقة ولا أي خصم، وتنتهي وحدها. {ltr('Blue')} و{ltr('Blue+')} بشارة زرقاء ولا تحتاجان أي مستند أو
-          تحقق هوية. {ltr('Gold')} يتطلب إرفاق السجل التجاري قبل الدفع، وتظهر الشارة الذهبية بعد قبول توثيق
-          التاجر.
-        </AppText>
+        {storeBilling ? (
+          <AppText variant="caption" style={[styles.secondary, styles.finePrint]}>
+            {`اشتراك ${ltr(copy.label)} شهري${price ? ` بسعر ${price} شهرياً` : ''}، ويتجدد تلقائياً كل شهر بنفس السعر. `}
+            {`يُخصم المبلغ من حسابك في ${store} عند تأكيد الشراء وعند كل تجديد، ما لم يُلغَ التجديد التلقائي قبل 24 ساعة على الأقل من نهاية الفترة الحالية. `}
+            {`يمكنك إدارة الاشتراك أو إلغاؤه في أي وقت من إعدادات حسابك في ${store}، وتبقى المزايا حتى نهاية الفترة المدفوعة. `}
+            {`بالاشتراك فإنك توافق على شروط الاستخدام وسياسة الخصوصية في سرح. `}
+            {`التجربة المجانية لـ ${ltr('Blue+')} أسبوع واحد ومرة واحدة لكل حساب لم يسبق له الاشتراك، بلا أي خصم، وتنتهي وحدها. `}
+            {`${ltr('Gold')} يتطلب إرفاق السجل التجاري قبل الشراء، وتظهر الشارة الذهبية بعد قبول توثيق التاجر.`}
+          </AppText>
+        ) : (
+          <AppText variant="caption" style={[styles.secondary, styles.finePrint]}>
+            بالاشتراك، فإنك توافق على شروط الاستخدام في سرح. الاشتراك شهري ويُجدَّد يدوياً فقط: لا نحفظ
+            بطاقتك ولا نخصم أي مبلغ تلقائياً. نذكّرك قبل موعد التجديد بـ 7 أيام و3 أيام ويوم واحد وفي يوم
+            التجديد، ولديك مهلة 3 أيام بعده قبل إيقاف المزايا والشارة. يمكنك إلغاء الاشتراك في أي وقت وتبقى
+            المزايا حتى نهاية الفترة المدفوعة. التجربة المجانية لـ {ltr('Blue+')} أسبوع واحد ومرة واحدة لكل حساب
+            لم يسبق له الاشتراك، بدون بطاقة ولا أي خصم، وتنتهي وحدها. {ltr('Blue')} و{ltr('Blue+')} بشارة زرقاء ولا تحتاجان أي مستند أو
+            تحقق هوية. {ltr('Gold')} يتطلب إرفاق السجل التجاري قبل الدفع، وتظهر الشارة الذهبية بعد قبول توثيق
+            التاجر.
+          </AppText>
+        )}
       </ScreenBody>
     </Screen>
   );
@@ -775,6 +918,13 @@ const styles = StyleSheet.create({
   ctaTextDisabled: { color: D.ctaDisabledText },
   ctaNote: { marginTop: spacing.sm },
   cancel: { marginTop: spacing.sm, paddingVertical: spacing.xs },
+  storeLinks: {
+    marginTop: spacing.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
   trialCard: {
     marginTop: spacing.lg,
     gap: spacing.md,

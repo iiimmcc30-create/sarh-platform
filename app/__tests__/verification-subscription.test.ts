@@ -9,6 +9,12 @@ import {
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8');
 
+// Website copy stays MANUAL renewal. The only auto-renew wording allowed is the
+// Apple / Google subscription disclosure shown when the app bills via the store.
+function autoRenewLinesOutsideStoreBilling(text: string, pattern: RegExp): string[] {
+  return text.split('\n').filter((l) => pattern.test(l) && !/store|بنفس السعر/.test(l));
+}
+
 describe('verification badge tiers', () => {
   it('keeps legacy/unknown tiers blue and only explicit gold is gold', () => {
     expect(resolveVerifiedTier(undefined)).toBe('blue');
@@ -142,7 +148,7 @@ describe('verification page + flow', () => {
     expect(page).toContain('بدون أي خصم تلقائي');
     expect(page).toContain("'جدّد الآن'");
     expect(page).toContain('إلغاء الاشتراك');
-    expect(page).not.toMatch(/يتجدد تلقائي|يتجدّد تلقائي|التجديد التلقائي|اشتراك شهري متجدد/);
+    expect(autoRenewLinesOutsideStoreBilling(page, /يتجدد تلقائي|يتجدّد تلقائي|التجديد التلقائي|اشتراك شهري متجدد/)).toEqual([]);
     expect(service).toContain('تجديد يدوي');
     expect(service).not.toContain('يتجدد في');
   });

@@ -9,6 +9,12 @@ import {
 const root = path.join(__dirname, '..');
 const src = (rel: string) => readFileSync(path.join(root, rel), 'utf8');
 
+// Website copy stays MANUAL renewal. The only auto-renew wording allowed is the
+// Apple / Google subscription disclosure shown when the app bills via the store.
+function autoRenewLinesOutsideStoreBilling(text: string, pattern: RegExp): string[] {
+  return text.split('\n').filter((l) => pattern.test(l) && !/store|بنفس السعر/.test(l));
+}
+
 describe('free Blue+ trial — copy helpers', () => {
   it('days-left label follows Arabic counting', () => {
     expect(trialEndsInLabelAr(0)).toBe('تنتهي خلال يوم');
@@ -68,7 +74,7 @@ describe('free Blue+ trial — screens', () => {
 
   it('never promises an automatic charge', () => {
     expect(page).toContain('بدون بطاقة');
-    expect(page).not.toMatch(/يتجدد تلقائي|يتجدّد تلقائي|التجديد التلقائي/);
+    expect(autoRenewLinesOutsideStoreBilling(page, /يتجدد تلقائي|يتجدّد تلقائي|التجديد التلقائي/)).toEqual([]);
   });
 
   it('sidebar hints the free week next to Verification for eligible accounts only', () => {

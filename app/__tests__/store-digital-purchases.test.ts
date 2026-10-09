@@ -4,8 +4,10 @@ import { Platform } from 'react-native';
 import {
   DIGITAL_PURCHASES_UNAVAILABLE_TITLE_AR,
   digitalPurchasesEnabled,
+  isDigitalPaymentContext,
   isDigitalPurchaseRoute,
   resolveDigitalPurchasesEnabled,
+  usesStoreBilling,
   withoutDigitalPurchaseRows,
 } from '@/lib/storePurchases';
 import {
@@ -51,7 +53,7 @@ function withPlatform<T>(os: string, fn: () => T): T {
   }
 }
 
-describe('store build policy for digital purchases (App Store 3.1.1)', () => {
+describe('store build kill switch for digital purchases (IAP on native)', () => {
   const savedEnv: Record<string, string | undefined> = {};
   beforeEach(() => {
     for (const k of ENV_KEYS) {
@@ -69,26 +71,35 @@ describe('store build policy for digital purchases (App Store 3.1.1)', () => {
     jest.restoreAllMocks();
   });
 
-  it('hides digital purchases on iOS and Android by default; web keeps them', () => {
-    expect(resolveDigitalPurchasesEnabled('ios', {})).toBe(false);
-    expect(resolveDigitalPurchasesEnabled('android', {})).toBe(false);
+  it('shows digital purchases on iOS and Android by default (sold with IAP); web always keeps them', () => {
+    expect(resolveDigitalPurchasesEnabled('ios', {})).toBe(true);
+    expect(resolveDigitalPurchasesEnabled('android', {})).toBe(true);
     expect(resolveDigitalPurchasesEnabled('web', {})).toBe(true);
     expect(resolveDigitalPurchasesEnabled('web', { shared: 'false' })).toBe(true);
   });
 
-  it('per-platform overrides beat the shared flag; junk values fall back to hidden', () => {
-    expect(resolveDigitalPurchasesEnabled('android', { shared: 'true' })).toBe(true);
+  it('kill switch: false hides; per-platform overrides beat the shared flag; junk falls back to visible', () => {
+    expect(resolveDigitalPurchasesEnabled('ios', { shared: 'false' })).toBe(false);
+    expect(resolveDigitalPurchasesEnabled('android', { shared: 'false' })).toBe(false);
     expect(resolveDigitalPurchasesEnabled('ios', { shared: 'true', ios: 'false' })).toBe(false);
     expect(resolveDigitalPurchasesEnabled('android', { shared: 'false', android: '1' })).toBe(true);
-    expect(resolveDigitalPurchasesEnabled('ios', { ios: 'maybe' })).toBe(false);
-    expect(resolveDigitalPurchasesEnabled('ios', { ios: ' YES ' })).toBe(true);
+    expect(resolveDigitalPurchasesEnabled('ios', { ios: 'maybe' })).toBe(true);
+    expect(resolveDigitalPurchasesEnabled('ios', { ios: ' NO ' })).toBe(false);
+  });
+
+  it('native builds bill digital services through the store, the web through the gateway', () => {
+    expect(usesStoreBilling('ios')).toBe(true);
+    expect(usesStoreBilling('android')).toBe(true);
+    expect(usesStoreBilling('web')).toBe(false);
+    for (const c of ['subscription', 'boost', 'promotion']) expect(isDigitalPaymentContext(c)).toBe(true);
+    for (const c of ['listing_fee', 'commission', 'generic', undefined]) expect(isDigitalPaymentContext(c)).toBe(false);
   });
 
   it('reads the EXPO_PUBLIC_* env at call time via Platform.OS', () => {
+    expect(withPlatform('ios', digitalPurchasesEnabled)).toBe(true);
+    process.env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES_IOS = 'false';
     expect(withPlatform('ios', digitalPurchasesEnabled)).toBe(false);
-    process.env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES_ANDROID = 'true';
     expect(withPlatform('android', digitalPurchasesEnabled)).toBe(true);
-    expect(withPlatform('ios', digitalPurchasesEnabled)).toBe(false);
     expect(withPlatform('web', digitalPurchasesEnabled)).toBe(true);
   });
 
@@ -106,7 +117,7 @@ describe('store build policy for digital purchases (App Store 3.1.1)', () => {
     }
   });
 
-  it('forces boost flags off in store builds but keeps listing fees (physical goods)', () => {
+  it('kill switch forces boost flags off but keeps listing fees (physical goods)', () => {
     const off = applyStorePurchasePolicy(DEFAULT_PAID_SERVICE_FLAGS, false);
     expect(off).toEqual({
       promotionEnabled: false,
@@ -116,6 +127,8 @@ describe('store build policy for digital purchases (App Store 3.1.1)', () => {
     });
     expect(hasAnyBoostService(off)).toBe(false);
     expect(applyStorePurchasePolicy(DEFAULT_PAID_SERVICE_FLAGS, true)).toEqual(DEFAULT_PAID_SERVICE_FLAGS);
+    expect(withPlatform('ios', getCachedPaidServiceFlags).promotionEnabled).toBe(true);
+    process.env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES = 'false';
     expect(withPlatform('ios', getCachedPaidServiceFlags).promotionEnabled).toBe(false);
     expect(withPlatform('web', getCachedPaidServiceFlags).promotionEnabled).toBe(true);
   });
@@ -132,6 +145,7 @@ describe('store build policy for digital purchases (App Store 3.1.1)', () => {
     })) as unknown as typeof fetch;
     const prev = Platform.OS;
     (Platform as { OS: string }).OS = 'ios';
+    process.env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES = 'false';
     try {
       const flags = await fetchPaidServiceFlags({ force: true });
       expect(hasAnyBoostService(flags)).toBe(false);
@@ -152,13 +166,16 @@ describe('store build policy for digital purchases (App Store 3.1.1)', () => {
     expect(out[0].rows.map((r) => r.key)).toEqual(['f', 'x']);
   });
 
-  it('hides the «تعزيز سرح» explore card in store builds', () => {
+  it('hides the «تعزيز سرح» explore card when the kill switch is off', () => {
+    expect(withPlatform('ios', () => resolveExploreCard({ destination: 'promote' }))).not.toBeNull();
+    process.env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES = 'false';
     expect(withPlatform('web', () => resolveExploreCard({ destination: 'promote' }))).not.toBeNull();
     expect(withPlatform('ios', () => resolveExploreCard({ destination: 'promote' }))).toBeNull();
     expect(withPlatform('ios', () => resolveExploreCard({ destination: 'news' }))).not.toBeNull();
   });
 
-  it('subscription notifications do not open a paywall in store builds', () => {
+  it('subscription notifications do not open a paywall when the kill switch is off', () => {
+    process.env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES = 'false';
     const push = jest.fn();
     const router = { push, replace: jest.fn(), back: jest.fn() };
     const handled = withPlatform('ios', () =>
@@ -168,7 +185,7 @@ describe('store build policy for digital purchases (App Store 3.1.1)', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it('every purchase screen renders «غير متاحة حالياً» when the build hides purchases', () => {
+  it('every purchase screen renders «غير متاحة حالياً» when the kill switch is off', () => {
     expect(DIGITAL_PURCHASES_UNAVAILABLE_TITLE_AR).toBe('غير متاحة حالياً');
     for (const file of ['app/promote.tsx', 'app/listing/[id]/promote.tsx', 'app/verification.tsx', 'app/subscription.tsx']) {
       const text = src(file);
@@ -188,10 +205,10 @@ describe('store build policy for digital purchases (App Store 3.1.1)', () => {
     expect(src('lib/settingsRows.ts')).toContain('return withoutDigitalPurchaseRows<SettingsRow, SettingsGroup>([');
   });
 
-  it('EAS store profiles ship with digital purchases hidden', () => {
+  it('EAS store profiles ship with digital purchases ON (kill switch = "false" to hide)', () => {
     const eas = JSON.parse(src('eas.json'));
     for (const profile of ['development', 'preview', 'production']) {
-      expect(eas.build[profile].env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES).toBe('false');
+      expect(eas.build[profile].env.EXPO_PUBLIC_STORE_DIGITAL_PURCHASES).toBe('true');
     }
   });
 });

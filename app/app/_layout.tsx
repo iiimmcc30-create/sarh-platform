@@ -13,6 +13,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
 import { AppProvider } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useStoreTransactionObserver } from '@/hooks/useStoreTransactionObserver';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { CouncilSessionProvider } from '@/contexts/CouncilSessionContext';
@@ -50,6 +51,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const segments = useSegments();
   const lastHrefRef = useRef<string | null>(null);
+  useStoreTransactionObserver(isAuthenticated);
 
   useEffect(() => {
     if (isLoading || onboardingLoading) return;

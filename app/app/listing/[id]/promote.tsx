@@ -4,10 +4,14 @@
 // cards (price, per-day price and saving derived from the catalog), the free
 // weekly boost for Blue+/Gold and a sticky total + «عزّز الآن» pill.
 // Prices/durations come only from the official catalog; the server charges
-// from the same table. Payment still goes through initiatePromotePayment →
-// launchPaymentCheckout (unchanged).
+// from the same table. Website: initiatePromotePayment → launchPaymentCheckout
+// (N-Genius, unchanged). iOS / Android: Apple IAP / Google Play consumables
+// (services/iap.ts) at the store-localized price — no external checkout.
 import { DigitalPurchasesUnavailable } from '@/components/feature/DigitalPurchasesUnavailable';
-import { digitalPurchasesEnabled } from '@/lib/storePurchases';
+import { digitalPurchasesEnabled, usesStoreBilling } from '@/lib/storePurchases';
+import { STORE_LISTING_PRODUCT_IDS, promoteGoalProductId, storeCtaLabel, storePlanViews } from '@/lib/storePricing';
+import { purchaseStoreProduct, storeName } from '@/services/iap';
+import { useStorePrices } from '@/hooks/useStorePrices';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { FreeBoostOption } from '@/components/listing/FreeBoostOption';
 import { PaymentBrandLogo, FEE_PAYMENT_METHODS } from '@/components/payment/PaymentBrandLogos';
@@ -127,9 +131,11 @@ function boostedPreview(listing: Listing, goal: PromotionGoal | null): Listing {
 
 function ListingPromoteScreen() {
   const { id, goal: goalParam } = useLocalSearchParams<{ id: string; goal?: string }>();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const { colors } = useTheme();
   const layout = useLayout();
+  const storeBilling = usesStoreBilling();
+  const { prices: storePrices } = useStorePrices(storeBilling ? STORE_LISTING_PRODUCT_IDS : []);
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
 
   const { flags: paidFlags, hasAnyBoostService, loading: paidLoading } = usePaidServices();
@@ -231,10 +237,11 @@ function ListingPromoteScreen() {
     [selectedService, selection?.durationHours],
   );
 
-  const plans = useMemo(
-    () => (selectedService ? buildPromotePlans(selectedService.durations) : []),
-    [selectedService],
-  );
+  const plans = useMemo(() => {
+    if (!selectedService) return [];
+    const catalog = buildPromotePlans(selectedService.durations);
+    return storeBilling ? storePlanViews(catalog, selectedService.goal, storePrices) : catalog;
+  }, [selectedService, storeBilling, storePrices]);
 
   const benefits = useMemo<PromoteBenefit[]>(
     () => (goal ? [...PROMOTE_BENEFITS[goal], ...promoteCommonBenefits(selectedDuration?.labelAr ?? null)] : []),
@@ -255,7 +262,16 @@ function ListingPromoteScreen() {
     return buildPromoteCheckoutPayload(id, goal, selectedDuration.durationHours);
   }, [id, goal, selectedDuration]);
 
-  const canPay = Boolean(accessToken && checkoutPayload && !processing && hasAnyBoostService && goal);
+  const storeProductId = storeBilling ? promoteGoalProductId(goal, selectedDuration?.durationHours) : null;
+  const storeDisplayPrice = storeProductId ? (storePrices[storeProductId]?.displayPrice ?? null) : null;
+  const canPay = Boolean(
+    accessToken &&
+      checkoutPayload &&
+      !processing &&
+      hasAnyBoostService &&
+      goal &&
+      (!storeBilling || (storeDisplayPrice && user?.id)),
+  );
 
   const onSelect = useCallback((nextGoal: PromotionGoal, durationHours: number) => {
     setSelection((prev) =>
@@ -273,7 +289,37 @@ function ListingPromoteScreen() {
     [goal, onSelect],
   );
 
+  /** Native: App Store / Google Play consumable, verified and applied by the server. */
+  const handleStorePay = useCallback(() => {
+    if (!storeProductId || !user?.id || !id) return;
+    void guardRef.current.run(async () => {
+      setProcessing(true);
+      setNotice(null);
+      try {
+        const outcome = await purchaseStoreProduct({ productId: storeProductId, userId: user.id, listingId: id });
+        if (!mountedRef.current) return;
+        if (outcome.kind === 'granted') {
+          setSuccess({ title: 'تم الشراء بنجاح', text: 'تم تفعيل التعزيز على إعلانك.' });
+          setReloadKey((k) => k + 1);
+        } else if (outcome.kind === 'cancelled') {
+          setNotice({ tone: 'info', text: 'تم إلغاء عملية الشراء.' });
+        } else {
+          setNotice({
+            tone: outcome.kind === 'pending' || outcome.kind === 'verify_failed' ? 'info' : 'error',
+            text: outcome.message,
+          });
+        }
+      } finally {
+        if (mountedRef.current) setProcessing(false);
+      }
+    });
+  }, [id, storeProductId, user?.id]);
+
   const handlePay = useCallback(() => {
+    if (storeBilling) {
+      handleStorePay();
+      return;
+    }
     if (!accessToken || !checkoutPayload) return;
     void guardRef.current.run(async () => {
       setProcessing(true);
@@ -311,7 +357,7 @@ function ListingPromoteScreen() {
         if (mountedRef.current) setProcessing(false);
       }
     });
-  }, [accessToken, checkoutPayload]);
+  }, [accessToken, checkoutPayload, handleStorePay, storeBilling]);
 
   const onFreeQuota = useCallback((q: FreeBoostQuota | null) => {
     setFreeQuota(q);
@@ -359,7 +405,11 @@ function ListingPromoteScreen() {
     );
   }
 
-  const totalLabel = displayPrice != null ? formatSar(displayPrice) : '—';
+  const totalLabel = storeBilling
+    ? (storeDisplayPrice ?? '—')
+    : displayPrice != null
+      ? formatSar(displayPrice)
+      : '—';
   const summaryLine =
     selectedService && selectedDuration ? `${selectedService.title} · ${selectedDuration.labelAr}` : '';
   const statusParts = [
@@ -484,7 +534,7 @@ function ListingPromoteScreen() {
                       goal={svc.goal}
                       icon={svc.icon}
                       title={svc.title}
-                      fromPrice={svc.durations[0]?.amount ?? null}
+                      fromPrice={storeBilling ? null : (svc.durations[0]?.amount ?? null)}
                       selected={svc.goal === goal}
                       activeNow={active[svc.goal]}
                       disabled={processing}
@@ -586,7 +636,13 @@ function ListingPromoteScreen() {
               ) : null}
             </Stack>
             <CtaPill
-              title={processing ? 'جاري تجهيز الدفع…' : promoteCtaLabel(displayPrice)}
+              title={
+                processing
+                  ? 'جاري تجهيز الدفع…'
+                  : storeBilling
+                    ? storeCtaLabel(storeDisplayPrice)
+                    : promoteCtaLabel(displayPrice)
+              }
               onPress={handlePay}
               disabled={!canPay}
               loading={processing}
@@ -597,13 +653,15 @@ function ListingPromoteScreen() {
           <Row gap="sm" align="center" justify="center" style={styles.trust}>
             <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
             <AppText variant="micro" color="textMuted">
-              دفع آمن
+              {storeBilling ? `دفع آمن عبر ${storeName()} · مرة واحدة` : 'دفع آمن'}
             </AppText>
-            <Row gap="xs" align="center">
-              {FEE_PAYMENT_METHODS.map((m) => (
-                <PaymentBrandLogo key={m.id} id={m.id} size={16} />
-              ))}
-            </Row>
+            {storeBilling ? null : (
+              <Row gap="xs" align="center">
+                {FEE_PAYMENT_METHODS.map((m) => (
+                  <PaymentBrandLogo key={m.id} id={m.id} size={16} />
+                ))}
+              </Row>
+            )}
           </Row>
         </Stack>
       </BottomAction>

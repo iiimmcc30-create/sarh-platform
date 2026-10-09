@@ -2,6 +2,12 @@ import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import { API_BASE } from './api';
 import { openPaymentCheckout } from './paymentCheckout';
+import {
+  STORE_BILLING_ONLY_BODY_AR,
+  STORE_BILLING_ONLY_TITLE_AR,
+  isDigitalPaymentContext,
+  usesStoreBilling,
+} from '@/lib/storePurchases';
 
 export type PaymentContext =
   | 'subscription'
@@ -223,6 +229,13 @@ export async function launchPaymentCheckout(
     context = 'generic',
     returnParams,
   } = options;
+
+  // App Store 3.1.1 / Play Payments: digital services in the native apps are
+  // bought only with Apple IAP / Google Play Billing — never open the gateway.
+  if (usesStoreBilling() && isDigitalPaymentContext(context) && !alreadyPaid && status !== 'paid') {
+    Alert.alert(STORE_BILLING_ONLY_TITLE_AR, STORE_BILLING_ONLY_BODY_AR);
+    return 'failed';
+  }
 
   if (alreadyPaid || status === 'paid' || status === 'refunded') {
     if (!paymentId) return 'failed';

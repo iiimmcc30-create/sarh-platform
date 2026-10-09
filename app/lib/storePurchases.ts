@@ -1,17 +1,20 @@
 // Store-build policy for DIGITAL purchases (App Store 3.1.1 / Google Play Payments).
 //
-// Digital goods sold through the external gateway (N-Genius): subscriptions
-// (Blue / Blue+ / Gold verification plans, free trial), listing boosts
-// (featured / pin / promotion) and their paywall CTAs. Store builds hide every
-// entry point unless the build explicitly opts in. Physical-goods payments —
-// the livestock-sale commission and listing fees — are NOT affected.
+// Digital services — verification subscriptions (Blue / Blue+ / Gold), listing
+// boosts (featured / pin / both) and visibility promotion — are sold in the
+// native apps ONLY through Apple In-App Purchase / Google Play Billing
+// (services/iap.ts, product IDs in lib/storeProducts.ts). The website keeps
+// N-Genius for everything. Physical-goods payments — the livestock-sale
+// commission and listing fees — stay on N-Genius everywhere.
 //
+// EXPO_PUBLIC_STORE_DIGITAL_PURCHASES is now an EMERGENCY KILL SWITCH: unset or
+// 'true' → digital services visible (bought with IAP); 'false' → every entry
+// point hidden («غير متاحة حالياً»), e.g. if store review or billing breaks.
 // Build-time env (EAS profile `env`, inlined by Expo — keep the literal names):
-//   EXPO_PUBLIC_STORE_DIGITAL_PURCHASES          shared default for iOS + Android ('true' | 'false')
+//   EXPO_PUBLIC_STORE_DIGITAL_PURCHASES          shared switch for iOS + Android ('true' | 'false')
 //   EXPO_PUBLIC_STORE_DIGITAL_PURCHASES_IOS      iOS override
 //   EXPO_PUBLIC_STORE_DIGITAL_PURCHASES_ANDROID  Android override
-// Unset → hidden on iOS and Android. The website (Platform.OS === 'web') is not a
-// store build and always keeps the purchase flows.
+// The website (Platform.OS === 'web') is not a store build and is never hidden.
 import { Platform } from 'react-native';
 
 export const DIGITAL_PURCHASES_UNAVAILABLE_TITLE_AR = 'غير متاحة حالياً';
@@ -31,12 +34,29 @@ function parseFlag(value: string | undefined): boolean | undefined {
   return undefined;
 }
 
-/** Pure resolver (unit-tested). */
+/** Pure resolver (unit-tested). Default ON: the switch only turns purchases off. */
 export function resolveDigitalPurchasesEnabled(os: string, env: DigitalPurchasesEnv): boolean {
-  if (os === 'ios') return parseFlag(env.ios) ?? parseFlag(env.shared) ?? false;
-  if (os === 'android') return parseFlag(env.android) ?? parseFlag(env.shared) ?? false;
+  if (os === 'ios') return parseFlag(env.ios) ?? parseFlag(env.shared) ?? true;
+  if (os === 'android') return parseFlag(env.android) ?? parseFlag(env.shared) ?? true;
   return true;
 }
+
+/**
+ * True on the native store apps: digital services are paid with Apple IAP /
+ * Google Play Billing and never with the external gateway (no steering).
+ */
+export function usesStoreBilling(os: string = Platform.OS): boolean {
+  return os === 'ios' || os === 'android';
+}
+
+/** Payment contexts that are digital services (store billing on native). */
+export function isDigitalPaymentContext(context: string | undefined): boolean {
+  return context === 'subscription' || context === 'boost' || context === 'promotion';
+}
+
+export const STORE_BILLING_ONLY_TITLE_AR = 'الشراء داخل التطبيق';
+export const STORE_BILLING_ONLY_BODY_AR =
+  'تُشترى هذه الخدمة في التطبيق عبر المتجر فقط.';
 
 export function readDigitalPurchasesEnv(): DigitalPurchasesEnv {
   return {
@@ -46,7 +66,7 @@ export function readDigitalPurchasesEnv(): DigitalPurchasesEnv {
   };
 }
 
-/** True when this build may show subscriptions, verification plans and boosts. */
+/** True when this build may show subscriptions, verification plans and boosts (kill switch). */
 export function digitalPurchasesEnabled(): boolean {
   return resolveDigitalPurchasesEnabled(Platform.OS, readDigitalPurchasesEnv());
 }

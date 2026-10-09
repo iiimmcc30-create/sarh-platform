@@ -16,7 +16,8 @@ import { usePlans } from '@/hooks/usePlans';
 import { useSubscriptionAudience } from '@/hooks/useSubscriptionAudience';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { usesStoreBilling } from '@/lib/storePurchases';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -117,7 +118,7 @@ function createVirtualCardStyles(colors: ThemeColors) {
   });
 }
 
-export default function PaymentScreen() {
+function PaymentScreen() {
   const { colors, gradients, scheme } = useTheme();
   const styles = useThemedStyles(({ colors: c, scheme: s }) => createStyles(c, s));
   const router = useRouter();
@@ -636,4 +637,10 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       borderColor: colors.borderMid,
     },
   });
+}
+
+/** Native apps sell subscriptions only with Apple IAP / Google Play (verification screen). */
+export default function PaymentRoute() {
+  if (usesStoreBilling()) return <Redirect href={'/verification' as never} />;
+  return <PaymentScreen />;
 }

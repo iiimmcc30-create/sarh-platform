@@ -126,7 +126,8 @@ describe('boost screen — sticky CTA total', () => {
 
   it('shows total + pill in the bottom bar from the selected catalog amount', () => {
     expect(screen).toContain('displayPrice = selectedDuration?.amount ?? null');
-    expect(screen).toContain("totalLabel = displayPrice != null ? formatSar(displayPrice) : '—'");
+    // Website: catalog total in SAR. iOS / Android: the store-localized price (IAP).
+    expect(screen).toMatch(/totalLabel = storeBilling\s*\?\s*\(storeDisplayPrice \?\? '—'\)\s*:\s*displayPrice != null\s*\?\s*formatSar\(displayPrice\)\s*:\s*'—'/);
     expect(screen).toContain('promoteCtaLabel(displayPrice)');
     expect(screen).toContain('<BottomAction testID="promote-cta-bar">');
     expect(screen).toContain('دفع آمن');

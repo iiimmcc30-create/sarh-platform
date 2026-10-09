@@ -23,6 +23,10 @@ import {
   fetchPromotionPlans,
 } from '@/services/listingPromotion';
 import { launchPaymentCheckout } from '@/services/payments';
+import { purchaseStoreProduct, storeName } from '@/services/iap';
+import { useStorePrices } from '@/hooks/useStorePrices';
+import { usesStoreBilling } from '@/lib/storePurchases';
+import { STORE_LISTING_PRODUCT_IDS, promoteGoalProductId } from '@/lib/storePricing';
 import { FreeBoostOption } from '@/components/listing/FreeBoostOption';
 import { usePaidServices } from '@/hooks/usePaidServices';
 import {
@@ -50,6 +54,12 @@ const PAYMENT_METHODS = [
   { id: 'stc_pay' as const, icon: '📱', labelAr: 'STC Pay' },
 ];
 
+/** Store product for a sheet service + day option (native apps). */
+function storeProductIdFor(key: BoostTypeKey, durationDays: number | undefined): string | null {
+  if (!durationDays) return null;
+  return promoteGoalProductId(key === 'promotion' ? 'visibility' : key, durationDays * 24);
+}
+
 type ListingBoostSheetProps = {
   visible: boolean;
   listingId: string;
@@ -75,8 +85,17 @@ export function ListingBoostSheet({
 }: ListingBoostSheetProps) {
   const { colors, gradients } = useTheme();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const { flags: paidFlags, hasAnyBoostService } = usePaidServices();
+  // iOS / Android: Apple IAP / Google Play only — store prices, no gateway / card picker.
+  const storeBilling = usesStoreBilling();
+  const { prices: storePrices } = useStorePrices(storeBilling ? STORE_LISTING_PRODUCT_IDS : []);
+  const priceLabel = (key: BoostTypeKey, plan: { durationDays: number; amount: number } | undefined) => {
+    if (!plan) return '—';
+    if (!storeBilling) return `${plan.amount} ر.س`;
+    const id = storeProductIdFor(key, plan.durationDays);
+    return (id && storePrices[id]?.displayPrice) || '—';
+  };
   const enabledTypes = useMemo(
     () => (getServiceTypeOrder() ?? []).filter((key) => isBoostTypeEnabled(key, paidFlags)),
     [paidFlags],
@@ -154,7 +173,29 @@ export function ListingBoostSheet({
     setDurationDays(nextPlans[0]?.durationDays ?? 1);
   };
 
+  const handleStorePay = async () => {
+    const productId = storeProductIdFor(boostType, selectedPlan?.durationDays);
+    if (!productId || !user?.id) return;
+    setProcessing(true);
+    try {
+      const outcome = await purchaseStoreProduct({ productId, userId: user.id, listingId });
+      if (outcome.kind === 'granted') {
+        onPlanPromoteSuccess?.();
+        onClose();
+        Alert.alert('تم الشراء', 'تم تفعيل الترقية على إعلانك.');
+      } else if (outcome.kind !== 'cancelled') {
+        Alert.alert(outcome.kind === 'pending' ? 'بانتظار إتمام الدفع' : 'تعذّر الشراء', outcome.message);
+      }
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handlePay = async () => {
+    if (storeBilling) {
+      await handleStorePay();
+      return;
+    }
     if (!accessToken || !selectedPlan) return;
     setProcessing(true);
     try {
@@ -313,7 +354,7 @@ export function ListingBoostSheet({
                       {meta.title}
                     </Text>
                     <Text style={styles.serviceDesc} numberOfLines={2}>{meta.desc}</Text>
-                    {minPrice != null ? (
+                    {minPrice != null && !storeBilling ? (
                       <View style={[styles.servicePriceChip, selected && { backgroundColor: `${accent.main}14` }]}>
                         <Text style={[styles.servicePrice, selected && { color: accent.bright }]}>
                           من {minPrice} ر.س
@@ -345,7 +386,7 @@ export function ListingBoostSheet({
                       {plan.labelAr}
                     </Text>
                     <Text style={[styles.durationPrice, selected && { color: currentAccent.bright }]}>
-                      {plan.amount} ر.س
+                      {priceLabel(boostType, plan)}
                     </Text>
                   </Pressable>
                 );
@@ -365,44 +406,52 @@ export function ListingBoostSheet({
               <View style={[styles.summaryRow, getRtlRow()]}>
                 <Text style={styles.summaryKey}>المبلغ</Text>
                 <Text style={[styles.summaryVal, styles.summaryAmount]}>
-                  {selectedPlan?.amount ?? 0} ر.س
+                  {priceLabel(boostType, selectedPlan)}
                 </Text>
               </View>
             </View>
 
-            <Text style={styles.sectionLabel}>طريقة السداد</Text>
-            <View style={[styles.methodRow, getRtlRow()]}>
-              {PAYMENT_METHODS.map((m) => (
-                <Pressable
-                  key={m.id}
-                  onPress={() => setMethod(m.id)}
-                  style={[
-                    styles.methodChip,
-                    method === m.id && {
-                      borderColor: colors.electric,
-                      backgroundColor: `${colors.electric}12`,
-                    },
-                  ]}
-                >
-                  <Text style={{ fontSize: 14 }}>{m.icon}</Text>
-                  <Text
-                    style={[
-                      styles.methodLabel,
-                      method === m.id && { color: colors.electricBright },
-                    ]}
-                  >
-                    {m.labelAr}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            {storeBilling ? null : (
+              <>
+                <Text style={styles.sectionLabel}>طريقة السداد</Text>
+                <View style={[styles.methodRow, getRtlRow()]}>
+                  {PAYMENT_METHODS.map((m) => (
+                    <Pressable
+                      key={m.id}
+                      onPress={() => setMethod(m.id)}
+                      style={[
+                        styles.methodChip,
+                        method === m.id && {
+                          borderColor: colors.electric,
+                          backgroundColor: `${colors.electric}12`,
+                        },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 14 }}>{m.icon}</Text>
+                      <Text
+                        style={[
+                          styles.methodLabel,
+                          method === m.id && { color: colors.electricBright },
+                        ]}
+                      >
+                        {m.labelAr}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
           </ScrollView>
 
           <View style={styles.footer}>
             <Pressable
               style={[styles.payBtn, processing && { opacity: 0.7 }]}
               onPress={handlePay}
-              disabled={processing}
+              disabled={
+                processing ||
+                (storeBilling &&
+                  !storePrices[storeProductIdFor(boostType, selectedPlan?.durationDays) ?? ''])
+              }
             >
               <LinearGradient
                 colors={payGradient()}
@@ -416,7 +465,9 @@ export function ListingBoostSheet({
                   <>
                     <AppIcon name={BOOST_TYPE_META[boostType].icon} size={20} color="#fff" />
                     <Text style={styles.payBtnText}>
-                      متابعة الدفع · {selectedPlan?.amount ?? 0} ر.س
+                      {storeBilling
+                        ? `شراء · ${priceLabel(boostType, selectedPlan)}`
+                        : `متابعة الدفع · ${selectedPlan?.amount ?? 0} ر.س`}
                     </Text>
                   </>
                 )}
@@ -431,7 +482,9 @@ export function ListingBoostSheet({
               ) : null}
               <View style={[styles.niBadge, getRtlRow()]}>
                 <AppIcon name="lock-closed-outline" size={12} color={colors.textSubtle} />
-                <Text style={styles.niText}>دفع آمن · Network International</Text>
+                <Text style={styles.niText}>
+                  {storeBilling ? `دفع آمن عبر ${storeName()}` : 'دفع آمن · Network International'}
+                </Text>
               </View>
             </View>
           </View>
