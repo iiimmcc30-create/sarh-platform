@@ -117,6 +117,7 @@ model User {
   profileViewsGiven                   ProfileView[]                     @relation("ProfileViewsGiven")
   mutesInitiated                      UserMute[]                        @relation("MutesInitiated")
   mutesReceived                       UserMute[]                        @relation("MutesReceived")
+  consentRecords                      ConsentRecord[]
 
   @@index([username])
   @@index([email])
@@ -1794,4 +1795,41 @@ model ExploreSarhBanner {
   updatedAt          DateTime @updatedAt
 
   @@index([isActive, sortOrder])
+}
+
+/// PDPL consent log: one row per user × policy × version. Written at signup
+/// and when the user accepts a newer privacy policy. Kept after account
+/// deletion (proof of consent) with ip / userAgent cleared.
+model ConsentRecord {
+  id            String   @id @default(uuid())
+  userId        String
+  /// "privacy" (privacy policy). Room for "terms" later.
+  policy        String   @default("privacy")
+  policyVersion String
+  /// "signup" | "policy_update"
+  source        String?
+  acceptedAt    DateTime @default(now())
+  ip            String?
+  userAgent     String?
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, policy, policyVersion])
+  @@index([userId])
+}
+
+/// Durable queue of stored media to delete (account deletion: listing/post/
+/// story/chat media, avatar/cover, identity documents). Processed by the
+/// worker cron in small batches with retries; rows are never re-used.
+model MediaDeletionJob {
+  id          String    @id @default(uuid())
+  url         String
+  reason      String
+  userId      String?
+  attempts    Int       @default(0)
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([processedAt, createdAt])
+  @@index([userId])
 }

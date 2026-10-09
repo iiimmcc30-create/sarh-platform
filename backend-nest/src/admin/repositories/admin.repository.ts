@@ -9,7 +9,10 @@ import {
   softDeleteFields,
 } from '../../common/utils/soft-delete.util';
 import type { PaginationQueryDto } from '../dto/admin.dto';
-import { accountDeletionOperations } from '../../users/lib/account-anonymization';
+import {
+  accountDeletionOperations,
+  collectAccountMediaUrls,
+} from '../../users/lib/account-anonymization';
 import { ADMIN_MEMBERSHIP_SELECT } from '../../subscriptions/verification/admin-membership';
 
 const USER_SELECT = {
@@ -191,8 +194,12 @@ export class AdminRepository {
   }
 
   /** Same anonymization as self-service account deletion (users/lib/account-anonymization.ts). */
-  purgeUser(id: string) {
-    return this.prisma.$transaction(accountDeletionOperations(this.prisma, id));
+  async purgeUser(id: string) {
+    // Media URLs are read first; the transaction queues them for deletion.
+    const mediaUrls = await collectAccountMediaUrls(this.prisma, id);
+    return this.prisma.$transaction(
+      accountDeletionOperations(this.prisma, id, mediaUrls),
+    );
   }
 
   async listPosts(query: PaginationQueryDto) {
@@ -1040,7 +1047,10 @@ export class AdminRepository {
       // Deleted listings whose seller declared the sale (or entered an amount) and
       // has not paid yet — informational only; unsold deletions owe nothing.
       where: {
-        AND: [OWED_LISTING_FEE_WHERE, { listing: { deletedAt: { not: null } } }],
+        AND: [
+          OWED_LISTING_FEE_WHERE,
+          { listing: { deletedAt: { not: null } } },
+        ],
       },
       select: {
         id: true,

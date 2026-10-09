@@ -37,6 +37,7 @@ import { HomeExploreModule } from './home-explore/home-explore.module';
 import { CollectionsModule } from './collections/collections.module';
 import { CouncilsModule } from './councils/councils.module';
 import { ShareModule } from './share/share.module';
+import { PrivacyModule } from './privacy/privacy.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { ShareModule } from './share/share.module';
     CollectionsModule,
     CouncilsModule,
     ShareModule,
+    PrivacyModule,
   ],
 })
 export class AppModule {}

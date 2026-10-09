@@ -11,6 +11,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { GatewaySharedModule } from '../gateway/gateway-shared.module';
 import { QueueModule } from '../queue/queue.module';
 import { AppConfigModule } from '../config/config.module';
+import { PrivacyModule } from '../privacy/privacy.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AppConfigModule } from '../config/config.module';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     GatewaySharedModule,
     QueueModule,
+    PrivacyModule,
   ],
   controllers: [AuthController],
   providers: [

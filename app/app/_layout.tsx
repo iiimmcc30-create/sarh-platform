@@ -14,6 +14,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { AppProvider } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useStoreTransactionObserver } from '@/hooks/useStoreTransactionObserver';
+import { usePrivacyConsentPrompt } from '@/hooks/usePrivacyConsentPrompt';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { CouncilSessionProvider } from '@/contexts/CouncilSessionContext';
@@ -52,6 +53,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
   const lastHrefRef = useRef<string | null>(null);
   useStoreTransactionObserver(isAuthenticated);
+  usePrivacyConsentPrompt(isAuthenticated);
 
   useEffect(() => {
     if (isLoading || onboardingLoading) return;

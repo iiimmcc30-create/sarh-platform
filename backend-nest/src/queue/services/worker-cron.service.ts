@@ -7,6 +7,7 @@ import { FeeCheckQueueService } from './fee-check-queue.service';
 import { SubscriptionQueueService } from './subscription-queue.service';
 import { KnowledgeCenterService } from '../../knowledge/services/knowledge-center.service';
 import { cronCleanupAuthHeader } from '../../admin/lib/cron-auth';
+import { processMediaDeletionBatch } from '../../shared/lib/media-deletion';
 
 @Injectable()
 export class WorkerCronService implements OnModuleDestroy {
@@ -31,6 +32,7 @@ export class WorkerCronService implements OnModuleDestroy {
     // Kick an initial delayed sync so knowledge starts without waiting a full hour
     setTimeout(() => void this.runKnowledgeSyncCron(), 20_000);
     setTimeout(() => void this.pingPublicHealth(), 15_000);
+    setTimeout(() => void this.runMediaDeletionCron(), 60_000);
   }
 
   onModuleDestroy() {
@@ -237,7 +239,30 @@ export class WorkerCronService implements OnModuleDestroy {
       await this.runWeeklyLiveMinutesReset();
     }
 
+    // PDPL: delete media queued by account deletion (every hourly tick)
+    await this.runMediaDeletionCron();
+
     // Knowledge Center: every hourly tick
     await this.runKnowledgeSyncCron();
+  }
+
+  private async runMediaDeletionCron(): Promise<void> {
+    const run = async () => {
+      const result = await processMediaDeletionBatch(
+        this.cronRepo.mediaDeletionStore(),
+      );
+      if (result.deleted || result.skipped || result.failed) {
+        this.logger.info(result, 'Media deletion queue processed');
+      }
+    };
+    if (!this.cache.isEnabled()) {
+      try {
+        await run();
+      } catch (err) {
+        this.logger.error({ err }, 'Media deletion cron error');
+      }
+      return;
+    }
+    await this.withLock('cron:media_deletion:lock', 50 * 60, run);
   }
 }

@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Country, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { accountDeletionOperations } from '../lib/account-anonymization';
+import {
+  accountDeletionOperations,
+  collectAccountMediaUrls,
+} from '../lib/account-anonymization';
 
 const listUserSelect = {
   id: true,
@@ -265,8 +268,12 @@ export class UsersRepository {
   }
 
   /** Account deletion: anonymize + revoke sessions/tokens (lib/account-anonymization.ts). */
-  deactivateUser(id: string) {
-    return this.prisma.$transaction(accountDeletionOperations(this.prisma, id));
+  async deactivateUser(id: string) {
+    // Media URLs are read first; the transaction queues them for deletion.
+    const mediaUrls = await collectAccountMediaUrls(this.prisma, id);
+    return this.prisma.$transaction(
+      accountDeletionOperations(this.prisma, id, mediaUrls),
+    );
   }
 
   findUserById(id: string, select: Prisma.UserSelect) {

@@ -4,11 +4,13 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  Optional,
   Post,
   Req,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from './services/auth.service';
+import { ConsentService } from '../privacy/consent.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import {
   Public,
@@ -33,7 +35,10 @@ import {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    @Optional() private readonly consent?: ConsentService,
+  ) {}
 
   @Public()
   @RateLimit('auth')
@@ -48,7 +53,14 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto, @Req() req: Request) {
-    return successResponse(await this.auth.register(dto, req));
+    const result = await this.auth.register(dto, req);
+    // PDPL consent log: signing up accepts the current privacy policy. A
+    // logging failure never blocks signup (the app re-asks if it is missing).
+    const userId = (result as { user?: { id?: string } })?.user?.id;
+    if (userId && this.consent) {
+      await this.consent.record(userId, 'signup', req).catch(() => undefined);
+    }
+    return successResponse(result);
   }
 
   @Public()
