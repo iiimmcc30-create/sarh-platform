@@ -1,3 +1,4 @@
+import { SaudiCitiesService } from '../geo/saudi-cities.service';
 import { ListingsService } from './listings.service';
 import { ApiException } from '../common/exceptions/api.exception';
 
@@ -53,6 +54,7 @@ describe('ListingsService listing fee + covenant', () => {
       {} as never,
       {} as never,
       paidServices as never,
+      new SaudiCitiesService({} as never),
     );
   });
 

@@ -76,8 +76,12 @@ export function sanitizeListingMedia<T extends object>(listing: T): T {
       }
     : row.seller;
 
+  // Belt and braces next to the Prisma global omit: listing coordinates never leave.
+  const { lat: _lat, lng: _lng, ...rest } = listing as T & { lat?: unknown; lng?: unknown };
+  void _lat;
+  void _lng;
   return {
-    ...listing,
+    ...(rest as T),
     images: nextImages,
     thumbnailUrl,
     videoUrl,

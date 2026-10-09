@@ -1,3 +1,4 @@
+import { SaudiCitiesService } from '../geo/saudi-cities.service';
 import { ListingsService } from './listings.service';
 import {
   searchTextVariants,
@@ -50,6 +51,7 @@ describe('ListingsService.list pagination', () => {
       promotions as never,
       {} as never,
       {} as never,
+      new SaudiCitiesService({} as never),
     );
   });
 

@@ -15,6 +15,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { MarketCategoriesModule } from '../market-categories/market-categories.module';
 import { SettingsModule } from '../settings/settings.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { GeoModule } from '../geo/geo.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
     MarketCategoriesModule,
     SettingsModule,
     IntegrationsModule,
+    GeoModule,
   ],
   controllers: [
     ListingsController,

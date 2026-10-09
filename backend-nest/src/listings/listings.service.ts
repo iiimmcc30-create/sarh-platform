@@ -64,8 +64,31 @@ import {
   searchTextVariants,
   tokenizeSearchQuery,
 } from '../search/lib/arabic-search.util';
+import { SaudiCitiesService } from '../geo/saudi-cities.service';
+import {
+  buildNearbyListingsSql,
+  DEFAULT_NEARBY_RADIUS_KM,
+  roundDistanceKm,
+} from '../geo/lib/geo-distance';
+import {
+  InvalidCityError,
+  resolveListingGeo,
+  type ListingGeoFields,
+} from '../geo/lib/listing-geo-input';
 
 const PAGE_SIZE = 20;
+/** Radius mode scans the geo keyset in batches and filters each batch with Prisma. */
+const NEARBY_SCAN_BATCH = 100;
+const NEARBY_MAX_SCAN_BATCHES = 10;
+
+/** Parses "lat,lng" (DTO already checked the shape). */
+export function parseNearParam(raw: string | undefined): { lat: number; lng: number } | null {
+  if (!raw) return null;
+  const [a, b] = raw.split(',').map((x) => Number(x.trim()));
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  if (a < -90 || a > 90 || b < -180 || b > 180) return null;
+  return { lat: a, lng: b };
+}
 
 const LISTING_PAGE_ORDER: Prisma.ListingOrderByWithRelationInput[] = [
   { pinned: 'desc' },
@@ -119,7 +142,112 @@ export class ListingsService {
     private readonly promotions: ListingPromotionService,
     private readonly marketCategories: MarketCategoriesService,
     private readonly paidServices: PaidServicesService,
+    private readonly saudiCities: SaudiCitiesService,
   ) {}
+
+  /** Origin for «القريب منك»: explicit near=lat,lng wins, else the city centre. */
+  private resolveNearbyOrigin(
+    query: ListListingsQueryDto,
+  ): { lat: number; lng: number } | null {
+    const near = parseNearParam(query.near);
+    if (near) return near;
+    if (query.cityId) {
+      const city = this.saudiCities.matcher.byId.get(query.cityId);
+      if (!city) throwApi(400, 'invalid_city', 'المدينة غير معروفة');
+      return { lat: city.lat, lng: city.lng };
+    }
+    if (query.near) throwApi(400, 'invalid_near', 'الموقع غير صالح');
+    return null;
+  }
+
+  private resolveGeoOrThrow(
+    input: { cityId?: string; lat?: number; lng?: number; geoSource?: 'CITY' | 'GPS' },
+    texts: Array<string | null | undefined>,
+  ): ListingGeoFields | null {
+    try {
+      return resolveListingGeo(this.saudiCities.matcher, input, texts);
+    } catch (err) {
+      if (err instanceof InvalidCityError) {
+        throwApi(400, 'invalid_city', 'المدينة غير معروفة');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Radius mode of GET /listings: geo keyset in SQL (bounding box + haversine, ordered
+   * by distance or newest, then id), each batch narrowed by the normal Prisma `where`
+   * (category, search, price, blocks...). The cursor is the last scanned id, exactly
+   * like the main feed. Rows carry a rounded `distanceKm`; coordinates never leave.
+   */
+  private async listNearby(
+    origin: { lat: number; lng: number },
+    query: ListListingsQueryDto,
+    where: Prisma.ListingWhereInput,
+  ) {
+    const radiusKm = query.radiusKm ?? DEFAULT_NEARBY_RADIUS_KM;
+    const order = query.sort === 'nearest' ? 'distance' : 'newest';
+    const picked: Array<{ id: string; distanceKm: number }> = [];
+    let scanCursor: string | null = query.cursor ?? null;
+    let exhausted = false;
+    for (let batch = 0; batch < NEARBY_MAX_SCAN_BATCHES; batch += 1) {
+      const rows = await this.repo.findNearbyIds(
+        buildNearbyListingsSql({
+          lat: origin.lat,
+          lng: origin.lng,
+          radiusKm,
+          order,
+          limit: NEARBY_SCAN_BATCH,
+          cursorId: scanCursor,
+        }),
+      );
+      if (rows.length === 0) {
+        exhausted = true;
+        break;
+      }
+      const allowed = new Set(
+        await this.repo.filterIds({ AND: [where, { id: { in: rows.map((r) => r.id) } }] }),
+      );
+      for (const r of rows) {
+        scanCursor = r.id;
+        if (!allowed.has(r.id)) continue;
+        picked.push({ id: r.id, distanceKm: Number(r.distance_km) });
+        if (picked.length > PAGE_SIZE) break;
+      }
+      if (picked.length > PAGE_SIZE) break;
+      if (rows.length < NEARBY_SCAN_BATCH) {
+        exhausted = true;
+        break;
+      }
+    }
+
+    const hasMore = picked.length > PAGE_SIZE || (!exhausted && scanCursor !== null);
+    const pageRows = picked.slice(0, PAGE_SIZE);
+    const nextCursor = hasMore
+      ? picked.length > PAGE_SIZE
+        ? (pageRows[pageRows.length - 1]?.id ?? null)
+        : scanCursor
+      : null;
+
+    const full = await this.repo.findMany({
+      where: { id: { in: pageRows.map((r) => r.id) } },
+      take: pageRows.length,
+      orderBy: [{ id: 'asc' }],
+    });
+    const byId = new Map(full.map((l) => [l.id, l]));
+    const now = new Date();
+    const listings = pageRows
+      .map((r) => {
+        const row = byId.get(r.id);
+        if (!row) return null;
+        return {
+          ...sanitizeListingMedia(withEffectiveBoostState(row, now)),
+          distanceKm: roundDistanceKm(r.distanceKm),
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    return { listings, nextCursor, hasMore, radiusKm };
+  }
 
   private sellerPriorityBoost(
     seller?: {
@@ -213,8 +341,13 @@ export class ListingsService {
     } = query;
     const sortMode = query.sort === 'oldest' ? 'oldest' : 'newest';
     const oldestFirst = sortMode === 'oldest';
+    const nearbyOrigin = this.resolveNearbyOrigin(query);
+    if (query.sort === 'nearest' && !nearbyOrigin) {
+      throwApi(400, 'origin_required', 'حدد موقعك أو مدينتك لعرض الأقرب');
+    }
 
     const cacheKey =
+      nearbyOrigin ||
       search ||
       minPrice != null ||
       maxPrice != null ||
@@ -299,6 +432,10 @@ export class ListingsService {
       where.price = {};
       if (minPrice != null) where.price.gte = minPrice;
       if (maxPrice != null) where.price.lte = maxPrice;
+    }
+
+    if (nearbyOrigin) {
+      return this.listNearby(nearbyOrigin, query, where);
     }
 
     const listings = await this.repo.findMany({
@@ -521,6 +658,11 @@ export class ListingsService {
       parentRequiresWeight,
     );
 
+    const geo = this.resolveGeoOrThrow(dto, [
+      dto.arabicLocation,
+      dto.location,
+    ]);
+
     try {
       const listing = await this.repo.createListingWithFee({
         userId: user.userId,
@@ -559,6 +701,7 @@ export class ListingsService {
           covenantVersion: listingFeesEnabled
             ? dto.covenantVersion?.trim() || LISTING_COVENANT_VERSION
             : undefined,
+          ...(geo ?? {}),
         },
         commission,
         dueDate: null,
@@ -720,11 +863,50 @@ export class ListingsService {
     if (dto.weightKg !== undefined) {
       updateData.weightKg = dto.weightKg;
     }
+    Object.assign(updateData, this.geoUpdateFor(listing, dto));
 
     const updated = await this.repo.update(id, updateData);
     await this.cache.del(`listing:${id}`);
     await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
     return sanitizeListingMedia(withEffectiveBoostState(updated));
+  }
+
+  /**
+   * Geo on edit: a picked city (cityId) always wins. Older apps send only text — then
+   * the point is re-derived only when the text really changed, so an unchanged edit
+   * never downgrades a GPS point to a city centre.
+   */
+  private geoUpdateFor(
+    current: { arabicLocation?: string | null; location?: string | null },
+    dto: UpdateListingDto,
+  ): Prisma.ListingUpdateInput {
+    if (dto.cityId) {
+      const geo = this.resolveGeoOrThrow(dto, []);
+      if (!geo) return {};
+      return {
+        lat: geo.lat,
+        lng: geo.lng,
+        geoSource: geo.geoSource,
+        city: { connect: { id: geo.cityId } },
+      };
+    }
+    const textChanged =
+      (dto.arabicLocation !== undefined &&
+        dto.arabicLocation.trim() !== (current.arabicLocation ?? '').trim()) ||
+      (dto.location !== undefined &&
+        dto.arabicLocation === undefined &&
+        dto.location.trim() !== (current.location ?? '').trim());
+    if (!textChanged) return {};
+    const geo = this.resolveGeoOrThrow({}, [dto.arabicLocation, dto.location]);
+    if (!geo) {
+      return { lat: null, lng: null, geoSource: null, city: { disconnect: true } };
+    }
+    return {
+      lat: geo.lat,
+      lng: geo.lng,
+      geoSource: geo.geoSource,
+      city: { connect: { id: geo.cityId } },
+    };
   }
 
   async applyPlanPromotion(

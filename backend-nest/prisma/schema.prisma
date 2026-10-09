@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  /// omitApi: global omit of Listing.lat/lng (never serialized to API clients).
+  previewFeatures = ["omitApi"]
 }
 
 datasource db {
@@ -620,10 +622,17 @@ model Listing {
   sellerDeclaredSold  Boolean?
   sellerDeclaredSoldAt DateTime?
   deleteReason        String?
+  /// Approximate point for «القريب منك»: city centre (CITY) or GPS rounded to ~1 km (GPS).
+  /// Never returned by the API (omitted globally in PrismaService).
+  lat               Float?
+  lng               Float?
+  cityId            String?
+  geoSource         ListingGeoSource?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   deletedAt         DateTime?
   seller            User?           @relation(fields: [sellerId], references: [id])
+  city              SaudiCity?      @relation(fields: [cityId], references: [id], onDelete: SetNull)
   marketCategory    MarketCategory? @relation("ListingMarketCategory", fields: [categoryId], references: [id])
   marketSubcategory MarketCategory? @relation("ListingMarketSubcategory", fields: [subcategoryId], references: [id])
   fee               ListingFee?
@@ -647,6 +656,31 @@ model Listing {
   @@index([createdAt])
   @@index([status, createdAt])
   @@index([deletedAt])
+  @@index([lat, lng])
+  @@index([cityId])
+}
+
+enum ListingGeoSource {
+  CITY
+  GPS
+}
+
+/// Saudi cities / governorates / centres with centre coordinates (seeded from
+/// assets/geo/saudi-cities.json). Used for «القريب منك» and the city picker.
+model SaudiCity {
+  id        String    @id
+  regionId  String
+  nameAr    String
+  nameEn    String
+  aliases   String[]
+  lat       Float
+  lng       Float
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  listings  Listing[]
+
+  @@index([regionId])
 }
 
 model ListingBoost {

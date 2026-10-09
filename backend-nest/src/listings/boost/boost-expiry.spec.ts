@@ -1,3 +1,4 @@
+import { SaudiCitiesService } from '../../geo/saudi-cities.service';
 import { ListingsService } from '../listings.service';
 import { ListingPromotionService } from '../promotion/listing-promotion.service';
 import { interleavePromotedListings } from '../promotion/promotion-ranking.util';
@@ -351,6 +352,7 @@ describe('ranking uses effective flags: Pinned, then Featured, then the rest', (
         } as never,
         {} as never,
         {} as never,
+        new SaudiCitiesService({} as never),
       );
 
       const page = await service.list({} as never);
@@ -633,6 +635,7 @@ describe('plan promotion treats an expired paid boost as not featured/pinned', (
       {} as never,
       {} as never,
       paidServices as never,
+      new SaudiCitiesService({} as never),
     );
     return { service, repo };
   }

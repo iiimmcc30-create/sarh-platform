@@ -2,6 +2,14 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../shared/lib/logger';
 
+/**
+ * Columns no query returns unless it selects them explicitly: listing coordinates
+ * («القريب منك») stay server-side; responses only ever carry a rounded distanceKm.
+ */
+export const PRISMA_GLOBAL_OMIT = {
+  listing: { lat: true, lng: true },
+} as const;
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -9,6 +17,7 @@ export class PrismaService
 {
   constructor() {
     super({
+      omit: PRISMA_GLOBAL_OMIT,
       log: [
         { emit: 'event', level: 'query' },
         { emit: 'event', level: 'error' },

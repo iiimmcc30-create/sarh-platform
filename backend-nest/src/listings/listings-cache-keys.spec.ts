@@ -1,3 +1,4 @@
+import { SaudiCitiesService } from '../geo/saudi-cities.service';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ListingsService } from './listings.service';
@@ -256,6 +257,7 @@ describe('ListingsService cache invalidation clears the real v3 feed keys', () =
       promotions as never,
       {} as never,
       {} as never,
+      new SaudiCitiesService({} as never),
     );
   });
 

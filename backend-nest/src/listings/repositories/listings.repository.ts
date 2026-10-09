@@ -87,11 +87,24 @@ export class ListingsRepository {
     });
   }
 
+  /** Raw geo keyset page (see buildNearbyListingsSql): ids + exact distance, server-only. */
+  findNearbyIds(sql: Prisma.Sql) {
+    return this.prisma.$queryRaw<Array<{ id: string; distance_km: number }>>(sql);
+  }
+
+  /** Ids among `where` (used to apply the normal feed filters to a geo batch). */
+  async filterIds(where: Prisma.ListingWhereInput): Promise<string[]> {
+    const rows = await this.prisma.listing.findMany({ where, select: { id: true } });
+    return rows.map((r) => r.id);
+  }
+
   findOwnerMeta(id: string) {
     return this.prisma.listing.findUnique({
       where: { id },
       select: {
         sellerId: true,
+        location: true,
+        arabicLocation: true,
         origin: true,
         category: true,
         categoryId: true,

@@ -1,3 +1,4 @@
+import { SaudiCitiesService } from '../geo/saudi-cities.service';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PostsService } from '../posts/posts.service';
@@ -104,6 +105,7 @@ describe('profile counts after a delete', () => {
       {} as never,
       {} as never,
       {} as never,
+      new SaudiCitiesService({} as never),
     );
 
     await service.remove(

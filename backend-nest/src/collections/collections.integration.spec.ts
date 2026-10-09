@@ -1,3 +1,4 @@
+import { SaudiCitiesService } from '../geo/saudi-cities.service';
 import { PrismaClient } from '@prisma/client';
 import { CollectionsService } from './collections.service';
 import { PostsService } from '../posts/posts.service';
@@ -110,6 +111,7 @@ suite('CollectionsService (real Postgres)', () => {
       unused,
       unused,
       unused,
+      new SaudiCitiesService({} as never),
     );
     service = new CollectionsService(db, usersRepo, posts, listings);
 

@@ -26,7 +26,11 @@ import { LISTING_CATEGORIES } from '../listing-categories';
 
 export { LISTING_CATEGORIES };
 
-export const LISTING_SORT_MODES = ['newest', 'oldest'] as const;
+export const LISTING_SORT_MODES = ['newest', 'oldest', 'nearest'] as const;
+export const LISTING_NEARBY_RADII = [25, 50, 100, 200] as const;
+export const LISTING_GEO_SOURCES = ['CITY', 'GPS'] as const;
+/** "lat,lng" in decimal degrees, e.g. "26.33,43.97". */
+export const NEAR_PARAM_PATTERN = /^\s*-?\d{1,2}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$/;
 export type ListingSortMode = (typeof LISTING_SORT_MODES)[number];
 
 export class ListListingsQueryDto {
@@ -86,13 +90,66 @@ export class ListListingsQueryDto {
   @Type(() => Number)
   maxPrice?: number;
 
-  /** Feed order by publish time: newest (default, createdAt DESC) or oldest (createdAt ASC). */
+  /**
+   * Feed order: newest (default, createdAt DESC), oldest (createdAt ASC), or nearest
+   * (distance ASC; needs `near` or `cityId`).
+   */
   @IsOptional()
   @IsIn(LISTING_SORT_MODES)
   sort?: ListingSortMode;
+
+  /**
+   * «القريب منك» origin as "lat,lng". Used only for this query: never stored or logged.
+   * With `near` or `cityId`, results are limited to `radiusKm` around the origin, only
+   * listings with coordinates are returned, and each carries a rounded `distanceKm`.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(48)
+  @Matches(NEAR_PARAM_PATTERN, { message: 'near must be "lat,lng"' })
+  near?: string;
+
+  /** Origin = this SaudiCity centre (when the viewer picked «مدينتك» instead of GPS). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  cityId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn(LISTING_NEARBY_RADII)
+  radiusKm?: (typeof LISTING_NEARBY_RADII)[number];
 }
 
-export class CreateListingDto {
+/** Optional geo fields on create/update (app city picker). */
+class ListingGeoDtoFields {
+  /** SaudiCity id from the shared city list. Validated server-side. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  cityId?: string;
+
+  /** Only with geoSource=GPS: device point rounded to 2 decimals (~1 km). */
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  @Type(() => Number)
+  lat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  @Type(() => Number)
+  lng?: number;
+
+  @IsOptional()
+  @IsIn(LISTING_GEO_SOURCES)
+  geoSource?: (typeof LISTING_GEO_SOURCES)[number];
+}
+
+export class CreateListingDto extends ListingGeoDtoFields {
   @IsString()
   @MinLength(3)
   @MaxLength(100)
@@ -270,7 +327,7 @@ export class ApplyPlanPromoteDto {
   pinned?: boolean;
 }
 
-export class UpdateListingDto {
+export class UpdateListingDto extends ListingGeoDtoFields {
   @IsOptional()
   @IsString()
   @MinLength(3)
