@@ -46,6 +46,7 @@ import { useAppUser } from '@/hooks/useApp';
 import { getRtlRow } from '@/lib/rtl';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import type { PostComment } from '@/services/types';
+import { avatarUrl } from '@/lib/listingMedia';
 
 type PostCommentsSectionProps = {
   postId: string;
@@ -347,7 +348,7 @@ export function PostCommentsList() {
           {/* Same row as a feed post: avatar, one-line name · @handle · time, ⋮, text, actions. */}
           <View style={[styles.commentRow, getRtlRow()]}>
             <UserProfileLink userId={c.author.id}>
-              <Image source={uriSource(c.author.avatar)} style={styles.avatar} contentFit="cover" />
+              <Image source={uriSource(avatarUrl(c.author.avatar))} style={styles.avatar} contentFit="cover" />
             </UserProfileLink>
             <View style={styles.commentMain}>
               <View style={[styles.commentHeader, getRtlRow()]}>
@@ -436,7 +437,7 @@ export function PostCommentsComposer() {
   // X reply bar: avatar at the inline start, pill input, primary «رد» pill at the end.
   return (
     <View style={[styles.composer, getRtlRow()]} testID="post-reply-composer">
-      <Image source={uriSource(composerAvatar)} style={styles.composerAvatar} contentFit="cover" />
+      <Image source={uriSource(avatarUrl(composerAvatar))} style={styles.composerAvatar} contentFit="cover" />
       <View style={styles.inputPill}>
         <TextInput
           ref={setInputRef}

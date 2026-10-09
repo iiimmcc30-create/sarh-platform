@@ -16,6 +16,7 @@ import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { sidebarShowsVerifiedBadge } from '@/lib/verifiedBadge';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { avatarUrl } from '@/lib/listingMedia';
 
 type NavItem = {
   key: string;
@@ -92,7 +93,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
           accessibilityRole="button"
           accessibilityLabel={displayName}
         >
-          <Image source={uriSource(me.avatar)} style={styles.avatar} contentFit="cover" />
+          <Image source={uriSource(avatarUrl(me.avatar))} style={styles.avatar} contentFit="cover" />
           <VerifiedInlineName
             name={displayName}
             verified={showVerified}

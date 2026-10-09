@@ -9,6 +9,7 @@ import { formatPostCardTimestampAr } from '@/lib/formatRelativeTime';
 import { getRtlRow } from '@/lib/rtl';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import type { ProfileReply } from '@/services/posts';
+import { avatarUrl } from '@/lib/listingMedia';
 
 const MENTION_BLUE = '#1D9BF0';
 
@@ -38,7 +39,7 @@ export function ProfileReplyRow({ reply, onPress }: ProfileReplyRowProps) {
     >
       <View style={[styles.row, getRtlRow()]}>
         <UserProfileLink userId={reply.author.id}>
-          <Image source={uriSource(reply.author.avatar)} style={styles.avatar} contentFit="cover" />
+          <Image source={uriSource(avatarUrl(reply.author.avatar))} style={styles.avatar} contentFit="cover" />
         </UserProfileLink>
         <View style={styles.main}>
           <View style={[styles.meta, getRtlRow()]}>

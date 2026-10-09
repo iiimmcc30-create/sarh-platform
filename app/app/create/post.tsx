@@ -26,7 +26,7 @@ import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { uploadMediaFromUri } from '@/services/upload';
 import { rtlInputText } from '@/lib/rtl';
-import { cloudinaryVideoFirstFrameUrl } from '@/lib/listingMedia';
+import { cloudinaryVideoFirstFrameUrl, avatarUrl } from '@/lib/listingMedia';
 
 const MAX_POST_MEDIA = 4;
 const MAX_CHARS = 280;
@@ -255,7 +255,7 @@ export default function CreatePostScreen() {
         >
           <View style={styles.composeRow}>
             {me.avatar ? (
-              <Image source={{ uri: me.avatar }} style={styles.avatar} contentFit="cover" />
+              <Image source={{ uri: avatarUrl(me.avatar) }} style={styles.avatar} contentFit="cover" />
             ) : (
               <View style={[styles.avatar, styles.avatarFallback]}>
                 <AppIcon name="person" size={20} color={colors.textMuted} />

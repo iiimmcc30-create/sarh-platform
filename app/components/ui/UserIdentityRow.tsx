@@ -13,6 +13,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { avatarUrl } from '@/lib/listingMedia';
 
 export const USER_IDENTITY = {
   sidebarAvatarSize: 58,
@@ -93,7 +94,7 @@ export function UserIdentityRow({
 
   const avatar = (
     <Image
-      source={uriSource(avatarUri)}
+      source={uriSource(avatarUrl(avatarUri))}
       style={[
         styles.avatar,
         {

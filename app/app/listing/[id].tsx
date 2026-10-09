@@ -49,7 +49,7 @@ import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
 import { ListingFeePaymentSheet } from '@/components/listing/ListingFeePaymentSheet';
 import { ListingDeleteDialog } from '@/components/listing/ListingDeleteDialog';
 import { ListingVideoPlayer } from '@/components/listing/ListingVideoPlayer';
-import { listingPhotoUris, listingVideoUrl } from '@/lib/listingMedia';
+import { listingPhotoUris, listingVideoUrl, avatarUrl } from '@/lib/listingMedia';
 import { isManagedListing, managedSeller } from '@/lib/managedListing';
 import { isListingFavorited, toggleListingFavorite } from '@/lib/listingFavorite';
 import { SHARE_ICON, SHARE_LABEL } from '@/lib/interactionActions';
@@ -607,7 +607,7 @@ export default function ListingDetailScreen() {
               >
                 <Row gap="sm" align="center">
                   <Image
-                    source={uriSource(listing.seller.avatar)}
+                    source={uriSource(avatarUrl(listing.seller.avatar))}
                     style={styles.sellerInlineAvatar}
                     contentFit="cover"
                   />

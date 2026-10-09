@@ -43,6 +43,7 @@ import {
 } from '@/services/stories';
 import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
 import { rtlForwardIcon } from '@/lib/rtl';
+import { avatarUrl } from '@/lib/listingMedia';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -387,7 +388,7 @@ export function StoryViewer({
         disabled={isOwn}
       >
         <Image
-          source={{ uri: resolveMediaUrl(group.user.avatar) }}
+          source={{ uri: resolveMediaUrl(avatarUrl(group.user.avatar)) }}
           style={styles.avatar}
           contentFit="cover"
         />
@@ -572,7 +573,7 @@ export function StoryViewer({
               renderItem={({ item }) => (
                 <View style={styles.viewerRow}>
                   <Image
-                    source={{ uri: resolveMediaUrl(item.avatar) }}
+                    source={{ uri: resolveMediaUrl(avatarUrl(item.avatar)) }}
                     style={styles.viewerAvatar}
                     contentFit="cover"
                   />

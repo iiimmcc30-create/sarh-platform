@@ -44,6 +44,7 @@ import {
   View,
 } from 'react-native';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
+import { avatarUrl } from '@/lib/listingMedia';
 
 type MinistryTab = 'info' | 'posts' | 'services';
 
@@ -364,7 +365,7 @@ export default function MinistryProfileScreen() {
         <View style={styles.avatarWrap}>
           <View style={styles.avatarRing}>
             <Image
-              source={account?.avatar ? uriSource(account.avatar) : MEWA_FALLBACK_AVATAR}
+              source={account?.avatar ? uriSource(avatarUrl(account.avatar)) : MEWA_FALLBACK_AVATAR}
               style={styles.avatar}
               contentFit="cover"
               accessibilityLabel={account?.arabicName || ''}

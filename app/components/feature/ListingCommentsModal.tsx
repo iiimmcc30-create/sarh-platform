@@ -29,6 +29,7 @@ import { CoverTrailRow } from '@/components/ui/CoverTrailRow';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { AppText } from '@/components/ui/AppText';
 import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
+import { avatarUrl } from '@/lib/listingMedia';
 
 type ListingCommentsModalProps = {
   visible: boolean;
@@ -221,7 +222,7 @@ export function ListingCommentsModal({
                       />
                       <UserProfileLink userId={c.author.id}>
                         <Image
-                          source={uriSource(c.author.avatar)}
+                          source={uriSource(avatarUrl(c.author.avatar))}
                           style={styles.avatar}
                           contentFit="cover"
                         />

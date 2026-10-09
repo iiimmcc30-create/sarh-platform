@@ -11,6 +11,7 @@ import { getRtlText, inlineEnd, inlineStart, marginStart, getRtlRow } from '@/li
 import { SHARE_ICON } from '@/lib/interactionActions';
 import { LiveStream } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
+import { avatarUrl } from '@/lib/listingMedia';
 
 interface LiveStreamItemProps {
   stream: LiveStream;
@@ -56,7 +57,7 @@ function LiveStreamItemInner({ stream, height, onComment, onShare }: LiveStreamI
 
       <View style={styles.actionsCol}>
         <UserProfileLink userId={stream.host?.id} style={styles.avatarWrap}>
-          <Image source={uriSource(stream.host?.avatar)} style={styles.avatar} contentFit="cover" transition={0} />
+          <Image source={uriSource(avatarUrl(stream.host?.avatar))} style={styles.avatar} contentFit="cover" transition={0} />
           <Pressable
             onPress={() => setFollowing((f) => !f)}
             style={[styles.followBtn, following && styles.followingBtn]}
@@ -104,7 +105,7 @@ function LiveStreamItemInner({ stream, height, onComment, onShare }: LiveStreamI
         <View style={styles.commentsArea}>
           {(stream.comments ?? []).slice(-3).map((c) => (
             <View key={c.id} style={styles.commentRow}>
-              <Image source={uriSource(c.avatar)} style={styles.commentAvatar} transition={0} />
+              <Image source={uriSource(avatarUrl(c.avatar))} style={styles.commentAvatar} transition={0} />
               <View style={[styles.commentBubble, c.isOffer && styles.offerBubble]}>
                 <Text style={styles.commentUser}>{c.arabicUser}</Text>
                 <Text style={styles.commentMsg}>{c.message}</Text>

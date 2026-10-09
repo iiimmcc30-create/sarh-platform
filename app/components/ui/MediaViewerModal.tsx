@@ -42,6 +42,7 @@ import {
   INTERACTION_LIKE_RED,
   INTERACTION_REPOST_GREEN,
 } from '@/lib/interactionActions';
+import { avatarUrl } from '@/lib/listingMedia';
 
 export type MediaViewerOverlay = {
   authorName: string;
@@ -99,7 +100,7 @@ function ViewerOverlay({
       <View style={styles.overlayFade} pointerEvents="none" />
       <View style={styles.overlayInner}>
         <View style={[styles.overlayHeader, getRtlRow()]}>
-          <Image source={uriSource(overlay.avatar)} style={styles.overlayAvatar} contentFit="cover" />
+          <Image source={uriSource(avatarUrl(overlay.avatar))} style={styles.overlayAvatar} contentFit="cover" />
           <View style={styles.overlayIdentity}>
             <View style={[styles.overlayNameRow, getRtlRow()]}>
               <AppText style={styles.overlayName} numberOfLines={1}>

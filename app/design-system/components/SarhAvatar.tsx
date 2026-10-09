@@ -3,6 +3,7 @@ import { Image, uriSource } from '@/components/ui/AppImage';
 import { colors, functional, radius, space } from '../tokens';
 import { AppText } from './AppText';
 import { AVATAR_SIZE, avatarInitials, type SarhAvatarSize } from './resolvers';
+import { avatarUrl } from '@/lib/listingMedia';
 
 export type SarhAvatarProps = {
   uri?: string | null;
@@ -32,7 +33,7 @@ export function SarhAvatar({
   const box = typeof flat?.width === 'number' ? flat.width : AVATAR_SIZE[size];
   const initials = avatarInitials(name, fallback);
   const label = accessibilityLabel ?? name ?? 'الصورة الشخصية';
-  const imageSource = source ?? uriSource(uri);
+  const imageSource = source ?? uriSource(avatarUrl(uri, box > 52 ? 'large' : 'small'));
 
   return (
     <View

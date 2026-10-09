@@ -30,6 +30,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { avatarUrl } from '@/lib/listingMedia';
 
 /** Contact row avatar (styles.avatar). */
 const CONTACT_AVATAR = 44;
@@ -241,7 +242,7 @@ export function NewMessageSheet({ visible, onClose, onSelect }: Props) {
                 accessibilityLabel={`مراسلة ${item.arabicName || item.displayName}`}
               >
                 <Image
-                  source={uriSource(item.avatar ?? undefined)}
+                  source={uriSource(avatarUrl(item.avatar ?? undefined))}
                   style={[styles.avatar, { backgroundColor: colors.bgSurface }]}
                   contentFit="cover"
                 />

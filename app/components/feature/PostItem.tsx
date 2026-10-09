@@ -50,6 +50,7 @@ import {
   POST_META_FONT_SIZE,
   POST_META_LINE_HEIGHT,
 } from '@/components/feature/postItemLayout';
+import { avatarUrl } from '@/lib/listingMedia';
 
 const HASHTAG_BLUE = '#1D9BF0';
 
@@ -361,7 +362,7 @@ function PostItemComponent({
         <View style={styles.detailPad}>
           <View style={[styles.detailHeader, getRtlRow()]}>
             <UserProfileLink userId={post.author.id}>
-              <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
+              <Image source={uriSource(avatarUrl(post.author.avatar))} style={styles.avatar} contentFit="cover" />
             </UserProfileLink>
             <UserProfileLink userId={post.author.id} style={styles.detailIdentity}>
               <View style={[styles.detailNameRow, getRtlRow()]}>
@@ -516,7 +517,7 @@ function PostItemComponent({
       <View style={styles.rowWrap}>
         <View style={[styles.row, getRtlRow()]}>
           <UserProfileLink userId={post.author.id}>
-            <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
+            <Image source={uriSource(avatarUrl(post.author.avatar))} style={styles.avatar} contentFit="cover" />
           </UserProfileLink>
           <View style={styles.main}>
             {authorMeta}
@@ -540,7 +541,7 @@ function PostItemComponent({
       <View style={[styles.row, getRtlRow()]}>
         <Animated.View style={{ opacity: chromeOpacity }} pointerEvents={chromePointer}>
           <UserProfileLink userId={post.author.id}>
-            <Image source={uriSource(post.author.avatar)} style={styles.avatar} contentFit="cover" />
+            <Image source={uriSource(avatarUrl(post.author.avatar))} style={styles.avatar} contentFit="cover" />
           </UserProfileLink>
         </Animated.View>
 

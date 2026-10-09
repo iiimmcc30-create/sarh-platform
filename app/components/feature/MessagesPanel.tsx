@@ -36,6 +36,7 @@ import { NewMessageSheet } from '@/components/feature/NewMessageSheet';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import type { ChatContact } from '@/services/chatApi';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
+import { avatarUrl } from '@/lib/listingMedia';
 
 function formatThreadTime(iso: string): string {
   const date = new Date(iso);
@@ -249,7 +250,7 @@ export function MessagesPanel({
               <UserProfileLink userId={p.id} disabled={menuOpen}>
                 <View style={styles.avatarWrap}>
                   <Image
-                    source={{ uri: avatarUri }}
+                    source={{ uri: avatarUrl(avatarUri) }}
                     style={styles.avatar}
                     contentFit="cover"
                   />

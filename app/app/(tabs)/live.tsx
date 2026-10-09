@@ -26,6 +26,7 @@ import { LiveStreamItem } from '@/components/feature/LiveStreamItem';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import type { LiveStream } from '@/services/types';
 import { marginAutoStart } from '@/lib/rtl';
+import { avatarUrl } from '@/lib/listingMedia';
 
 const LIVE_CATEGORIES = ['الكل', 'إبل', 'خيول', 'أغنام', 'صقور', 'معز'] as const;
 const LIVE_CAT_MAP: Record<string, string> = {
@@ -151,7 +152,7 @@ export default function LiveScreen() {
             </View>
             <View style={styles.featuredContent}>
               <UserProfileLink userId={featured.host?.id} style={styles.hostRow}>
-                <Image source={uriSource(featured.host?.avatar)} style={styles.hostAvatar} contentFit="cover" transition={0} />
+                <Image source={uriSource(avatarUrl(featured.host?.avatar))} style={styles.hostAvatar} contentFit="cover" transition={0} />
                 <View>
                   <Text style={styles.hostName}>{featured.host?.arabicName || 'مستخدم سرح'}</Text>
                   <Text style={styles.hostHandle}>@{featured.host?.username || 'user'}</Text>

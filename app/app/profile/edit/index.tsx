@@ -18,6 +18,7 @@ import { presentActionSheet } from '@/lib/actionSheet';
 import { profileLinksSummary } from '@/lib/profileLinks';
 import { AppText, SarhCard, SarhDivider } from '@/design-system/components';
 import { FullBleed, Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { avatarUrl } from '@/lib/listingMedia';
 
 export default function EditProfileScreen() {
   const { colors } = useTheme();
@@ -156,7 +157,7 @@ export default function EditProfileScreen() {
           style={styles.avatarBlock}
         >
           <View style={styles.avatarWrap}>
-            <Image source={{ uri: me.avatar }} style={styles.avatar} contentFit="cover" />
+            <Image source={{ uri: avatarUrl(me.avatar, 'large') }} style={styles.avatar} contentFit="cover" />
             <View style={styles.avatarCamera} pointerEvents="none">
               <AppIcon name="camera" size={22} color={colors.textPrimary} />
             </View>

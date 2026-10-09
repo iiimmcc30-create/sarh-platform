@@ -18,6 +18,7 @@ import { CoverTrailRow } from '@/components/ui/CoverTrailRow';
 import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { ListingCommentsModal } from '@/components/feature/ListingCommentsModal';
 import { AppText } from '@/components/ui/AppText';
+import { avatarUrl } from '@/lib/listingMedia';
 
 type ListingCommentsSectionProps = {
   listingId: string;
@@ -102,7 +103,7 @@ export function ListingCommentsSection({
                     />
                     <UserProfileLink userId={c.author.id}>
                       <Image
-                        source={uriSource(c.author.avatar)}
+                        source={uriSource(avatarUrl(c.author.avatar))}
                         style={styles.avatar}
                         contentFit="cover"
                       />

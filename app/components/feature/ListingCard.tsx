@@ -20,7 +20,7 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { formatRelativeTimeAr } from '@/lib/formatRelativeTime';
 import { getRtlText, getRtlDirection, getRtlRow } from '@/lib/rtl';
-import { listingHasVideo, listingPhotoUris, listingThumbUri } from '@/lib/listingMedia';
+import { listingHasVideo, listingPhotoUris, listingThumbUri, avatarUrl } from '@/lib/listingMedia';
 import { collectListingMedia } from '@/lib/postMedia';
 import { Listing, getCountryInfo } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
@@ -167,7 +167,7 @@ function ListingCardInner({
           <View style={[styles.listSellerRow, getRtlRow()]}>
             <UserProfileLink userId={sellerId} style={[styles.listSeller, getRtlRow()]}>
               <Image
-                source={uriSource(seller?.avatar)}
+                source={uriSource(avatarUrl(seller?.avatar))}
                 style={styles.listAvatar}
                 contentFit="cover"
               />
@@ -330,7 +330,7 @@ function ListingCardInner({
       <View style={[styles.harajSellerRow, getRtlRow()]}>
         <UserProfileLink userId={sellerId} style={[styles.harajSellerInfo, getRtlRow()]}>
           <Image
-            source={uriSource(seller?.avatar)}
+            source={uriSource(avatarUrl(seller?.avatar))}
             style={styles.harajAvatar}
             contentFit="cover"
           />

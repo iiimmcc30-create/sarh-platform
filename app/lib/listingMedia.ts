@@ -253,3 +253,17 @@ export function listingThumbUri(
 ): string | undefined {
   return cloudinaryListThumbUrl(listingThumbSource(listing));
 }
+
+/** Avatar delivery: small square crop for ≤ 52pt avatars (rows, chat, comments, live). */
+export const AVATAR_FIT = ['w_96', 'c_fill', 'q_auto', 'f_auto'] as const;
+/** Large avatar (profile header ~88pt, edit profile): still far below the original upload. */
+export const AVATAR_FIT_LARGE = ['w_288', 'c_fill', 'q_auto', 'f_auto'] as const;
+
+/**
+ * Resized Cloudinary avatar URL (w_96 by default, `large` for the profile header).
+ * Non-Cloudinary / empty / already width-transformed URLs come back unchanged;
+ * the stored avatar (and the full-screen viewer) keep the original.
+ */
+export function avatarUrl(uri?: string | null, size: 'small' | 'large' = 'small'): string | undefined {
+  return applyCloudinaryTransform(uri, size === 'large' ? AVATAR_FIT_LARGE : AVATAR_FIT);
+}

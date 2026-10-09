@@ -13,6 +13,7 @@ import {
 } from '@/services/officialServices';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { avatarUrl } from '@/lib/listingMedia';
 
 type Props = {
   account: MinistryAccount | null;
@@ -29,7 +30,7 @@ export function HomeMinistryOrgCard({ account, serviceCount, loading }: Props) {
   const name = account?.arabicName || '';
   const count = account?.servicesCount ?? serviceCount;
   const cover = account?.coverImage ? uriSource(account.coverImage) : MEWA_FALLBACK_COVER;
-  const avatar = account?.avatar ? uriSource(account.avatar) : MEWA_FALLBACK_AVATAR;
+  const avatar = account?.avatar ? uriSource(avatarUrl(account.avatar)) : MEWA_FALLBACK_AVATAR;
 
   const openProfile = () => safePush('/ministry', undefined, router);
 

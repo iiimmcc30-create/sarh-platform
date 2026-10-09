@@ -31,6 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { API_BASE } from '@/services/api';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { avatarUrl } from '@/lib/listingMedia';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -233,7 +234,7 @@ export default function WatchScreen() {
             {stream && (
               <UserProfileLink userId={stream.host.id} style={styles.hostRow}>
                 {stream.host.avatar && (
-                  <Image source={{ uri: stream.host.avatar }} style={styles.hostAvatar} contentFit="cover" />
+                  <Image source={{ uri: avatarUrl(stream.host.avatar) }} style={styles.hostAvatar} contentFit="cover" />
                 )}
                 <View>
                   <Text style={styles.hostName}>{stream.host.arabicName}</Text>

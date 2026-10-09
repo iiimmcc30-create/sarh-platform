@@ -61,6 +61,7 @@ import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
 import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { isSellerListNearEnd } from '@/services/sellerListingsPager';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
+import { avatarUrl } from '@/lib/listingMedia';
 
 export type { ProfileTabKey };
 
@@ -431,7 +432,7 @@ export function ProfileScreenLayout({
                     <View style={styles.avatarRing}>
                       <View style={styles.avatarClip}>
                         <Image
-                          source={uriSource(user.avatar)}
+                          source={uriSource(avatarUrl(user.avatar, 'large'))}
                           style={styles.avatarImg}
                           contentFit="cover"
                         />
@@ -440,7 +441,7 @@ export function ProfileScreenLayout({
                   ) : (
                     <View style={styles.avatarPlain}>
                       <Image
-                        source={uriSource(user.avatar)}
+                        source={uriSource(avatarUrl(user.avatar, 'large'))}
                         style={styles.avatarImg}
                         contentFit="cover"
                       />

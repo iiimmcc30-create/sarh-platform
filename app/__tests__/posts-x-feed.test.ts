@@ -119,7 +119,7 @@ describe('Posts feed — X-style structure', () => {
     expect(gallery).not.toContain('cloudinaryFitUrl');
     expect(postItem).not.toContain('postFeedImageUrl');
     expect(postItem).not.toContain('cloudinaryFitUrl');
-    expect(postItem).toContain('uriSource(post.author.avatar)');
+    expect(postItem).toContain('uriSource(avatarUrl(post.author.avatar))');
     expect(postItem).toContain('<PostMediaGallery');
   });
 
