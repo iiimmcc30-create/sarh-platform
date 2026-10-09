@@ -6,6 +6,11 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QUEUE_NAMES } from '../constants';
 import type { PushJob } from '../types/queue.types';
+import {
+  buildExpoMessage,
+  pushTransportFor,
+  sendExpoPush,
+} from '../lib/push-transport';
 
 @Injectable()
 @Processor(QUEUE_NAMES.PUSH, { concurrency: 5 })
@@ -31,15 +36,52 @@ export class PushProcessor extends WorkerHost {
     }
   }
 
+  /** Drop a dead token from both the device table and the legacy column. */
+  private async pruneToken(token: string): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.userDeviceToken.deleteMany({ where: { token } }),
+      this.prisma.user.updateMany({
+        where: { fcmToken: token },
+        data: { fcmToken: null },
+      }),
+    ]);
+  }
+
   async process(job: Job<PushJob>): Promise<void> {
     if (job.name !== 'send') return;
-    if (!getApps().length) return;
 
-    const { fcmToken, titleAr, bodyAr, data } = job.data;
+    const { fcmToken: token, titleAr, bodyAr, data } = job.data;
+    if (!token) return;
+
+    const transport = pushTransportFor(token);
+
+    if (transport === 'apns_raw') {
+      // Raw APNs token from an old iOS build: undeliverable via FCM/Expo.
+      // The updated app re-registers an Expo push token on next launch.
+      await this.pruneToken(token);
+      return;
+    }
+
+    if (transport === 'expo') {
+      const result = await sendExpoPush(
+        buildExpoMessage({ token, titleAr, bodyAr, data }),
+        { accessToken: process.env.EXPO_ACCESS_TOKEN },
+      );
+      if (result.ok) return;
+      if (result.unregistered) {
+        await this.pruneToken(token);
+        return;
+      }
+      if (result.retryable) throw new Error(`Expo push: ${result.error}`);
+      console.warn('Expo push rejected', result.error);
+      return;
+    }
+
+    if (!getApps().length) return;
 
     try {
       await getMessaging().send({
-        token: fcmToken,
+        token,
         notification: { title: titleAr, body: bodyAr },
         data: data || {},
         android: { priority: 'high', notification: { sound: 'default' } },
@@ -47,16 +89,11 @@ export class PushProcessor extends WorkerHost {
       });
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
-      if (code === 'messaging/registration-token-not-registered') {
-        await this.prisma.$transaction([
-          this.prisma.userDeviceToken.deleteMany({
-            where: { token: fcmToken },
-          }),
-          this.prisma.user.updateMany({
-            where: { fcmToken },
-            data: { fcmToken: null },
-          }),
-        ]);
+      if (
+        code === 'messaging/registration-token-not-registered' ||
+        code === 'messaging/invalid-registration-token'
+      ) {
+        await this.pruneToken(token);
         return;
       }
       throw err;

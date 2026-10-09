@@ -1,4 +1,4 @@
-// SAFAT — Push notifications (Expo Notifications + FCM device token)
+// SAFAT — Push notifications (Expo Notifications: FCM token on Android, Expo push token on iOS)
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -11,8 +11,37 @@ import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 
-const PUSH_TOKEN_KEY = 'safat_push_token';
-const PUSH_TOKEN_SYNCED_KEY = 'safat_push_token_synced';
+// v2: iOS switched from raw APNs tokens to Expo push tokens. New keys force
+// builds that cached an APNs token to register (and sync) a fresh one.
+const PUSH_TOKEN_KEY = 'safat_push_token_v2';
+const PUSH_TOKEN_SYNCED_KEY = 'safat_push_token_synced_v2';
+
+/** EAS project id (needed by getExpoPushTokenAsync in standalone builds). */
+function easProjectId(): string | undefined {
+  const fromExtra = (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)
+    ?.eas?.projectId;
+  return fromExtra ?? Constants.easConfig?.projectId ?? undefined;
+}
+
+/**
+ * Platform push token the backend can deliver to:
+ * - Android: native FCM registration token → backend sends via firebase-admin.
+ * - iOS: Expo push token (ExponentPushToken[...]) → backend sends via the Expo
+ *   push service, which uses the APNs key stored in the EAS credentials.
+ *   (getDevicePushTokenAsync on iOS returns a raw APNs token that FCM rejects.)
+ */
+export async function fetchPlatformPushToken(): Promise<string | null> {
+  if (Platform.OS === 'ios') {
+    const projectId = easProjectId();
+    const expoToken = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    return expoToken.data || null;
+  }
+  const deviceToken = await Notifications.getDevicePushTokenAsync();
+  const data = typeof deviceToken.data === 'string' ? deviceToken.data : String(deviceToken.data);
+  return data || null;
+}
 
 let foregroundHandlerConfigured = false;
 
@@ -66,7 +95,8 @@ export async function getStoredPushToken(): Promise<string | null> {
 }
 
 /**
- * Request permission (once per undetermined state) and obtain native FCM/APNs token.
+ * Request permission (once per undetermined state) and obtain the push token
+ * (FCM on Android, Expo push token on iOS).
  * Returns null on denial, simulator, web, or fetch failure — never throws.
  */
 export async function registerForPushNotifications(): Promise<string | null> {
@@ -100,8 +130,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     await ensureAndroidChannel();
 
-    const deviceToken = await Notifications.getDevicePushTokenAsync();
-    const token = typeof deviceToken.data === 'string' ? deviceToken.data : String(deviceToken.data);
+    const token = await fetchPlatformPushToken();
     if (!token) {
       logPushDebug('لم يُرجع الجهاز FCM token');
       return null;
