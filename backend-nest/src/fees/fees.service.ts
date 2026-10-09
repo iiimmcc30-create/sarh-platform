@@ -4,6 +4,7 @@ import { COMMISSION_TABLE } from '../lib/commissions';
 import { throwApi } from '../common/exceptions/api.exception';
 import { PaidServicesService } from '../settings/paid-services.service';
 import { ensurePayableListingFee } from '../listings/listing-fee-ensure';
+import { OWED_LISTING_FEE_WHERE } from '../listings/listing-fee-owed';
 import {
   calculateListingFeeAmount,
   LISTING_COMMISSION_PERCENT,
@@ -21,9 +22,22 @@ export class FeesService {
     return { rules: COMMISSION_TABLE };
   }
 
+  /**
+   * «سداد الرسوم» list. Business rule: the 1% commission is due only when the
+   * livestock is actually sold, and paying it is honor-based and optional.
+   *
+   * A fee is listed only when it is paid, or the seller declared the sale
+   * (listing.sellerDeclaredSold) or entered a sale amount (voluntary pay path:
+   * quote/initiate records saleAmount). Unsold, hidden and deleted-without-sale
+   * listings never appear, waived fees are dropped, and the legacy `overdue`
+   * status is reported as `pending` — there is no overdue state any more.
+   */
   async listForUser(userId: string) {
     const fees = await this.prisma.listingFee.findMany({
-      where: { userId },
+      where: {
+        userId,
+        OR: [{ status: 'paid' }, OWED_LISTING_FEE_WHERE],
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
@@ -39,16 +53,20 @@ export class FeesService {
       },
     });
 
-    return {
-      ratePercent: LISTING_COMMISSION_PERCENT,
-      fees: fees.map((f) => ({
+    const rows = fees.map((f) => {
+      const paid = f.status === 'paid';
+      const saleKnown = f.saleAmount != null;
+      return {
         id: f.id,
         listingId: f.listingId,
         price: f.price,
         saleAmount: f.saleAmount,
-        commission: f.commission,
-        status: f.status,
-        dueDate: f.dueDate,
+        // Unpaid without a declared sale amount: the commission is unknown until
+        // the seller enters it (1% of the sale, never of the asking price).
+        commission: paid || saleKnown ? f.commission : null,
+        status: paid ? 'paid' : 'pending',
+        owed: !paid,
+        dueDate: null,
         paidAt: f.paidAt,
         transactionId: f.transactionId,
         createdAt: f.createdAt,
@@ -60,7 +78,18 @@ export class FeesService {
               sellerDeclaredSold: f.listing.sellerDeclaredSold,
             }
           : null,
-      })),
+      };
+    });
+
+    const owed = rows.filter((r) => r.owed);
+    const owedTotal =
+      Math.round(owed.reduce((sum, r) => sum + (Number(r.commission) || 0), 0) * 100) / 100;
+
+    return {
+      ratePercent: LISTING_COMMISSION_PERCENT,
+      optional: true,
+      summary: { owedCount: owed.length, owedTotal },
+      fees: rows,
     };
   }
 

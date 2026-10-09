@@ -33,7 +33,7 @@ describe('P2 UI/UX consistency — frozen visuals', () => {
     const fees = src('app/fees.tsx');
     expect(fees).toContain('ScreenHeader');
     expect(fees).not.toContain('chevron-forward');
-    expect(fees).toContain('لا توجد رسوم مستحقة');
+    expect(fees).toContain('ما عليك رسوم مستحقة');
   });
 
   it('drops physical textAlign right on touched Arabic fields', () => {

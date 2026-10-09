@@ -11,21 +11,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { radius, type ThemeColors } from '@/constants/theme';
+import { visibleFees, type FeeListRow as FeeRow } from '@/lib/listingFeeState';
 
-type FeeRow = {
-  id: string;
-  listingId: string;
-  commission: number;
-  status: string;
-  listing: { arabicTitle: string } | null;
-};
-
-/** Display-only labels for the backend FeeStatus enum; unknown values show as-is. */
+/** Display-only labels; legacy `overdue` reads like any open (optional) commission. */
 const FEE_STATUS_LABEL: Record<string, string> = {
-  pending: 'بانتظار السداد',
-  overdue: 'متأخرة',
+  pending: 'بانتظار السداد (اختياري)',
+  overdue: 'بانتظار السداد (اختياري)',
   paid: 'مدفوعة',
-  waived: 'معفاة',
 };
 
 export default function FeesScreen() {
@@ -41,7 +33,7 @@ export default function FeesScreen() {
     const res = await authFetch(`${API_BASE}/api/fees`);
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.success) {
-      setFees((json.data?.fees ?? []) as FeeRow[]);
+      setFees(visibleFees((json.data?.fees ?? []) as FeeRow[]));
     }
     setLoaded(true);
   }, [accessToken]);
@@ -50,29 +42,27 @@ export default function FeesScreen() {
     void load();
   }, [load]);
 
-  const outstanding = fees.filter((fee) => fee.status !== 'paid' && fee.status !== 'waived');
-  const outstandingTotal =
-    Math.round(outstanding.reduce((sum, fee) => sum + (Number(fee.commission) || 0), 0) * 100) / 100;
+  const owed = fees.filter((fee) => fee.status !== 'paid');
+  const owedTotal =
+    Math.round(owed.reduce((sum, fee) => sum + (Number(fee.commission) || 0), 0) * 100) / 100;
 
   return (
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader variant="screen" title="سداد الرسوم" showBack />
       <ScreenBody padTop="lg" padBottom="xxxl" gap="lg" width="content">
-        {fees.length > 0 ? (
+        {owed.length > 0 && owedTotal > 0 ? (
           <View style={styles.summaryCard}>
             <AppText variant="caption" color="textMuted">
-              إجمالي الالتزام الحالي
+              عمولة ما بعته (اختيارية)
             </AppText>
             <Row gap="xs" align="end">
-              <AppText variant="display">{outstandingTotal}</AppText>
+              <AppText variant="display">{owedTotal}</AppText>
               <AppText variant="label" color="textSecondary" style={styles.currency}>
                 ر.س
               </AppText>
             </Row>
             <AppText variant="caption" color="textMuted">
-              {outstanding.length > 0
-                ? `${outstanding.length} من ${fees.length} بانتظار السداد`
-                : 'لا توجد رسوم بانتظار السداد'}
+              {`${owed.length} من إعلاناتك المبيعة`}
             </AppText>
           </View>
         ) : null}
@@ -80,7 +70,7 @@ export default function FeesScreen() {
         <Row gap="sm" align="start" style={styles.note}>
           <AppIcon name="information-circle-outline" size={16} color={colors.textMuted} />
           <AppText variant="caption" color="textMuted" style={styles.noteText}>
-            السداد اختياري. أدخل مبلغ البيع عند السداد لحساب عمولة 1%. فتح الصفحة لا يعني حدوث بيع.
+            العمولة 1% من مبلغ البيع، وتُدفع فقط إذا بعت عبر سرح. السداد اختياري وعلى الأمانة.
           </AppText>
         </Row>
 
@@ -90,10 +80,10 @@ export default function FeesScreen() {
               <AppIcon name="receipt-outline" size={28} color={colors.textSecondary} />
             </View>
             <AppText variant="heading3" align="center">
-              لا توجد رسوم مستحقة
+              ما عليك رسوم مستحقة
             </AppText>
             <AppText variant="caption" color="textMuted" align="center">
-              ستظهر هنا عمولات الإعلانات عند تسجيل عملية بيع.
+              العمولة تُدفع فقط إذا بعت. إذا بعت عبر سرح يمكنك سدادها من صفحة الإعلان متى شئت.
             </AppText>
           </Stack>
         ) : null}
@@ -102,7 +92,6 @@ export default function FeesScreen() {
           <View style={styles.group}>
             {fees.map((fee, index) => {
               const paid = fee.status === 'paid';
-              const overdue = fee.status === 'overdue';
               return (
                 <View key={fee.id}>
                   {index > 0 ? <View style={styles.separator} /> : null}
@@ -119,13 +108,15 @@ export default function FeesScreen() {
                         {fee.listing?.arabicTitle ?? fee.listingId}
                       </AppText>
                       <Row gap="xs" wrap>
-                        <View style={[styles.statusPill, overdue && styles.statusPillOverdue]}>
-                          <AppText variant="micro" color={overdue ? 'danger' : 'textSecondary'}>
+                        <View style={styles.statusPill}>
+                          <AppText variant="micro" color="textSecondary">
                             {FEE_STATUS_LABEL[fee.status] ?? fee.status}
                           </AppText>
                         </View>
                         <AppText variant="caption" color="textMuted">
-                          الالتزام الحالي: {fee.commission} ر.س
+                          {fee.commission != null
+                            ? `العمولة: ${fee.commission} ر.س`
+                            : 'أدخل مبلغ البيع لحساب العمولة'}
                         </AppText>
                       </Row>
                     </Stack>
@@ -212,9 +203,6 @@ function createStyles(colors: ThemeColors) {
       borderRadius: radius.pill,
       paddingHorizontal: 8,
       paddingVertical: 2,
-    },
-    statusPillOverdue: {
-      backgroundColor: `${colors.danger}1F`,
     },
   });
 }

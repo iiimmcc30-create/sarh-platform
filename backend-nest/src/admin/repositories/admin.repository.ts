@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, Role, TicketStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LISTING_COMMISSION_PERCENT } from '../../listings/listing-fee';
+import { OWED_LISTING_FEE_WHERE } from '../../listings/listing-fee-owed';
 import {
   notDeleted,
   retentionCutoff,
@@ -736,8 +737,9 @@ export class AdminRepository {
         _sum: { commission: true },
         _count: { _all: true },
       }),
+      // Outstanding = owed only (declared sale / sale amount); unsold listings owe nothing.
       this.prisma.listingFee.aggregate({
-        where: { status: { in: ['pending', 'overdue'] } },
+        where: OWED_LISTING_FEE_WHERE,
         _sum: { commission: true },
         _count: { _all: true },
       }),
@@ -1035,9 +1037,10 @@ export class AdminRepository {
   async listListingFeeCompliance() {
     const unpaidOnDeleted = await this.prisma.listingFee.findMany({
       take: 1000,
+      // Deleted listings whose seller declared the sale (or entered an amount) and
+      // has not paid yet — informational only; unsold deletions owe nothing.
       where: {
-        status: { in: ['pending', 'overdue'] },
-        listing: { deletedAt: { not: null } },
+        AND: [OWED_LISTING_FEE_WHERE, { listing: { deletedAt: { not: null } } }],
       },
       select: {
         id: true,

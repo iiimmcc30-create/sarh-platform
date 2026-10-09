@@ -3,7 +3,7 @@
  * already returns (`fee: { id, status, commission, dueDate, saleAmount } | null`).
  *
  * - no fee row (legacy listing) → still payable: the server creates the row on quote/pay.
- * - pending / overdue → payable.
+ * - pending (or legacy overdue) → payable, voluntarily (العمولة اختيارية وعلى الأمانة).
  * - paid → show «الرسوم مسددة ✓» instead of the button.
  * - waived → nothing to pay; hide the button.
  */
@@ -88,3 +88,32 @@ export function listingFeeErrorMessage(
   if (code === 'network') return LISTING_FEE_MESSAGES.network;
   return stage === 'quote' ? LISTING_FEE_MESSAGES.quoteRetry : LISTING_FEE_MESSAGES.payRetry;
 }
+
+/** Row of GET /api/fees («سداد الرسوم»). */
+export type FeeListRow = {
+  id: string;
+  listingId: string;
+  /** Null until the seller enters the sale amount (1% of the sale, never the asking price). */
+  commission: number | null;
+  saleAmount?: number | null;
+  status: string;
+  /** Server flag: declared sold / sale amount entered and not paid yet. */
+  owed?: boolean;
+  listing: { arabicTitle: string; sellerDeclaredSold?: boolean | null } | null;
+};
+
+/**
+ * Commission is due only when the livestock is actually sold, and paying it is
+ * optional (على الأمانة). Show paid fees and fees the seller declared as sold
+ * (or entered a sale amount for); never unsold / hidden / deleted listings and
+ * never an «متأخرة» state. Older servers send every fee, so filter here too.
+ */
+export function visibleFees(rows: FeeListRow[]): FeeListRow[] {
+  return rows.filter((fee) => {
+    if (fee.status === 'paid') return true;
+    if (fee.status !== 'pending' && fee.status !== 'overdue') return false;
+    if (typeof fee.owed === 'boolean') return fee.owed;
+    return fee.saleAmount != null || fee.listing?.sellerDeclaredSold === true;
+  });
+}
+
