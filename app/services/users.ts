@@ -73,6 +73,27 @@ export function forgetCachedUserProfile(userId: string | null | undefined): void
   if (id) publicProfileCache.delete(id);
 }
 
+/**
+ * Keep the shared profile cache in step with a follow mutation made anywhere (connections
+ * list, post header, listing seller…) so opening that profile right after never shows a
+ * stale «متابعة» / «متابَع» capsule inside the cache TTL.
+ */
+export function patchCachedFollowState(userId: string, following: boolean): void {
+  const id = userId?.trim();
+  if (!id) return;
+  const entry = publicProfileCache.get(id);
+  if (!entry || entry.profile.isFollowing === following) return;
+  const delta = following ? 1 : -1;
+  publicProfileCache.set(id, {
+    at: entry.at,
+    profile: {
+      ...entry.profile,
+      isFollowing: following,
+      followersCount: Math.max(0, (entry.profile.followersCount ?? 0) + delta),
+    },
+  });
+}
+
 export function peekUserProfileCachedAt(userId: string): number | undefined {
   const id = userId?.trim();
   if (!id) return undefined;
@@ -146,7 +167,10 @@ export type ConnectionUser = {
   avatar?: string;
   verified: boolean;
   verifiedTier?: string | null;
+  /** Viewer follows this row. */
   isFollowing: boolean;
+  /** This row follows the viewer («يتابعك» / «رد المتابعة»). Absent on older payloads. */
+  followsYou?: boolean;
 };
 
 export type PrivacySettings = {
@@ -491,6 +515,7 @@ export async function setFollowUser(
     console.warn('[Follow] mutation response omitted boolean following', { userId });
     return null;
   }
+  patchCachedFollowState(userId, json.data.following);
   return json.data as { following: boolean };
 }
 

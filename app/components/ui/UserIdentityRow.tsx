@@ -39,6 +39,8 @@ export type UserIdentityRowProps = {
   nameLines?: number;
   /** Renders under username (e.g. section badge pill). */
   footer?: ReactNode;
+  /** Inline beside the @handle (e.g. X-style «يتابعك» tag). */
+  handleAccessory?: ReactNode;
   /** Action slot (follow button, unblock, counts, …). */
   trailing?: ReactNode;
   /**
@@ -70,6 +72,7 @@ export function UserIdentityRow({
   avatarBorderColor,
   nameLines = 2,
   footer,
+  handleAccessory,
   trailing,
   avatarSide: _avatarSide = 'start',
   onPress,
@@ -120,7 +123,14 @@ export function UserIdentityRow({
           {displayName}
         </AppText>
       </VerifiedInlineName>
-      {handle ? (
+      {handle && handleAccessory ? (
+        <View style={styles.handleRow}>
+          <AppText style={[styles.usernameText, styles.handleShrink, usernameStyle]} numberOfLines={1}>
+            {handle}
+          </AppText>
+          {handleAccessory}
+        </View>
+      ) : handle ? (
         <AppText style={[styles.usernameText, usernameStyle]} numberOfLines={1}>
           {handle}
         </AppText>
@@ -179,6 +189,16 @@ function createStyles(colors: ThemeColors) {
     usernameText: {
       ...typography.caption,
       color: colors.textMuted,
+    },
+    handleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      minWidth: 0,
+    },
+    handleShrink: {
+      flexShrink: 1,
+      minWidth: 0,
     },
     trailing: {
       flexShrink: 0,

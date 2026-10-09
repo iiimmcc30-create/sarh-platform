@@ -22,6 +22,8 @@ import {
   type ConnectionUser,
 } from '@/services/users';
 import { showAlert } from '@/lib/confirmDialog';
+import { quickAccessBorderColor } from '@/lib/quickAccessSurface';
+import { resolveFollowButton, showFollowsYouTag } from '@/lib/followRelation';
 
 type ConnectionsTab = 'followers' | 'following';
 
@@ -31,7 +33,7 @@ export default function ProfileConnectionsScreen() {
   const { accessToken, isAuthenticated, isLoading: authLoading } = useAuth();
   const { colors } = useTheme();
   const { gutter } = useLayout();
-  const styles = useThemedStyles(({ colors }) => createStyles(colors));
+  const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
   const params = useLocalSearchParams<{
     userId?: string;
     tab?: string | string[];
@@ -48,7 +50,8 @@ export default function ProfileConnectionsScreen() {
   const [users, setUsers] = useState<ConnectionUser[]>([]);
   const [listHidden, setListHidden] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [followLoadingId, setFollowLoadingId] = useState<string | null>(null);
+  /** Rows with a follow mutation in flight (blocks double taps; no spinner — optimistic). */
+  const pendingFollowRef = useRef<Set<string>>(new Set());
   const loadedQueryRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -78,23 +81,33 @@ export default function ProfileConnectionsScreen() {
     }, [accessToken, authLoading, isAuthenticated, loadConnections]),
   );
 
+  const patchRow = useCallback((userId: string, isFollowing: boolean) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isFollowing } : u)));
+  }, []);
+
+  /**
+   * X-style optimistic toggle: flip the capsule immediately, roll back on failure.
+   * `setFollowUser` also patches the shared profile cache, so the profile screen
+   * opens with the same state.
+   */
   const handleFollowToggle = async (user: ConnectionUser) => {
-    if (!accessToken || followLoadingId === user.id) {
+    if (!accessToken) {
       showAlert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
       return;
     }
-    if (user.id === me.id) return;
+    if (user.id === me.id || pendingFollowRef.current.has(user.id)) return;
 
-    setFollowLoadingId(user.id);
+    const previous = user.isFollowing;
+    const next = !previous;
+    pendingFollowRef.current.add(user.id);
+    patchRow(user.id, next);
     try {
-      const result = await setFollowUser(user.id, !user.isFollowing);
+      const result = await setFollowUser(user.id, next);
       if (!result) throw new Error('follow_failed');
-
-      // The list endpoint resolves every row from PostgreSQL for the current
-      // authenticated viewer. Never keep a local follow value after mutation.
-      await loadConnections();
+      // Server is the source of truth (e.g. idempotent no-op): settle on its answer.
+      if (result.following !== next) patchRow(user.id, result.following);
       if (__DEV__) {
-        console.debug('[Follow] connections refetched after mutation', {
+        console.debug('[Follow] connection row toggled', {
           viewerId: me.id,
           profileUserId: targetUserId,
           targetUserId: user.id,
@@ -104,10 +117,10 @@ export default function ProfileConnectionsScreen() {
       }
     } catch (error) {
       if (__DEV__) console.warn('[Follow] connection mutation failed', error);
-      await loadConnections();
+      patchRow(user.id, previous);
       showAlert('خطأ', 'تعذّرت المتابعة');
     } finally {
-      setFollowLoadingId(null);
+      pendingFollowRef.current.delete(user.id);
     }
   };
 
@@ -126,7 +139,13 @@ export default function ProfileConnectionsScreen() {
       : 'المتابعات';
 
   const renderItem = ({ item, index }: { item: ConnectionUser; index: number }) => {
-    const showFollowBtn = item.id !== me.id;
+    const isSelf = item.id === me.id;
+    const button = resolveFollowButton(item, isSelf);
+    const followsYouTag = showFollowsYouTag(
+      item,
+      isSelf,
+      isOwnProfile && activeTab === 'followers',
+    );
 
     return (
       <>
@@ -147,14 +166,31 @@ export default function ProfileConnectionsScreen() {
             nameLines={2}
             colors={colors}
             style={styles.identity}
+            handleAccessory={
+              followsYouTag ? (
+                <AppText
+                  variant="caption"
+                  color="textSecondary"
+                  style={styles.followsYou}
+                  testID={`connection-follows-you-${item.id}`}
+                >
+                  يتابعك
+                </AppText>
+              ) : null
+            }
             trailing={
-              showFollowBtn ? (
+              button ? (
+                // Same X capsule as the profile Follow button (pill + bold label).
                 <SarhButton
-                  title={item.isFollowing ? 'متابَع' : 'متابعة'}
-                  variant={item.isFollowing ? 'secondary' : 'primary'}
+                  title={button.title}
+                  variant={button.variant}
                   size="sm"
-                  loading={followLoadingId === item.id}
-                  onPress={() => handleFollowToggle(item)}
+                  shape="pill"
+                  emphasis="strong"
+                  onPress={() => void handleFollowToggle(item)}
+                  style={button.variant === 'secondary' ? styles.pillBorder : undefined}
+                  accessibilityLabel={button.title}
+                  testID={`connection-follow-${item.id}`}
                 />
               ) : null
             }
@@ -239,7 +275,7 @@ export default function ProfileConnectionsScreen() {
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   return StyleSheet.create({
     /** Segmented control: a real selection affordance, not a decorative card. */
     tabs: {
@@ -266,6 +302,19 @@ function createStyles(colors: ThemeColors) {
     },
     identity: {
       width: '100%',
+    },
+    /** «يتابعك»: same hairline tag as the profile header. */
+    followsYou: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      flexShrink: 0,
+    },
+    /** Outlined «متابَع» capsule border — same token as the profile capsules. */
+    pillBorder: {
+      borderColor: quickAccessBorderColor(scheme),
     },
     empty: {
       justifyContent: 'center',

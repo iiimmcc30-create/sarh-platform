@@ -316,14 +316,21 @@ export class UsersRepository {
     });
   }
 
-  findFollowsByViewer(viewerId: string, followingIds: string[]) {
+  /**
+   * Viewer ↔ row relationship edges for a connections page in ONE query (no N+1):
+   * every follow row where the viewer follows one of `userIds` OR one of `userIds`
+   * follows the viewer. The caller splits them into isFollowing / followsYou sets.
+   */
+  findViewerRelationEdges(viewerId: string, userIds: string[]) {
     return this.prisma.follow.findMany({
-      take: Math.max(followingIds.length, 1),
+      take: Math.max(userIds.length * 2, 1),
       where: {
-        followerId: viewerId,
-        followingId: { in: followingIds },
+        OR: [
+          { followerId: viewerId, followingId: { in: userIds } },
+          { followingId: viewerId, followerId: { in: userIds } },
+        ],
       },
-      select: { followingId: true },
+      select: { followerId: true, followingId: true },
     });
   }
 

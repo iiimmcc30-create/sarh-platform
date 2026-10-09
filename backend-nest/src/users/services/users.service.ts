@@ -535,32 +535,44 @@ export class UsersService {
       'follower' in row ? row.follower : row.following,
     );
 
-    let followingSet = new Set<string>();
-    if (viewer?.userId && users.length > 0) {
-      const myFollows = await this.repo.findFollowsByViewer(
-        viewer.userId,
+    // Per-row relationship flags resolved for the authenticated viewer in a single
+    // query (both directions at once): isFollowing = viewer → row, followsYou = row → viewer.
+    const viewerId = viewer?.userId;
+    const followingSet = new Set<string>();
+    const followsYouSet = new Set<string>();
+    if (viewerId && users.length > 0) {
+      const edges = await this.repo.findViewerRelationEdges(
+        viewerId,
         users.map((u) => u.id),
       );
-      followingSet = new Set(myFollows.map((f) => f.followingId));
+      for (const edge of edges) {
+        if (edge.followerId === viewerId) followingSet.add(edge.followingId);
+        if (edge.followingId === viewerId) followsYouSet.add(edge.followerId);
+      }
     }
 
     this.logger.debug(
       {
         profileUserId: id,
-        viewerId: viewer?.userId ?? null,
+        viewerId: viewerId ?? null,
         connectionType: type,
         resultCount: users.length,
         viewerFollowingCount: followingSet.size,
+        followsViewerCount: followsYouSet.size,
       },
       'Connection follow states resolved from database',
     );
 
     return {
       type,
-      users: users.map((u) => ({
-        ...u,
-        isFollowing: viewer?.userId === u.id ? false : followingSet.has(u.id),
-      })),
+      users: users.map((u) => {
+        const self = viewerId === u.id;
+        return {
+          ...u,
+          isFollowing: self ? false : followingSet.has(u.id),
+          followsYou: self ? false : followsYouSet.has(u.id),
+        };
+      }),
     };
   }
 
