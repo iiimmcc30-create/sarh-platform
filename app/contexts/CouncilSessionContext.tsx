@@ -46,14 +46,20 @@ import {
   COUNCIL_BANNED_TEXT,
   COUNCIL_ENDED_TEXT,
   COUNCIL_KICKED_TEXT,
+  COUNCIL_LISTENERS_PAGE,
   COUNCIL_RESYNC_MS,
   CouncilApiError,
   councilErrorMessage,
+  councilParticipants,
   fetchCouncil,
+  fetchCouncilListeners,
+  mergeCouncilListeners,
   fetchCouncilToken,
   joinCouncil,
   leaveCouncil,
   setCouncilMic,
+  type CouncilListener,
+  type CouncilParticipant,
   type CouncilSpeaker,
   type CouncilState,
   type CouncilUser,
@@ -79,6 +85,11 @@ export type CouncilSessionValue = {
   audio: CouncilAudio;
   /** Stage list with my own seat following my local mic state. */
   stageSpeakers: CouncilSpeaker[];
+  /** X Spaces grid: owner, moderators, speakers, then every present listener. */
+  participants: CouncilParticipant[];
+  /** Loads the next page of listeners (no-op when everything is loaded). */
+  loadMoreListeners: () => Promise<void>;
+  loadingMoreListeners: boolean;
   speakingUserIds: Set<string>;
   miniPlayerVisible: boolean;
   open: (id: string, code: string | null) => Promise<CouncilOpenResult>;
@@ -98,6 +109,24 @@ export type CouncilSessionValue = {
 };
 
 const CouncilSessionContext = createContext<CouncilSessionValue | null>(null);
+
+/**
+ * Applies a fresh first page of listeners (state fetch or realtime broadcast) and
+ * keeps the pages the user already scrolled to.
+ */
+function withListenerPage(
+  prev: CouncilState,
+  next: Pick<CouncilState, 'listeners' | 'listenersNextCursor'> & Partial<CouncilState>,
+): CouncilState {
+  const firstPage: CouncilListener[] = next.listeners ?? [];
+  const scrolled = (prev.listeners?.length ?? 0) > COUNCIL_LISTENERS_PAGE;
+  return {
+    ...prev,
+    ...next,
+    listeners: mergeCouncilListeners(prev.listeners, firstPage, COUNCIL_LISTENERS_PAGE),
+    listenersNextCursor: scrolled ? prev.listenersNextCursor ?? null : next.listenersNextCursor ?? null,
+  } as CouncilState;
+}
 
 /**
  * Android 13+: the foreground-service notification (title, «مغادرة») needs
@@ -134,6 +163,8 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
   const [agoraError, setAgoraError] = useState<string | null>(null);
   const [roomFocused, setRoomFocusedState] = useState(false);
   const [arrival, setArrival] = useState<CouncilArrival | null>(null);
+  const [loadingMoreListeners, setLoadingMoreListeners] = useState(false);
+  const loadingMoreRef = useRef(false);
   const [arrivalGate] = useState(() => ({ allow: createArrivalGate() }));
 
   const idRef = useRef<string | null>(null);
@@ -196,7 +227,8 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
 
   const applyState = useCallback((next: CouncilState) => {
     if (next.council.id !== idRef.current) return;
-    setState(next);
+    // Keep listener pages already scrolled to; the first page is always fresh.
+    setState((prev) => (prev && prev.council.id === next.council.id ? withListenerPage(prev, next) : next));
     setLoadError(null);
     if (next.council.status === 'ENDED') setBlocked('ended');
     else if (next.me.banned) setBlocked('banned');
@@ -488,6 +520,9 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
           prev
             ? {
                 ...prev,
+                ...(p.listeners
+                  ? withListenerPage(prev, { listeners: p.listeners, listenersNextCursor: p.listenersNextCursor })
+                  : null),
                 speakers: p.speakers,
                 speakersCount: p.speakersCount,
                 listenerCount: p.listenerCount,
@@ -495,7 +530,18 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
               }
             : prev,
         ),
-      onListeners: (p) => setState((prev) => (prev ? { ...prev, listenerCount: p.listenerCount } : prev)),
+      onListeners: (p) =>
+        setState((prev) =>
+          prev
+            ? {
+                ...(p.listeners
+                  ? withListenerPage(prev, { listeners: p.listeners, listenersNextCursor: p.listenersNextCursor })
+                  : prev),
+                listenerCount: p.listenerCount,
+              }
+            : prev,
+        ),
+      onImage: (p) => setState((prev) => (prev ? { ...prev, image: p.image } : prev)),
       onMic: (p) =>
         setState((prev) => {
           if (!prev) return prev;
@@ -552,6 +598,33 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
   });
 
   const stageSpeakers = useMemo(() => (state ? withMyMicState(state.speakers, state.me) : []), [state]);
+  const listeners = state?.listeners;
+  const participants = useMemo(() => councilParticipants(stageSpeakers, listeners), [stageSpeakers, listeners]);
+
+  const loadMoreListeners = useCallback(async () => {
+    const id = idRef.current;
+    const cursor = stateRef.current?.listenersNextCursor;
+    if (!id || !cursor || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMoreListeners(true);
+    try {
+      const page = await fetchCouncilListeners(id, cursor);
+      setState((prev) => {
+        if (!prev || prev.council.id !== id) return prev;
+        const have = new Set((prev.listeners ?? []).map((l) => l.userId));
+        return {
+          ...prev,
+          listeners: [...(prev.listeners ?? []), ...page.listeners.filter((l) => !have.has(l.userId))],
+          listenersNextCursor: page.nextCursor,
+        };
+      });
+    } catch {
+      // the next scroll / resync retries
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMoreListeners(false);
+    }
+  }, []);
   const speakingUserIds = useMemo(
     () => (state ? speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me) : new Set<string>()),
     [audio.speakingUids, stageSpeakers, state],
@@ -571,6 +644,9 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       agoraError,
       audio,
       stageSpeakers,
+      participants,
+      loadMoreListeners,
+      loadingMoreListeners,
       speakingUserIds,
       miniPlayerVisible,
       open,
@@ -597,6 +673,9 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       agoraError,
       audio,
       stageSpeakers,
+      participants,
+      loadMoreListeners,
+      loadingMoreListeners,
       speakingUserIds,
       miniPlayerVisible,
       open,

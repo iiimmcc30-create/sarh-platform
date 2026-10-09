@@ -125,7 +125,8 @@ export type VerificationPerks = {
   dailyListings: { limit: number; used: number; resetsAt: string | null };
   profileViews30d: { count: number; unlocked: boolean };
   prioritySupport: boolean;
-  councils: { canSchedule: boolean; canFollowersOnly: boolean };
+  /** `canShowImages`: «عرض صورة» in councils (Gold; older servers omit it). */
+  councils: { canSchedule: boolean; canFollowersOnly: boolean; canShowImages?: boolean };
 };
 
 export type BadgePreferences = {

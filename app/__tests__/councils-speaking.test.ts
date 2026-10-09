@@ -132,7 +132,9 @@ describe('Councils: my seat reflects my mic state', () => {
     const room = src('app/councils/[id].tsx');
     const provider = src('contexts/CouncilSessionContext.tsx');
     expect(provider).toContain('withMyMicState(state.speakers, state.me)');
-    expect(room).toContain('speakers={session.stageSpeakers}');
+    // The grid is built from the merged stage list (+ listeners) in the provider.
+    expect(provider).toContain('councilParticipants(stageSpeakers, listeners)');
+    expect(room).toContain('participants={session.participants}');
     expect(room).not.toContain('speakers={state.speakers}');
     expect(provider).toContain('if (!nextMuted) setState((prev) => (prev ? { ...prev, me: { ...prev.me, micMuted: true } } : prev));');
   });

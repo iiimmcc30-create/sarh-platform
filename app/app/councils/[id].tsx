@@ -1,13 +1,16 @@
-// «المجالس» room: 4 × 3 stage, speak requests, moderation. Audio + realtime live in the
+// «المجالس» room: X Spaces style participants grid (everyone, equal circles, role tags),
+// a 12-seat stage, speak requests, moderation and «عرض صورة» (Gold). Audio + realtime live in the
 // global CouncilSessionProvider, so minimising / going back keeps listening; only
 // «مغادرة», council end, kick/ban or logout disconnect.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { CouncilArrivalChip } from '@/components/councils/CouncilArrivalChip';
+import { CouncilImageCard } from '@/components/councils/CouncilImageCard';
+import { CouncilImagePickerSheet, type CouncilImagePick } from '@/components/councils/CouncilImagePickerSheet';
 import { CouncilInviteSheet } from '@/components/councils/CouncilInviteSheet';
 import { CouncilMicButton } from '@/components/councils/CouncilMicButton';
 import { CouncilNotice } from '@/components/councils/CouncilNotice';
@@ -15,11 +18,11 @@ import { CouncilRequestsSheet } from '@/components/councils/CouncilRequestsSheet
 import { CouncilRoomHeader } from '@/components/councils/CouncilRoomHeader';
 import { CouncilRulesSheet } from '@/components/councils/CouncilRulesSheet';
 import { CouncilSheet } from '@/components/councils/CouncilSheet';
-import { SpeakerGrid } from '@/components/councils/SpeakerGrid';
+import { CouncilParticipantsList } from '@/components/councils/CouncilParticipantsList';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useCouncilSession } from '@/contexts/CouncilSessionContext';
 import { AppText, SarhAvatar, SarhButton } from '@/design-system/components';
-import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { Row, Screen, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { confirmDestructive, presentActionSheet, type ActionSheetItem } from '@/lib/actionSheet';
@@ -30,6 +33,7 @@ import { subscriberTierOf } from '@/lib/subscriberTier';
 import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { showToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/services/media';
+import { promptReport } from '@/services/reports';
 import {
   COUNCIL_AUDIO_UNAVAILABLE_TEXT,
   COUNCIL_BANNED_TEXT,
@@ -37,20 +41,25 @@ import {
   COUNCIL_FULL_TEXT,
   COUNCIL_KICKED_TEXT,
   COUNCIL_LIVE_BUSY_TEXT,
+  COUNCIL_SHOW_IMAGE_LABEL,
   COUNCIL_WEB_TEXT,
   cancelSpeakRequest,
   councilErrorMessage,
   councilHandle,
   councilListenersLabel,
   councilMemberAction,
+  councilSpeakersLabel,
   councilMemberMenu,
   councilUserName,
   decideSpeakRequest,
   endCouncil,
   fetchCouncilBanned,
   leaveCouncilStage,
+  removeCouncilImage,
   requestToSpeak,
+  showCouncilImage,
   type CouncilMemberAction,
+  type CouncilParticipant,
   type CouncilRequest,
   type CouncilSpeaker,
   type CouncilUser,
@@ -78,6 +87,7 @@ export default function CouncilRoomScreen() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [bannedOpen, setBannedOpen] = useState(false);
   const [banned, setBanned] = useState<CouncilUser[]>([]);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
 
   const focusedRef = useRef(false);
   const wasJoinedRef = useRef(false);
@@ -250,11 +260,59 @@ export default function CouncilRoomScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audio, id, run, session.setBlocked]);
 
+  // ─── «عرض صورة» (Gold) ──────────────────────────────────────────────────
+
+  const onPickImage = useCallback(
+    async (pick: CouncilImagePick) => {
+      const ok = await run('image', () => showCouncilImage(id, pick), 'تم عرض الصورة');
+      if (ok) setImagePickerOpen(false);
+      void refresh();
+    },
+    [id, refresh, run],
+  );
+
+  const openImageMenu = useCallback(async () => {
+    const s = stateRef.current;
+    const image = s?.image;
+    if (!s || !image) return;
+    const p = s.me.permissions;
+    const mine = image.by?.id === s.me.userId;
+    const canRemove = p.isOwner || (p.isModerator && p.canRemove) || mine;
+    const canReplace = Boolean(s.me.canShowImage) && (p.isOwner || mine);
+    const items: ActionSheetItem[] = [];
+    if (canReplace) items.push({ key: 'replace', label: 'تغيير الصورة', icon: 'image-outline' });
+    if (canRemove) items.push({ key: 'remove', label: 'إزالة الصورة', icon: 'trash-outline', destructive: true });
+    if (!mine) items.push({ key: 'report', label: 'إبلاغ عن الصورة', icon: 'flag-outline', destructive: true });
+    items.push({ key: 'cancel', label: 'إلغاء', cancel: true });
+    const key = await presentActionSheet({ title: 'الصورة المعروضة', items });
+    if (key === 'replace') setImagePickerOpen(true);
+    if (key === 'remove') {
+      await run('image', () => removeCouncilImage(id), 'تمت إزالة الصورة');
+      void refresh();
+    }
+    if (key === 'report') void promptReport('council_image', id, true);
+  }, [id, refresh, run]);
+
+  const openListing = useCallback(
+    (listingId: string) => safePush({ pathname: '/listing/[id]', params: { id: listingId } }, undefined, router),
+    [router],
+  );
+
+  // Raised hands are visible to whoever manages the requests (same list as the sheet).
+  const pendingRequests = state?.pendingRequests;
+  const raisedHands = useMemo(() => new Set((pendingRequests ?? []).map((r) => r.user.id)), [pendingRequests]);
+
+  const onParticipantPress = useCallback(
+    (p: CouncilParticipant) => void openMemberMenu(p, p.onStage),
+    [openMemberMenu],
+  );
+
   const openMenu = useCallback(async () => {
     const s = stateRef.current;
     if (!s) return;
     const p = s.me.permissions;
     const items: ActionSheetItem[] = [{ key: 'rules', label: 'قواعد المجلس', icon: 'document-text-outline' }];
+    if (s.me.canShowImage) items.push({ key: 'image', label: COUNCIL_SHOW_IMAGE_LABEL, icon: 'image-outline' });
     if (p.canInvite) items.push({ key: 'invite', label: 'دعوة', icon: 'person-add-outline' });
     if (p.canManageRequests) items.push({ key: 'requests', label: 'طلبات التحدث', icon: 'hand-left-outline' });
     if (p.canBan || p.isOwner) items.push({ key: 'banned', label: 'المحظورون', icon: 'block' });
@@ -267,6 +325,9 @@ export default function CouncilRoomScreen() {
       case 'rules':
         setRulesReadOnly(true);
         setRulesOpen(true);
+        break;
+      case 'image':
+        setImagePickerOpen(true);
         break;
       case 'invite':
         setInviteOpen(true);
@@ -369,83 +430,89 @@ export default function CouncilRoomScreen() {
     <Screen edges={['top', 'bottom']}>
       {header}
       <CouncilArrivalChip arrival={session.arrival} />
-      <ScreenBody gap="xl" padTop="sm" bottomInset="action" contentContainerStyle={styles.bodyContent}>
-        <Stack gap="sm">
-          <Row gap="sm" align="center">
-            <View style={styles.liveDot} />
-            <AppText variant="caption" color="success">
-              مباشر
-            </AppText>
-            <AppText variant="caption" color="textMuted">
-              · {councilListenersLabel(state.listenerCount)}
-            </AppText>
-            {council.visibility === 'PRIVATE' ? (
-              <Row gap="xs" align="center">
-                <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
-                <AppText variant="caption" color="textMuted">
-                  خاص
+      <CouncilParticipantsList
+        participants={session.participants}
+        speakingUserIds={session.speakingUserIds}
+        myUserId={me.userId}
+        raisedHands={raisedHands}
+        loadingMore={session.loadingMoreListeners}
+        bottomInset={0}
+        onEndReached={() => void session.loadMoreListeners()}
+        onPress={onParticipantPress}
+        header={
+          <Stack gap="xl">
+            <Stack gap="sm">
+              <Row gap="sm" align="center">
+                <View style={styles.liveDot} />
+                <AppText variant="caption" color="success">
+                  مباشر
                 </AppText>
+                <AppText variant="caption" color="textMuted">
+                  · {councilListenersLabel(state.listenerCount)}
+                </AppText>
+                {council.visibility === 'PRIVATE' ? (
+                  <Row gap="xs" align="center">
+                    <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
+                    <AppText variant="caption" color="textMuted">
+                      خاص
+                    </AppText>
+                  </Row>
+                ) : null}
+              </Row>
+              {council.description ? (
+                <AppText variant="bodySmall" color="textSecondary">
+                  {council.description}
+                </AppText>
+              ) : null}
+              <Row gap="sm" align="center">
+                <SarhAvatar
+                  uri={council.owner.avatar ? resolveMediaUrl(council.owner.avatar) : null}
+                  name={councilUserName(council.owner)}
+                  size="xs"
+                />
+                <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.ownerName}>
+                  {councilUserName(council.owner)}
+                </AppText>
+                {shouldShowVerifiedBadge(council.owner.verified) ? (
+                  <VerificationBadge size={13} tier={council.owner.verifiedTier} />
+                ) : null}
+              </Row>
+            </Stack>
+
+            {audioNotice ? (
+              <Row gap="sm" align="center" style={styles.notice}>
+                <AppIcon name="information-circle-outline" size={16} color={colors.textMuted} />
+                <AppText variant="caption" color="textSecondary" style={{ flex: 1 }}>
+                  {audioNotice}
+                </AppText>
+                {audio.status === 'failed' || audio.status === 'busy' ? (
+                  <Pressable onPress={() => void session.join(false)} hitSlop={8} accessibilityRole="button">
+                    <AppText variant="caption" color="textPrimary">
+                      إعادة المحاولة
+                    </AppText>
+                  </Pressable>
+                ) : null}
               </Row>
             ) : null}
-          </Row>
-          {council.description ? (
-            <AppText variant="bodySmall" color="textSecondary">
-              {council.description}
-            </AppText>
-          ) : null}
-          <Row gap="sm" align="center">
-            <SarhAvatar
-              uri={council.owner.avatar ? resolveMediaUrl(council.owner.avatar) : null}
-              name={councilUserName(council.owner)}
-              size="xs"
-            />
-            <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.ownerName}>
-              {councilUserName(council.owner)}
-            </AppText>
-            {shouldShowVerifiedBadge(council.owner.verified) ? (
-              <VerificationBadge size={13} tier={council.owner.verifiedTier} />
+            {state.image ? (
+              <CouncilImageCard image={state.image} onOpenListing={openListing} onMore={() => void openImageMenu()} />
             ) : null}
-          </Row>
-        </Stack>
-
-        {audioNotice ? (
-          <Row gap="sm" align="center" style={styles.notice}>
-            <AppIcon name="information-circle-outline" size={16} color={colors.textMuted} />
-            <AppText variant="caption" color="textSecondary" style={{ flex: 1 }}>
-              {audioNotice}
-            </AppText>
-            {audio.status === 'failed' || audio.status === 'busy' ? (
-              <Pressable onPress={() => void session.join(false)} hitSlop={8} accessibilityRole="button">
-                <AppText variant="caption" color="textPrimary">
-                  إعادة المحاولة
-                </AppText>
-              </Pressable>
-            ) : null}
-          </Row>
-        ) : null}
-
-        {/* Stage block takes the free height and centres the 4 × 3 grid + listeners pill in it. */}
-        <View style={styles.stage} testID="council-stage">
-          <SpeakerGrid
-            speakers={session.stageSpeakers}
-            speakingUserIds={session.speakingUserIds}
-            myUserId={me.userId}
-            onSpeakerPress={(s) => void openMemberMenu(s, true)}
-          />
-
-          <Row gap="sm" align="center" justify="center" style={styles.listenersPill}>
-            <AppIcon name="volume-high" size={16} color={colors.textSecondary} />
-            <AppText variant="label" color="textSecondary">
-              {councilListenersLabel(state.listenerCount)}
-            </AppText>
-            {state.isFull ? (
-              <AppText variant="caption" color="textMuted">
-                · {COUNCIL_FULL_TEXT}
+            <Row gap="sm" align="center" testID="council-stage">
+              <AppText variant="label" color="textPrimary">
+                الحضور
               </AppText>
-            ) : null}
-          </Row>
-        </View>
-      </ScreenBody>
+              <AppText variant="caption" color="textMuted">
+                {councilSpeakersLabel(state.speakersCount)} · {councilListenersLabel(state.listenerCount)}
+              </AppText>
+              {state.isFull ? (
+                <AppText variant="caption" color="textMuted">
+                  · {COUNCIL_FULL_TEXT}
+                </AppText>
+              ) : null}
+            </Row>
+          </Stack>
+        }
+      />
 
       <View style={styles.bar}>
         <View style={styles.barSide}>
@@ -490,8 +557,27 @@ export default function CouncilRoomScreen() {
           )}
         </View>
 
-        <View style={styles.barSide} />
+        <View style={styles.barSide}>
+          {me.canShowImage ? (
+            <Pressable
+              onPress={() => setImagePickerOpen(true)}
+              style={styles.barIcon}
+              accessibilityRole="button"
+              accessibilityLabel={COUNCIL_SHOW_IMAGE_LABEL}
+              testID="council-show-image"
+            >
+              <AppIcon name="image-outline" size={20} color={colors.textPrimary} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
+
+      <CouncilImagePickerSheet
+        visible={imagePickerOpen}
+        busy={busy === 'image'}
+        onPick={(pick) => void onPickImage(pick)}
+        onClose={() => setImagePickerOpen(false)}
+      />
 
       <CouncilRulesSheet
         visible={rulesOpen}
@@ -565,17 +651,6 @@ export default function CouncilRoomScreen() {
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    bodyContent: { flexGrow: 1 },
-    stage: { flexGrow: 1, justifyContent: 'center', gap: spacing.xxl, paddingBottom: spacing.xl },
-    listenersPill: {
-      alignSelf: 'center',
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      borderRadius: radius.pill,
-      backgroundColor: colors.bgSurface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
-    },
     liveDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.success },
     ownerName: { flexShrink: 1 },
     notice: {

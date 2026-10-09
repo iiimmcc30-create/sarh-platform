@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { subscriberTierOf, tierColorKeys } from '@/lib/subscriberTier';
 import { shouldShowVerifiedBadge } from '@/lib/verifiedBadge';
 import { resolveMediaUrl } from '@/services/media';
-import { councilUserName, type CouncilSpeaker } from '@/services/councils';
+import { councilParticipantTag, councilUserName, type CouncilParticipant } from '@/services/councils';
 
 /** Seat avatar — sized so four seats fill a phone row (≈ 83pt each at 390pt wide). */
 const AVATAR = 64;
@@ -18,14 +18,21 @@ const TIER_RING = AVATAR + 4;
 const SEAT_BADGE = 12;
 
 type Props = {
-  speaker: CouncilSpeaker | null;
+  /** Any participant (stage or listener); every circle has the same size. */
+  speaker: CouncilParticipant | null;
   speaking: boolean;
   isMe: boolean;
-  onPress?: (speaker: CouncilSpeaker) => void;
+  /** Listener with a pending «طلب التحدث» (shown to the host / moderators). */
+  handRaised?: boolean;
+  onPress?: (speaker: CouncilParticipant) => void;
 };
 
-/** One seat in the 4 × 3 grid: avatar circle, a soft speaking ring and a quiet mic state. */
-function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
+/**
+ * One circle in the X Spaces style grid: avatar, a soft speaking ring, a quiet mic
+ * state for people on stage, and a small role tag («راعي المجلس» / «مشرف» / «متحدث»)
+ * under the name. Listeners get no tag.
+ */
+function SpeakerSeatBase({ speaker, speaking, isMe, handRaised = false, onPress }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
   const [ring] = useState(() => new Animated.Value(0));
@@ -72,7 +79,9 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
   }
 
   const name = councilUserName(speaker.user);
-  const muted = speaker.micMuted || speaker.mutedByModerator;
+  // Listeners have no mic at all — only people on stage show the muted badge.
+  const muted = speaker.onStage && (speaker.micMuted || speaker.mutedByModerator);
+  const tag = councilParticipantTag(speaker);
   const tier = subscriberTierOf(speaker.user);
   const verified = shouldShowVerifiedBadge(speaker.user.verified);
   return (
@@ -80,7 +89,7 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
       style={styles.seat}
       onPress={onPress ? () => onPress(speaker) : undefined}
       accessibilityRole="button"
-      accessibilityLabel={`${name}${muted ? '، الميكروفون مغلق' : ''}`}
+      accessibilityLabel={`${name}${tag ? `، ${tag}` : ''}${muted ? '، الميكروفون مغلق' : ''}${handRaised ? '، رفع يده' : ''}`}
     >
       <View style={styles.avatarWrap}>
         <Animated.View pointerEvents="none" style={[styles.ring, { opacity: ring }]} />
@@ -124,13 +133,9 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
             <AppIcon name="mic-off" size={11} color={speaker.mutedByModerator ? colors.danger : colors.textSecondary} />
           </View>
         ) : null}
-        {speaker.role === 'OWNER' || speaker.role === 'MODERATOR' ? (
-          <View style={styles.roleBadge}>
-            <AppIcon
-              name={speaker.role === 'OWNER' ? 'shield-checkmark-outline' : 'shield-outline'}
-              size={11}
-              color={colors.electric}
-            />
+        {handRaised ? (
+          <View style={styles.roleBadge} testID="council-hand-raised">
+            <AppIcon name="hand-left-outline" size={11} color={colors.textPrimary} />
           </View>
         ) : null}
       </View>
@@ -146,6 +151,16 @@ function SpeakerSeatBase({ speaker, speaking, isMe, onPress }: Props) {
         </AppText>
         {verified ? <VerificationBadge size={SEAT_BADGE} tier={speaker.user.verifiedTier} /> : null}
       </View>
+      {tag ? (
+        <View style={styles.tagRow} testID="council-role-tag">
+          {speaker.onStage ? <AppIcon name="mic" size={9} color={colors.textMuted} /> : null}
+          <AppText variant="micro" color="textMuted" numberOfLines={1} style={styles.tagText}>
+            {tag}
+          </AppText>
+        </View>
+      ) : (
+        <View style={styles.tagSpacer} />
+      )}
     </Pressable>
   );
 }
@@ -154,7 +169,7 @@ export const SpeakerSeat = memo(SpeakerSeatBase);
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    seat: { flex: 1, alignItems: 'center', gap: spacing.xs, minWidth: 0 },
+    seat: { flex: 1, alignItems: 'center', gap: spacing.xs, minWidth: 0, paddingHorizontal: 2 },
     avatarWrap: { width: AVATAR + 8, height: AVATAR + 8, alignItems: 'center', justifyContent: 'center' },
     ring: {
       position: 'absolute',
@@ -181,6 +196,18 @@ function createStyles(colors: ThemeColors) {
       minWidth: 0,
     },
     name: { flexShrink: 1 },
+    /** Role tag line under the name; listeners keep the same height (grid rows align). */
+    tagRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2,
+      maxWidth: '100%',
+      minHeight: 14,
+      marginTop: -2,
+    },
+    tagText: { flexShrink: 1 },
+    tagSpacer: { minHeight: 14, marginTop: -2 },
     avatar: { width: AVATAR, height: AVATAR },
     offline: { opacity: 0.45 },
     emptyCircle: {

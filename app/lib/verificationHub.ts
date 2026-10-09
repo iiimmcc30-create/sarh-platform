@@ -336,9 +336,12 @@ export function buildVerificationHub(input: HubInput): HubModel {
       key: 'councils',
       icon: 'mic',
       title: 'المجالس',
-      description: councils.canFollowersOnly
-        ? 'جدولة مجالسك مسبقاً، ومجالس للمتابعين فقط.'
-        : 'جدولة مجالسك مسبقاً.',
+      description:
+        (councils.canShowImages ?? tier === 'gold')
+          ? 'جدولة مجالسك مسبقاً، ومجالس للمتابعين فقط، وعرض صورة لجميع الحاضرين.'
+          : councils.canFollowersOnly
+            ? 'جدولة مجالسك مسبقاً، ومجالس للمتابعين فقط.'
+            : 'جدولة مجالسك مسبقاً.',
       action: 'councils',
     });
   }

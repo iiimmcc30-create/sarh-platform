@@ -28,6 +28,9 @@ export const COUNCILS_EMPTY_TEXT = 'لا توجد مجالس مباشرة الآ
 export const COUNCIL_FOLLOWERS_ONLY_TEXT = 'هذا المجلس للمتابعين فقط — تابع المضيف للانضمام';
 export const COUNCIL_NOT_STARTED_TEXT = 'لم يبدأ المجلس بعد';
 export const COUNCIL_FOLLOWERS_ONLY_LABEL = 'للمتابعين فقط';
+/** «عرض صورة» (Gold) — the room action and its copy. */
+export const COUNCIL_SHOW_IMAGE_LABEL = 'عرض صورة';
+export const COUNCIL_IMAGE_GOLD_TEXT = 'عرض الصور في المجالس متاح لمشتركي Gold';
 export const COUNCILS_UPCOMING_TITLE = 'قادمة';
 /** Mirrors the server schedule window (5 minutes .. 14 days ahead). */
 export const COUNCIL_SCHEDULE_MIN_LEAD_MS = 5 * 60_000;
@@ -62,6 +65,42 @@ export type CouncilSpeaker = {
   online: boolean;
   agoraUid: number;
   user: CouncilUser;
+};
+
+/** Off-stage participant (listener, or a moderator who is not on stage). */
+export type CouncilListener = {
+  userId: string;
+  role: CouncilMemberRole;
+  user: CouncilUser;
+};
+
+/**
+ * One circle in the X Spaces style participants grid. Every circle has the same
+ * size; the role only adds a small tag («راعي المجلس» / «مشرف» / «متحدث»).
+ */
+export type CouncilParticipant = {
+  userId: string;
+  role: CouncilMemberRole;
+  onStage: boolean;
+  micMuted: boolean;
+  mutedByModerator: boolean;
+  online: boolean;
+  agoraUid?: number;
+  user: CouncilUser;
+};
+
+/** «عرض صورة» (Gold): the image pinned at the top of the room. */
+export type CouncilImage = {
+  url: string;
+  listingId: string | null;
+  listing: { id: string; title: string } | null;
+  by: CouncilUser | null;
+  at: string | null;
+};
+
+export type CouncilImageSources = {
+  canShowImages: boolean;
+  listings: { id: string; title: string; images: string[] }[];
 };
 
 export type CouncilPermissions = {
@@ -118,6 +157,8 @@ export type CouncilMe = {
   pendingRequestId: string | null;
   rtcRole: 'publisher' | 'subscriber';
   permissions: CouncilPermissions;
+  /** Gold owner / speaker on stage may use «عرض صورة» (older servers: absent). */
+  canShowImage?: boolean;
 };
 
 export type CouncilState = {
@@ -125,6 +166,10 @@ export type CouncilState = {
   speakers: CouncilSpeaker[];
   speakersCount: number;
   listenerCount: number;
+  /** Off-stage participants loaded so far (first page from the server, more on scroll). */
+  listeners?: CouncilListener[];
+  listenersNextCursor?: string | null;
+  image?: CouncilImage | null;
   isFull: boolean;
   me: CouncilMe;
   pendingRequests: CouncilRequest[];
@@ -187,6 +232,7 @@ export type CouncilPerks = {
   tier: string | null;
   canFollowersOnly: boolean;
   canSchedule: boolean;
+  canShowImages?: boolean;
 };
 
 export type CouncilInput = {
@@ -371,6 +417,27 @@ export function resolveCouncilInvite(code: string) {
   return request<{ councilId: string; code: string }>(`${BASE}/invite/${enc(code)}`);
 }
 
+export function fetchCouncilListeners(id: string, cursor: string) {
+  return request<{ listeners: CouncilListener[]; nextCursor: string | null }>(
+    `${BASE}/${enc(id)}/listeners?cursor=${enc(cursor)}`,
+  );
+}
+
+export function fetchCouncilImageSources() {
+  return request<CouncilImageSources>(`${BASE}/image-sources`);
+}
+
+export function showCouncilImage(id: string, input: { imageUrl: string; listingId?: string | null }) {
+  return request<{ image: CouncilImage | null }>(
+    `${BASE}/${enc(id)}/image`,
+    jsonInit('PUT', { imageUrl: input.imageUrl, ...(input.listingId ? { listingId: input.listingId } : {}) }),
+  );
+}
+
+export function removeCouncilImage(id: string) {
+  return request<{ removed: boolean }>(`${BASE}/${enc(id)}/image`, jsonInit('DELETE'));
+}
+
 export function searchCouncilUsers(q: string) {
   return request<{ users: CouncilUser[] }>(`${BASE}/users/search?q=${enc(q.trim())}`);
 }
@@ -431,6 +498,82 @@ export function councilSeatRows(speakers: CouncilSpeaker[]): (CouncilSpeaker | n
   }
   return rows;
 }
+
+/** Small tag under a participant's name; listeners carry none. */
+export function councilParticipantTag(p: Pick<CouncilParticipant, 'role' | 'onStage'>): string | null {
+  if (p.role === 'OWNER') return 'راعي المجلس';
+  if (p.role === 'MODERATOR') return 'مشرف';
+  if (p.onStage) return 'متحدث';
+  return null;
+}
+
+const PARTICIPANT_RANK: Record<string, number> = { OWNER: 0, MODERATOR: 1, SPEAKER: 2, LISTENER: 3 };
+
+/**
+ * X Spaces order for the participants grid: owner, moderators, speakers, then
+ * listeners (each group keeps the server order: seats, then join time). Everyone
+ * appears once; nobody is capped here (the server pages the listeners).
+ */
+export function councilParticipants(
+  speakers: readonly CouncilSpeaker[],
+  listeners: readonly CouncilListener[] | undefined,
+): CouncilParticipant[] {
+  const seen = new Set<string>();
+  const out: (CouncilParticipant & { order: number })[] = [];
+  const stage = [...speakers].sort((a, b) => a.seatIndex - b.seatIndex);
+  stage.forEach((s, i) => {
+    if (seen.has(s.userId)) return;
+    seen.add(s.userId);
+    out.push({
+      userId: s.userId,
+      role: s.role,
+      onStage: true,
+      micMuted: s.micMuted,
+      mutedByModerator: s.mutedByModerator,
+      online: s.online,
+      agoraUid: s.agoraUid,
+      user: s.user,
+      order: i,
+    });
+  });
+  (listeners ?? []).forEach((l, i) => {
+    if (seen.has(l.userId) || l.role === 'BANNED') return;
+    seen.add(l.userId);
+    out.push({
+      userId: l.userId,
+      role: l.role === 'SPEAKER' ? 'LISTENER' : l.role,
+      onStage: false,
+      micMuted: true,
+      mutedByModerator: false,
+      online: true,
+      user: l.user,
+      order: 1000 + i,
+    });
+  });
+  // Moderators on stage come before moderators off stage, then speakers, then listeners.
+  const rank = (p: CouncilParticipant) =>
+    p.role === 'MODERATOR' ? 1 : p.onStage ? PARTICIPANT_RANK[p.role] ?? 2 : PARTICIPANT_RANK.LISTENER;
+  out.sort((a, b) => rank(a) - rank(b) || a.order - b.order);
+  return out.map(({ order: _order, ...p }) => p);
+}
+
+/**
+ * Replaces the first page of listeners with a fresh one (realtime / resync) while
+ * keeping pages the user already scrolled to, without duplicates.
+ */
+export function mergeCouncilListeners(
+  loaded: readonly CouncilListener[] | undefined,
+  firstPage: readonly CouncilListener[],
+  pageSize: number,
+): CouncilListener[] {
+  const prev = loaded ?? [];
+  if (prev.length <= pageSize) return [...firstPage];
+  const ids = new Set(firstPage.map((l) => l.userId));
+  return [...firstPage, ...prev.slice(pageSize).filter((l) => !ids.has(l.userId))];
+}
+
+/** Server page size of the participants grid (mirrors COUNCIL_LISTENERS_PAGE). */
+export const COUNCIL_LISTENERS_PAGE = 60;
 
 export function councilRoleLabel(role: CouncilMemberRole | null | undefined): string {
   switch (role) {
@@ -510,6 +653,8 @@ export function councilErrorMessage(err: unknown): string {
         return COUNCIL_FOLLOWERS_ONLY_TEXT;
       case 'council_not_started':
         return COUNCIL_NOT_STARTED_TEXT;
+      case 'council_image_gold_only':
+        return COUNCIL_IMAGE_GOLD_TEXT;
       default:
         return err.message;
     }

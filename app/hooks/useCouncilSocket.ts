@@ -6,6 +6,8 @@ import type { Socket } from 'socket.io-client';
 import { connectSocket } from '@/lib/socket';
 import {
   COUNCIL_HEARTBEAT_MS,
+  type CouncilImage,
+  type CouncilListener,
   type CouncilMemberRole,
   type CouncilRequest,
   type CouncilSpeaker,
@@ -15,8 +17,21 @@ import {
 export type CouncilSocketHandlers = {
   /** Fired after (re)joining the room — the screen should refetch state. */
   onResync?: () => void;
-  onSpeakers?: (p: { speakers: CouncilSpeaker[]; speakersCount: number; listenerCount: number }) => void;
-  onListeners?: (p: { listenerCount: number }) => void;
+  /** `listeners` = first page of the participants grid (older servers omit it). */
+  onSpeakers?: (p: {
+    speakers: CouncilSpeaker[];
+    speakersCount: number;
+    listenerCount: number;
+    listeners?: CouncilListener[];
+    listenersNextCursor?: string | null;
+  }) => void;
+  onListeners?: (p: {
+    listenerCount: number;
+    listeners?: CouncilListener[];
+    listenersNextCursor?: string | null;
+  }) => void;
+  /** «عرض صورة»: the pinned image changed (null = removed). */
+  onImage?: (p: { image: CouncilImage | null }) => void;
   onMic?: (p: { userId: string; micMuted: boolean; mutedByModerator?: boolean }) => void;
   /** Sent to me only: my role/seat/mute changed. */
   onRole?: (p: {
@@ -65,7 +80,10 @@ export function useCouncilSocket({ councilId, accessToken, enabled, handlers }: 
     on<Parameters<NonNullable<CouncilSocketHandlers['onSpeakers']>>[0]>('council:speakers', (p) =>
       h().onSpeakers?.(p),
     );
-    on<{ listenerCount: number }>('council:listeners', (p) => h().onListeners?.(p));
+    on<Parameters<NonNullable<CouncilSocketHandlers['onListeners']>>[0]>('council:listeners', (p) =>
+      h().onListeners?.(p),
+    );
+    on<{ image?: CouncilImage | null }>('council:image', (p) => h().onImage?.({ image: p?.image ?? null }));
     on<Parameters<NonNullable<CouncilSocketHandlers['onMic']>>[0]>('council:mic', (p) => h().onMic?.(p));
     on<Parameters<NonNullable<CouncilSocketHandlers['onRole']>>[0]>('council:role', (p) =>
       h().onRole?.(p),

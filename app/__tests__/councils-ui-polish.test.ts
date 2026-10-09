@@ -36,13 +36,11 @@ describe('councils UI polish', () => {
     expect(form).toContain("thumbColor={mods[t.key] ? colors.onElectric : '#fff'}");
   });
 
-  it('room: 4 × 3 grid stays, stage block fills and centres the free height', () => {
+  it('room: X Spaces participants grid (4 equal columns, virtualized)', () => {
     const room = src('app/councils/[id].tsx');
-    expect(room).toContain('<SpeakerGrid');
-    expect(room).toContain('contentContainerStyle={styles.bodyContent}');
-    expect(room).toMatch(/bodyContent: \{ flexGrow: 1 \}/);
-    expect(room).toMatch(/stage: \{ flexGrow: 1, justifyContent: 'center'/);
-    expect(room).toContain('styles.listenersPill');
+    expect(room).toContain('<CouncilParticipantsList');
+    expect(room).not.toContain('<SpeakerGrid');
+    expect(room).not.toContain('<ScreenBody');
     expect(src('components/councils/SpeakerSeat.tsx')).toContain('const AVATAR = 64;');
     expect(src('services/councils.ts')).toContain('export const COUNCIL_GRID_COLUMNS = 4;');
   });

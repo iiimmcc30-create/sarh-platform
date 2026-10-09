@@ -37,6 +37,7 @@ export const REPORT_TARGET_LABEL_AR: Record<string, string> = {
   user: 'حساب',
   story: 'قصة',
   collection: 'مجموعة',
+  council_image: 'صورة في مجلس',
 };
 
 /** Row subtitle: «بلاغ على إعلان» / «بلاغ احتيال» / «بلاغ». */

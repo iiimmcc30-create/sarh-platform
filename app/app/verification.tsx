@@ -136,7 +136,10 @@ function featuresFor(tier: VerificationTierId, plan: VerificationPlan | undefine
       : null;
   const councilsSchedule: Feature = {
     icon: 'mic',
-    label: tier === 'gold' ? 'جدولة المجالس ومجالس للمتابعين فقط' : 'جدولة المجالس مسبقاً',
+    label: tier === 'gold' ? 'جدولة المجالس، ومجالس للمتابعين فقط، و«عرض صورة»' : 'جدولة المجالس مسبقاً',
+    ...(tier === 'gold'
+      ? { info: '«عرض صورة» في مجلسك: صورة من إعلاناتك أو من المعرض تظهر لجميع الحاضرين.' }
+      : null),
   };
   const daily: Feature = {
     icon: 'add-circle-outline',
