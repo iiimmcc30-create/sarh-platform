@@ -20,8 +20,8 @@ export const CLOUDINARY_FIT = {
   row: ['w_200', 'c_fill', 'q_auto', 'f_auto'],
   /** Listing cards (~118px CSS). */
   list: ['w_240', 'c_fill', 'q_auto', 'f_auto'],
-  /** Full-bleed market row image (140×140pt box, ~2.5x DPR, square crop-fill). */
-  listBleed: ['w_360', 'h_360', 'c_fill', 'q_auto', 'f_auto'],
+  /** Full-bleed market row image (square, ~114–136pt by screen width; ~2.2–2.6x DPR, crop-fill). */
+  listBleed: ['w_300', 'h_300', 'c_fill', 'q_auto', 'f_auto'],
   /** Medium cards (~130–160px). */
   card: ['w_480', 'c_fill', 'q_auto', 'f_auto'],
   /** Full-width banners / news list (~168px tall). */

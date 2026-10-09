@@ -3,7 +3,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { memo, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from 'react-native';
 import { MediaViewerModal } from '@/components/ui/MediaViewerModal';
 import { measureMediaOrigin, type MediaOriginRect } from '@/lib/mediaOrigin';
 import { ambientShadow } from '@/constants/designSystem';
@@ -36,6 +36,7 @@ import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoo
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { LISTING_LIST_LAYOUT } from '@/components/feature/listingCardLayout';
+import { useListingListMetrics } from '@/components/feature/useListingListMetrics';
 import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
 
 interface ListingCardProps {
@@ -62,8 +63,6 @@ const CATEGORY_ICONS: Record<Listing['category'], string> = {
 };
 
 const NEW_LISTING_MS = 24 * 60 * 60 * 1000;
-/** Full-bleed list image: fills the card height, flush with the card's left edge. */
-const LIST_IMAGE = LISTING_LIST_LAYOUT.image;
 
 function listingTimeLabel(listing: Listing): string {
   if (listing.createdAt) return formatRelativeTimeAr(listing.createdAt);
@@ -88,6 +87,44 @@ function toWesternDigits(value: string): string {
   return value.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 }
 
+/**
+ * One cluster of the market row meta line (icon + label). The meta line is a
+ * single non-wrapping row of these; add new clusters (e.g. distance) as
+ * siblings. `shrink` lets the cluster truncate (only the city does today).
+ */
+function ListMetaItem({
+  icon,
+  label,
+  iconSize,
+  iconColor,
+  gap,
+  textStyle,
+  shrink = false,
+}: {
+  icon: string;
+  label: string;
+  iconSize: number;
+  iconColor: string;
+  gap: number;
+  textStyle: StyleProp<TextStyle>;
+  shrink?: boolean;
+}) {
+  return (
+    <View
+      style={[
+        getRtlRow(),
+        { alignItems: 'center', gap },
+        shrink ? { flexShrink: 1, minWidth: 0 } : { flexShrink: 0 },
+      ]}
+    >
+      <AppIcon name={icon} size={iconSize} color={iconColor} />
+      <Text style={textStyle} numberOfLines={1} ellipsizeMode="tail">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 function ListingCardInner({
   listing,
   onPress,
@@ -104,6 +141,22 @@ function ListingCardInner({
   const [viewerInitialIndex, setViewerInitialIndex] = useState(0);
   const [viewerOrigin, setViewerOrigin] = useState<MediaOriginRect | null>(null);
   const thumbRef = useRef<View>(null);
+  // Market row proportions scale with the screen width (Haraj reference ratios).
+  const m = useListingListMetrics();
+  const listDyn = useMemo(
+    () => ({
+      row: { marginHorizontal: m.marginHorizontal, borderRadius: m.radius },
+      clip: { height: m.cardHeight, borderRadius: m.radius },
+      content: { paddingHorizontal: m.paddingHorizontal, paddingVertical: m.paddingVertical },
+      title: { fontSize: m.titleFontSize, lineHeight: m.titleLineHeight },
+      metaRow: { gap: m.metaGap, minHeight: Math.max(m.metaIcon, m.metaLineHeight) },
+      metaText: { fontSize: m.metaFontSize, lineHeight: m.metaLineHeight },
+      seller: { gap: m.sellerGap },
+      avatar: { width: m.avatar, height: m.avatar, borderRadius: m.avatar / 2 },
+      image: { width: m.image },
+    }),
+    [m],
+  );
   const cardOverlay = imageCardOverlay(scheme);
   const cardOverlayStrong = imageCardOverlayStrong(scheme);
   const desc = listing.arabicDescription || listing.description;
@@ -132,15 +185,16 @@ function ListingCardInner({
         style={({ pressed }) => [
           styles.listRow,
           styles.listRowChrome,
+          listDyn.row,
           getRtlDirection(),
           pressed && styles.pressed,
         ]}
       >
-        <View style={[styles.listClip, getRtlRow()]}>
-        <View style={styles.listContent}>
+        <View style={[styles.listClip, listDyn.clip, getRtlRow()]}>
+        <View style={[styles.listContent, listDyn.content]}>
           <View style={[styles.listTitleRow, getRtlRow()]}>
             <View style={styles.listTitleShell}>
-              <Text style={styles.listTitle} numberOfLines={2} ellipsizeMode="tail">
+              <Text style={[styles.listTitle, listDyn.title]} numberOfLines={LISTING_LIST_LAYOUT.titleLines} ellipsizeMode="tail">
                 {title}
               </Text>
             </View>
@@ -150,38 +204,44 @@ function ListingCardInner({
             ) : null}
           </View>
 
-          <View style={[styles.listMetaRow, getRtlRow()]}>
-            <View style={[styles.listMetaCluster, getRtlRow()]}>
-              <AppIcon name="map-marker-outline" size={LISTING_LIST_LAYOUT.metaIcon} color={colors.textSecondary} />
-              <Text style={styles.listMetaText} numberOfLines={1} ellipsizeMode="tail">
-                {location}
-              </Text>
-            </View>
-            <View style={[styles.listMetaClusterFixed, getRtlRow()]}>
-              <AppIcon name="refresh-circle-outline" size={LISTING_LIST_LAYOUT.metaIcon} color={colors.textSecondary} />
-              <Text style={styles.listMetaText} numberOfLines={1}>
-                {displayTime}
-              </Text>
-            </View>
+          {/* Meta line: one row, no wrap — city (truncates) · time · price. */}
+          <View style={[styles.listMetaRow, listDyn.metaRow, getRtlRow()]}>
+            <ListMetaItem
+              icon="map-marker-outline"
+              label={location}
+              iconSize={m.metaIcon}
+              iconColor={colors.textSecondary}
+              gap={m.metaInnerGap}
+              textStyle={[styles.listMetaText, listDyn.metaText]}
+              shrink
+            />
+            <ListMetaItem
+              icon="refresh-circle-outline"
+              label={displayTime}
+              iconSize={m.metaIcon}
+              iconColor={colors.textSecondary}
+              gap={m.metaInnerGap}
+              textStyle={[styles.listMetaText, listDyn.metaText]}
+            />
             {listing.price > 0 ? (
-              <View style={[styles.listMetaClusterFixed, getRtlRow()]}>
-                <Text style={styles.listPriceAmount} numberOfLines={1}>{formatEnNumber(listing.price)}</Text>
-                <Text style={styles.listRiyalText}>﷼</Text>
+              <View style={[styles.listMetaClusterFixed, { gap: m.metaInnerGap }, getRtlRow()]}>
+                <Text style={[styles.listPriceAmount, listDyn.metaText]} numberOfLines={1}>{formatEnNumber(listing.price)}</Text>
+                <Text style={[styles.listRiyalText, listDyn.metaText]}>﷼</Text>
               </View>
             ) : null}
           </View>
 
           <View style={[styles.listSellerRow, getRtlRow()]}>
-            <UserProfileLink userId={sellerId} style={[styles.listSeller, getRtlRow()]}>
+            <UserProfileLink userId={sellerId} style={[styles.listSeller, listDyn.seller, getRtlRow()]}>
               <Image
                 source={uriSource(avatarUrl(seller?.avatar))}
-                style={styles.listAvatar}
+                style={[styles.listAvatar, listDyn.avatar]}
                 contentFit="cover"
               />
               {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
               <FounderBadge username={seller?.username} verificationBadgeSize={14} />
               <View style={styles.listSellerNameShell}>
-                <Text style={styles.listSellerName} numberOfLines={1}>
+                <Text style={[styles.listSellerName, listDyn.metaText]} numberOfLines={1}>
                   {sellerName}
                 </Text>
               </View>
@@ -189,7 +249,7 @@ function ListingCardInner({
           </View>
         </View>
 
-        <View ref={thumbRef} collapsable={false} style={styles.listThumbWrap}>
+        <View ref={thumbRef} collapsable={false} style={[styles.listThumbWrap, listDyn.image]}>
           {listImageUri ? (
             <Image
               source={uriSource(listImageUri)}
@@ -396,22 +456,19 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
 
   // Haraj market row — full-bleed image on the inline end (left in Arabic):
   // fills the card height edge to edge, outer corners follow the card radius
-  // (clipped by listClip), inner corners square. Card height unchanged (140).
+  // (clipped by listClip), inner corners square. Height, radius, margin, padding
+  // and type sizes come from useListingListMetrics (screen-width ratios, listDyn).
   listRow: {
     flexGrow: 0,
     backgroundColor: quickAccess.backgroundColor,
   },
   listClip: {
     alignItems: 'stretch',
-    height: LISTING_LIST_LAYOUT.rowHeight,
-    borderRadius: MENU_CARD.radius,
     overflow: 'hidden',
   },
   listContent: {
     flex: 1,
     minWidth: 0,
-    paddingHorizontal: LISTING_LIST_LAYOUT.contentPaddingHorizontal,
-    paddingVertical: LISTING_LIST_LAYOUT.rowPaddingVertical,
     justifyContent: 'space-between',
   },
   listTitleRow: {
@@ -433,15 +490,8 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     alignItems: 'center',
     justifyContent: 'flex-start',
     flexWrap: 'nowrap',
-    gap: LISTING_LIST_LAYOUT.metaGap,
+    overflow: 'hidden',
     width: '100%',
-  },
-  listMetaCluster: {
-    alignItems: 'center',
-    gap: 3,
-    flexShrink: 1,
-    minWidth: 0,
-    maxWidth: '100%',
   },
   listMetaClusterFixed: {
     alignItems: 'center',
@@ -476,7 +526,6 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
   },
   listSeller: {
     alignItems: 'center',
-    gap: LISTING_LIST_LAYOUT.sellerGap,
     flexShrink: 1,
     minWidth: 0,
     maxWidth: '100%',
@@ -486,9 +535,6 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     minWidth: 0,
   },
   listAvatar: {
-    width: LISTING_LIST_LAYOUT.avatar,
-    height: LISTING_LIST_LAYOUT.avatar,
-    borderRadius: LISTING_LIST_LAYOUT.avatar / 2,
     backgroundColor: colors.bgElevated,
     flexShrink: 0,
   },
@@ -498,7 +544,6 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
         writingDirection: 'rtl',
   },
   listThumbWrap: {
-    width: LIST_IMAGE,
     height: '100%',
     flexShrink: 0,
     overflow: 'hidden',
@@ -544,10 +589,8 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     color: '#fff',
   },
   listRowChrome: {
-    borderRadius: MENU_CARD.radius,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderHairline,
-    marginHorizontal: spacing.sm,
     ...ambientShadow(_scheme, 'soft'),
   },
 

@@ -5,7 +5,8 @@ import { RegionCityPicker } from '@/components/market/RegionCityPicker';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { AppFlatList } from '@/components/ui/AppFlatList';
 import { ListingCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
-import { LISTING_CARD_SKELETON_HEIGHT } from '@/components/ui/skeleton/ListingCardSkeleton';
+import { listingCardSkeletonPitch } from '@/components/ui/skeleton/ListingCardSkeleton';
+import { useListingListMetrics } from '@/components/feature/useListingListMetrics';
 import { skeletonFillCount } from '@/components/ui/skeleton/skeletonTokens';
 import { AppText } from '@/design-system/components';
 import { Stack } from '@/design-system/layout';
@@ -96,11 +97,13 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
     const { accessToken } = useAuth();
     const { colors } = useTheme();
     const { categories, reload: reloadCategories } = useMarketCategories();
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+    // Card height / gap scale with the screen width (shared listingCardLayout metrics).
+    const listMetrics = useListingListMetrics();
     // First load fills the visible area with rows of the real ListingCard height.
     const skeletonCount = skeletonFillCount(
       windowHeight - padTop,
-      LISTING_CARD_SKELETON_HEIGHT + spacing.sm,
+      listingCardSkeletonPitch(windowWidth),
       { min: 4, max: 8 },
     );
     const lastCategoriesFocusAt = useRef(0);
@@ -420,7 +423,10 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
       }
     }).current;
 
-    const ListSeparator = useCallback(() => <View style={styles.listSeparator} />, []);
+    const ListSeparator = useCallback(
+      () => <View style={[styles.listSeparator, { height: listMetrics.gap }]} />,
+      [listMetrics.gap],
+    );
 
     const ListHeader = useCallback(
       () => (
@@ -462,7 +468,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
               orderLoading || loading ? (
                 // First load / sort switch: skeleton rows inside the same list,
                 // same card size and separator as the real ListingCard rows.
-                <SkeletonRegion style={styles.skeletonList}>
+                <SkeletonRegion style={[styles.skeletonList, { gap: listMetrics.gap }]}>
                   {Array.from({ length: skeletonCount }, (_, i) => (
                     <ListingCardSkeleton key={i} />
                   ))}

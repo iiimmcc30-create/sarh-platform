@@ -7,7 +7,7 @@ export {
   SkeletonRepeat,
   SkeletonText,
 } from './SkeletonPrimitives';
-export { ListingCardSkeleton, LISTING_CARD_SKELETON_HEIGHT } from './ListingCardSkeleton';
+export { ListingCardSkeleton, listingCardSkeletonPitch } from './ListingCardSkeleton';
 export { PostCardSkeleton, PostDetailSkeleton } from './PostCardSkeleton';
 export { CommentRowSkeleton } from './CommentRowSkeleton';
 export { ProfileActionsSkeleton, ProfileHeaderSkeleton } from './ProfileHeaderSkeleton';

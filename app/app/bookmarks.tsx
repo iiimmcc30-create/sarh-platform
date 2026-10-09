@@ -1,6 +1,7 @@
 import { ListingCardSkeleton, PostCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { ListingCard } from '@/components/feature/ListingCard';
+import { useListingListMetrics } from '@/components/feature/useListingListMetrics';
 import { PostItem } from '@/components/feature/PostItem';
 import { AppFlatList } from '@/components/ui/AppFlatList';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -259,7 +260,12 @@ function FavoritesPage() {
     [router],
   );
 
-  const ListSeparator = useCallback(() => <View style={styles.listSeparator} />, [styles.listSeparator]);
+  // Card gap scales with the screen width, same as the Home feed.
+  const listMetrics = useListingListMetrics();
+  const ListSeparator = useCallback(
+    () => <View style={[styles.listSeparator, { height: listMetrics.gap }]} />,
+    [styles.listSeparator, listMetrics.gap],
+  );
 
   return (
     <AppFlatList
@@ -368,8 +374,9 @@ function SavedPage() {
 /** First load: skeleton rows shaped like the tab's real rows (offer cards / posts). */
 function BookmarksLoading({ kind }: { kind: 'listings' | 'posts' }) {
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
+  const listMetrics = useListingListMetrics();
   return kind === 'listings' ? (
-    <SkeletonRegion style={styles.skeletonListings}>
+    <SkeletonRegion style={[styles.skeletonListings, { gap: listMetrics.gap }]}>
       {[0, 1, 2, 3, 4].map((i) => (
         <ListingCardSkeleton key={i} />
       ))}
@@ -448,4 +455,4 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.lg,
     },
   });
-}
+}

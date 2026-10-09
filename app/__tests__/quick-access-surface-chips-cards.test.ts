@@ -97,10 +97,13 @@ describe('quick-access surface: filter chips + listing cards match the Home quic
     );
     // Full-bleed image row: fixed card height, clipped to the card radius.
     expect(card).toMatch(
-      /listClip: \{\n\s+alignItems: 'stretch',\n\s+height: LISTING_LIST_LAYOUT\.rowHeight,\n\s+borderRadius: MENU_CARD\.radius,\n\s+overflow: 'hidden',/,
+      /listClip: \{\n\s+alignItems: 'stretch',\n\s+overflow: 'hidden',/,
     );
+    // Height / radius / margin scale with the screen width (Haraj reference ratios).
+    expect(card).toContain('clip: { height: m.cardHeight, borderRadius: m.radius }');
+    expect(card).toContain('row: { marginHorizontal: m.marginHorizontal, borderRadius: m.radius }');
     expect(card).toMatch(
-      /listRowChrome: \{\n\s+borderRadius: MENU_CARD\.radius,\n\s+borderWidth: StyleSheet\.hairlineWidth,\n\s+borderColor: colors\.borderHairline,\n\s+marginHorizontal: spacing\.sm,\n\s+\.\.\.ambientShadow\(_scheme, 'soft'\),/,
+      /listRowChrome: \{\n\s+borderWidth: StyleSheet\.hairlineWidth,\n\s+borderColor: colors\.borderHairline,\n\s+\.\.\.ambientShadow\(_scheme, 'soft'\),/,
     );
     expect(card).toMatch(
       /harajCard: \{\n\s+width: '100%',\n\s+backgroundColor: quickAccess\.backgroundColor,\n\s+borderRadius: radius\.xl,\n\s+overflow: 'hidden',\n\s+borderWidth: 1,\n\s+borderColor: colors\.borderHairline,\n\s+paddingTop: spacing\.md,\n\s+paddingHorizontal: spacing\.md,\n\s+paddingBottom: spacing\.md,\n\s+gap: spacing\.sm,/,
