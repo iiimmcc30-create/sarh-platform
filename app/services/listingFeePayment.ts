@@ -20,7 +20,9 @@ export type ListingFeeQuote = {
 export async function quoteListingFee(params: {
   listingId: string;
   saleAmount: number;
-}): Promise<{ ok: true; data: ListingFeeQuote } | { ok: false; message: string }> {
+}): Promise<
+  { ok: true; data: ListingFeeQuote } | { ok: false; message: string; code?: string }
+> {
   try {
     const res = await authFetch(`${API_BASE}/api/fees/quote`, {
       method: "POST",
@@ -34,12 +36,13 @@ export async function quoteListingFee(params: {
     if (!res.ok || !json.success || !json.data) {
       return {
         ok: false,
+        code: typeof json.error === "string" ? json.error : undefined,
         message: json.messageAr ?? json.message ?? "تعذّر حساب العمولة",
       };
     }
     return { ok: true, data: json.data as ListingFeeQuote };
   } catch {
-    return { ok: false, message: "تعذّر الاتصال بالخادم" };
+    return { ok: false, code: "network", message: "تعذّر الاتصال بالخادم" };
   }
 }
 
@@ -50,7 +53,8 @@ export async function initiateListingFeePayment(params: {
   method: NIPaymentMethod;
   listingTitle?: string;
 }): Promise<
-  { ok: true; data: ListingFeePaymentInit } | { ok: false; message: string }
+  | { ok: true; data: ListingFeePaymentInit }
+  | { ok: false; message: string; code?: string }
 > {
   try {
     const res = await authFetch(`${API_BASE}/api/payments/initiate`, {
@@ -73,6 +77,7 @@ export async function initiateListingFeePayment(params: {
     if (!res.ok || !json.success || !json.data) {
       return {
         ok: false,
+        code: typeof json.error === "string" ? json.error : undefined,
         message:
           json.messageAr ??
           json.message ??
@@ -81,6 +86,6 @@ export async function initiateListingFeePayment(params: {
     }
     return { ok: true, data: json.data as ListingFeePaymentInit };
   } catch {
-    return { ok: false, message: "تعذّر الاتصال بالخادم" };
+    return { ok: false, code: "network", message: "تعذّر الاتصال بالخادم" };
   }
 }

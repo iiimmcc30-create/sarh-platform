@@ -46,6 +46,8 @@ import {
 } from '@/components/ui/skeleton';
 import { ListingContactSheet } from '@/components/listing/ListingContactSheet';
 import { ListingFeePaymentSheet } from '@/components/listing/ListingFeePaymentSheet';
+import { ListingFeePaidBadge } from '@/components/listing/ListingFeePaidBadge';
+import { canPayListingFee, listingFeeButtonState, normalizeListingFee } from '@/lib/listingFeeState';
 import { ListingDeleteDialog } from '@/components/listing/ListingDeleteDialog';
 import { ListingVideoPlayer } from '@/components/listing/ListingVideoPlayer';
 import { listingPhotoUris, listingVideoUrl, avatarUrl } from '@/lib/listingMedia';
@@ -187,6 +189,7 @@ export default function ListingDetailScreen() {
         description: raw.description,
         arabicDescription: raw.arabicDescription,
         origin: raw.origin === 'ADMIN_MANAGED' ? 'ADMIN_MANAGED' : 'USER',
+        fee: normalizeListingFee(raw.fee),
         displayUsername: raw.displayUsername || undefined,
         displaySellerName: raw.displaySellerName || undefined,
         displayPhone: raw.displayPhone || undefined,
@@ -371,6 +374,8 @@ export default function ListingDetailScreen() {
   }
 
   const isOwner = !!me.id && listing.seller.id === me.id;
+  // paid → «الرسوم مسددة ✓»; no fee row (legacy) / pending / overdue → payable; waived → hidden.
+  const feeButtonState = listingFeeButtonState(listing.fee);
 
   const openPromote = (promoteGoal?: 'visibility' | 'pinned' | 'featured') => {
     // زر ترقية الإعلان يتبع تبديل الرسوم/الترقية في لوحة الإدارة
@@ -493,7 +498,9 @@ export default function ListingDetailScreen() {
    * «سداد الرسوم» is the full-width primary pill when shown; تعديل / الترقية /
    * تفضيل are secondary capsules; حذف is last, muted red.
    */
-  const ownerPrimaryAction = ownerActions.find((a) => a.key === 'pay-fee') ?? null;
+  const ownerPrimaryAction = canPayListingFee(feeButtonState)
+    ? (ownerActions.find((a) => a.key === 'pay-fee') ?? null)
+    : null;
   const ownerSecondaryActions: OwnerGroupAction[] = [
     ...ownerActions.filter((a) => a.key !== 'pay-fee' && !a.danger),
     {
@@ -517,7 +524,9 @@ export default function ListingDetailScreen() {
           : []),
         ...(paidFlags.listingFeesEnabled
           ? [
-              { key: 'pay-fee', label: 'سداد الرسوم', icon: 'receipt-outline' },
+              ...(canPayListingFee(feeButtonState)
+                ? [{ key: 'pay-fee', label: 'سداد الرسوم', icon: 'receipt-outline' }]
+                : []),
               ...(hasAnyBoostService
                 ? [{ key: 'promote', label: 'ترقية الإعلان', icon: 'rocket-outline' }]
                 : []),
@@ -869,6 +878,7 @@ export default function ListingDetailScreen() {
 
         {isOwner ? (
           <View style={styles.ownerToolsSection} testID="listing-owner-actions">
+            {paidFlags.listingFeesEnabled && feeButtonState === 'paid' ? <ListingFeePaidBadge /> : null}
             {ownerPrimaryAction ? (
               <Pressable
                 onPress={ownerPrimaryAction.onPress}

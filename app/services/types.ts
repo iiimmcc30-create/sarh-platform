@@ -135,6 +135,8 @@ export interface Listing {
   cityId?: string;
   /** «القريب منك» only: server-rounded distance from the viewer (km). No coordinates ever. */
   distanceKm?: number;
+  /** Listing fee summary from the detail API (null = legacy listing with no fee row yet). */
+  fee?: { id?: string; status: string } | null;
 }
 
 export interface Post {

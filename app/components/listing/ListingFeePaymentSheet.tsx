@@ -16,11 +16,17 @@ import {
   quoteListingFee,
 } from '@/services/listingFeePayment';
 import { launchPaymentCheckout } from '@/services/payments';
+import {
+  LISTING_FEE_MESSAGES,
+  LISTING_FEE_PAID_LABEL,
+  listingFeeErrorKind,
+  listingFeeErrorMessage,
+} from '@/lib/listingFeeState';
 import type { NIPaymentMethod } from '@/services/network_international';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
-type SheetPhase = 'form' | 'success' | 'error';
+type SheetPhase = 'form' | 'success' | 'error' | 'paid';
 
 type ListingFeePaymentSheetProps = {
   visible: boolean;
@@ -50,6 +56,8 @@ export function ListingFeePaymentSheet({
   const [processing, setProcessing] = useState(false);
   const [phase, setPhase] = useState<SheetPhase>('form');
   const [errorMessage, setErrorMessage] = useState('');
+  /** False for «not applicable» errors — retrying cannot help there. */
+  const [errorRetryable, setErrorRetryable] = useState(true);
 
   useEffect(() => {
     if (!visible) return;
@@ -58,6 +66,7 @@ export function ListingFeePaymentSheet({
     setQuotedFee(null);
     setMethod('mada');
     setErrorMessage('');
+    setErrorRetryable(true);
     setProcessing(false);
   }, [visible]);
 
@@ -72,6 +81,22 @@ export function ListingFeePaymentSheet({
     if (parts.length > 2) return;
     if (parts[1] && parts[1].length > 2) return;
     setAmount(digits);
+  };
+
+  /** Server refusal → paid state, or a clear Arabic message (never raw «لا توجد رسوم»). */
+  const showFailure = (
+    failure: { code?: string; message: string },
+    stage: 'quote' | 'pay',
+  ) => {
+    setProcessing(false);
+    const kind = listingFeeErrorKind(failure.code);
+    if (kind === 'already_paid') {
+      setPhase('paid');
+      return;
+    }
+    setErrorRetryable(kind !== 'not_applicable');
+    setPhase('error');
+    setErrorMessage(listingFeeErrorMessage(failure.code, failure.message, stage));
   };
 
   const handlePay = async () => {
@@ -91,12 +116,11 @@ export function ListingFeePaymentSheet({
     setProcessing(true);
     setPhase('form');
     setErrorMessage('');
+    setErrorRetryable(true);
 
     const quoted = await quoteListingFee({ listingId, saleAmount: parsed });
     if (!quoted.ok) {
-      setProcessing(false);
-      setPhase('error');
-      setErrorMessage(quoted.message);
+      showFailure(quoted, 'quote');
       return;
     }
     setQuotedFee(quoted.data.commission);
@@ -110,9 +134,7 @@ export function ListingFeePaymentSheet({
     });
 
     if (!initiated.ok) {
-      setProcessing(false);
-      setPhase('error');
-      setErrorMessage(initiated.message);
+      showFailure(initiated, 'pay');
       return;
     }
 
@@ -177,7 +199,20 @@ export function ListingFeePaymentSheet({
           </SpringPressable>
         </View>
 
-        {phase === 'success' ? (
+        {phase === 'paid' ? (
+          <View style={[styles.resultWrap, { paddingBottom: bottomPad }]} testID="fee-already-paid">
+            <View style={[styles.resultBadge, styles.resultBadgeSuccess]}>
+              <AppIcon name="checkmark" size={34} color={colors.onElectric} />
+            </View>
+            <AppText variant="heading3" align="center">
+              {LISTING_FEE_PAID_LABEL}
+            </AppText>
+            <AppText variant="bodySmall" color="textMuted" align="center">
+              {LISTING_FEE_MESSAGES.alreadyPaid}
+            </AppText>
+            <SarhButton title="حسناً" onPress={handleClose} shape="pill" fullWidth style={styles.resultCta} />
+          </View>
+        ) : phase === 'success' ? (
           <View style={[styles.resultWrap, { paddingBottom: bottomPad }]}>
             <View style={[styles.resultBadge, styles.resultBadgeSuccess]}>
               <AppIcon name="checkmark" size={34} color={colors.onElectric} />
@@ -193,23 +228,32 @@ export function ListingFeePaymentSheet({
               <AppIcon name="alert-circle-outline" size={34} color={colors.danger} />
             </View>
             <AppText variant="heading3" align="center">
-              تعذّر إتمام الدفع
+              {errorRetryable ? 'تعذّر إتمام الدفع' : 'السداد غير متاح لهذا الإعلان'}
             </AppText>
             <AppText variant="bodySmall" color="textMuted" align="center">
               {errorMessage}
             </AppText>
+            {errorRetryable ? (
+              <SarhButton
+                title="إعادة المحاولة"
+                onPress={() => {
+                  setPhase('form');
+                  setErrorMessage('');
+                }}
+                shape="pill"
+                fullWidth
+                leftIcon="refresh-outline"
+                style={styles.resultCta}
+              />
+            ) : null}
             <SarhButton
-              title="إعادة المحاولة"
-              onPress={() => {
-                setPhase('form');
-                setErrorMessage('');
-              }}
+              title="إغلاق"
+              onPress={handleClose}
+              variant={errorRetryable ? 'ghost' : 'primary'}
               shape="pill"
               fullWidth
-              leftIcon="refresh-outline"
-              style={styles.resultCta}
+              style={errorRetryable ? undefined : styles.resultCta}
             />
-            <SarhButton title="إغلاق" onPress={handleClose} variant="ghost" shape="pill" fullWidth />
           </View>
         ) : (
           <>
