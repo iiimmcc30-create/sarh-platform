@@ -70,6 +70,17 @@ export class SupportController {
     return successResponse(await this.tickets.listUserTickets(user, query));
   }
 
+  /** «بلاغاتي» — the requesting user's own reports (REPORT + FRAUD). */
+  @RateLimit('api')
+  @Get('reports')
+  @HttpCode(HttpStatus.OK)
+  async listMyReports(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: Record<string, unknown>,
+  ) {
+    return successResponse(await this.tickets.listUserReports(user, query));
+  }
+
   @RateLimit('api')
   @Get('tickets/:id')
   @HttpCode(HttpStatus.OK)

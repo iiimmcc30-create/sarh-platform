@@ -92,6 +92,46 @@ export class SupportRepository {
     return paginate(items, total, page, pageSize);
   }
 
+  /**
+   * «بلاغاتي» — the requester's own reports: content reports (type REPORT)
+   * plus fraud tickets (category FRAUD). Always scoped by reporterId.
+   */
+  async listUserReportTickets(
+    userId: string,
+    page: number,
+    pageSize: number,
+    status?: TicketStatus[],
+  ) {
+    const where: Prisma.SupportTicketWhereInput = {
+      ...notDeleted,
+      reporterId: userId,
+      OR: [{ type: 'REPORT' }, { category: 'FRAUD' }],
+      ...(status?.length ? { status: { in: status } } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.supportTicket.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          ticketNumber: true,
+          type: true,
+          category: true,
+          status: true,
+          subject: true,
+          description: true,
+          metadata: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.supportTicket.count({ where }),
+    ]);
+    return paginate(items, total, page, pageSize);
+  }
+
   async listAdminTickets(query: {
     page: number;
     pageSize: number;
@@ -178,7 +218,13 @@ export class SupportRepository {
 
   findUserTicket(id: string, userId: string) {
     return this.prisma.supportTicket.findFirst({
-      where: { id, reporterId: userId, type: 'SUPPORT', ...notDeleted },
+      // Own report tickets («بلاغاتي») open in the same thread view.
+      where: {
+        id,
+        reporterId: userId,
+        type: { in: ['SUPPORT', 'REPORT'] },
+        ...notDeleted,
+      },
       include: TICKET_INCLUDE,
     });
   }

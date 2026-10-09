@@ -51,6 +51,12 @@ export class ReportsService {
         subject,
         description,
         reporterId: user.userId,
+        // Structured copy for «بلاغاتي» (description stays for staff).
+        metadata: {
+          targetType: dto.targetType,
+          targetId: dto.targetId,
+          reason: dto.reason,
+        },
       },
       select: {
         id: true,

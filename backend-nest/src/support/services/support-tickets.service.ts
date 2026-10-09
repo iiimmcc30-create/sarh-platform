@@ -40,6 +40,75 @@ const listQuerySchema = z.object({
   status: z.string().optional(),
 });
 
+const reportListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+  /** open | review | closed — matches the app's three status pills. */
+  state: z.enum(['open', 'review', 'closed']).optional(),
+});
+
+/** App pill groups for «بلاغاتي»: مفتوح / قيد المراجعة / مغلق. */
+export const REPORT_STATE_STATUSES: Record<
+  'open' | 'review' | 'closed',
+  (typeof TICKET_STATUSES)[number][]
+> = {
+  open: ['OPEN', 'AWAITING_USER', 'WAITING_FOR_CUSTOMER'],
+  review: ['IN_REVIEW', 'AI_ASSISTING', 'WAITING_FOR_SUPPORT', 'IN_PROGRESS'],
+  closed: ['RESOLVED', 'CLOSED'],
+};
+
+export function reportStateFor(status: string): 'open' | 'review' | 'closed' {
+  if (REPORT_STATE_STATUSES.closed.includes(status as never)) return 'closed';
+  if (REPORT_STATE_STATUSES.review.includes(status as never)) return 'review';
+  return 'open';
+}
+
+function lineValue(text: string | null | undefined, label: string) {
+  if (!text) return null;
+  for (const line of text.split('\n')) {
+    if (line.startsWith(`${label}:`)) {
+      const v = line.slice(label.length + 1).trim();
+      return v || null;
+    }
+  }
+  return null;
+}
+
+/** Public shape of one «بلاغاتي» row — never leaks description/notes. */
+export function toUserReportRow(t: {
+  id: string;
+  ticketNumber: string;
+  type: string;
+  category: string;
+  status: string;
+  subject: string;
+  description?: string | null;
+  metadata?: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  const meta =
+    t.metadata && typeof t.metadata === 'object' && !Array.isArray(t.metadata)
+      ? (t.metadata as Record<string, unknown>)
+      : {};
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
+  const isFraud = t.category === 'FRAUD';
+  return {
+    id: t.id,
+    ticketNumber: t.ticketNumber,
+    kind: isFraud ? ('FRAUD' as const) : ('REPORT' as const),
+    subject: t.subject,
+    reason: str(meta.reason) ?? lineValue(t.description, 'السبب') ?? t.subject,
+    targetType: isFraud
+      ? null
+      : (str(meta.targetType) ?? lineValue(t.description, 'النوع')),
+    status: t.status,
+    state: reportStateFor(t.status),
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  };
+}
+
 const adminListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -130,9 +199,7 @@ export class SupportTicketsService {
   }
 
   private async defaultPriority(userId: string, category?: string | null) {
-    const tier = await this.repo
-      .findReporterTier(userId)
-      .catch(() => null);
+    const tier = await this.repo.findReporterTier(userId).catch(() => null);
     return ticketPriorityFor({ verifiedTier: tier?.verifiedTier, category });
   }
 
@@ -147,9 +214,7 @@ export class SupportTicketsService {
           labelAr,
         }),
       ),
-      helpKinds: [
-        { value: 'OTHER_HELP', labelAr: 'اسأل مساعد سرح' },
-      ],
+      helpKinds: [{ value: 'OTHER_HELP', labelAr: 'اسأل مساعد سرح' }],
     };
   }
 
@@ -162,6 +227,20 @@ export class SupportTicketsService {
     if (!parsed.success) throwApi(400, 'invalid_query', 'معاملات غير صالحة');
     const { page, pageSize, status } = parsed.data;
     return this.repo.listUserTickets(user.userId, page, pageSize, status);
+  }
+
+  /** «بلاغاتي»: the caller's own REPORT tickets + FRAUD-category tickets. */
+  async listUserReports(user: JwtPayload, query: Record<string, unknown>) {
+    const parsed = reportListQuerySchema.safeParse(query);
+    if (!parsed.success) throwApi(400, 'invalid_query', 'معاملات غير صالحة');
+    const { page, pageSize, state } = parsed.data;
+    const res = await this.repo.listUserReportTickets(
+      user.userId,
+      page,
+      pageSize,
+      state ? REPORT_STATE_STATUSES[state] : undefined,
+    );
+    return { ...res, items: res.items.map(toUserReportRow) };
   }
 
   async getUserTicket(user: JwtPayload, id: string) {
