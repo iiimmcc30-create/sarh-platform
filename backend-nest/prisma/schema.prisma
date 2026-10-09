@@ -97,6 +97,7 @@ model User {
   accountActionsReceived              AdminAccountAction[]              @relation("AccountActionTarget")
   accountActionsTaken                 AdminAccountAction[]              @relation("AccountActionActor")
   deviceTokens                        UserDeviceToken[]
+  adminTwoFactor                      AdminTwoFactor?
   messageThreadStates                 MessageThreadState[]
   collectionsOwned                    Collection[]                      @relation("CollectionOwner")
   collectionMemberships               CollectionMember[]
@@ -131,6 +132,19 @@ model UserSession {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// Optional TOTP 2FA for admin-panel staff (ADMIN / MODERATOR).
+/// `secretSealed` is AES-256-GCM (ADMIN_TOTP_ENC_KEY, else JWT_SECRET-derived).
+/// `enabledAt` null = enrolment started but not confirmed yet.
+model AdminTwoFactor {
+  userId       String    @id
+  secretSealed String
+  enabledAt    DateTime?
+  lastUsedStep Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserDeviceToken {

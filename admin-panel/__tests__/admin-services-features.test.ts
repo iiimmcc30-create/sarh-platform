@@ -43,8 +43,6 @@ describe("admin feature API wiring — login to every section", () => {
     (apiClient.post as jest.Mock).mockResolvedValueOnce(
       ok({
         user: { id: "1", role: "ADMIN", arabicName: "أ" },
-        accessToken: "a",
-        refreshToken: "r",
       }),
     );
     await auth.adminLogin("admin", "secret");

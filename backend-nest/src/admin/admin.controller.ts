@@ -19,7 +19,6 @@ import { Public, RateLimit, Roles } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { successResponse } from '../common/utils/response.util';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
-import type { AdminLoginDto } from './dto/admin.dto';
 
 const STAFF = ['ADMIN', 'MODERATOR'] as const;
 
@@ -27,23 +26,7 @@ const STAFF = ['ADMIN', 'MODERATOR'] as const;
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
-  // ─── Auth ───────────────────────────────────────────────────────────────────
-
-  @Public()
-  @RateLimit('auth')
-  @Post('auth/login')
-  @HttpCode(HttpStatus.OK)
-  async login(@Body() body: AdminLoginDto, @Req() req: Request) {
-    return successResponse(await this.admin.adminLogin(body, req));
-  }
-
-  @Roles(...STAFF)
-  @RateLimit('api')
-  @Get('auth/me')
-  @HttpCode(HttpStatus.OK)
-  async me(@CurrentUser() user: JwtPayload) {
-    return successResponse(await this.admin.adminMe(user));
-  }
+  // Auth (login / refresh / logout / me / 2FA) lives in AdminAuthController.
 
   // ─── Dashboard ──────────────────────────────────────────────────────────────
 

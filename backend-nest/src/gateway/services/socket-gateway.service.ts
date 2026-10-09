@@ -23,6 +23,12 @@ import { MessageMediaService } from '../../messages/services/message-media.servi
 import { publicMediaForPush } from '../../messages/lib/message-media';
 import { SupportTicketsService } from '../../support/services/support-tickets.service';
 import { ApiException } from '../../common/exceptions/api.exception';
+import { isAllowedCorsOrigin } from '../../lib/cors-origins';
+import {
+  ADMIN_ACCESS_COOKIE,
+  isStaffRole,
+  readCookie,
+} from '../../common/lib/admin-session-cookie';
 import { markSocketOffline, markSocketOnline } from './online-presence';
 import {
   isMessagePayloadError,
@@ -64,15 +70,26 @@ export class SocketGatewayService {
   async authenticate(client: Socket): Promise<JwtPayload> {
     const authToken = client.handshake.auth?.token;
     const headerAuth = client.handshake.headers?.authorization;
-    const token =
+    const explicitToken =
       (typeof authToken === 'string' ? authToken : undefined) ||
       (typeof headerAuth === 'string'
         ? headerAuth.replace('Bearer ', '')
         : undefined);
+    // Admin panel: HttpOnly session cookie on the (same-site) handshake.
+    // Only from an allowed Origin and only for staff roles.
+    const origin = client.handshake.headers?.origin;
+    const cookieToken =
+      !explicitToken && typeof origin === 'string' && isAllowedCorsOrigin(origin)
+        ? readCookie(client.handshake.headers?.cookie, ADMIN_ACCESS_COOKIE)
+        : undefined;
+    const token = explicitToken || cookieToken;
 
     if (!token) throw new Error('Authentication required');
 
     const payload = this.jwt.verifyAccessToken(token);
+    if (cookieToken && !isStaffRole(payload.role)) {
+      throw new Error('Authentication required');
+    }
 
     const blacklisted = await this.sessions.get<boolean>(`blacklist:${token}`);
     if (blacklisted) throw new Error('Token revoked');

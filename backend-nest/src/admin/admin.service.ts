@@ -1,6 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Request } from 'express';
-import bcrypt from 'bcryptjs';
 import { AdminRepository } from './repositories/admin.repository';
 import { JwtTokenService } from '../auth/services/jwt-token.service';
 import { RedisSessionService } from '../redis/services/redis-session.service';
@@ -14,9 +12,8 @@ import type { ListingCategory } from '@prisma/client';
 import { authorizeCronCleanup } from './lib/cron-auth';
 import { buildAdminMembership } from '../subscriptions/verification/admin-membership';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
-import type { AdminLoginDto, PaginationQueryDto } from './dto/admin.dto';
+import type { PaginationQueryDto } from './dto/admin.dto';
 import {
-  adminLoginSchema,
   createSectionSchema,
   paginationQuerySchema,
   updateListingSchema,
@@ -29,28 +26,7 @@ import {
   updateUserSchema,
 } from './dto/admin.dto';
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const ADMIN_ROLES = new Set(['ADMIN', 'MODERATOR']);
-
-function formatAdminUser(user: {
-  id: string;
-  username: string;
-  email: string | null;
-  displayName: string;
-  arabicName: string;
-  avatar: string | null;
-  role: string;
-}) {
-  return {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    displayName: user.displayName,
-    arabicName: user.arabicName,
-    avatar: user.avatar,
-    role: user.role as 'ADMIN' | 'MODERATOR',
-  };
-}
 
 @Injectable()
 export class AdminService {
@@ -74,71 +50,6 @@ export class AdminService {
       );
     }
     return parsed.data;
-  }
-
-  private sessionMeta(req: Request) {
-    return {
-      ipAddress: req.socket.remoteAddress,
-      deviceInfo: req.headers['user-agent']?.slice(0, 200),
-    };
-  }
-
-  async adminLogin(dto: AdminLoginDto | Record<string, unknown>, req: Request) {
-    const parsed = adminLoginSchema.safeParse(dto ?? {});
-    if (!parsed.success) {
-      throwApi(
-        400,
-        'validation_error',
-        'أدخل اسم المستخدم أو البريد وكلمة المرور',
-        parsed.error.flatten(),
-      );
-    }
-
-    const user = await this.repo.findAdminUserForLogin(parsed.data.login);
-    const dummyHash = '$2a$12$dummyhashfordummypassword1234567890abcdef';
-    const valid = await bcrypt.compare(
-      parsed.data.password,
-      user?.passwordHash ?? dummyHash,
-    );
-
-    if (!user || !valid || !ADMIN_ROLES.has(user.role)) {
-      throwApi(401, 'invalid_credentials', 'بيانات الدخول غير صحيحة');
-    }
-
-    const count = await this.authRepo.countUserSessions(user.id);
-    if (count >= 5) {
-      const oldest = await this.authRepo.findOldestSession(user.id);
-      if (oldest) await this.authRepo.deleteSession(oldest.id);
-    }
-
-    const accessToken = this.jwt.signAccessToken({
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      passwordVersion: user.passwordVersion,
-    });
-    const refreshToken = this.jwt.signRefreshToken(user.id);
-
-    await this.authRepo.loginTransaction(user.id, {
-      refreshToken,
-      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-      ...this.sessionMeta(req),
-    });
-
-    this.logger.info({ userId: user.id, role: user.role }, 'Admin logged in');
-    return {
-      user: formatAdminUser(user),
-      accessToken,
-      refreshToken,
-    };
-  }
-
-  async adminMe(user: JwtPayload) {
-    const record = await this.repo.findUserById(user.userId);
-    if (!record || !ADMIN_ROLES.has(record.role)) {
-      throwApi(403, 'forbidden', 'غير مسموح');
-    }
-    return { user: formatAdminUser(record) };
   }
 
   getDashboardStats() {

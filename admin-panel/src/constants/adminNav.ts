@@ -63,6 +63,7 @@ export const ADMIN_FEATURE_ROUTES = [
   '/content',
   '/home-explore',
   '/settings',
+  '/security',
 ] as const;
 
 export function isAdminNavActive(pathname: string, href: string): boolean {

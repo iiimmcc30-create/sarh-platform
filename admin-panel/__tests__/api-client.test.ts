@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getApiErrorMessage, unwrap } from '@/services/api.client';
+import { apiClient, getApiErrorCode, getApiErrorMessage, unwrap } from '@/services/api.client';
 
 describe('unwrap', () => {
   it('returns data when success', () => {
@@ -67,5 +67,26 @@ describe('getApiErrorMessage', () => {
 
   it('uses fallback for unknown values', () => {
     expect(getApiErrorMessage(null, 'احتياطي')).toBe('احتياطي');
+  });
+});
+
+describe('apiClient cookie auth', () => {
+  it('sends credentials and the panel CSRF marker header', () => {
+    expect(apiClient.defaults.withCredentials).toBe(true);
+    expect(apiClient.defaults.headers.common['X-Requested-With']).toBe('sarh-admin');
+  });
+});
+
+describe('getApiErrorCode', () => {
+  it('reads the backend error code', () => {
+    const err = axios.AxiosError.from(new Error('x'), undefined, undefined, undefined, {
+      status: 401,
+      statusText: 'Unauthorized',
+      headers: {},
+      config: { headers: {} } as never,
+      data: { success: false, error: 'otp_required' },
+    });
+    expect(getApiErrorCode(err)).toBe('otp_required');
+    expect(getApiErrorCode(new Error('x'))).toBeUndefined();
   });
 });

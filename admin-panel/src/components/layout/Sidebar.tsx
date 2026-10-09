@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
@@ -24,8 +25,9 @@ import {
   Wallet,
   Percent,
   Wheat,
+  ShieldCheck,
 } from 'lucide-react';
-import { clearSession, getStoredUser } from '@/services/auth.service';
+import { adminLogout, getStoredUser, startSessionKeepAlive } from '@/services/auth.service';
 import { BRAND_ADMIN_SUBTITLE_AR, BRAND_NAME_AR, BRAND_NAME_EN } from '@/constants/brandCopy';
 import { ADMIN_NAV, isAdminNavActive } from '@/constants/adminNav';
 import { withAdminBase } from '@/constants/adminBasePath';
@@ -62,6 +64,7 @@ const nav = ADMIN_NAV.map((item) => ({
 export function Sidebar() {
   const pathname = usePathname();
   const user = getStoredUser();
+  useEffect(() => startSessionKeepAlive(), []);
   const visibleNav = nav.filter((item) => {
     if (item.href === '/commissions') return user?.role === 'ADMIN';
     return true;
@@ -97,13 +100,23 @@ export function Sidebar() {
       <div className="border-t border-slate-800 p-4">
         <p className="truncate text-sm font-medium text-slate-200">{user?.arabicName ?? '—'}</p>
         <p className="text-xs text-slate-500">{user?.role === 'ADMIN' ? 'مسؤول' : 'مشرف'}</p>
+        <Link
+          href="/security"
+          className={clsx(
+            'mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-slate-900',
+            isAdminNavActive(pathname ?? '', '/security') ? 'text-emerald-300' : 'text-slate-400',
+          )}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          الأمان والتحقق بخطوتين
+        </Link>
         <button
           type="button"
-          onClick={() => {
-            clearSession();
+          onClick={async () => {
+            await adminLogout();
             window.location.href = withAdminBase('/login');
           }}
-          className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-rose-400 hover:bg-slate-900"
+          className="mt-1 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-rose-400 hover:bg-slate-900"
         >
           <LogOut className="h-4 w-4" />
           تسجيل الخروج

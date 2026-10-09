@@ -21,32 +21,78 @@ export type ApiEnvelope<T> = {
   timestamp?: string;
 };
 
-apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('admin_access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+/**
+ * Auth: the backend sets an HttpOnly + Secure + SameSite=Strict session cookie
+ * (`admin_token`) on login/refresh, so no token is ever readable from JS.
+ * `X-Requested-With: sarh-admin` marks panel requests — the backend only
+ * honours the cookie when it is present (CSRF defence in depth).
+ */
+apiClient.defaults.withCredentials = true;
+apiClient.defaults.headers.common['X-Requested-With'] = 'sarh-admin';
+
+/** Legacy localStorage keys from the pre-cookie panel (cleaned up on sight). */
+const LEGACY_TOKEN_KEYS = ['admin_access_token', 'admin_refresh_token'];
+
+export function clearLocalAdminState() {
+  if (typeof window === 'undefined') return;
+  for (const key of LEGACY_TOKEN_KEYS) localStorage.removeItem(key);
+  localStorage.removeItem('admin_user');
+}
+
+const AUTH_ENDPOINTS = ['/admin/auth/login', '/admin/auth/refresh', '/admin/auth/logout'];
+
+function isAuthEndpoint(url: string | undefined): boolean {
+  return !!url && AUTH_ENDPOINTS.some((p) => url.endsWith(p));
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+/** Rotate the session cookie once; concurrent callers share the same request. */
+export function refreshAdminSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = apiClient
+      .post('/admin/auth/refresh')
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null;
+      });
   }
-  return config;
-});
+  return refreshInFlight;
+}
+
+function redirectToLogin() {
+  clearLocalAdminState();
+  const loginPath = withAdminBase('/login');
+  if (!window.location.pathname.startsWith(loginPath)) {
+    window.location.href = loginPath;
+  }
+}
 
 apiClient.interceptors.response.use(
   (res) => res,
-  (error: AxiosError<ApiEnvelope<unknown>>) => {
+  async (error: AxiosError<ApiEnvelope<unknown>>) => {
+    const config = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('admin_access_token');
-      localStorage.removeItem('admin_refresh_token');
-      localStorage.removeItem('admin_user');
-      document.cookie = 'admin_token=; path=/; max-age=0';
-      const loginPath = withAdminBase('/login');
-      if (!window.location.pathname.startsWith(loginPath)) {
-        window.location.href = loginPath;
+      if (config && !config._retried && !isAuthEndpoint(config.url)) {
+        config._retried = true;
+        if (await refreshAdminSession()) {
+          return apiClient.request(config);
+        }
       }
+      if (!isAuthEndpoint(config?.url)) redirectToLogin();
     }
     return Promise.reject(error);
   },
 );
+
+/** Backend error code (e.g. `otp_required`) from an API error, if any. */
+export function getApiErrorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError<ApiEnvelope<unknown>>(error)) {
+    return error.response?.data?.error;
+  }
+  return undefined;
+}
 
 export function unwrap<T>(res: { data: ApiEnvelope<T> }): T {
   const body = res.data;

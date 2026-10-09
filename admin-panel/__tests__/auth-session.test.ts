@@ -13,17 +13,22 @@ jest.mock('@/services/api.client', () => {
       get: (...args: unknown[]) => mockGet(...args),
       post: (...args: unknown[]) => mockPost(...args),
     },
+    refreshAdminSession: () =>
+      mockPost('/admin/auth/refresh').then(
+        () => true,
+        () => false,
+      ),
   };
 });
 
 import {
+  adminLogin,
+  adminLogout,
   clearSession,
   getStoredUser,
   persistSession,
-  setSessionCookie,
   tryRestoreSession,
   type AdminUser,
-  type LoginResult,
 } from '@/services/auth.service';
 
 const user: AdminUser = {
@@ -36,36 +41,28 @@ const user: AdminUser = {
   role: 'ADMIN',
 };
 
-const session: LoginResult = {
-  user,
-  accessToken: 'access-token',
-  refreshToken: 'refresh-token',
-};
-
-describe('admin auth session', () => {
+describe('admin auth session (HttpOnly cookie)', () => {
   beforeEach(() => {
     localStorage.clear();
-    document.cookie.split(';').forEach((c) => {
-      const name = c.split('=')[0]?.trim();
-      if (name) document.cookie = `${name}=; path=/; max-age=0`;
-    });
     mockGet.mockReset();
     mockPost.mockReset();
   });
 
-  it('persistSession stores tokens, user, and cookie', () => {
-    persistSession(session);
-    expect(localStorage.getItem('admin_access_token')).toBe('access-token');
-    expect(localStorage.getItem('admin_refresh_token')).toBe('refresh-token');
+  it('persistSession stores only the profile — never tokens', () => {
+    localStorage.setItem('admin_access_token', 'legacy');
+    persistSession({ user });
     expect(getStoredUser()?.arabicName).toBe('مسؤول');
-    expect(document.cookie).toContain('admin_token=');
+    expect(localStorage.getItem('admin_access_token')).toBeNull();
+    expect(localStorage.getItem('admin_refresh_token')).toBeNull();
+    expect(document.cookie).not.toContain('admin_token=');
   });
 
-  it('clearSession removes storage and cookie', () => {
-    persistSession(session);
+  it('clearSession removes the profile and legacy tokens', () => {
+    persistSession({ user });
+    localStorage.setItem('admin_refresh_token', 'legacy');
     clearSession();
-    expect(localStorage.getItem('admin_access_token')).toBeNull();
     expect(getStoredUser()).toBeNull();
+    expect(localStorage.getItem('admin_refresh_token')).toBeNull();
   });
 
   it('getStoredUser returns null for corrupt JSON', () => {
@@ -73,30 +70,55 @@ describe('admin auth session', () => {
     expect(getStoredUser()).toBeNull();
   });
 
-  it('setSessionCookie writes encoded token', () => {
-    setSessionCookie('tok+1');
-    expect(document.cookie).toContain('admin_token=');
+  it('adminLogin sends the OTP only when provided', async () => {
+    mockPost.mockResolvedValue({ data: { success: true, data: { user } } });
+    await adminLogin('admin', 'pw');
+    expect(mockPost).toHaveBeenLastCalledWith('/admin/auth/login', {
+      login: 'admin',
+      password: 'pw',
+    });
+    await adminLogin('admin', 'pw', ' 123456 ');
+    expect(mockPost).toHaveBeenLastCalledWith('/admin/auth/login', {
+      login: 'admin',
+      password: 'pw',
+      otp: '123456',
+    });
   });
 
-  it('tryRestoreSession returns none without token', async () => {
+  it('adminLogout calls the server and clears local state even on failure', async () => {
+    persistSession({ user });
+    mockPost.mockRejectedValueOnce(new Error('offline'));
+    await adminLogout();
+    expect(mockPost).toHaveBeenCalledWith('/admin/auth/logout');
+    expect(getStoredUser()).toBeNull();
+  });
+
+  it('tryRestoreSession returns none without a stored profile', async () => {
     await expect(tryRestoreSession()).resolves.toBe('none');
     expect(mockGet).not.toHaveBeenCalled();
   });
 
   it('tryRestoreSession restores when adminMe succeeds', async () => {
-    localStorage.setItem('admin_access_token', 'access-token');
-    mockGet.mockResolvedValueOnce({
-      data: { success: true, data: { user } },
-    });
+    persistSession({ user });
+    mockGet.mockResolvedValueOnce({ data: { success: true, data: { user } } });
     await expect(tryRestoreSession()).resolves.toBe('restored');
-    expect(getStoredUser()?.id).toBe('u1');
     expect(mockGet).toHaveBeenCalledWith('/admin/auth/me');
   });
 
-  it('tryRestoreSession clears broken session when adminMe fails', async () => {
-    localStorage.setItem('admin_access_token', 'bad');
-    localStorage.setItem('admin_user', JSON.stringify(user));
-    mockGet.mockRejectedValueOnce(new Error('401'));
+  it('tryRestoreSession refreshes the cookie once, then retries', async () => {
+    persistSession({ user });
+    mockGet
+      .mockRejectedValueOnce(new Error('401'))
+      .mockResolvedValueOnce({ data: { success: true, data: { user } } });
+    mockPost.mockResolvedValueOnce({ data: { success: true, data: { user } } });
+    await expect(tryRestoreSession()).resolves.toBe('restored');
+    expect(mockPost).toHaveBeenCalledWith('/admin/auth/refresh');
+  });
+
+  it('tryRestoreSession clears a dead session', async () => {
+    persistSession({ user });
+    mockGet.mockRejectedValue(new Error('401'));
+    mockPost.mockRejectedValue(new Error('401'));
     await expect(tryRestoreSession()).resolves.toBe('cleared');
     expect(getStoredUser()).toBeNull();
   });

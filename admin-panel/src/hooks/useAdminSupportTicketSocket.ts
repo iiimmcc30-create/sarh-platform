@@ -21,11 +21,10 @@ export function useAdminSupportTicketSocket(
 
   useEffect(() => {
     if (typeof window === 'undefined' || !ticketId) return undefined;
-    const token = localStorage.getItem('admin_access_token');
-    if (!token) return undefined;
-
+    // Auth rides on the HttpOnly `admin_token` cookie (same-site handshake);
+    // the backend accepts it for staff roles from allowed origins only.
     const socket: Socket = io(resolveSocketUrl(), {
-      auth: { token },
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       autoConnect: true,
     });

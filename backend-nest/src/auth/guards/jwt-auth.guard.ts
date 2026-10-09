@@ -14,6 +14,12 @@ import {
 import { RedisSessionService } from '../../redis/services/redis-session.service';
 import { AuthRepository } from '../repositories/auth.repository';
 import type { JwtPayload } from '../../common/types/jwt-payload.interface';
+import {
+  ADMIN_ACCESS_COOKIE,
+  hasAdminCsrfHeader,
+  isStaffRole,
+  readCookie,
+} from '../../common/lib/admin-session-cookie';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -45,7 +51,15 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       .getRequest<Request & { user?: JwtPayload }>();
     const authHeader = req.headers.authorization;
 
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Admin panel: HttpOnly session cookie, only when no Bearer header is sent
+    // and the request carries the panel's CSRF header. App (Bearer) auth is
+    // unchanged.
+    const adminCookieToken =
+      !authHeader?.startsWith('Bearer ') && hasAdminCsrfHeader(req.headers)
+        ? readCookie(req.headers.cookie, ADMIN_ACCESS_COOKIE)
+        : undefined;
+
+    if (!authHeader?.startsWith('Bearer ') && !adminCookieToken) {
       if (optional || isPublic) return true;
       throw new UnauthorizedException({
         success: false,
@@ -54,11 +68,19 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       });
     }
 
-    const token = authHeader.slice(7);
+    const token = adminCookieToken ?? authHeader!.slice(7);
 
     try {
       const secret = process.env.JWT_SECRET!;
       const payload = jwt.verify(token, secret) as JwtPayload;
+
+      if (adminCookieToken && !isStaffRole(payload.role)) {
+        throw new UnauthorizedException({
+          success: false,
+          error: 'unauthorized',
+          messageAr: 'غير مصرح',
+        });
+      }
 
       const blacklisted = await this.sessions.get<boolean>(
         `blacklist:${token}`,

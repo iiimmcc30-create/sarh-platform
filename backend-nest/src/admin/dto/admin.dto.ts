@@ -7,10 +7,13 @@ export const adminLoginSchema = z
     username: z.string().trim().min(1).optional(),
     email: z.string().trim().min(1).optional(),
     password: z.string().min(1),
+    /** 6-digit TOTP code; required only for admins who enabled 2FA. */
+    otp: z.string().trim().max(16).optional(),
   })
   .transform((data) => ({
     login: (data.login || data.username || data.email || '').trim(),
     password: data.password,
+    otp: data.otp ? data.otp : undefined,
   }))
   .superRefine((data, ctx) => {
     if (!data.login) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { adminLogin, persistSession, clearSession, tryRestoreSession } from '@/services/auth.service';
-import { getApiErrorMessage } from '@/services/api.client';
+import { getApiErrorCode, getApiErrorMessage } from '@/services/api.client';
 import { withAdminBase } from '@/constants/adminBasePath';
 import { Button } from '@/components/ui/Button';
 import {
@@ -15,6 +15,8 @@ import {
 export default function LoginPage() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [needsOtp, setNeedsOtp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -62,11 +64,23 @@ export default function LoginPage() {
       }
       setLogin(loginValue);
       setPassword(passwordValue);
-      const session = await adminLogin(loginValue, passwordValue);
+      const otpValue = String(fd.get('otp') ?? otp).trim();
+      if (needsOtp && !otpValue) {
+        setError('أدخل رمز التحقق من تطبيق المصادقة');
+        return;
+      }
+      const session = await adminLogin(loginValue, passwordValue, needsOtp ? otpValue : undefined);
       persistSession(session);
-      // Full navigation so middleware receives the new admin_token cookie.
+      // Full navigation so middleware receives the new HttpOnly admin_token cookie.
       window.location.assign(withAdminBase('/'));
     } catch (err: unknown) {
+      const code = getApiErrorCode(err);
+      if (code === 'otp_required') {
+        setNeedsOtp(true);
+        setError('');
+        return;
+      }
+      if (code === 'invalid_otp') setOtp('');
       setError(getApiErrorMessage(err, 'فشل تسجيل الدخول'));
     } finally {
       setLoading(false);
@@ -116,6 +130,24 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
           </div>
+          {needsOtp && (
+            <div>
+              <label className="mb-1 block text-sm text-slate-400">رمز التحقق (تطبيق المصادقة)</label>
+              <input
+                name="otp"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-lg tracking-[0.5em] text-white outline-none focus:border-emerald-500"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                autoFocus
+                dir="ltr"
+                placeholder="000000"
+              />
+              <p className="mt-1 text-xs text-slate-500">التحقق بخطوتين مفعّل لهذا الحساب.</p>
+            </div>
+          )}
           {backendDown && (
             <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
               الباك إند غير متصل. شغّل: <code className="text-amber-200">cd backend-nest && npm run dev:lite</code>

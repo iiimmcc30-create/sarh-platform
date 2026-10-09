@@ -1,4 +1,4 @@
-import { apiClient, unwrap } from './api.client';
+import { apiClient, clearLocalAdminState, refreshAdminSession, unwrap } from './api.client';
 
 export type AdminUser = {
   id: string;
@@ -10,14 +10,19 @@ export type AdminUser = {
   role: 'ADMIN' | 'MODERATOR';
 };
 
+/** The session itself lives in HttpOnly cookies; the body only carries the profile. */
 export type LoginResult = {
   user: AdminUser;
-  accessToken: string;
-  refreshToken: string;
 };
 
-export async function adminLogin(login: string, password: string): Promise<LoginResult> {
-  const res = await apiClient.post('/admin/auth/login', { login, password });
+export async function adminLogin(
+  login: string,
+  password: string,
+  otp?: string,
+): Promise<LoginResult> {
+  const body: Record<string, string> = { login, password };
+  if (otp?.trim()) body.otp = otp.trim();
+  const res = await apiClient.post('/admin/auth/login', body);
   return unwrap<LoginResult>(res);
 }
 
@@ -26,45 +31,75 @@ export async function adminMe(): Promise<{ user: AdminUser }> {
   return unwrap(res);
 }
 
-const SESSION_COOKIE_MAX_AGE = 60 * 60 * 12;
-
-export function setSessionCookie(accessToken: string) {
-  document.cookie = `admin_token=${encodeURIComponent(accessToken)}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; SameSite=Lax`;
-}
-
+/** Store the (non-secret) profile for the sidebar; tokens never touch JS. */
 export function persistSession(data: LoginResult) {
-  localStorage.setItem('admin_access_token', data.accessToken);
-  localStorage.setItem('admin_refresh_token', data.refreshToken);
+  clearLocalAdminState();
   localStorage.setItem('admin_user', JSON.stringify(data.user));
-  setSessionCookie(data.accessToken);
 }
 
 export function clearSession() {
-  localStorage.removeItem('admin_access_token');
-  localStorage.removeItem('admin_refresh_token');
-  localStorage.removeItem('admin_user');
-  document.cookie = 'admin_token=; path=/; max-age=0';
+  clearLocalAdminState();
 }
 
-/** Validate stored token, sync cookie, or clear broken session. */
+/** Server logout: revokes the session and clears the HttpOnly cookies. */
+export async function adminLogout(): Promise<void> {
+  try {
+    await apiClient.post('/admin/auth/logout');
+  } catch {
+    /* cookies may already be gone */
+  } finally {
+    clearSession();
+  }
+}
+
+/**
+ * Validate the cookie session (refreshing it once if the access cookie
+ * expired). Without a stored profile there is nothing to restore.
+ */
 export async function tryRestoreSession(): Promise<'restored' | 'none' | 'cleared'> {
   if (typeof window === 'undefined') return 'none';
-
-  const token = localStorage.getItem('admin_access_token');
-  if (!token) {
-    document.cookie = 'admin_token=; path=/; max-age=0';
+  if (!localStorage.getItem('admin_user')) {
+    clearLocalAdminState();
     return 'none';
   }
-
-  setSessionCookie(token);
   try {
     const { user } = await adminMe();
     localStorage.setItem('admin_user', JSON.stringify(user));
     return 'restored';
   } catch {
+    if (await refreshAdminSession()) {
+      try {
+        const { user } = await adminMe();
+        localStorage.setItem('admin_user', JSON.stringify(user));
+        return 'restored';
+      } catch {
+        /* fall through */
+      }
+    }
     clearSession();
     return 'cleared';
   }
+}
+
+const KEEP_ALIVE_MS = 10 * 60 * 1000;
+
+/**
+ * Rotate the short-lived access cookie before it expires while the panel is
+ * open, so page navigations (checked by the Next middleware) keep working.
+ */
+export function startSessionKeepAlive(): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  const id = window.setInterval(() => {
+    if (document.visibilityState === 'visible') void refreshAdminSession();
+  }, KEEP_ALIVE_MS);
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') void refreshAdminSession();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    window.clearInterval(id);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
 }
 
 export function getStoredUser(): AdminUser | null {
@@ -76,4 +111,24 @@ export function getStoredUser(): AdminUser | null {
   } catch {
     return null;
   }
+}
+
+// ─── Two-factor (TOTP) ───────────────────────────────────────────────────────
+
+export type TwoFactorStatus = { enabled: boolean; pending: boolean };
+
+export async function fetchTwoFactorStatus(): Promise<TwoFactorStatus> {
+  return unwrap(await apiClient.get('/admin/auth/2fa'));
+}
+
+export async function startTwoFactorSetup(): Promise<{ secret: string; otpauthUrl: string }> {
+  return unwrap(await apiClient.post('/admin/auth/2fa/setup'));
+}
+
+export async function enableTwoFactor(code: string): Promise<{ enabled: true }> {
+  return unwrap(await apiClient.post('/admin/auth/2fa/enable', { code }));
+}
+
+export async function disableTwoFactor(code: string): Promise<{ enabled: false }> {
+  return unwrap(await apiClient.post('/admin/auth/2fa/disable', { code }));
 }
