@@ -20,6 +20,7 @@ import {
   SUPPORT_TICKET_CATEGORY_LABEL_AR,
   TICKET_STATUS_LABEL_AR,
 } from '../constants/support.constants';
+import { ticketPriorityFor } from './ticket-priority';
 
 const TICKET_STATUSES = [
   'OPEN',
@@ -128,6 +129,13 @@ export class SupportTicketsService {
     return `${prefix}${String(seq).padStart(6, '0')}`;
   }
 
+  private async defaultPriority(userId: string, category?: string | null) {
+    const tier = await this.repo
+      .findReporterTier(userId)
+      .catch(() => null);
+    return ticketPriorityFor({ verifiedTier: tier?.verifiedTier, category });
+  }
+
   getMeta() {
     return {
       categories: Object.entries(SUPPORT_TICKET_CATEGORY_LABEL_AR).map(
@@ -140,7 +148,7 @@ export class SupportTicketsService {
         }),
       ),
       helpKinds: [
-        { value: 'OTHER_HELP', labelAr: 'مساعدة في شيء آخر' },
+        { value: 'OTHER_HELP', labelAr: 'اسأل مساعد سرح' },
       ],
     };
   }
@@ -181,10 +189,12 @@ export class SupportTicketsService {
       throwApi(400, 'invalid_body', 'الوصف قصير جداً');
     }
 
+    const priority = await this.defaultPriority(user.userId, dto.category);
     const ticket = await this.repo.createTicket({
       ticketNumber: this.legacyTicketNumber(),
       type: 'SUPPORT',
       category: dto.category,
+      priority,
       subject: dto.subject.trim(),
       description: dto.description.trim(),
       status: 'OPEN',
@@ -237,6 +247,7 @@ export class SupportTicketsService {
         storedCategory as keyof typeof SUPPORT_TICKET_CATEGORY_LABEL_AR
       ] ?? 'مساعدة في شيء آخر';
 
+    const priority = await this.defaultPriority(user.userId, storedCategory);
     let ticket: Awaited<ReturnType<SupportRepository['createTicket']>> | null =
       null;
     for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -246,6 +257,7 @@ export class SupportTicketsService {
           ticketNumber,
           type: 'SUPPORT',
           category: storedCategory,
+          priority,
           subject,
           description,
           status: 'AI_ASSISTING',
@@ -600,7 +612,7 @@ export class SupportTicketsService {
     if (turn.escalate) {
       this.logger.info(
         { event: 'AI_ESCALATED', ticketNumber: ticket.ticketNumber },
-        'Sarhan escalated ticket',
+        'Support assistant escalated ticket',
       );
     }
 

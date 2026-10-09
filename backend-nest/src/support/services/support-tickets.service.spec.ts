@@ -24,6 +24,7 @@ describe('SupportTicketsService', () => {
       (err: { code?: string }) => err?.code === 'P2002',
     ),
     findAllStaffUserIds: jest.fn(),
+    findReporterTier: jest.fn(),
   };
   const notifications = {
     notifyTicketCreated: jest.fn(),
@@ -50,6 +51,7 @@ describe('SupportTicketsService', () => {
       displayName: 'Muteb',
     });
     repo.findLatestSrhTicketNumber.mockResolvedValue(null);
+    repo.findReporterTier.mockResolvedValue({ verifiedTier: null });
     repo.createMessage.mockResolvedValue({ id: 'm1', body: 'x' });
     repo.updateTicket.mockImplementation(
       async (id: string, data: Record<string, unknown>) => ({
@@ -59,18 +61,19 @@ describe('SupportTicketsService', () => {
       }),
     );
     sarhan.nextTurn.mockResolvedValue({
-      replyAr: 'هل الطلب لم يصل؟',
+      replyAr: 'جرّب «إعادة إرسال الرمز».',
       escalate: false,
-      metadata: { issueType: 'ORDER_NOT_RECEIVED' },
-      missingInformation: ['confirm_not_received'],
+      metadata: { issueType: 'ACCOUNT_ISSUE' },
+      missingInformation: [],
     });
     aiContext.build.mockResolvedValue({
       ticketNumber: 'SRH-2026-000001',
       category: 'OTHER_HELP',
       customerFirstName: 'متعب',
-      customerDescription: 'طلبي ما وصل',
+      customerDescription: 'ما جاني الكود',
       missingInformation: [],
       recentMessages: [],
+      knowledge: [],
     });
     service = new SupportTicketsService(
       repo as never,
@@ -89,7 +92,7 @@ describe('SupportTicketsService', () => {
       ticketNumber: 'SRH-2026-000001',
       status: 'AI_ASSISTING',
       handlerMode: 'AI_ACTIVE',
-      subject: 'مشكلة في الطلب',
+      subject: 'مشكلة في حسابي',
       createdAt: new Date(),
     });
     repo.findTicketById.mockResolvedValue({
@@ -109,7 +112,7 @@ describe('SupportTicketsService', () => {
 
     const result = await service.createTicket(user('cust-a'), {
       helpKind: 'OTHER_HELP',
-      description: 'طلبي ما وصل',
+      description: 'ما جاني الكود',
     });
 
     expect(result.ticket.ticketNumber).toMatch(/^SRH-\d{4}-\d{6}$/);
@@ -239,7 +242,7 @@ describe('SupportTicketsService', () => {
       status: 'AI_ASSISTING',
       handlerMode: 'AI_ACTIVE',
       ticketNumber: 'SRH-2026-000001',
-      subject: 'مشكلة في الطلب',
+      subject: 'مشكلة في حسابي',
     });
     repo.findTicketById.mockResolvedValue({
       id: 't1',
@@ -289,7 +292,7 @@ describe('SupportTicketsService', () => {
       status: 'WAITING_FOR_SUPPORT',
       handlerMode: 'HUMAN_ACTIVE',
       ticketNumber: 'SRH-2026-000001',
-      subject: 'مشكلة في الطلب',
+      subject: 'مشكلة في حسابي',
     });
     await service.replyAsUser(user('cust-a'), 't1', {
       body: 'ما زالت المشكلة',
@@ -339,7 +342,7 @@ describe('SupportTicketsService', () => {
       status: 'WAITING_FOR_SUPPORT',
       handlerMode: 'HUMAN_ACTIVE',
       ticketNumber: 'SRH-2026-000001',
-      subject: 'مشكلة في الطلب',
+      subject: 'مشكلة في حسابي',
     });
     await service.replyAsUser(user('cust-a'), 't1', {
       body: 'رد مزيف',
@@ -356,7 +359,7 @@ describe('SupportTicketsService', () => {
       status: 'AI_ASSISTING',
       handlerMode: 'AI_ACTIVE',
       ticketNumber: 'SRH-2026-000001',
-      subject: 'مشكلة في الطلب',
+      subject: 'مشكلة في حسابي',
     });
     repo.findTicketById.mockResolvedValue({
       id: 't1',
@@ -367,7 +370,7 @@ describe('SupportTicketsService', () => {
       messages: [],
     });
     sarhan.nextTurn.mockResolvedValue({
-      replyAr: 'تم تسجيل طلبك',
+      replyAr: 'حوّلت طلبك لفريق خدمة العملاء',
       escalate: true,
       metadata: { issueType: 'REFUND_ISSUE' },
       missingInformation: [],
@@ -409,5 +412,75 @@ describe('SupportTicketsService', () => {
         status: 'WAITING_FOR_SUPPORT',
       }),
     );
+  });
+
+  describe('default priority (Gold → HIGH)', () => {
+    const created = {
+      id: 't9',
+      ticketNumber: 'SUP-X-001',
+      status: 'OPEN',
+      handlerMode: 'HUMAN_ACTIVE',
+      subject: 's',
+      createdAt: new Date(),
+    };
+
+    it('creates Gold subscriber tickets with HIGH priority', async () => {
+      repo.findReporterTier.mockResolvedValue({ verifiedTier: 'gold' });
+      repo.createTicket.mockResolvedValue(created);
+      await service.createTicket(user('gold-user'), {
+        category: 'ACCOUNT',
+        subject: 'مشكلة في حسابي',
+        description: 'ما أقدر أدخل حسابي من أمس',
+      });
+      expect(repo.findReporterTier).toHaveBeenCalledWith('gold-user');
+      expect(repo.createTicket.mock.calls[0][0].priority).toBe('HIGH');
+    });
+
+    it('keeps NORMAL priority for Blue / Blue+ / free accounts', async () => {
+      for (const tier of ['blue', 'blue_plus', null]) {
+        repo.createTicket.mockClear();
+        repo.findReporterTier.mockResolvedValue({ verifiedTier: tier });
+        repo.createTicket.mockResolvedValue(created);
+        await service.createTicket(user('u1'), {
+          category: 'ACCOUNT',
+          subject: 'مشكلة في حسابي',
+          description: 'ما أقدر أدخل حسابي من أمس',
+        });
+        expect(repo.createTicket.mock.calls[0][0].priority).toBe('NORMAL');
+      }
+    });
+
+    it('gives Gold help tickets (مساعد سرح) HIGH priority too', async () => {
+      repo.findReporterTier.mockResolvedValue({ verifiedTier: 'gold' });
+      repo.createTicket.mockResolvedValue({ ...created, status: 'AI_ASSISTING', handlerMode: 'AI_ACTIVE' });
+      repo.findTicketById.mockResolvedValue(null);
+      repo.findUserTicket.mockResolvedValue(null);
+      await service.createTicket(user('gold-user'), {
+        helpKind: 'OTHER_HELP',
+        description: 'ما جاني الكود',
+      });
+      expect(repo.createTicket.mock.calls[0][0].priority).toBe('HIGH');
+    });
+
+    it('marks help-center fraud reports HIGH', async () => {
+      repo.createTicket.mockResolvedValue(created);
+      await service.createTicket(user('u2'), {
+        category: 'FRAUD',
+        subject: 'بلاغ احتيال',
+        description: 'البائع أخذ العربون وحظرني',
+      });
+      expect(repo.createTicket.mock.calls[0][0].priority).toBe('HIGH');
+    });
+
+    it('falls back to NORMAL when the tier lookup fails', async () => {
+      repo.findReporterTier.mockRejectedValue(new Error('db'));
+      repo.createTicket.mockResolvedValue(created);
+      await service.createTicket(user('u3'), {
+        category: 'ACCOUNT',
+        subject: 'مشكلة في حسابي',
+        description: 'ما أقدر أدخل حسابي من أمس',
+      });
+      expect(repo.createTicket.mock.calls[0][0].priority).toBe('NORMAL');
+    });
   });
 });
