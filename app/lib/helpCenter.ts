@@ -2,7 +2,7 @@ import type { FaqCategory } from '@/services/support';
 
 /**
  * Help-center hub — pure helpers (no React) so they stay unit-testable.
- * Sarh is a livestock marketplace: no orders / delivery / butchers content here.
+ * Sarh is a livestock marketplace: help content covers Sarh features only.
  */
 
 /** Hub sections, top to bottom. «بلاغاتي» is intentionally absent: no my-reports endpoint yet. */

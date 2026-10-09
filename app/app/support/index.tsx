@@ -37,7 +37,7 @@ import {
 /**
  * Help center hub — one screen for every entry point (More tab, sidebar, settings).
  * Order: status → search → categories → top questions → fraud → «اسأل مساعد سرح»
- * → تذاكري → create ticket (last). «بلاغاتي» is hidden: there is no my-reports endpoint.
+ * → تذاكري → create ticket (last). A "my reports" row is hidden: there is no my-reports endpoint.
  */
 export default function SupportHubScreen() {
   const router = useRouter();
@@ -226,7 +226,7 @@ export default function SupportHubScreen() {
           </Pressable>
         </View>
 
-        {/* 7. My tickets («بلاغاتي» hidden until a my-reports endpoint exists) */}
+        {/* 7. My tickets (a "my reports" row stays hidden until a my-reports endpoint exists) */}
         <SarhSettingsSection title="طلباتي">
           <SarhSettingsRow
             icon="ticket-outline"

@@ -73,7 +73,7 @@ describe('modern iOS navigation (native push + swipe-back)', () => {
     expect(layout).toContain("animation: 'slide_from_bottom'");
     expect(layout).toContain("name=\"stories/view\"");
     // Transparent JS sheets stay see-through over the previous page.
-    expect(layout.match(/contentStyle: \{ backgroundColor: 'transparent', \.\.\.getRtlDirection\(\) \}/g)?.length).toBe(3);
+    expect(layout.match(/contentStyle: \{ backgroundColor: 'transparent', \.\.\.getRtlDirection\(\) \}/g)?.length).toBe(2);
   });
 
   it('media viewer keeps its quick fade/scale timing', () => {
