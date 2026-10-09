@@ -27,6 +27,7 @@ import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
 import { expireStaleBoostFlags } from '../boost/boost-expiry';
 import { HOUR_MS, extendUntil } from '../boost/extend-until';
 import { PaidServicesService } from '../../settings/paid-services.service';
+import { assertDevPaymentShortcutAllowed } from '../../common/decorators/dev-only-route.decorator';
 
 type InitiatePromotionOptions = {
   durationDays?: number;
@@ -375,8 +376,7 @@ export class ListingPromotionService {
   }
 
   async devCompletePromotion(user: JwtPayload, promotionId: string) {
-    if (!isNiSandboxMockMode())
-      throwApi(403, 'forbidden', 'غير متاح في الإنتاج');
+    assertDevPaymentShortcutAllowed();
 
     const promotion = await this.prisma.listingPromotion.findFirst({
       where: { id: promotionId, userId: user.userId },

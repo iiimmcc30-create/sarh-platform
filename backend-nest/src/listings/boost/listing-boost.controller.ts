@@ -29,6 +29,7 @@ import {
   PROMOTE_DURATION_HOURS_MAX,
   PROMOTE_DURATION_HOURS_MIN,
 } from '../promotion/promotion-limits.config';
+import { DevOnlyPost } from '../../common/decorators/dev-only-route.decorator';
 
 class InitiateBoostDto {
   @IsEnum(BoostType)
@@ -93,7 +94,7 @@ export class ListingBoostController {
   /** Dev-only: instantly complete a boost without going through NI. */
   @UseGuards(JwtAuthGuard)
   @RateLimit('api')
-  @Post('boost/:boostId/dev-complete')
+  @DevOnlyPost('boost/:boostId/dev-complete')
   @HttpCode(HttpStatus.OK)
   async devComplete(
     @Param('boostId') boostId: string,

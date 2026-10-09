@@ -47,6 +47,25 @@ import {
 } from '../listings/listing-fee';
 import { Sentry } from '../shared/lib/sentry';
 import { niFixedSecretMatches } from '../integrations/utils/ni-webhook-header.util';
+import {
+  checkNiOrderForFulfilment,
+  isPaymentHeldForReview,
+  sameMoneyAmount,
+} from './ni-fulfilment-guard';
+import { assertDevPaymentShortcutAllowed } from '../common/decorators/dev-only-route.decorator';
+
+type NiVerifiablePayment = {
+  id: string;
+  amount: number;
+  currency?: string | null;
+  orderId?: string | null;
+  transactionId?: string | null;
+  metadata?: unknown;
+};
+
+type NiFulfilmentVerdict =
+  | { ok: true; order: Record<string, unknown>; state: string }
+  | { ok: false; reason: string; reviewRequired: boolean };
 
 function buildNIOrderReference(userId: string): string {
   const ts = Date.now().toString(36).toUpperCase();
@@ -79,14 +98,6 @@ function niStateIsSuccess(state: string): boolean {
 }
 function niStateIsFailure(state: string): boolean {
   return classifyNiOrderState(state) === 'failed';
-}
-
-function normalizeMoney(value: number): number {
-  return Math.round(value * 100);
-}
-
-function sameMoneyAmount(a: number, b: number): boolean {
-  return normalizeMoney(a) === normalizeMoney(b);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -1007,9 +1018,23 @@ export class PaymentsService
     }
 
     if (isSuccess) {
+      // The payload is unsigned: confirm state + amount + currency with the
+      // NI API before fulfilling. A mismatch is parked for review.
+      const verdict = await this.verifyNiOrderBeforeFulfilment(
+        payment,
+        'webhook',
+        { payloadOrderRef: niTransactionId },
+      );
+      if (!verdict.ok) return;
+      const verifiedTxId = String(
+        verdict.order.reference ??
+          verdict.order.transactionId ??
+          niTransactionId,
+      );
+
       const fulfillment = await this.repo.processSuccessfulPayment({
         paymentId: payment.id,
-        niTransactionId,
+        niTransactionId: verifiedTxId,
         type,
         referenceId,
         userId,
@@ -1114,6 +1139,134 @@ export class PaymentsService
         'NI Payment failed',
       );
     }
+  }
+
+  // ── Fulfilment guard (webhook + sync) ─────────────────────────────────────
+
+  /** NI order UUID we stored at checkout (never taken from a webhook payload). */
+  private storedNiOrderUuid(payment: NiVerifiablePayment): string | null {
+    const tx = payment.transactionId ? String(payment.transactionId) : '';
+    if (tx && !tx.startsWith('DEV-') && isNiOrderUuid(tx)) return tx;
+    const orderId = payment.orderId ? String(payment.orderId) : '';
+    if (orderId && isNiOrderUuid(orderId)) return orderId;
+    return null;
+  }
+
+  /**
+   * Re-read the order from N-Genius and require captured/purchased + the exact
+   * amount and currency of our Payment row before anything is fulfilled.
+   * Mismatch → payment parked for review (metadata.reviewRequired), error log,
+   * Sentry event; nothing is fulfilled. Already-parked payments stay parked.
+   */
+  private async verifyNiOrderBeforeFulfilment(
+    payment: NiVerifiablePayment,
+    source: 'webhook' | 'sync' | 'auto_sync',
+    opts: {
+      fetched?: { order: Record<string, unknown>; state: string };
+      payloadOrderRef?: string;
+    } = {},
+  ): Promise<NiFulfilmentVerdict> {
+    if (isPaymentHeldForReview(payment.metadata)) {
+      this.logger.warn(
+        { paymentId: payment.id, source },
+        'NI payment is held for review — not fulfilling',
+      );
+      return { ok: false, reason: 'held_for_review', reviewRequired: true };
+    }
+
+    let order: Record<string, unknown>;
+    let state: string;
+    let mustMatchMerchantRef = false;
+
+    if (opts.fetched) {
+      ({ order, state } = opts.fetched);
+    } else {
+      if (isNiSandboxMockMode()) {
+        // No NI credentials → cannot confirm with the gateway. Never fulfil
+        // from an unconfirmed payload (production refuses to boot in this mode).
+        this.logger.warn(
+          { paymentId: payment.id, source },
+          'NI webhook success ignored — gateway not configured (cannot verify)',
+        );
+        return { ok: false, reason: 'ni_unavailable', reviewRequired: false };
+      }
+      let niRef = this.storedNiOrderUuid(payment);
+      if (
+        !niRef &&
+        opts.payloadOrderRef &&
+        isNiOrderUuid(opts.payloadOrderRef)
+      ) {
+        // Checkout crashed before the NI UUID was stored: fetch by the payload
+        // ref, but the fetched order must carry OUR merchant reference.
+        niRef = opts.payloadOrderRef;
+        mustMatchMerchantRef = true;
+      }
+      if (!niRef) {
+        this.logger.warn(
+          { paymentId: payment.id, source, reason: 'missing_ni_uuid' },
+          'NI webhook success ignored — no NI order id to verify against',
+        );
+        return { ok: false, reason: 'missing_ni_uuid', reviewRequired: false };
+      }
+      ({ order, state } = await fetchNiOrderResolved(niRef, this.niLog, {
+        maxAttempts: 2,
+        delayMs: 1500,
+      }));
+    }
+
+    let reason: string | null = null;
+    let niAmount: number | undefined;
+    let niCurrency: string | undefined;
+
+    if (mustMatchMerchantRef) {
+      const attrs = order.merchantAttributes as
+        Record<string, unknown> | undefined;
+      const ref = String(
+        attrs?.merchantOrderReference ?? order.merchantOrderReference ?? '',
+      );
+      if (!ref || !payment.orderId || ref !== String(payment.orderId)) {
+        reason = 'order_reference_mismatch';
+      }
+    }
+
+    if (!reason) {
+      const check = checkNiOrderForFulfilment(order, state, {
+        amount: Number(payment.amount),
+        currency: payment.currency,
+      });
+      if (check.ok) return { ok: true, order, state };
+      if (check.reason === 'not_captured') {
+        // Not (yet) captured at NI: wait for the next webhook / auto-sync.
+        this.logger.warn(
+          { paymentId: payment.id, source, niState: state },
+          'NI success signal not confirmed by gateway — not fulfilling yet',
+        );
+        return { ok: false, reason: check.reason, reviewRequired: false };
+      }
+      reason = check.reason;
+      niAmount = check.niAmount;
+      niCurrency = check.niCurrency;
+    }
+
+    const review = {
+      reason,
+      source,
+      niState: state,
+      niAmount: niAmount ?? null,
+      niCurrency: niCurrency ?? null,
+      expectedAmount: Number(payment.amount),
+      expectedCurrency: payment.currency ?? 'SAR',
+    };
+    await this.repo.flagPaymentForReview(payment.id, review);
+    this.logger.error(
+      { paymentId: payment.id, ...review },
+      'NI payment held for review — gateway order does not match local payment',
+    );
+    Sentry.captureException(new Error(`ni_payment_review_required:${reason}`), {
+      tags: { payment_review: String(reason), payment_source: source },
+      extra: { paymentId: payment.id, ...review },
+    });
+    return { ok: false, reason: String(reason), reviewRequired: true };
   }
 
   // ── Auto-sync lifecycle ────────────────────────────────────────────────────
@@ -1315,6 +1468,24 @@ export class PaymentsService
         (storedMeta.billingCycle as string | undefined) ?? 'monthly';
 
       if (niStateIsSuccess(state)) {
+        const verdict = await this.verifyNiOrderBeforeFulfilment(
+          payment,
+          auto ? 'auto_sync' : 'sync',
+          { fetched: { order, state } },
+        );
+        if (!verdict.ok) {
+          return {
+            paymentId,
+            status: payment.status,
+            outcome: 'processing',
+            synced: false,
+            niState: state,
+            reviewRequired: verdict.reviewRequired,
+            messageAr: verdict.reviewRequired
+              ? 'دفعتك قيد المراجعة. سنتواصل معك إذا احتجنا شيئاً.'
+              : niOrderStateLabelAr('processing'),
+          };
+        }
         const fulfillment = await this.repo.processSuccessfulPayment({
           paymentId,
           niTransactionId: niTxId,
@@ -1497,9 +1668,7 @@ export class PaymentsService
 
   /** Local/sandbox only: mark a pending payment as paid without NI webhook. */
   async simulateDevPayment(user: JwtPayload, paymentId: string) {
-    if (!isNiSandboxMockMode()) {
-      throwApi(403, 'forbidden', 'غير متاح في بيئة الإنتاج');
-    }
+    assertDevPaymentShortcutAllowed();
 
     const payment = await this.repo.findPaymentOwnedByUser(
       paymentId,

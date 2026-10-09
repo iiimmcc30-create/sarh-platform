@@ -59,6 +59,7 @@ describe('PaymentsService', () => {
     processSuccessfulPayment: jest.fn(),
     markPaymentFailedById: jest.fn(),
     markPaymentRefunded: jest.fn(),
+    flagPaymentForReview: jest.fn().mockResolvedValue({ flagged: true }),
   };
   const logger = {
     info: jest.fn(),
@@ -551,6 +552,7 @@ describe('PaymentsService', () => {
         id: 'pay-s',
         status: 'pending',
         userId: 'u1',
+        transactionId: 'a13f81f3-27b4-48b6-88de-22b9ddc1e1dc',
         amount: 100,
         currency: 'SAR',
         metadata: { type: 'listing_fee' },
@@ -568,6 +570,15 @@ describe('PaymentsService', () => {
         referenceId: 'fee-1',
       });
     repo.processSuccessfulPayment.mockResolvedValue({ processed: true });
+    const prevKey = process.env.NI_API_KEY;
+    process.env.NI_API_KEY = 'live_ci_test_key_not_mock';
+    mockedFetchNi.mockResolvedValue({
+      order: {
+        state: 'PURCHASED',
+        amount: { currencyCode: 'SAR', value: 10000 },
+      },
+      state: 'PURCHASED',
+    });
 
     const event = {
       eventName: 'ORDER.PAID',
@@ -578,8 +589,13 @@ describe('PaymentsService', () => {
       },
     };
 
-    await (service as any).handleNIWebhook(event);
-    await (service as any).handleNIWebhook(event);
+    try {
+      await (service as any).handleNIWebhook(event);
+      await (service as any).handleNIWebhook(event);
+    } finally {
+      if (prevKey === undefined) delete process.env.NI_API_KEY;
+      else process.env.NI_API_KEY = prevKey;
+    }
 
     expect(repo.processSuccessfulPayment).toHaveBeenCalledTimes(1);
     expect(notifications.notifyUser).toHaveBeenCalledTimes(1);
@@ -684,6 +700,8 @@ describe('PaymentsService', () => {
       id: 'pay-stuck',
       status: 'failed',
       userId: 'u1',
+      amount: 25,
+      currency: 'SAR',
       orderId: niUuid,
       transactionId: niUuid,
       metadata: { type: 'listing_fee' },
@@ -694,6 +712,8 @@ describe('PaymentsService', () => {
       id: 'pay-stuck',
       status: 'failed',
       userId: 'u1',
+      amount: 25,
+      currency: 'SAR',
       orderId: niUuid,
       transactionId: niUuid,
       metadata: { type: 'listing_fee' },
@@ -702,7 +722,12 @@ describe('PaymentsService', () => {
     });
     repo.processSuccessfulPayment.mockResolvedValue({ processed: false });
     mockedFetchNi.mockResolvedValue({
-      order: { reference: 'ni-1', state: 'CAPTURED', transactionId: 'ni-1' },
+      order: {
+        reference: 'ni-1',
+        state: 'CAPTURED',
+        transactionId: 'ni-1',
+        amount: { currencyCode: 'SAR', value: 2500 },
+      },
       state: 'CAPTURED',
     });
 

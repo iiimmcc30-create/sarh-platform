@@ -670,6 +670,37 @@ export class PaymentsRepository {
     });
   }
 
+  /**
+   * Park a payment for manual review (NI order did not match our record).
+   * Status stays pending/failed so nothing is fulfilled; metadata records why.
+   * Idempotent: a payment already flagged is left as is.
+   */
+  flagPaymentForReview(
+    paymentId: string,
+    review: Record<string, unknown>,
+  ): Promise<{ flagged: boolean }> {
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        select: { status: true, metadata: true },
+      });
+      if (!payment) return { flagged: false };
+      const meta = (payment.metadata ?? {}) as Record<string, unknown>;
+      if (meta.reviewRequired === true) return { flagged: false };
+      const updated = await tx.payment.updateMany({
+        where: { id: paymentId, status: { in: ['pending', 'failed'] } },
+        data: {
+          metadata: {
+            ...meta,
+            reviewRequired: true,
+            review: { ...review, flaggedAt: new Date().toISOString() },
+          } as Prisma.InputJsonValue,
+        },
+      });
+      return { flagged: updated.count > 0 };
+    });
+  }
+
   findPaymentOwnedByUser(paymentId: string, userId: string) {
     return this.prisma.payment.findFirst({
       where: { id: paymentId, userId },

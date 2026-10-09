@@ -18,6 +18,7 @@ import { lookupPromotePrice } from '../promote-catalog';
 import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
 import { PROMOTE_AMOUNT_MAX } from '../promotion/promotion-limits.config';
 import { PaidServicesService } from '../../settings/paid-services.service';
+import { assertDevPaymentShortcutAllowed } from '../../common/decorators/dev-only-route.decorator';
 
 export { BOOST_PLANS } from './boost-plans.config';
 
@@ -323,8 +324,7 @@ export class ListingBoostService {
 
   /** Dev-only: simulate boost payment without NI. */
   async devCompleteBoost(user: JwtPayload, boostId: string) {
-    if (!isNiSandboxMockMode())
-      throwApi(403, 'forbidden', 'غير متاح في الإنتاج');
+    assertDevPaymentShortcutAllowed();
 
     const boost = await this.prisma.listingBoost.findFirst({
       where: { id: boostId, userId: user.userId },

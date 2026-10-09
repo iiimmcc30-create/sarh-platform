@@ -23,6 +23,7 @@ import { readNiWebhookFixedHeader } from '../integrations/utils/ni-webhook-heade
 import { NiWebhookService } from '../integrations/services/ni-webhook.service';
 import { InitiatePaymentDto } from './dto/payments.dto';
 import { PaymentsService } from './payments.service';
+import { DevOnlyPost } from '../common/decorators/dev-only-route.decorator';
 
 type RequestWithRawBody = Request & { rawBody?: string };
 
@@ -45,7 +46,7 @@ export class PaymentsController {
   }
 
   @RateLimit('payment')
-  @Post(':id/dev-complete')
+  @DevOnlyPost(':id/dev-complete')
   @HttpCode(200)
   async devComplete(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return successResponse(await this.payments.simulateDevPayment(user, id));

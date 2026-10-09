@@ -33,6 +33,7 @@ import {
   PROMOTE_DURATION_HOURS_MAX,
   PROMOTE_DURATION_HOURS_MIN,
 } from './promotion-limits.config';
+import { DevOnlyPost } from '../../common/decorators/dev-only-route.decorator';
 
 class InitiatePromotionDto {
   @IsOptional()
@@ -164,7 +165,7 @@ export class ListingPromotionController {
 
   @UseGuards(JwtAuthGuard)
   @RateLimit('api')
-  @Post('promotion/:promotionId/dev-complete')
+  @DevOnlyPost('promotion/:promotionId/dev-complete')
   @HttpCode(HttpStatus.OK)
   async devComplete(
     @Param('promotionId') promotionId: string,
