@@ -6,6 +6,9 @@ export const SUPPORT_TICKET_CATEGORIES = [
   'PAYMENT',
   'VERIFICATION',
   'TECHNICAL',
+  'SUBSCRIPTIONS',
+  'COUNCILS',
+  'FRAUD',
   'OTHER',
   'OTHER_HELP',
 ] as const;
@@ -15,14 +18,20 @@ export type SupportTicketCategory = (typeof SUPPORT_TICKET_CATEGORIES)[number];
 export const HELP_KINDS = ['OTHER_HELP'] as const;
 export type HelpKind = (typeof HELP_KINDS)[number];
 
+/** Display name of the support assistant (user-visible everywhere). */
+export const SUPPORT_ASSISTANT_NAME_AR = 'مساعد سرح';
+
+/** Sarh (livestock marketplace) issue taxonomy used by «مساعد سرح». */
 export const SUPPORT_ISSUE_TYPES = [
-  'ORDER_NOT_RECEIVED',
-  'ORDER_ITEM_MISSING',
-  'WRONG_ITEM',
-  'DAMAGED_ITEM',
+  'ACCOUNT_ISSUE',
+  'LISTING_ISSUE',
+  'PROMOTION_ISSUE',
+  'SUBSCRIPTION_ISSUE',
   'PAYMENT_ISSUE',
   'REFUND_ISSUE',
-  'DELIVERY_ISSUE',
+  'FRAUD_REPORT',
+  'COUNCIL_ISSUE',
+  'TECHNICAL_ISSUE',
   'OTHER',
 ] as const;
 
@@ -39,6 +48,9 @@ export const SUPPORT_TICKET_CATEGORY_LABEL_AR: Record<
   PAYMENT: 'الدفع',
   VERIFICATION: 'التوثيق',
   TECHNICAL: 'المشاكل التقنية',
+  SUBSCRIPTIONS: 'الاشتراكات',
+  COUNCILS: 'المجالس',
+  FRAUD: 'بلاغ احتيال',
   OTHER: 'أخرى',
   OTHER_HELP: 'مساعدة في شيء آخر',
 };
@@ -46,7 +58,7 @@ export const SUPPORT_TICKET_CATEGORY_LABEL_AR: Record<
 export const TICKET_STATUS_LABEL_AR: Record<string, string> = {
   OPEN: 'جديدة',
   IN_REVIEW: 'قيد المراجعة',
-  AI_ASSISTING: 'سرحان يساعد',
+  AI_ASSISTING: 'مساعد سرح يساعدك',
   WAITING_FOR_CUSTOMER: 'بانتظار العميل',
   WAITING_FOR_SUPPORT: 'بانتظار خدمة العملاء',
   IN_PROGRESS: 'قيد المعالجة',
@@ -63,13 +75,37 @@ export const VERIFICATION_STATUS_LABEL_AR: Record<string, string> = {
   REJECTED: 'مرفوض',
 };
 
-export const FAQ_CATEGORY_LABEL_AR: Record<string, string> = {
-  ACCOUNT: 'الحساب',
+/** FAQ categories in hub display order. */
+export const FAQ_CATEGORIES = [
+  'ACCOUNT',
+  'ADS',
+  'PROMOTION',
+  'SUBSCRIPTIONS',
+  'VERIFICATION',
+  'COUNCILS',
+  'COMMUNITY',
+  'MARKET',
+  'BUY_SELL',
+  'SAFETY',
+  'PAYMENT',
+  'TECHNICAL',
+  'GENERAL',
+] as const;
+
+export type FaqCategoryValue = (typeof FAQ_CATEGORIES)[number];
+
+export const FAQ_CATEGORY_LABEL_AR: Record<FaqCategoryValue, string> = {
+  ACCOUNT: 'الحساب والدخول',
   ADS: 'الإعلانات',
-  MARKET: 'السوق',
-  BUY_SELL: 'البيع والشراء',
-  PAYMENT: 'الدفع',
+  PROMOTION: 'التعزيز والترويج',
+  SUBSCRIPTIONS: 'الاشتراكات',
   VERIFICATION: 'التوثيق',
+  COUNCILS: 'المجالس',
+  COMMUNITY: 'المجتمع والرسائل',
+  MARKET: 'السوق والبحث',
+  BUY_SELL: 'البيع والشراء',
+  SAFETY: 'الأمان والبلاغات',
+  PAYMENT: 'الدفع والاسترداد',
   TECHNICAL: 'المشاكل التقنية',
   GENERAL: 'عام',
 };
@@ -99,9 +135,15 @@ export function firstNameFromUser(user: {
 
 export function sarhanWelcome(firstName: string, topicLabel?: string): string {
   const topic = topicLabel ? ` بخصوص ${topicLabel}` : '';
-  return `مرحباً ${firstName}، أنا سرحان من فريق الدعم. اطلعت على تفاصيل طلبك${topic} وأراجع المعلومات التي أرسلتها.`;
+  return `هلا ${firstName}، معك ${SUPPORT_ASSISTANT_NAME_AR}. قرأت رسالتك${topic} وأشوف لك الجواب.`;
 }
 
 export function sarhanHandoff(_ticketNumber?: string): string {
-  return 'شكرًا لك، اكتملت المعلومات اللازمة. تم تحويل طلبك إلى الفريق المختص.\nيرجى البقاء في المحادثة لمتابعة الرد.';
+  return 'حوّلت طلبك لفريق خدمة العملاء، وبيردون عليك هنا في نفس المحادثة.';
 }
+
+/** Default service-status line shown at the top of the help center. */
+export const SERVICE_STATUS_SETTING_KEY = 'support.serviceStatus';
+export const SERVICE_STATUS_DEFAULT_TEXT_AR = 'كل الخدمات تعمل بشكل طبيعي';
+export const SERVICE_STATUS_STATES = ['ok', 'degraded'] as const;
+export type ServiceStatusState = (typeof SERVICE_STATUS_STATES)[number];

@@ -46,6 +46,14 @@ export class SupportController {
 
   @Public()
   @RateLimit('api')
+  @Get('status')
+  @HttpCode(HttpStatus.OK)
+  async serviceStatus() {
+    return successResponse(await this.faq.getServiceStatus());
+  }
+
+  @Public()
+  @RateLimit('api')
   @Get('faqs')
   @HttpCode(HttpStatus.OK)
   async listFaqs(@Query() query: Record<string, unknown>) {

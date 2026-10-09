@@ -437,4 +437,90 @@ export class SupportRepository {
   countFaqs() {
     return this.prisma.faq.count({ where: { ...notDeleted, isActive: true } });
   }
+
+  /** Every active FAQ (knowledge base is ~120 rows) for in-memory retrieval. */
+  listActiveFaqsForRetrieval() {
+    return this.prisma.faq.findMany({
+      take: 1000,
+      where: { ...notDeleted, isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  /** Seed upsert by stable key. Existing rows keep their admin isActive/sortOrder. */
+  upsertFaqByKey(entry: {
+    key: string;
+    questionAr: string;
+    answerAr: string;
+    category: Prisma.FaqCreateInput['category'];
+    keywords: string[];
+    actionRoute?: string | null;
+    actionLabel?: string | null;
+    sortOrder: number;
+  }) {
+    const content = {
+      questionAr: entry.questionAr,
+      answerAr: entry.answerAr,
+      category: entry.category,
+      keywords: entry.keywords,
+      actionRoute: entry.actionRoute ?? null,
+      actionLabel: entry.actionLabel ?? null,
+    };
+    return this.prisma.faq.upsert({
+      where: { key: entry.key },
+      create: {
+        key: entry.key,
+        ...content,
+        sortOrder: entry.sortOrder,
+        isActive: true,
+      },
+      update: content,
+    });
+  }
+
+  /** Legacy rows (no key) that are still active — candidates for deactivation. */
+  listActiveUnkeyedFaqs() {
+    return this.prisma.faq.findMany({
+      take: 500,
+      where: { ...notDeleted, isActive: true, key: null },
+      select: { id: true, questionAr: true, answerAr: true },
+    });
+  }
+
+  /** Soft-retire FAQs (isActive=false). Never deletes rows. */
+  deactivateFaqs(ids: string[]) {
+    if (!ids.length) return Promise.resolve({ count: 0 });
+    return this.prisma.faq.updateMany({
+      where: { id: { in: ids } },
+      data: { isActive: false },
+    });
+  }
+
+  getAppSetting(key: string) {
+    return this.prisma.appSetting.findUnique({
+      where: { key },
+      select: { value: true, updatedAt: true },
+    });
+  }
+
+  upsertAppSetting(
+    key: string,
+    value: Prisma.InputJsonValue,
+    labelAr: string,
+    category = 'support',
+  ) {
+    return this.prisma.appSetting.upsert({
+      where: { key },
+      create: { key, value, labelAr, category },
+      update: { value },
+      select: { value: true, updatedAt: true },
+    });
+  }
+
+  findReporterTier(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { verifiedTier: true },
+    });
+  }
 }

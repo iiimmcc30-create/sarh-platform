@@ -146,6 +146,22 @@ export class AdminSupportController {
 
   @Roles(...STAFF)
   @RateLimit('api')
+  @Get('status')
+  @HttpCode(HttpStatus.OK)
+  async getServiceStatus() {
+    return successResponse(await this.faq.getServiceStatus());
+  }
+
+  @Roles('ADMIN')
+  @RateLimit('api')
+  @Put('status')
+  @HttpCode(HttpStatus.OK)
+  async setServiceStatus(@Body() body: Record<string, unknown>) {
+    return successResponse(await this.faq.setServiceStatus(body));
+  }
+
+  @Roles(...STAFF)
+  @RateLimit('api')
   @Put('faqs/reorder')
   @HttpCode(HttpStatus.OK)
   async reorderFaqs(@Body() body: Record<string, unknown>) {

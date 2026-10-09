@@ -1,155 +1,76 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, Optional } from '@nestjs/common';
+import { LoggerService } from '../../common/services/logger.service';
 import { SupportRepository } from '../repositories/support.repository';
+import {
+  FAQ_KB_VERSION,
+  FAQ_KNOWLEDGE_BASE,
+  LEGACY_SEED_QUESTIONS,
+  OBSOLETE_FAQ_PATTERN,
+} from '../kb/faq-knowledge-base';
 
-const DEFAULT_FAQS: {
-  questionAr: string;
-  answerAr: string;
-  category:
-    | 'ACCOUNT'
-    | 'ADS'
-    | 'MARKET'
-    | 'BUY_SELL'
-    | 'PAYMENT'
-    | 'VERIFICATION'
-    | 'TECHNICAL'
-    | 'GENERAL';
-  sortOrder: number;
-}[] = [
-  {
-    category: 'ACCOUNT',
-    sortOrder: 1,
-    questionAr: 'كيف أسجّل حساباً جديداً؟',
-    answerAr:
-      'افتح التطبيق، أدخل رقم جوالك في شاشة تسجيل الدخول، ثم أكّد رمز التحقق (OTP). بعد ذلك أكمل بيانات التسجيل (الاسم وكلمة المرور) من شاشة إنشاء الحساب.',
-  },
-  {
-    category: 'ACCOUNT',
-    sortOrder: 2,
-    questionAr: 'كيف أغيّر بيانات حسابي؟',
-    answerAr:
-      'من تبويب الملف الشخصي → الإعدادات والخصوصية → إعدادات الحساب، يمكنك تعديل الاسم والصورة والسيرة. لتغيير كلمة المرور أو رقم الجوال استخدم خيارات «كلمة المرور» و«تغيير رقم الجوال» في نفس القسم.',
-  },
-  {
-    category: 'ACCOUNT',
-    sortOrder: 3,
-    questionAr: 'كيف أتحكم في الخصوصية والإشعارات؟',
-    answerAr:
-      'من الإعدادات والخصوصية → الخصوصية يمكنك ضبط من يرى متابعيك، من يمكنه مراسلتك، ومن يمكنه التعليق. لتفعيل أو إيقاف الإشعارات استخدم مفتاح «الإشعارات» في صفحة الإعدادات.',
-  },
-  {
-    category: 'ADS',
-    sortOrder: 10,
-    questionAr: 'كيف أضيف إعلاناً في السوق؟',
-    answerAr:
-      'اضغط زر «+» في شريط التنقل السفلي، اختر «إعلان»، ثم أدخل عنوان الإعلان والوصف والسعر والصور والموقع. بعد المراجعة يُنشر إعلانك في تبويب السوق.',
-  },
-  {
-    category: 'ADS',
-    sortOrder: 11,
-    questionAr: 'كيف أعدّل أو أحذف إعلاني؟',
-    answerAr:
-      'افتح إعلانك من السوق أو من ملفك الشخصي، ثم استخدم خيارات التعديل أو الحذف المتاحة لصاحب الإعلان. يمكنك أيضاً إيقاف الإعلان أو تغيير حالته حسب ما يظهر في شاشة الإعلان.',
-  },
-  {
-    category: 'ADS',
-    sortOrder: 12,
-    questionAr: 'ما هي رسوم نشر الإعلان والترويج؟',
-    answerAr:
-      'قد تُفرض رسوم على بعض الإعلانات حسب الباقة والفئة. من صفحة «الرسوم» في التطبيق يمكنك الاطلاع على التفاصيل. للترويج، افتح إعلانك واختر «ترويج» لعرض خيارات التمييز والظهور.',
-  },
-  {
-    category: 'MARKET',
-    sortOrder: 20,
-    questionAr: 'كيف أبحث عن إعلان في السوق؟',
-    answerAr:
-      'من تبويب «السوق» استخدم شريط البحث أو تصفّح التصنيفات. يمكنك أيضاً فتح صفحة البحث العامة من أيقونة البحث في الشاشة الرئيسية.',
-  },
-  {
-    category: 'BUY_SELL',
-    sortOrder: 30,
-    questionAr: 'كيف أتواصل مع البائع أو المشتري؟',
-    answerAr:
-      'من صفحة الإعلان اضغط «مراسلة» أو «اتصال» حسب ما يوفّره البائع. المحادثات تظهر في تبويب «الرسائل» إذا كانت المراسلة داخل التطبيق.',
-  },
-  {
-    category: 'BUY_SELL',
-    sortOrder: 31,
-    questionAr: 'كيف أبلّغ عن إعلان أو محتوى مخالف؟',
-    answerAr:
-      'من قائمة الإعلان أو المنشور اختر «إبلاغ»، حدّد السبب وأضف التفاصيل. يُنشأ بلاغ يُراجعه فريق الإدارة.',
-  },
-  {
-    category: 'PAYMENT',
-    sortOrder: 40,
-    questionAr: 'كيف أدفع رسوم الإعلان أو الاشتراك؟',
-    answerAr:
-      'عند طلب الدفع (رسوم إعلان، باقة، أو ترويج) تُوجَّه لصفحة الدفع الآمنة عبر Network International. بعد إتمام العملية ستظهر نتيجة الدفع في التطبيق.',
-  },
-  {
-    category: 'PAYMENT',
-    sortOrder: 41,
-    questionAr: 'ما هي سياسة الاسترداد؟',
-    answerAr:
-      'تفاصيل الاسترداد مذكورة في «سياسة الاسترداد» ضمن قسم المعلومات في الإعدادات. للاستفسارات تواصل مع الدعم عبر تذكرة دعم.',
-  },
-  {
-    category: 'VERIFICATION',
-    sortOrder: 50,
-    questionAr: 'كيف أطلب توثيق حسابي؟',
-    answerAr:
-      'من «الدعم والمساعدة» → «طلب توثيق الحساب»، اقرأ المتطلبات، عبّئ بياناتك، ارفع صورة الهوية (والسجل التجاري للحسابات التجارية)، ثم اضغط «إرسال الطلب». يمكنك متابعة الحالة من نفس الصفحة.',
-  },
-  {
-    category: 'GENERAL',
-    sortOrder: 70,
-    questionAr: 'كيف أنشر منشوراً أو قصة؟',
-    answerAr:
-      'اضغط «+» في الشريط السفلي واختر «منشور» أو «قصة». للمنشور أضف النص والصور؛ للقصة أضف صورة أو فيديو قصير يختفي بعد 24 ساعة.',
-  },
-  {
-    category: 'GENERAL',
-    sortOrder: 71,
-    questionAr: 'كيف أشاهد البث المباشر؟',
-    answerAr:
-      'من تبويب «بث» أو من الإشعار عند بدء بث. يمكنك مشاهدة البث والتفاعل حسب ما يتيحه المضيف.',
-  },
-  {
-    category: 'GENERAL',
-    sortOrder: 72,
-    questionAr: 'أين أجد خدمات سرح الرسمية؟',
-    answerAr:
-      'من القائمة الجانبية أو صفحة «خدمات سرح» للوصول إلى روابط الخدمات الحكومية والرسمية (مثل وزارة البيئة ونامة) دون مغادرة التطبيق.',
-  },
-  {
-    category: 'TECHNICAL',
-    sortOrder: 80,
-    questionAr: 'التطبيق لا يعمل أو يتوقف، ماذا أفعل؟',
-    answerAr:
-      'تأكد من اتصال الإنternet وتحديث التطبيق. أعد تشغيل التطبيق أو سجّل الخروج ثم الدخول. إن استمرت المشكلة أنشئ تذكرة دعم من «الدعم والمساعدة» مع وصف المشكلة ولقطة شاشة إن أمكن.',
-  },
-  {
-    category: 'TECHNICAL',
-    sortOrder: 81,
-    questionAr: 'لم أصلني إشعار، كيف أتحقق؟',
-    answerAr:
-      'تأكد أن الإشعارات مفعّلة في إعدادات التطبيق وفي إعدادات جهازك. راجع «مركز الإشعارات» داخل التطبيق (أيقونة الجرس).',
-  },
-];
+export const FAQ_KB_VERSION_SETTING_KEY = 'support.faqKbVersion';
 
+/** Legacy rows to retire: old 17-row seed questions or delivery-app wording. */
+export function legacyFaqIdsToRetire(
+  rows: { id: string; questionAr: string; answerAr: string }[],
+): string[] {
+  const legacy = new Set(LEGACY_SEED_QUESTIONS.map((q) => q.trim()));
+  return rows
+    .filter(
+      (r) =>
+        legacy.has(r.questionAr.trim()) ||
+        OBSOLETE_FAQ_PATTERN.test(r.questionAr) ||
+        OBSOLETE_FAQ_PATTERN.test(r.answerAr),
+    )
+    .map((r) => r.id);
+}
+
+/**
+ * Seeds the help-center knowledge base once per FAQ_KB_VERSION:
+ * upserts every entry by its stable key and soft-retires (isActive=false) the
+ * legacy seed rows. Between versions nothing is touched, so admin edits stay.
+ * Never hard-deletes. Silently skips when the DB is not migrated yet.
+ */
 @Injectable()
 export class SupportSeedService implements OnModuleInit {
-  constructor(private readonly repo: SupportRepository) {}
+  constructor(
+    private readonly repo: SupportRepository,
+    @Optional() private readonly logger?: LoggerService,
+  ) {}
 
   async onModuleInit() {
     try {
-      const count = await this.repo.countFaqs();
-      if (count > 0) return;
-
-      for (const faq of DEFAULT_FAQS) {
-        await this.repo.createFaq(faq);
-      }
+      await this.seedKnowledgeBase();
     } catch {
-      // DB may not be migrated yet during boot
+      // DB may not be migrated yet during boot (Faq.key missing) — retry next boot.
     }
+  }
+
+  async seedKnowledgeBase(): Promise<{ upserted: number; retired: number } | null> {
+    const current = await this.repo.getAppSetting(FAQ_KB_VERSION_SETTING_KEY);
+    const seeded = Number(current?.value ?? 0);
+    if (Number.isFinite(seeded) && seeded >= FAQ_KB_VERSION) return null;
+
+    for (const entry of FAQ_KNOWLEDGE_BASE) {
+      await this.repo.upsertFaqByKey(entry);
+    }
+    const legacyRows = await this.repo.listActiveUnkeyedFaqs();
+    const retire = legacyFaqIdsToRetire(legacyRows);
+    await this.repo.deactivateFaqs(retire);
+    await this.repo.upsertAppSetting(
+      FAQ_KB_VERSION_SETTING_KEY,
+      FAQ_KB_VERSION,
+      'إصدار قاعدة معرفة مركز المساعدة',
+    );
+    this.logger?.info(
+      {
+        event: 'FAQ_KB_SEEDED',
+        version: FAQ_KB_VERSION,
+        upserted: FAQ_KNOWLEDGE_BASE.length,
+        retired: retire.length,
+      },
+      'Help-center knowledge base seeded',
+    );
+    return { upserted: FAQ_KNOWLEDGE_BASE.length, retired: retire.length };
   }
 }
