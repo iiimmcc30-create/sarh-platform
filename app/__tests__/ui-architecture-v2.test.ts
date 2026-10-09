@@ -390,7 +390,8 @@ describe('Architecture V2 — Wave 1 migrated screens', () => {
     expect(promote).toContain('listPromoteCatalogOptions');
     expect(promote).toContain('launchPaymentCheckout');
     expect(promote).toContain('<BottomAction');
-    expect(promote).not.toContain('ListingCard');
+    // The hero reuses ListingCard read-only as the boosted preview.
+    expect(promote).toContain('pointerEvents="none"');
   });
 
   it('keeps settings and info hubs flat instead of card stacks', () => {
@@ -454,7 +455,9 @@ describe('Architecture V2 — permanent guardrails', () => {
     const card = src('components/feature/ListingCard.tsx');
     expect(card).not.toContain("from '@/design-system/layout'");
     expect(card).not.toContain('SarhCard');
-    for (const file of WAVE_1) {
+    // promote.tsx reuses ListingCard read-only as the «boosted» preview of the
+    // seller's own card (no card chrome is rebuilt on the flat screen).
+    for (const file of WAVE_1.filter((f) => f !== 'app/listing/[id]/promote.tsx')) {
       expect(src(file)).not.toContain('ListingCard');
     }
   });

@@ -96,9 +96,9 @@ describe('promote catalog SSOT', () => {
     );
     expect(screen).toContain('displayPrice = selectedDuration?.amount');
     expect(screen).toContain('formatSar(displayPrice)');
-    expect(screen).toContain('ملخص التعزيز');
-    expect(screen).toContain('متابعة للدفع');
-    expect(screen).toContain("<BottomAction summary={{ label: 'الإجمالي', value: totalLabel }}>");
+    expect(screen).toContain('promoteCtaLabel(displayPrice)');
+    expect(screen).toContain('الإجمالي');
+    expect(screen).toContain('<BottomAction');
     expect(screen).not.toContain('quotedAmount');
     expect(screen).not.toContain('السعر النهائي يُحدَّد من الخادم');
   });

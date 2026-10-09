@@ -1,17 +1,21 @@
 // Sarh — Promote a listing (Featured / Pinned / Visibility).
-// Calm, card-light layout: compact listing preview, one block per existing
-// service with its catalog packages side by side (price first, duration under
-// it), a short summary and a sticky total + CTA. Prices/durations come only
-// from the official catalog; the server charges from the same table. Payment
-// still goes through initiatePromotePayment → launchPaymentCheckout.
-import { ListingBoostTitleIcons } from '@/components/listing/ListingBoostTitleIcons';
-import { Image, uriSource } from '@/components/ui/AppImage';
+// Premium, black-and-white layout: a hero with the seller's own card previewed
+// exactly as it will look boosted, honest benefit bullets, selectable plan
+// cards (price, per-day price and saving derived from the catalog), the free
+// weekly boost for Blue+/Gold and a sticky total + «عزّز الآن» pill.
+// Prices/durations come only from the official catalog; the server charges
+// from the same table. Payment still goes through initiatePromotePayment →
+// launchPaymentCheckout (unchanged).
+import { ListingCard } from '@/components/feature/ListingCard';
+import { FreeBoostOption } from '@/components/listing/FreeBoostOption';
+import { PaymentBrandLogo, FEE_PAYMENT_METHODS } from '@/components/payment/PaymentBrandLogos';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { useLayout } from '@/hooks/useLayout';
 import { duration } from '@/design-system/tokens';
 import { launchPaymentCheckout } from '@/services/payments';
 import { API_BASE } from '@/services/api';
@@ -29,31 +33,44 @@ import {
   initiatePromotePayment,
   type PromotionGoal,
 } from '@/services/listingPromote';
-import { listPromoteCatalogOptions, type PromoteCatalogOption } from '@/services/promoteCatalog';
+import { listPromoteCatalogOptions } from '@/services/promoteCatalog';
+import { fetchPromotionStats, type PromotionStats } from '@/services/listingPromotion';
+import type { FreeBoostQuota } from '@/services/freeBoost';
 import { usePaidServices } from '@/hooks/usePaidServices';
-import { FreeBoostOption } from '@/components/listing/FreeBoostOption';
 import { firstEnabledPromoteGoal, isPromoteGoalEnabled } from '@/services/paidServices';
 import {
+  FREE_BOOST_UPSELL_AR,
+  PROMOTE_BENEFITS,
+  PROMOTE_BEST_VALUE_BADGE,
+  PROMOTE_HERO_LINE,
   PROMOTE_SERVICE_COPY,
+  buildPromotePlans,
   createSubmitGuard,
-  durationPhrase,
   formatSar,
+  hasPromotionStats,
   promoteCheckoutOutcomeMessage,
+  promoteCommonBenefits,
+  promoteCtaLabel,
   promotePaymentErrorMessage,
+  shouldShowFreeBoostUpsell,
+  type PromoteBenefit,
+  type PromotePlanView,
 } from '@/lib/promotePage';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { AppText, SarhButton, SarhDivider } from '@/design-system/components';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
+import { AppText, SarhButton } from '@/design-system/components';
 import { BottomAction, Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 
 type Selection = { goal: PromotionGoal; durationHours: number };
 type Notice = { tone: 'error' | 'info'; text: string };
+type Success = { title: string; text: string };
 type LoadState = 'loading' | 'ready' | 'error';
 type Styles = ReturnType<typeof createStyles>;
 
 const TITLE = 'عزّز إعلانك';
 const SUBTITLE = 'اختر طريقة لإبراز إعلانك. الدفع مرة واحدة بدون تجديد تلقائي.';
+const FUTURE_PREVIEW_MS = 24 * 60 * 60 * 1000;
 
 function firstSelection(goal: PromotionGoal | null): Selection | null {
   if (!goal) return null;
@@ -97,10 +114,20 @@ function activeGoals(listing: Listing | null): Record<PromotionGoal, boolean> {
   };
 }
 
+/** The seller's own listing with the selected boost switched on (display only). */
+function boostedPreview(listing: Listing, goal: PromotionGoal | null): Listing {
+  const until = new Date(Date.now() + FUTURE_PREVIEW_MS).toISOString();
+  if (goal === 'featured') return { ...listing, featured: true, featuredUntil: until } as Listing;
+  if (goal === 'pinned') return { ...listing, pinned: true, pinnedUntil: until } as Listing;
+  if (goal === 'visibility') return { ...listing, promoted: true, promotedUntil: until } as Listing;
+  return listing;
+}
+
 export default function ListingPromoteScreen() {
   const { id, goal: goalParam } = useLocalSearchParams<{ id: string; goal?: string }>();
   const { accessToken } = useAuth();
   const { colors } = useTheme();
+  const layout = useLayout();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
 
   const { flags: paidFlags, hasAnyBoostService, loading: paidLoading } = usePaidServices();
@@ -110,6 +137,10 @@ export default function ListingPromoteScreen() {
   );
   const [processing, setProcessing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [success, setSuccess] = useState<Success | null>(null);
+  const [freeQuota, setFreeQuota] = useState<FreeBoostQuota | null>(null);
+  const [freeQuotaLoaded, setFreeQuotaLoaded] = useState(false);
+  const [stats, setStats] = useState<PromotionStats | null>(null);
   const guardRef = useRef(createSubmitGuard());
   const mountedRef = useRef(true);
   useEffect(
@@ -156,6 +187,22 @@ export default function ListingPromoteScreen() {
     };
   }, [accessToken, id, reloadKey]);
 
+  // Real results of this listing's promotion (owner only). Hidden when empty.
+  useEffect(() => {
+    if (!id || !accessToken) return;
+    let alive = true;
+    void fetchPromotionStats(id)
+      .then((s) => {
+        if (alive) setStats(s);
+      })
+      .catch(() => {
+        /* stats are optional */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [accessToken, id, reloadKey]);
+
   const active = useMemo(() => activeGoals(listing), [listing]);
 
   const retryLoad = useCallback(() => {
@@ -182,6 +229,16 @@ export default function ListingPromoteScreen() {
     [selectedService, selection?.durationHours],
   );
 
+  const plans = useMemo(
+    () => (selectedService ? buildPromotePlans(selectedService.durations) : []),
+    [selectedService],
+  );
+
+  const benefits = useMemo<PromoteBenefit[]>(
+    () => (goal ? [...PROMOTE_BENEFITS[goal], ...promoteCommonBenefits(selectedDuration?.labelAr ?? null)] : []),
+    [goal, selectedDuration?.labelAr],
+  );
+
   useEffect(() => {
     if (!goal || !selectedDuration) return;
     void fetchPromoteQuote(goal, selectedDuration.durationHours).catch(() => {
@@ -205,6 +262,15 @@ export default function ListingPromoteScreen() {
     setNotice(null);
   }, []);
 
+  const onSelectService = useCallback(
+    (nextGoal: PromotionGoal) => {
+      if (nextGoal === goal) return;
+      const first = listPromoteCatalogOptions(nextGoal)[0];
+      if (first) onSelect(nextGoal, first.durationHours);
+    },
+    [goal, onSelect],
+  );
+
   const handlePay = useCallback(() => {
     if (!accessToken || !checkoutPayload) return;
     void guardRef.current.run(async () => {
@@ -227,6 +293,9 @@ export default function ListingPromoteScreen() {
         });
         const outcomeNotice = promoteCheckoutOutcomeMessage(outcome);
         if (outcomeNotice && mountedRef.current) setNotice(outcomeNotice);
+        if (outcome === 'paid' && mountedRef.current) {
+          setSuccess({ title: 'تم الدفع بنجاح', text: 'جاري تفعيل التعزيز على إعلانك.' });
+        }
       } catch (err) {
         // Technical detail stays in logs; users get a friendly Arabic message.
         const e = err as { code?: string; status?: number; message?: string };
@@ -242,18 +311,24 @@ export default function ListingPromoteScreen() {
     });
   }, [accessToken, checkoutPayload]);
 
-  // Light fade when the real content replaces the skeleton.
+  const onFreeQuota = useCallback((q: FreeBoostQuota | null) => {
+    setFreeQuota(q);
+    setFreeQuotaLoaded(true);
+  }, []);
+
+  // Entrance: fade + short rise when the real content replaces the skeleton.
   const [contentOpacity] = useState(() => new Animated.Value(0));
+  const [contentRise] = useState(() => new Animated.Value(12));
   const showContent = loadState === 'ready' && !paidLoading;
   useEffect(() => {
     if (!showContent) return;
     contentOpacity.setValue(0);
-    Animated.timing(contentOpacity, {
-      toValue: 1,
-      duration: duration.ui,
-      useNativeDriver: true,
-    }).start();
-  }, [contentOpacity, showContent]);
+    contentRise.setValue(12);
+    Animated.parallel([
+      Animated.timing(contentOpacity, { toValue: 1, duration: duration.ui, useNativeDriver: true }),
+      Animated.spring(contentRise, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 4 }),
+    ]).start();
+  }, [contentOpacity, contentRise, showContent]);
 
   if (!id) {
     return (
@@ -283,21 +358,76 @@ export default function ListingPromoteScreen() {
   }
 
   const totalLabel = displayPrice != null ? formatSar(displayPrice) : '—';
+  const summaryLine =
+    selectedService && selectedDuration ? `${selectedService.title} · ${selectedDuration.labelAr}` : '';
+  const statusParts = [
+    active.featured ? 'مميّز' : null,
+    active.pinned ? 'مثبّت' : null,
+    active.visibility ? 'معزّز' : null,
+  ].filter(Boolean);
 
   return (
     <Screen>
       <ScreenHeader variant="screen" title={TITLE} showBack />
 
-      <ScreenBody padTop="sm" gap="section" bottomInset="action">
-        <AppText variant="bodySmall" color="textSecondary">
-          {SUBTITLE}
-        </AppText>
-
+      <ScreenBody padTop="sm" gap="section" bottomInset="action" padBottom="xxxl">
         {!showContent ? (
           <PromoteSkeleton styles={styles} />
         ) : (
-          <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
-            <ListingPreview listing={listing} active={active} styles={styles} colors={colors} />
+          <Animated.View
+            style={[styles.content, { opacity: contentOpacity, transform: [{ translateY: contentRise }] }]}
+          >
+            {success ? <SuccessPanel success={success} styles={styles} colors={colors} /> : null}
+
+            {/* Hero: value line + the seller's own card as it will look boosted. */}
+            <Stack gap="md" testID="promote-hero">
+              <Stack gap="xs">
+                <AppText variant="heading2" color="textPrimary">
+                  {PROMOTE_HERO_LINE}
+                </AppText>
+                <AppText variant="bodySmall" color="textSecondary">
+                  {SUBTITLE}
+                </AppText>
+              </Stack>
+              {listing ? (
+                <View style={styles.previewFrame}>
+                  <Row gap="xs" align="center" style={styles.previewLabel}>
+                    <AppIcon name="eye-outline" size={14} color={colors.textMuted} />
+                    <AppText variant="caption" color="textMuted" numberOfLines={1}>
+                      {goal === 'visibility'
+                        ? 'معاينة: نفس الشكل، بظهور أعلى'
+                        : 'معاينة إعلانك بعد التعزيز'}
+                    </AppText>
+                  </Row>
+                  <View
+                    pointerEvents="none"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={{ marginHorizontal: -layout.gutter }}
+                    testID="promote-preview"
+                  >
+                    <ListingCard listing={boostedPreview(listing, goal)} variant="list" />
+                  </View>
+                </View>
+              ) : null}
+              <AppText variant="caption" color={statusParts.length ? 'success' : 'textMuted'} numberOfLines={1}>
+                {statusParts.length ? `مفعّل الآن: ${statusParts.join('، ')}` : 'غير معزّز حالياً'}
+              </AppText>
+            </Stack>
+
+            {hasPromotionStats(stats) && stats ? (
+              <Row gap="md" align="center" style={styles.statsRow} testID="promote-stats">
+                <AppIcon name="trending-up-outline" size={18} color={colors.textPrimary} />
+                <Stack gap="none" style={styles.fill}>
+                  <AppText variant="caption" color="textMuted">
+                    نتائج تعزيز إعلانك
+                  </AppText>
+                  <AppText variant="bodyMedium" color="textPrimary" numberOfLines={1}>
+                    {`${stats.impressions.toLocaleString('en-US')} ظهور · ${stats.clicks.toLocaleString('en-US')} نقرة`}
+                  </AppText>
+                </Stack>
+              </Row>
+            ) : null}
 
             {!hasAnyBoostService ? (
               <Row gap="sm" align="start" style={styles.noticeInfo}>
@@ -308,55 +438,98 @@ export default function ListingPromoteScreen() {
               </Row>
             ) : null}
 
-            {/* Blue+/Gold: «تمييز مجاني (متبقي X)» first — applies with no payment. */}
+            {/* Blue+/Gold: «استخدم تعزيز مجاني (متبقي n)» — applies with no payment. */}
             {id ? (
               <FreeBoostOption
                 listingId={id}
+                appearance="prominent"
                 enabled={isPromoteGoalEnabled('featured', paidFlags)}
+                onQuota={onFreeQuota}
                 onApplied={() => {
-                  setNotice({ tone: 'info', text: 'تم تمييز إعلانك مجاناً لمدة ٢٤ ساعة ضمن اشتراكك.' });
+                  setSuccess({
+                    title: 'تم تمييز إعلانك مجاناً',
+                    text: 'تم تمييز إعلانك مجاناً لمدة ٢٤ ساعة ضمن اشتراكك.',
+                  });
                   setReloadKey((k) => k + 1);
                 }}
               />
             ) : null}
+            {shouldShowFreeBoostUpsell(freeQuota, freeQuotaLoaded) ? (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => router.push('/verification' as never)}
+                style={({ pressed }) => [styles.upsell, pressed && styles.pressed]}
+                testID="promote-free-upsell"
+              >
+                <Row gap="sm" align="center">
+                  <AppIcon name="diamond-outline" size={16} color={colors.textSecondary} />
+                  <AppText variant="caption" color="textSecondary" style={styles.fill} numberOfLines={2}>
+                    {FREE_BOOST_UPSELL_AR}
+                  </AppText>
+                  <AppText variant="label" color="textPrimary">
+                    اشترك
+                  </AppText>
+                </Row>
+              </Pressable>
+            ) : null}
 
             {enabledServices.length > 0 ? (
-              <Section title="اختر نوع التعزيز" gap="md">
-                {enabledServices.map((svc) => (
-                  <ServiceBlock
-                    key={svc.goal}
-                    goal={svc.goal}
-                    icon={svc.icon}
-                    title={svc.title}
-                    desc={svc.desc}
-                    outcome={svc.outcome}
-                    durations={svc.durations}
-                    isActiveNow={active[svc.goal]}
-                    selectedHours={selection?.goal === svc.goal ? selection.durationHours : null}
-                    onSelect={onSelect}
-                    disabled={processing}
-                    styles={styles}
-                    colors={colors}
-                  />
-                ))}
+              <Section title="نوع التعزيز" gap="md">
+                <Row gap="sm" align="stretch" style={styles.segment} testID="promote-services">
+                  {enabledServices.map((svc) => (
+                    <ServiceChip
+                      key={svc.goal}
+                      goal={svc.goal}
+                      icon={svc.icon}
+                      title={svc.title}
+                      fromPrice={svc.durations[0]?.amount ?? null}
+                      selected={svc.goal === goal}
+                      activeNow={active[svc.goal]}
+                      disabled={processing}
+                      onPress={onSelectService}
+                      styles={styles}
+                      colors={colors}
+                    />
+                  ))}
+                </Row>
+
+                {selectedService ? (
+                  <Stack gap="sm" testID="promote-benefits" key={`benefits-${selectedService.goal}`}>
+                    <AppText variant="bodySmall" color="textSecondary">
+                      {selectedService.outcome}
+                    </AppText>
+                    {benefits.map((b) => (
+                      <Row key={b.text} gap="sm" align="center">
+                        <View style={styles.benefitIcon}>
+                          <AppIcon name={b.icon} size={14} color={colors.textPrimary} />
+                        </View>
+                        <AppText variant="bodySmall" color="textPrimary" style={styles.fill}>
+                          {b.text}
+                        </AppText>
+                      </Row>
+                    ))}
+                  </Stack>
+                ) : null}
               </Section>
             ) : null}
 
-            {selectedService && selectedDuration && displayPrice != null ? (
-              <Section title="ملخص التعزيز" gap="sm">
-                <Row justify="between">
-                  <AppText variant="bodySmall" color="textMuted">الخدمة</AppText>
-                  <AppText variant="bodyMedium" color="textPrimary">{selectedService.title}</AppText>
-                </Row>
-                <Row justify="between">
-                  <AppText variant="bodySmall" color="textMuted">المدة</AppText>
-                  <AppText variant="bodyMedium" color="textPrimary">{selectedDuration.labelAr}</AppText>
-                </Row>
-                <SarhDivider />
-                <Row justify="between">
-                  <AppText variant="bodyMedium" color="textPrimary">الإجمالي</AppText>
-                  <AppText variant="price" color="textPrimary">{formatSar(displayPrice)}</AppText>
-                </Row>
+            {selectedService && plans.length > 0 ? (
+              <Section title="اختر المدة" gap="sm">
+                <Stack gap="sm" testID="promote-plans">
+                  {plans.map((plan) => (
+                    <PlanCard
+                      key={`${selectedService.goal}-${plan.durationHours}`}
+                      goal={selectedService.goal}
+                      serviceTitle={selectedService.title}
+                      plan={plan}
+                      selected={selection?.durationHours === plan.durationHours}
+                      onSelect={onSelect}
+                      disabled={processing}
+                      styles={styles}
+                      colors={colors}
+                    />
+                  ))}
+                </Stack>
               </Section>
             ) : null}
 
@@ -394,177 +567,180 @@ export default function ListingPromoteScreen() {
         )}
       </ScreenBody>
 
-      <BottomAction summary={{ label: 'الإجمالي', value: totalLabel }}>
-        <SarhButton
-          title={processing ? 'جاري تجهيز الدفع…' : 'متابعة للدفع'}
-          onPress={handlePay}
-          disabled={!canPay}
-          loading={processing}
-          fullWidth
-          testID="promote-pay"
-        />
+      <BottomAction testID="promote-cta-bar">
+        <Stack gap="sm">
+          <Row gap="md" align="center">
+            <Stack gap="none" style={styles.totalCol}>
+              <AppText variant="caption" color="textMuted" numberOfLines={1}>
+                الإجمالي
+              </AppText>
+              <AppText variant="price" color="textPrimary" numberOfLines={1} testID="promote-total">
+                {totalLabel}
+              </AppText>
+              {summaryLine ? (
+                <AppText variant="micro" color="textMuted" numberOfLines={1}>
+                  {summaryLine}
+                </AppText>
+              ) : null}
+            </Stack>
+            <CtaPill
+              title={processing ? 'جاري تجهيز الدفع…' : promoteCtaLabel(displayPrice)}
+              onPress={handlePay}
+              disabled={!canPay}
+              loading={processing}
+              styles={styles}
+              colors={colors}
+            />
+          </Row>
+          <Row gap="sm" align="center" justify="center" style={styles.trust}>
+            <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
+            <AppText variant="micro" color="textMuted">
+              دفع آمن
+            </AppText>
+            <Row gap="xs" align="center">
+              {FEE_PAYMENT_METHODS.map((m) => (
+                <PaymentBrandLogo key={m.id} id={m.id} size={16} />
+              ))}
+            </Row>
+          </Row>
+        </Stack>
       </BottomAction>
     </Screen>
   );
 }
 
-/* ─── Listing preview (compact row, not the grid card) ─────────────────────── */
+/* ─── Sticky CTA pill (white on dark, black on light) ─────────────────────── */
 
-type PreviewProps = {
-  listing: Listing | null;
-  active: Record<PromotionGoal, boolean>;
+function CtaPill({
+  title,
+  onPress,
+  disabled,
+  loading,
+  styles,
+  colors,
+}: {
+  title: string;
+  onPress: () => void;
+  disabled: boolean;
+  loading: boolean;
   styles: Styles;
   colors: ThemeColors;
-};
-
-const ListingPreview = memo(function ListingPreview({ listing, active, styles, colors }: PreviewProps) {
-  const title = listing?.arabicTitle || listing?.title || 'إعلانك';
-  const thumb = listing?.images?.[0];
-  const location = listing?.arabicLocation || listing?.location || '';
-  const currency = !listing?.currency || listing.currency === 'SAR' ? 'ر.س' : listing.currency;
-  const price =
-    listing?.price && listing.price > 0 ? `${listing.price.toLocaleString('ar-SA')} ${currency}` : '';
-  const statusParts = [
-    active.featured ? 'مميّز' : null,
-    active.pinned ? 'مثبّت' : null,
-    active.visibility ? 'معزّز' : null,
-  ].filter(Boolean);
-
+}) {
+  const [scale] = useState(() => new Animated.Value(1));
+  const blocked = disabled || loading;
   return (
-    <Row gap="md" align="center" style={styles.preview}>
-      <View style={styles.thumb}>
-        {thumb ? (
-          <Image source={uriSource(thumb)} style={styles.thumbImg} contentFit="cover" />
-        ) : (
-          <AppIcon name="image-outline" size={20} color={colors.textMuted} />
-        )}
-      </View>
-      <Stack gap="xs" style={styles.fill}>
-        <Row gap="xs" align="center">
-          <AppText variant="bodyMedium" color="textPrimary" numberOfLines={1} style={styles.shrink}>
-            {title}
-          </AppText>
-          <ListingBoostTitleIcons pinned={active.pinned} featured={active.featured} />
-        </Row>
-        {price || location ? (
-          <Row gap="sm" align="center" wrap>
-            {price ? (
-              <AppText variant="bodySmall" style={{ color: colors.textBrandStrong }} numberOfLines={1}>
-                {price}
-              </AppText>
-            ) : null}
-            {location ? (
-              <Row gap="xs" align="center" style={styles.shrink}>
-                <AppIcon name="location-outline" size={13} color={colors.textMuted} />
-                <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.shrink}>
-                  {location}
-                </AppText>
-              </Row>
-            ) : null}
-          </Row>
-        ) : null}
-        <AppText variant="caption" color="textMuted" numberOfLines={1}>
-          {statusParts.length ? `مفعّل الآن: ${statusParts.join('، ')}` : 'غير معزّز حالياً'}
+    <Animated.View style={[styles.ctaWrap, { transform: [{ scale }] }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ disabled: blocked, busy: loading }}
+        disabled={blocked}
+        onPress={onPress}
+        onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 40, bounciness: 0 }).start()}
+        onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 5 }).start()}
+        style={[styles.cta, disabled && !loading && styles.ctaDisabled]}
+        testID="promote-pay"
+      >
+        {loading ? <ActivityIndicator size="small" color={colors.screenRoot} /> : null}
+        <AppText variant="label" numberOfLines={1} style={[styles.ctaText, { color: colors.screenRoot }]}>
+          {title}
         </AppText>
-      </Stack>
-    </Row>
+      </Pressable>
+    </Animated.View>
   );
-});
+}
 
-/* ─── Service + packages ─────────────────────────────────────────────────── */
+/* ─── Success state ──────────────────────────────────────────────────────── */
 
-type ServiceBlockProps = {
+function SuccessPanel({ success, styles, colors }: { success: Success; styles: Styles; colors: ThemeColors }) {
+  const [pop] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }).start();
+  }, [pop]);
+  return (
+    <Animated.View
+      style={[styles.success, { opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }]}
+      testID="promote-success"
+      accessibilityLiveRegion="polite"
+    >
+      <Row gap="md" align="center">
+        <View style={styles.successIcon}>
+          <AppIcon name="checkmark" size={20} color={colors.screenRoot} />
+        </View>
+        <Stack gap="none" style={styles.fill}>
+          <AppText variant="bodyMedium" color="textPrimary">
+            {success.title}
+          </AppText>
+          <AppText variant="caption" color="textSecondary">
+            {success.text}
+          </AppText>
+        </Stack>
+      </Row>
+    </Animated.View>
+  );
+}
+
+/* ─── Service chips ──────────────────────────────────────────────────────── */
+
+type ServiceChipProps = {
   goal: PromotionGoal;
   icon: string;
   title: string;
-  desc: string;
-  outcome: string;
-  durations: PromoteCatalogOption[];
-  isActiveNow: boolean;
-  selectedHours: number | null;
-  onSelect: (goal: PromotionGoal, durationHours: number) => void;
+  fromPrice: number | null;
+  selected: boolean;
+  activeNow: boolean;
   disabled: boolean;
+  onPress: (goal: PromotionGoal) => void;
   styles: Styles;
   colors: ThemeColors;
 };
 
-const ServiceBlock = memo(function ServiceBlock({
+const ServiceChip = memo(function ServiceChip({
   goal,
   icon,
   title,
-  desc,
-  outcome,
-  durations,
-  isActiveNow,
-  selectedHours,
-  onSelect,
+  fromPrice,
+  selected,
+  activeNow,
   disabled,
+  onPress,
   styles,
   colors,
-}: ServiceBlockProps) {
-  const selected = selectedHours != null;
-  const fromPrice = durations[0]?.amount;
+}: ServiceChipProps) {
   return (
-    <View style={[styles.service, selected && styles.serviceSelected]} testID={`promote-service-${goal}`}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${title} — ${desc}`}
-        disabled={disabled || selected || !durations[0]}
-        onPress={() => durations[0] && onSelect(goal, durations[0].durationHours)}
-      >
-        <Row gap="md" align="start">
-          <View style={styles.serviceIcon}>
-            <AppIcon name={icon} size={18} color={selected ? colors.electricBright : colors.textSecondary} />
-          </View>
-          <Stack gap="none" style={styles.fill}>
-            <Row gap="sm" align="center" justify="between">
-              <AppText variant="bodyMedium" color="textPrimary" numberOfLines={1} style={styles.shrink}>
-                {title}
-              </AppText>
-              {fromPrice != null && durations.length > 1 ? (
-                <AppText variant="caption" color="textMuted" numberOfLines={1}>
-                  {`من ${formatSar(fromPrice)}`}
-                </AppText>
-              ) : null}
-            </Row>
-            <AppText variant="caption" color="textSecondary" numberOfLines={1}>
-              {desc}
-            </AppText>
-            <AppText variant="caption" color="textMuted" numberOfLines={2}>
-              {outcome}
-            </AppText>
-            {isActiveNow ? (
-              <AppText variant="caption" color="success" numberOfLines={1}>
-                مفعّل على إعلانك الآن
-              </AppText>
-            ) : null}
-          </Stack>
-        </Row>
-      </Pressable>
-
-      <Row gap="sm" align="stretch" style={styles.packages}>
-        {durations.map((option) => (
-          <PackageOption
-            key={option.durationHours}
-            goal={goal}
-            serviceTitle={title}
-            option={option}
-            selected={selectedHours === option.durationHours}
-            onSelect={onSelect}
-            disabled={disabled}
-            styles={styles}
-            colors={colors}
-          />
-        ))}
-      </Row>
-    </View>
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected, disabled }}
+      accessibilityLabel={fromPrice != null ? `${title}، من ${formatSar(fromPrice)}` : title}
+      disabled={disabled}
+      onPress={() => onPress(goal)}
+      style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && !selected && styles.pressed]}
+      testID={`promote-service-${goal}`}
+    >
+      <AppIcon name={icon} size={18} color={selected ? colors.textPrimary : colors.textSecondary} />
+      <AppText variant="label" color={selected ? 'textPrimary' : 'textSecondary'} numberOfLines={1}>
+        {title.replace(' الإعلان', '')}
+      </AppText>
+      {fromPrice != null ? (
+        <AppText variant="micro" color="textMuted" numberOfLines={1}>
+          {`من ${formatSar(fromPrice)}`}
+        </AppText>
+      ) : null}
+      {activeNow ? (
+        <AppText variant="micro" color="success" numberOfLines={1}>
+          مفعّل
+        </AppText>
+      ) : null}
+    </Pressable>
   );
 });
 
-type PackageOptionProps = {
+/* ─── Plan cards ─────────────────────────────────────────────────────────── */
+
+type PlanCardProps = {
   goal: PromotionGoal;
   serviceTitle: string;
-  option: PromoteCatalogOption;
+  plan: PromotePlanView;
   selected: boolean;
   onSelect: (goal: PromotionGoal, durationHours: number) => void;
   disabled: boolean;
@@ -572,64 +748,78 @@ type PackageOptionProps = {
   colors: ThemeColors;
 };
 
-const PackageOption = memo(function PackageOption({
+const PlanCard = memo(function PlanCard({
   goal,
   serviceTitle,
-  option,
+  plan,
   selected,
   onSelect,
   disabled,
   styles,
   colors,
-}: PackageOptionProps) {
-  // Fixed-size radio; only the inner dot animates (no layout shift).
-  const [dot] = useState(() => new Animated.Value(selected ? 1 : 0));
+}: PlanCardProps) {
+  // Fixed-size check badge; only its fill/scale animates (no layout shift).
+  const [check] = useState(() => new Animated.Value(selected ? 1 : 0));
   useEffect(() => {
-    Animated.timing(dot, {
+    Animated.spring(check, {
       toValue: selected ? 1 : 0,
-      duration: duration.press,
       useNativeDriver: true,
+      speed: 24,
+      bounciness: selected ? 8 : 0,
     }).start();
-  }, [dot, selected]);
-
-  const price = formatSar(option.amount);
-  const phrase = durationPhrase(option.labelAr);
+  }, [check, selected]);
 
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected, disabled }}
-      accessibilityLabel={`${serviceTitle}، ${price} ${phrase}`}
+      accessibilityLabel={`${serviceTitle}، ${plan.priceLabel} لمدة ${plan.labelAr}${plan.savingLabel ? `، ${plan.savingLabel}` : ''}`}
       disabled={disabled}
-      onPress={() => onSelect(goal, option.durationHours)}
-      style={({ pressed }) => [
-        styles.pkg,
-        selected && { borderColor: colors.electricBright, backgroundColor: colors.bgElevated },
-        pressed && !selected && styles.pressed,
-      ]}
-      testID={`promote-pkg-${goal}-${option.durationHours}`}
+      onPress={() => onSelect(goal, plan.durationHours)}
+      style={({ pressed }) => [styles.plan, selected && styles.planSelected, pressed && !selected && styles.pressed]}
+      testID={`promote-pkg-${goal}-${plan.durationHours}`}
     >
-      <Row gap="sm" align="center" justify="between">
-        <Stack gap="none" style={styles.fill}>
-          <AppText variant="price" color="textPrimary" numberOfLines={1}>
-            {price}
-          </AppText>
-          <AppText variant="caption" color={selected ? 'textSecondary' : 'textMuted'} numberOfLines={1}>
-            {phrase}
-          </AppText>
-        </Stack>
-        <View style={[styles.radio, { borderColor: selected ? colors.electricBright : colors.borderMid }]}>
+      <Row gap="md" align="center">
+        <View style={[styles.check, { borderColor: selected ? colors.textPrimary : colors.borderStrong }]}>
           <Animated.View
             style={[
-              styles.radioDot,
+              styles.checkFill,
               {
-                backgroundColor: colors.electricBright,
-                opacity: dot,
-                transform: [{ scale: dot.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }],
+                backgroundColor: colors.textPrimary,
+                opacity: check,
+                transform: [{ scale: check.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
               },
             ]}
-          />
+          >
+            <AppIcon name="checkmark" size={14} color={colors.screenRoot} />
+          </Animated.View>
         </View>
+        <Stack gap="none" style={styles.fill}>
+          <Row gap="sm" align="center">
+            <AppText variant="cardTitle" color="textPrimary" numberOfLines={1}>
+              {plan.labelAr}
+            </AppText>
+            {plan.bestValue ? (
+              <View style={styles.badge} testID="promote-best-value">
+                <AppText variant="micro" style={{ color: colors.screenRoot }}>
+                  {PROMOTE_BEST_VALUE_BADGE}
+                </AppText>
+              </View>
+            ) : null}
+          </Row>
+          {plan.perDayLabel || plan.savingLabel ? (
+            <AppText variant="caption" color="textMuted" numberOfLines={1}>
+              {[plan.perDayLabel, plan.savingLabel].filter(Boolean).join(' · ')}
+            </AppText>
+          ) : (
+            <AppText variant="caption" color="textMuted" numberOfLines={1}>
+              {`${plan.durationHours} ساعة`}
+            </AppText>
+          )}
+        </Stack>
+        <AppText variant="price" color="textPrimary" numberOfLines={1}>
+          {plan.priceLabel}
+        </AppText>
       </Row>
     </Pressable>
   );
@@ -656,27 +846,18 @@ const PromoteSkeleton = memo(function PromoteSkeleton({ styles }: { styles: Styl
       accessibilityLabel="جاري التحميل"
       testID="promote-skeleton"
     >
-      <Row gap="md" align="center" style={styles.preview}>
-        <View style={[styles.thumb, styles.skel]} />
-        <Stack gap="sm" style={styles.fill}>
-          <View style={[styles.skelLine, styles.skelWide]} />
-          <View style={[styles.skelLine, styles.skelMid]} />
-        </Stack>
+      <Stack gap="sm">
+        <View style={[styles.skelLine, styles.skelWide, styles.skelTall]} />
+        <View style={[styles.skelLine, styles.skelMid]} />
+      </Stack>
+      <View style={[styles.skelCard, styles.skel]} />
+      <Row gap="sm" align="stretch">
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={[styles.chip, styles.skelChip]} />
+        ))}
       </Row>
-      {[0, 1, 2].map((i) => (
-        <View key={i} style={styles.service}>
-          <Row gap="md" align="start">
-            <View style={[styles.serviceIcon, styles.skel]} />
-            <Stack gap="sm" style={styles.fill}>
-              <View style={[styles.skelLine, styles.skelMid]} />
-              <View style={[styles.skelLine, styles.skelWide]} />
-            </Stack>
-          </Row>
-          <Row gap="sm" align="stretch" style={styles.packages}>
-            <View style={[styles.pkg, styles.skelPkg]} />
-            <View style={[styles.pkg, styles.skelPkg]} />
-          </Row>
-        </View>
+      {[0, 1].map((i) => (
+        <View key={i} style={[styles.plan, styles.skelPlan]} />
       ))}
     </Animated.View>
   );
@@ -712,66 +893,119 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     content: { gap: spacing.xxl },
     fill: { flex: 1, minWidth: 0 },
-    shrink: { flexShrink: 1, minWidth: 0 },
     pressed: { opacity: 0.85 },
-    preview: {
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.bgSurface,
-    },
-    thumb: {
-      width: 56,
-      height: 56,
-      borderRadius: radius.md,
-      overflow: 'hidden',
-      flexShrink: 0,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.bgElevated,
-    },
-    thumbImg: { width: '100%', height: '100%' },
-    service: {
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.bgSurface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
-      gap: spacing.md,
-    },
-    serviceSelected: { borderColor: colors.borderMid },
-    serviceIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: radius.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.bgElevated,
-      flexShrink: 0,
-    },
-    packages: { flexWrap: 'wrap' },
-    pkg: {
-      flexGrow: 1,
-      flexBasis: 0,
-      minWidth: 128,
+    previewFrame: { gap: spacing.sm },
+    previewLabel: { paddingHorizontal: spacing.xs },
+    statsRow: {
+      minHeight: 56,
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+      backgroundColor: colors.bgSurface,
+    },
+    upsell: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    segment: {},
+    chip: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 84,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.xs,
+      borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: colors.borderSoft,
       backgroundColor: colors.bgSurface,
     },
-    radio: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
+    chipSelected: { borderWidth: 1.5, borderColor: colors.textPrimary },
+    benefitIcon: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.bgElevated,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+      flexShrink: 0,
+    },
+    plan: {
+      minHeight: 64,
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+      backgroundColor: colors.bgSurface,
+    },
+    planSelected: { borderWidth: 1.5, borderColor: colors.textPrimary },
+    check: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
       borderWidth: 1.5,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
       flexShrink: 0,
     },
-    radioDot: { width: 8, height: 8, borderRadius: 4 },
+    checkFill: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    badge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+      backgroundColor: colors.textPrimary,
+    },
+    totalCol: { flexShrink: 0, minWidth: 84 },
+    ctaWrap: { flex: 1, minWidth: 0 },
+    cta: {
+      minHeight: 50,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.textPrimary,
+    },
+    ctaDisabled: { opacity: 0.4 },
+    ctaText: { flexShrink: 1 },
+    trust: { minHeight: 18 },
+    success: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: colors.textPrimary,
+      backgroundColor: colors.bgSurface,
+    },
+    successIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.textPrimary,
+    },
     noticeInfo: {
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
@@ -795,8 +1029,11 @@ function createStyles(colors: ThemeColors) {
     },
     skel: { backgroundColor: colors.bgElevated },
     skelLine: { height: 12, borderRadius: radius.sm, backgroundColor: colors.bgElevated },
+    skelTall: { height: 22 },
     skelWide: { width: '80%' },
     skelMid: { width: '50%' },
-    skelPkg: { height: 52, backgroundColor: colors.bgElevated, borderColor: colors.bgElevated },
+    skelCard: { height: 120, borderRadius: radius.lg },
+    skelChip: { backgroundColor: colors.bgElevated, borderColor: colors.bgElevated },
+    skelPlan: { backgroundColor: colors.bgElevated, borderColor: colors.bgElevated },
   });
 }

@@ -104,7 +104,8 @@ describe('promote page screen', () => {
   });
 
   it('shows the total and guards the CTA during submit', () => {
-    expect(screen).toContain("summary={{ label: 'الإجمالي', value: totalLabel }}");
+    expect(screen).toContain('testID="promote-total"');
+    expect(screen).toContain('{totalLabel}');
     expect(screen).toContain('disabled={!canPay}');
     expect(screen).toContain('loading={processing}');
     expect(screen).toContain('جاري تجهيز الدفع…');
@@ -125,9 +126,10 @@ describe('promote page screen', () => {
     expect(service).toContain('new PromotePaymentError(');
   });
 
-  it('uses RN Animated only and no ListingCard', () => {
+  it('uses RN Animated only and reuses ListingCard read-only for the boosted preview', () => {
     expect(screen).not.toMatch(/react-native-reanimated/);
-    expect(screen).not.toContain('ListingCard');
     expect(screen).toMatch(/Animated/);
+    expect(screen).toContain('<ListingCard listing={boostedPreview(listing, goal)} variant="list" />');
+    expect(screen).toContain('pointerEvents="none"');
   });
 });

@@ -119,3 +119,131 @@ export function createSubmitGuard() {
     },
   };
 }
+
+/* ─── Boost screen redesign helpers (display only; billing stays server-side) ── */
+
+/** Western digits with at most one decimal, e.g. 8.3 — never rounds up a price. */
+function formatPerDay(value: number): string {
+  const floored = Math.floor(value * 10) / 10;
+  return Number.isInteger(floored) ? String(floored) : floored.toFixed(1);
+}
+
+export type PromotePlanSource = {
+  durationDays: number;
+  durationHours: number;
+  amount: number;
+  labelAr: string;
+};
+
+export type PromotePlanView = {
+  durationHours: number;
+  durationDays: number;
+  amount: number;
+  labelAr: string;
+  /** "25 ر.س" */
+  priceLabel: string;
+  /** "≈ 8.3 ر.س لليوم" — only for multi-day packages. */
+  perDayLabel: string | null;
+  /** "وفّر 2 ر.س" vs buying the 1-day package repeatedly; null when no saving. */
+  savingLabel: string | null;
+  /** Lowest per-day price among packages with a real saving (derived, not a popularity claim). */
+  bestValue: boolean;
+};
+
+/**
+ * Plan cards for one service, straight from the official catalog rows.
+ * Per-day price and saving are pure arithmetic on catalog amounts.
+ */
+export function buildPromotePlans(options: readonly PromotePlanSource[]): PromotePlanView[] {
+  const oneDay = options.find((o) => o.durationDays === 1) ?? null;
+  const rows = options.map((o) => {
+    const multiDay = o.durationDays > 1;
+    const saving = multiDay && oneDay ? oneDay.amount * o.durationDays - o.amount : 0;
+    return {
+      durationHours: o.durationHours,
+      durationDays: o.durationDays,
+      amount: o.amount,
+      labelAr: o.labelAr,
+      priceLabel: formatSar(o.amount),
+      perDayLabel: multiDay ? `≈ ${formatPerDay(o.amount / o.durationDays)} ر.س لليوم` : null,
+      savingLabel: saving > 0 ? `وفّر ${formatSar(saving)}` : null,
+      perDay: o.amount / Math.max(1, o.durationDays),
+      saving,
+    };
+  });
+  const candidates = rows.filter((r) => r.saving > 0);
+  const best = candidates.length
+    ? candidates.reduce((a, b) => (b.perDay < a.perDay ? b : a))
+    : null;
+  return rows.map(({ perDay: _perDay, saving: _saving, ...r }) => ({
+    ...r,
+    bestValue: best != null && r.durationHours === best.durationHours,
+  }));
+}
+
+/** Badge text for the derived best-value package (cheapest per day). */
+export const PROMOTE_BEST_VALUE_BADGE = 'الأوفر';
+
+export type PromoteBenefit = { icon: string; text: string };
+
+/**
+ * What each service really does (mirrors the backend):
+ * - featured → star next to the title + listing order `featured desc` (after pinned)
+ * - pinned → listing order `pinned desc` (first) + pin next to the title
+ * - visibility → promotionWeight raises ranking; the card looks unchanged
+ * Duration comes from the selected catalog package.
+ */
+export const PROMOTE_BENEFITS: Readonly<Record<PromotionGoal, readonly PromoteBenefit[]>> = {
+  featured: [
+    { icon: 'star', text: 'نجمة مميّزة بجانب عنوان إعلانك' },
+    { icon: 'trending-up-outline', text: 'يتقدّم على الإعلانات العادية في القوائم' },
+  ],
+  pinned: [
+    { icon: 'pin', text: 'يتصدّر القائمة قبل باقي الإعلانات' },
+    { icon: 'eye-outline', text: 'دبوس صغير بجانب العنوان يلفت الانتباه' },
+  ],
+  visibility: [
+    { icon: 'rocket-outline', text: 'قوة ظهور أعلى في الترتيب والبحث' },
+    { icon: 'eye-outline', text: 'شكل إعلانك يبقى كما هو' },
+  ],
+};
+
+/** Shared bullets: duration of the picked package + one-time payment. */
+export function promoteCommonBenefits(labelAr: string | null): PromoteBenefit[] {
+  return [
+    ...(labelAr ? [{ icon: 'time-outline', text: `يبقى مفعّلاً ${durationPhrase(labelAr)}` }] : []),
+    { icon: 'card-outline', text: 'دفعة واحدة بدون تجديد تلقائي' },
+  ];
+}
+
+export const PROMOTE_HERO_LINE = 'خلّ إعلانك أول شي يشوفونه';
+
+/** Primary CTA label, e.g. «عزّز الآن · 25 ريال». */
+export function promoteCtaLabel(amount: number | null): string {
+  if (amount == null || !Number.isFinite(amount)) return 'عزّز الآن';
+  const value = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+  return `عزّز الآن · ${value} ريال`;
+}
+
+/** Prominent free-boost title on the boost screen. */
+export function freeBoostCtaTitle(remaining: number): string {
+  return `استخدم تعزيز مجاني (متبقي ${Math.max(0, Math.floor(remaining || 0))})`;
+}
+
+/** Upsell only when the server answered and the user has no free-boost perk. */
+export function shouldShowFreeBoostUpsell(
+  quota: { eligible: boolean } | null | undefined,
+  quotaLoaded: boolean,
+): boolean {
+  return quotaLoaded && quota != null && quota.eligible === false;
+}
+
+export const FREE_BOOST_UPSELL_AR = 'مشتركو أزرق+ والذهبي يحصلون على تمييز مجاني كل أسبوع';
+
+/** Real promotion stats worth showing (never zeros-as-proof). */
+export function hasPromotionStats(
+  stats: { impressions?: number; clicks?: number } | null | undefined,
+): boolean {
+  if (!stats) return false;
+  return (stats.impressions ?? 0) > 0 || (stats.clicks ?? 0) > 0;
+}
