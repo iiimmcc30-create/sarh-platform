@@ -320,10 +320,15 @@ export class ListingsRepository {
     });
   }
 
-  createComment(listingId: string, authorId: string, content: string) {
+  createComment(
+    listingId: string,
+    authorId: string,
+    content: string,
+    parentId: string | null = null,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const created = await tx.listingComment.create({
-        data: { listingId, authorId, content },
+        data: { listingId, authorId, content, parentId },
         include: {
           author: {
             select: {
@@ -349,7 +354,7 @@ export class ListingsRepository {
   findCommentMeta(commentId: string, listingId: string) {
     return this.prisma.listingComment.findFirst({
       where: { id: commentId, listingId },
-      select: { id: true, authorId: true, listingId: true },
+      select: { id: true, authorId: true, listingId: true, parentId: true },
     });
   }
 

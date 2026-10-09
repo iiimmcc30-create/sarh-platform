@@ -1,7 +1,6 @@
-import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
+import { SkeletonRegion } from '@/components/ui/skeleton';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { Image, uriSource } from '@/components/ui/AppImage';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -13,27 +12,37 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { useListingComments } from '@/hooks/useListingComments';
 import { getRtlRow, getRtlText } from '@/lib/rtl';
-import { UserProfileLink } from '@/components/feature/UserProfileLink';
-import { CoverTrailRow } from '@/components/ui/CoverTrailRow';
-import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { ListingCommentsModal } from '@/components/feature/ListingCommentsModal';
+import { ListingCommentThread, ListingCommentRowSkeleton } from '@/components/feature/ListingCommentRow';
+import { groupListingComments } from '@/components/feature/listingCommentsUtils';
+import type { PostComment } from '@/services/types';
 import { AppText } from '@/components/ui/AppText';
-import { avatarUrl } from '@/lib/listingMedia';
 
 type ListingCommentsSectionProps = {
   listingId: string;
   /** Flat full-width section for listing detail edge-to-edge layout */
   layout?: 'card' | 'edge';
+  /** Listing seller id — their comments get the «البائع» label. */
+  sellerId?: string | null;
 };
 
 export function ListingCommentsSection({
   listingId,
   layout = 'edge',
+  sellerId,
 }: ListingCommentsSectionProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors }) => createStyles(colors, layout));
   const { comments, loading, loadError, rateLimited, reload } = useListingComments(listingId);
   const [modalVisible, setModalVisible] = useState(false);
+  const [replyTo, setReplyTo] = useState<PostComment | null>(null);
+  const threads = useMemo(() => groupListingComments(comments), [comments]);
+
+  // «رد» opens the composer prefilled as a reply to that comment.
+  const openReply = (comment: PostComment) => {
+    setReplyTo(comment);
+    setModalVisible(true);
+  };
 
   const handleRetry = () => {
     if (rateLimited) return;
@@ -48,28 +57,10 @@ export function ListingCommentsSection({
         </View>
 
         {loading && comments.length === 0 ? (
-          // First load: rows built with the real row styles and the same
-          // CoverTrailRow, so name/avatar/time land exactly where real ones do.
+          // First load: placeholders with the real comment-row geometry.
           <SkeletonRegion style={styles.list}>
             {[0, 1, 2].map((index) => (
-              <View
-                key={index}
-                style={[
-                  layout === 'edge' ? styles.commentRow : styles.commentCard,
-                  layout === 'edge' && index < 2 && styles.commentRowDivider,
-                ]}
-              >
-                <SkeletonPulse style={styles.skeletonInner}>
-                  <View style={[styles.commentCardHeader, getRtlRow()]}>
-                    <SkeletonText fontSize={typography.micro.fontSize} lineHeight={typography.micro.lineHeight} widths={[40]} style={styles.skeletonTime} />
-                    <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
-                      <SkeletonText fontSize={typography.micro.fontSize} lineHeight={typography.micro.lineHeight} widths={[72]} style={styles.skeletonName} />
-                      <SkeletonCircle size={28} />
-                    </CoverTrailRow>
-                  </View>
-                  <SkeletonText fontSize={typography.feedBody.fontSize} lineHeight={22} widths={[index === 1 ? '88%' : '64%']} />
-                </SkeletonPulse>
-              </View>
+              <ListingCommentRowSkeleton key={index} divider={index < 2} wide={index === 1} />
             ))}
           </SkeletonRegion>
         ) : loadError && comments.length === 0 ? (
@@ -83,43 +74,23 @@ export function ListingCommentsSection({
           </View>
         ) : comments.length === 0 ? null : (
           <View style={styles.list}>
-            {comments.map((c, index) => (
-              <View
-                key={c.id}
-                style={[
-                  layout === 'edge' ? styles.commentRow : styles.commentCard,
-                  layout === 'edge' && index < comments.length - 1 && styles.commentRowDivider,
-                ]}
-              >
-                <View style={[styles.commentCardHeader, getRtlRow()]}>
-                  <Text style={styles.commentTime}>{c.createdAt}</Text>
-                  <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
-                    <VerifiedInlineName
-                      name={c.author.arabicName || c.author.displayName}
-                      verified={c.author.verified}
-                      tier={c.author.verifiedTier}
-                      username={c.author.username}
-                      nameStyle={styles.commentName}
-                    />
-                    <UserProfileLink userId={c.author.id}>
-                      <Image
-                        source={uriSource(avatarUrl(c.author.avatar))}
-                        style={styles.avatar}
-                        contentFit="cover"
-                      />
-                    </UserProfileLink>
-                  </CoverTrailRow>
-                </View>
-                <View style={{ width: '100%' }}>
-                  <AppText style={styles.commentText}>{c.content}</AppText>
-                </View>
-              </View>
+            {threads.map((t, index) => (
+              <ListingCommentThread
+                key={t.comment.id}
+                thread={t}
+                sellerId={sellerId}
+                divider={index < threads.length - 1}
+                onReply={openReply}
+              />
             ))}
           </View>
         )}
 
         <Pressable
-          onPress={() => setModalVisible(true)}
+          onPress={() => {
+            setReplyTo(null);
+            setModalVisible(true);
+          }}
           style={[styles.addCommentTrigger, getRtlRow()]}
         >
           <View style={[styles.addCommentInput, getRtlRow()]}>
@@ -138,9 +109,14 @@ export function ListingCommentsSection({
         loading={loading}
         loadError={loadError}
         rateLimited={rateLimited}
-        onClose={() => setModalVisible(false)}
+        onClose={() => {
+          setModalVisible(false);
+          setReplyTo(null);
+        }}
+        initialReplyTo={replyTo}
         onCommentAdded={() => void reload(true)}
         onReload={() => void reload(true)}
+        sellerId={sellerId}
       />
     </>
   );
@@ -194,67 +170,8 @@ function createStyles(colors: ThemeColors, layout: 'card' | 'edge') {
       ...typography.feedTitle,
       color: colors.electricBright,
     },
-    skeletonInner: {
-      gap: spacing.xs,
-    },
-    skeletonTime: {
-      alignSelf: 'auto',
-      width: 40,
-    },
-    skeletonName: {
-      alignSelf: 'auto',
-      width: 72,
-    },
     list: {
       gap: isEdge ? 0 : spacing.sm,
-    },
-    commentRow: {
-      gap: spacing.xs,
-      paddingVertical: spacing.md,
-    },
-    commentRowDivider: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.borderHairline,
-    },
-    commentCard: {
-      gap: spacing.xs,
-      padding: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.bgElevated,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-    },
-    commentCardHeader: {
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
-    },
-    commentMeta: {
-      minWidth: 0,
-    },
-    avatar: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-      backgroundColor: colors.bgSurface,
-    },
-    commentName: {
-      ...typography.micro,
-      color: colors.textPrimary,
-      fontWeight: '600',
-    },
-    commentTime: {
-      ...typography.micro,
-      color: colors.textMuted,
-      flexShrink: 0,
-    },
-    commentText: {
-      ...typography.feedBody,
-      color: colors.textSecondary,
-      lineHeight: 22,
-      ...getRtlText(),
     },
     addCommentTrigger: {
       width: '100%',
@@ -272,11 +189,11 @@ function createStyles(colors: ThemeColors, layout: 'card' | 'edge') {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      minHeight: 48,
-      paddingHorizontal: spacing.md,
-      borderRadius: isEdge ? radius.md : radius.lg,
-      borderWidth: isEdge ? 0 : 1,
-      borderColor: colors.borderSoft,
+      minHeight: 44,
+      paddingHorizontal: spacing.md + 2,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderHairline,
       backgroundColor: colors.bgElevated,
     },
     addCommentPlaceholder: {

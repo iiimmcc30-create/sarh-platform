@@ -127,8 +127,7 @@ describe('verified badge - unified with the Feed', () => {
 
   it('listing comments use the Feed badge size (no custom size)', () => {
     for (const file of [
-      'components/feature/ListingCommentsSection.tsx',
-      'components/feature/ListingCommentsModal.tsx',
+      'components/feature/ListingCommentRow.tsx',
     ]) {
       const text = src(file);
       expect(text).toContain('<VerifiedInlineName');

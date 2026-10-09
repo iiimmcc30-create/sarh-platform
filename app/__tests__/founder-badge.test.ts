@@ -65,8 +65,7 @@ describe('founder badge — shown only for the sarh account', () => {
       'components/feature/MessagesPanel.tsx': 'username={p.username}',
       'app/chat.tsx': 'username={peerUsername}',
       'components/feature/NewMessageSheet.tsx': 'username={item.username}',
-      'components/feature/ListingCommentsSection.tsx': 'username={c.author.username}',
-      'components/feature/ListingCommentsModal.tsx': 'username={c.author.username}',
+      'components/feature/ListingCommentRow.tsx': 'username={c.author.username}',
       'app/listing/[id].tsx': 'username={listing.seller.username}',
       'components/feature/AppSidebar.tsx': 'username={isAuthenticated ? me.username : null}',
     };

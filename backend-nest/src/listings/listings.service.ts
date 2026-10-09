@@ -26,6 +26,7 @@ import {
   UpdateListingDto,
 } from './dto/listings.dto';
 import { ListingsRepository } from './repositories/listings.repository';
+import { listingReplyNotifyTarget } from './lib/listing-comment-replies';
 import {
   listingsFeedCacheKey,
   LISTINGS_FEED_CACHE_PATTERN,
@@ -884,13 +885,41 @@ export class ListingsService {
       }
     }
 
+    // Replies are one level deep: replying to a reply attaches to its top-level comment.
+    let parent: { id: string; authorId: string; parentId: string | null } | null = null;
+    if (dto.parentId) {
+      const target = await this.repo.findCommentMeta(dto.parentId, listingId);
+      if (!target) throwApi(404, 'not_found', 'التعليق غير موجود');
+      parent = target.parentId
+        ? await this.repo.findCommentMeta(target.parentId, listingId)
+        : target;
+      if (!parent) throwApi(404, 'not_found', 'التعليق غير موجود');
+    }
+
     const comment = await this.repo.createComment(
       listingId,
       user.userId,
       dto.content,
+      parent?.id ?? null,
     );
 
-    if (listing.sellerId && listing.sellerId !== user.userId) {
+    // Reply → notify the parent comment's author through the same in-app
+    // notification path (no queue changes). The seller still gets the
+    // generic comment notification below unless they are that author.
+    const replyTarget = listingReplyNotifyTarget(parent?.authorId, user.userId);
+    if (replyTarget) {
+      void this.notifications
+        .notifyUser({
+          userId: replyTarget,
+          type: 'comment',
+          titleAr: 'رد جديد على تعليقك',
+          bodyAr: `ردّ ${user.username} على تعليقك في «${listing.arabicTitle}»`,
+          data: { listingId, commentId: comment.id, parentId: parent?.id },
+        })
+        .catch(() => {});
+    }
+
+    if (listing.sellerId && listing.sellerId !== user.userId && listing.sellerId !== replyTarget) {
       void this.notifications
         .notifyUser({
           userId: listing.sellerId,

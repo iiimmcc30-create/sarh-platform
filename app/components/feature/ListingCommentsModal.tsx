@@ -1,8 +1,8 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { Image, uriSource } from '@/components/ui/AppImage';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Modal,
   Pressable,
   ScrollView,
@@ -24,12 +24,10 @@ import { getRtlRow, getRtlText } from '@/lib/rtl';
 import { alertMessage } from '@/lib/actionSheet';
 import { showToast } from '@/lib/toast';
 import type { PostComment } from '@/services/types';
-import { UserProfileLink } from '@/components/feature/UserProfileLink';
-import { CoverTrailRow } from '@/components/ui/CoverTrailRow';
-import { VerifiedInlineName } from '@/components/ui/VerifiedInlineName';
 import { AppText } from '@/components/ui/AppText';
-import { SkeletonCircle, SkeletonPulse, SkeletonRegion, SkeletonText } from '@/components/ui/skeleton';
-import { avatarUrl } from '@/lib/listingMedia';
+import { SkeletonRegion } from '@/components/ui/skeleton';
+import { ListingCommentThread, ListingCommentRowSkeleton } from '@/components/feature/ListingCommentRow';
+import { groupListingComments } from '@/components/feature/listingCommentsUtils';
 
 type ListingCommentsModalProps = {
   visible: boolean;
@@ -41,6 +39,10 @@ type ListingCommentsModalProps = {
   onClose: () => void;
   onCommentAdded?: () => void;
   onReload?: () => void;
+  /** Listing seller id — their comments get the «البائع» label. */
+  sellerId?: string | null;
+  /** Open the composer as a reply to this comment («رد» from the section). */
+  initialReplyTo?: PostComment | null;
 };
 
 export function ListingCommentsModal({
@@ -53,6 +55,8 @@ export function ListingCommentsModal({
   onClose,
   onCommentAdded,
   onReload,
+  sellerId,
+  initialReplyTo = null,
 }: ListingCommentsModalProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
@@ -64,10 +68,36 @@ export function ListingCommentsModal({
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [followReplies, setFollowReplies] = useState(false);
+  const [replyTo, setReplyTo] = useState<PostComment | null>(null);
+  const threads = useMemo(() => groupListingComments(comments), [comments]);
+
+  const startReply = (comment: PostComment) => {
+    setReplyTo(comment);
+    const handle = comment.author.username ? `@${comment.author.username} ` : '';
+    setText(handle);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
 
   useEffect(() => {
-    if (visible) setText('');
-  }, [visible]);
+    if (!visible) return;
+    if (initialReplyTo) startReply(initialReplyTo);
+    else {
+      setReplyTo(null);
+      setText('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initialReplyTo]);
+
+  // Send button: accent fill fades/scales in only when there is something to send.
+  const canSend = !!text.trim() && !sending && isAuthenticated && !loadError;
+  const sendAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(sendAnim, {
+      toValue: canSend || sending ? 1 : 0,
+      duration: 160,
+      useNativeDriver: true,
+    }).start();
+  }, [canSend, sending, sendAnim]);
 
   const handleSend = async () => {
     if (!isAuthenticated) {
@@ -81,11 +111,15 @@ export function ListingCommentsModal({
       const res = await authFetch(`${API_BASE}/api/listings/${listingId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text.trim() }),
+        body: JSON.stringify({
+          content: text.trim(),
+          ...(replyTo ? { parentId: replyTo.id } : {}),
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.success) {
         setText('');
+        setReplyTo(null);
         onCommentAdded?.();
         void showToast('تم إرسال التعليق', 'success');
       } else {
@@ -100,10 +134,6 @@ export function ListingCommentsModal({
     } finally {
       setSending(false);
     }
-  };
-
-  const focusInput = () => {
-    inputRef.current?.focus();
   };
 
   const toggleFollowReplies = () => {
@@ -152,44 +182,10 @@ export function ListingCommentsModal({
           </View>
 
           {loading && comments.length === 0 ? (
-            // First load: cards built with the real card styles and CoverTrailRow.
+            // First load: placeholders with the real comment-row geometry.
             <SkeletonRegion style={[styles.list, styles.listContent]}>
               {[0, 1, 2].map((index) => (
-                <View key={index} style={styles.commentCard}>
-                  <SkeletonPulse style={styles.skeletonInner}>
-                    <View style={[styles.commentCardHeader, getRtlRow()]}>
-                      <SkeletonText
-                        fontSize={typography.micro.fontSize}
-                        lineHeight={typography.micro.lineHeight}
-                        widths={[40]}
-                        style={styles.skeletonTime}
-                      />
-                      <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
-                        <SkeletonText
-                          fontSize={typography.micro.fontSize}
-                          lineHeight={typography.micro.lineHeight}
-                          widths={[72]}
-                          style={styles.skeletonName}
-                        />
-                        <SkeletonCircle size={28} />
-                      </CoverTrailRow>
-                    </View>
-                    <SkeletonText
-                      fontSize={typography.feedBody.fontSize}
-                      lineHeight={22}
-                      widths={[index === 1 ? '88%' : '64%']}
-                    />
-                    <View style={[styles.replyBtn, getRtlRow()]}>
-                      <SkeletonCircle size={14} />
-                      <SkeletonText
-                        fontSize={typography.micro.fontSize}
-                        lineHeight={typography.micro.lineHeight}
-                        widths={[18]}
-                        style={styles.skeletonReply}
-                      />
-                    </View>
-                  </SkeletonPulse>
-                </View>
+                <ListingCommentRowSkeleton key={index} divider={index < 2} wide={index === 1} />
               ))}
             </SkeletonRegion>
           ) : loadError && comments.length === 0 ? (
@@ -208,38 +204,37 @@ export function ListingCommentsModal({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
             >
-              {comments.map((c) => (
-                <View key={c.id} style={styles.commentCard}>
-                  <View style={[styles.commentCardHeader, getRtlRow()]}>
-                    <Text style={styles.commentTime}>{c.createdAt}</Text>
-                    <CoverTrailRow justify="flex-end" gap={6} flex style={styles.commentMeta}>
-                      <VerifiedInlineName
-                        name={c.author.arabicName || c.author.displayName}
-                        verified={c.author.verified}
-                        tier={c.author.verifiedTier}
-                        username={c.author.username}
-                        nameStyle={styles.commentName}
-                      />
-                      <UserProfileLink userId={c.author.id}>
-                        <Image
-                          source={uriSource(avatarUrl(c.author.avatar))}
-                          style={styles.avatar}
-                          contentFit="cover"
-                        />
-                      </UserProfileLink>
-                    </CoverTrailRow>
-                  </View>
-                  <View style={{ width: '100%' }}>
-                    <AppText style={styles.commentText}>{c.content}</AppText>
-                  </View>
-                  <Pressable onPress={focusInput} style={[styles.replyBtn, getRtlRow()]}>
-                    <AppIcon name="chatbubble-outline" size={14} color={colors.electricBright} />
-                    <Text style={styles.replyBtnText}>رد</Text>
-                  </Pressable>
-                </View>
+              {threads.map((t, index) => (
+                <ListingCommentThread
+                  key={t.comment.id}
+                  thread={t}
+                  sellerId={sellerId}
+                  divider={index < threads.length - 1}
+                  onReply={startReply}
+                />
               ))}
             </ScrollView>
           )}
+
+          {replyTo ? (
+            <View style={[styles.replyChip, getRtlRow()]}>
+              <AppIcon name="chatbubble-outline" size={13} color={colors.textSecondary} />
+              <Text style={styles.replyChipText} numberOfLines={1}>
+                {`الرد على ${replyTo.author.arabicName || replyTo.author.displayName || replyTo.author.username}`}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setReplyTo(null);
+                  setText('');
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="إلغاء الرد"
+              >
+                <AppIcon name="close" size={15} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          ) : null}
 
           <View
             style={[
@@ -252,32 +247,50 @@ export function ListingCommentsModal({
               },
             ]}
           >
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              placeholder={isAuthenticated ? 'اكتب تعليقك هنا...' : 'سجّل الدخول للتعليق'}
-              placeholderTextColor={colors.textSubtle}
-              value={text}
-              onChangeText={setText}
-              editable={isAuthenticated && !sending && !loadError}
-              textAlign="right"
-              multiline
-              maxLength={500}
-            />
-            <Pressable
-              style={[
-                styles.sendBtn,
-                (!text.trim() || sending || !isAuthenticated || !!loadError) && styles.sendBtnDisabled,
-              ]}
-              onPress={() => void handleSend()}
-              disabled={!text.trim() || sending || !isAuthenticated || !!loadError}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color={colors.onElectric} />
-              ) : (
-                <AppIcon name="send" size={18} color={colors.onElectric} />
-              )}
-            </Pressable>
+            <View style={[styles.inputField, getRtlRow()]}>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder={isAuthenticated ? 'اكتب تعليقك هنا...' : 'سجّل الدخول للتعليق'}
+                placeholderTextColor={colors.textSubtle}
+                value={text}
+                onChangeText={setText}
+                editable={isAuthenticated && !sending && !loadError}
+                textAlign="right"
+                multiline
+                maxLength={500}
+              />
+              <Pressable
+                style={styles.sendBtn}
+                onPress={() => void handleSend()}
+                disabled={!canSend}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="إرسال"
+              >
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.sendFill,
+                    {
+                      opacity: sendAnim,
+                      transform: [
+                        { scale: sendAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) },
+                      ],
+                    },
+                  ]}
+                />
+                {sending ? (
+                  <ActivityIndicator size="small" color={colors.onElectric} />
+                ) : (
+                  <AppIcon
+                    name="send"
+                    size={17}
+                    color={canSend ? colors.onElectric : colors.textSubtle}
+                  />
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
       </ComposerKeyboardView>
@@ -367,108 +380,66 @@ function createStyles(colors: ThemeColors) {
       minHeight: 0,
     },
     listContent: {
-      padding: spacing.lg,
-      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
       paddingBottom: spacing.xl,
-    },
-    commentCard: {
-      gap: spacing.sm,
-      padding: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.bgSurface,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-    },
-    commentCardHeader: {
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
-    },
-    skeletonInner: {
-      gap: spacing.sm,
-    },
-    skeletonTime: {
-      alignSelf: 'auto',
-      width: 40,
-    },
-    skeletonName: {
-      alignSelf: 'auto',
-      width: 72,
-    },
-    skeletonReply: {
-      alignSelf: 'auto',
-      width: 18,
-    },
-    commentMeta: {
-      minWidth: 0,
-    },
-    avatar: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-      backgroundColor: colors.bgElevated,
-    },
-    commentName: {
-      ...typography.micro,
-      color: colors.textPrimary,
-      fontWeight: '600',
-    },
-    commentTime: {
-      ...typography.micro,
-      color: colors.textMuted,
-      flexShrink: 0,
-    },
-    commentText: {
-      ...typography.feedBody,
-      color: colors.textSecondary,
-      lineHeight: 22,
-      ...getRtlText(),
-    },
-    replyBtn: {
-      alignItems: 'center',
-      gap: 4,
-      alignSelf: 'flex-start',
-      paddingVertical: 2,
-    },
-    replyBtnText: {
-      ...typography.micro,
-      color: colors.electricBright,
-      fontWeight: '600',
     },
     inputRow: {
       alignItems: 'flex-end',
-      gap: spacing.sm,
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
       paddingTop: spacing.sm,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.borderSoft,
+      borderTopColor: colors.borderHairline,
       backgroundColor: colors.bgDeep,
+    },
+    replyChip: {
+      alignItems: 'center',
+      gap: spacing.xs + 2,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.xs + 2,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderHairline,
+      backgroundColor: colors.bgDeep,
+    },
+    replyChipText: {
+      ...typography.micro,
+      color: colors.textSecondary,
+      flex: 1,
+      minWidth: 0,
+      ...getRtlText(),
+    },
+    inputField: {
+      flex: 1,
+      alignItems: 'flex-end',
+      gap: spacing.xs,
+      minHeight: 44,
+      paddingStart: spacing.md + 2,
+      paddingEnd: 4,
+      paddingVertical: 4,
+      borderRadius: 22,
+      backgroundColor: colors.bgElevated,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderHairline,
     },
     input: {
       flex: 1,
-      minHeight: 44,
+      minHeight: 36,
       maxHeight: 100,
-      backgroundColor: colors.bgSurface,
-      borderWidth: 1.5,
-      borderColor: colors.electricBright,
-      borderRadius: radius.lg,
-      paddingHorizontal: spacing.md,
-      paddingVertical: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 0,
       ...typography.feedBody,
       color: colors.textPrimary,
     },
     sendBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.electric,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    sendBtnDisabled: {
-      opacity: 0.45,
+    sendFill: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: 18,
+      backgroundColor: colors.electric,
     },
   });
 }

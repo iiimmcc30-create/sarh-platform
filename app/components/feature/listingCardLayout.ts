@@ -66,6 +66,8 @@ export interface ListingListMetrics {
   metaInnerGap: number;
   avatar: number;
   sellerGap: number;
+  /** Seller verified badge after the username: ~1.15x the meta font. */
+  verifiedBadge: number;
 }
 
 const half = (v: number) => Math.round(v * 2) / 2;
@@ -99,6 +101,7 @@ export function listingListMetrics(screenWidth: number): ListingListMetrics {
     metaInnerGap: Math.max(2, Math.round(w * R.metaInnerGapOfScreen)),
     avatar: Math.round(w * R.avatarOfScreen),
     sellerGap: Math.round(w * R.sellerGapOfScreen),
+    verifiedBadge: Math.round(metaFontSize * 1.15),
   };
 }
 

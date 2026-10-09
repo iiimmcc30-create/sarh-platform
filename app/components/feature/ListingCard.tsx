@@ -35,6 +35,7 @@ import { ListingBoostTitleIcons } from '@/components/listing/ListingBoostTitleIc
 import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoostState';
 import { FounderBadge } from '@/components/ui/FounderBadge';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
+import { VERIFIED_BADGE_GAP } from '@/lib/verifiedBadge';
 import { LISTING_LIST_LAYOUT } from '@/components/feature/listingCardLayout';
 import { useListingListMetrics } from '@/components/feature/useListingListMetrics';
 import { resolveQuickAccessSurface } from '@/lib/quickAccessSurface';
@@ -238,12 +239,15 @@ function ListingCardInner({
                 style={[styles.listAvatar, listDyn.avatar]}
                 contentFit="cover"
               />
-              {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
-              <FounderBadge username={seller?.username} verificationBadgeSize={14} />
-              <View style={styles.listSellerNameShell}>
-                <Text style={[styles.listSellerName, listDyn.metaText]} numberOfLines={1}>
-                  {sellerName}
-                </Text>
+              {/* Name first, verified badge right after it (inline end), sized from the meta font. */}
+              <View style={[styles.sellerNameBadgeRow, getRtlRow()]}>
+                <View style={styles.listSellerNameShell}>
+                  <Text style={[styles.listSellerName, listDyn.metaText]} numberOfLines={1}>
+                    {sellerName}
+                  </Text>
+                </View>
+                {seller?.verified ? <VerificationBadge size={m.verifiedBadge} tier={seller?.verifiedTier} /> : null}
+                <FounderBadge username={seller?.username} verificationBadgeSize={m.verifiedBadge} />
               </View>
             </UserProfileLink>
           </View>
@@ -402,12 +406,14 @@ function ListingCardInner({
             style={styles.harajAvatar}
             contentFit="cover"
           />
-          {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
-          <FounderBadge username={seller?.username} verificationBadgeSize={14} />
-          <View style={styles.harajSellerNameShell}>
-            <Text style={styles.harajSellerName} numberOfLines={1}>
-              {sellerName}
-            </Text>
+          <View style={[styles.sellerNameBadgeRow, getRtlRow()]}>
+            <View style={styles.harajSellerNameShell}>
+              <Text style={styles.harajSellerName} numberOfLines={1}>
+                {sellerName}
+              </Text>
+            </View>
+            {seller?.verified ? <VerificationBadge size={14} tier={seller?.verifiedTier} /> : null}
+            <FounderBadge username={seller?.username} verificationBadgeSize={14} />
           </View>
         </UserProfileLink>
       </View>
@@ -529,6 +535,13 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     flexShrink: 1,
     minWidth: 0,
     maxWidth: '100%',
+  },
+  /** Seller name + verified/founder badges: badge sits immediately after the name. */
+  sellerNameBadgeRow: {
+    alignItems: 'center',
+    gap: VERIFIED_BADGE_GAP,
+    flexShrink: 1,
+    minWidth: 0,
   },
   listSellerNameShell: {
         flexShrink: 1,

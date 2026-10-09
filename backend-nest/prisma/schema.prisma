@@ -848,15 +848,20 @@ model PostComment {
 }
 
 model ListingComment {
-  id        String   @id @default(uuid())
+  id        String           @id @default(uuid())
   listingId String
   authorId  String
   content   String
-  createdAt DateTime @default(now())
-  author    User     @relation(fields: [authorId], references: [id])
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  /// Reply target (one level: replies always point at a top-level comment). NULL = top-level.
+  parentId  String?
+  author    User             @relation(fields: [authorId], references: [id])
+  listing   Listing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  parent    ListingComment?  @relation("ListingCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   ListingComment[] @relation("ListingCommentReplies")
 
   @@index([listingId])
+  @@index([parentId])
 }
 
 model Story {

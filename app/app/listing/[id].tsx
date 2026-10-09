@@ -861,7 +861,11 @@ export default function ListingDetailScreen() {
           </Row>
         ) : null}
 
-        <ListingCommentsSection listingId={listing.id} layout="edge" />
+        <ListingCommentsSection
+          listingId={listing.id}
+          layout="edge"
+          sellerId={isManagedListing(listing) ? undefined : listing.seller?.id}
+        />
 
         <SimilarListingsSection listing={listing} />
       </ScreenBody>

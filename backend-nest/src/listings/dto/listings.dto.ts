@@ -383,4 +383,9 @@ export class CreateListingCommentDto {
   @MaxLength(500)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   content!: string;
+
+  /** Reply to this comment (same listing). Omitted / null = top-level comment. */
+  @IsOptional()
+  @IsUUID()
+  parentId?: string | null;
 }

@@ -34,6 +34,7 @@ export function mapListingComment(c: {
   id: string;
   content: string;
   createdAt: string;
+  parentId?: string | null;
   author: {
     id: string;
     username: string;
@@ -47,6 +48,7 @@ export function mapListingComment(c: {
   return {
     id: c.id,
     content: c.content,
+    parentId: c.parentId ?? null,
     createdAt:
       formatRelativeTimeAr(c.createdAt) || new Date(c.createdAt).toLocaleString('ar-SA'),
     author: {
@@ -64,6 +66,40 @@ export function mapListingComment(c: {
       bio: '',
     },
   };
+}
+
+export type ListingCommentThreadData = {
+  comment: PostComment;
+  /** Oldest first, like the top-level list. */
+  replies: PostComment[];
+};
+
+/**
+ * Flat API list (oldest first) → top-level threads with their replies.
+ * A reply whose parent is missing (e.g. outside the page) shows as top-level.
+ */
+export function groupListingComments(comments: PostComment[]): ListingCommentThreadData[] {
+  const ids = new Set(comments.map((c) => c.id));
+  const threads: ListingCommentThreadData[] = [];
+  const byId = new Map<string, ListingCommentThreadData>();
+  for (const c of comments) {
+    if (c.parentId && ids.has(c.parentId)) continue;
+    const t = { comment: c, replies: [] as PostComment[] };
+    threads.push(t);
+    byId.set(c.id, t);
+  }
+  for (const c of comments) {
+    if (!c.parentId || !ids.has(c.parentId)) continue;
+    const parent = byId.get(c.parentId);
+    if (parent) parent.replies.push(c);
+    else {
+      // Reply to a reply (older data): attach to that reply's thread.
+      const owner = threads.find((t) => t.replies.some((r) => r.id === c.parentId));
+      if (owner) owner.replies.push(c);
+      else threads.push({ comment: c, replies: [] });
+    }
+  }
+  return threads;
 }
 
 export async function fetchListingComments(

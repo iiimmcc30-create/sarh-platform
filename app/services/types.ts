@@ -169,6 +169,8 @@ export interface PostComment {
   content: string;
   author: User;
   createdAt: string;
+  /** Listing comments: reply target (top-level comment id); null/absent = top-level. */
+  parentId?: string | null;
 }
 
 export interface ChatThread {
