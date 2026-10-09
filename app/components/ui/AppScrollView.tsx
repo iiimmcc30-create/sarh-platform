@@ -1,8 +1,11 @@
 import { useBindChromeScroll } from '@/hooks/useAppChrome';
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
+  Animated,
   Platform,
   ScrollView,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
@@ -12,6 +15,11 @@ export type AppScrollViewProps = ScrollViewProps & {
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** Bind the shared tab-shell hide-on-scroll. Disable for local collapse. */
   bindChromeScroll?: boolean;
+  /**
+   * Native-driven vertical offset (Animated.event on the UI thread; JS on web). The JS
+   * `onScroll` still runs as the event listener. Renders an Animated.ScrollView.
+   */
+  nativeScrollY?: Animated.Value;
 };
 
 /**
@@ -33,13 +41,35 @@ export const AppScrollView = forwardRef<ScrollView, AppScrollViewProps>(
       overScrollMode,
       onScroll,
       bindChromeScroll = true,
+      nativeScrollY,
       ...rest
     },
     ref,
   ) {
     const boundScroll = useBindChromeScroll(onScroll);
+    const handler = bindChromeScroll ? boundScroll : onScroll;
+    // Stable Animated.event (re-creating it re-attaches the native event every render).
+    const handlerRef = useRef(handler);
+    useEffect(() => {
+      handlerRef.current = handler;
+    }, [handler]);
+    const listener = useCallback(
+      (event: NativeSyntheticEvent<NativeScrollEvent>) => handlerRef.current?.(event),
+      [],
+    );
+    const animatedScroll = useMemo(
+      () =>
+        nativeScrollY
+          ? Animated.event([{ nativeEvent: { contentOffset: { y: nativeScrollY } } }], {
+              useNativeDriver: Platform.OS !== 'web',
+              listener,
+            })
+          : undefined,
+      [listener, nativeScrollY],
+    );
+    const Scroller = nativeScrollY ? Animated.ScrollView : ScrollView;
     return (
-      <ScrollView
+      <Scroller
         ref={ref}
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
         showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
@@ -50,7 +80,7 @@ export const AppScrollView = forwardRef<ScrollView, AppScrollViewProps>(
         bounces={bounces}
         alwaysBounceVertical={alwaysBounceVertical ?? bounces}
         overScrollMode={overScrollMode ?? (Platform.OS === 'android' ? 'always' : undefined)}
-        onScroll={bindChromeScroll ? boundScroll : onScroll}
+        onScroll={animatedScroll ?? handler}
         {...rest}
       />
     );

@@ -119,14 +119,19 @@ export function useSwipeTabPager({
       const pager = pagerRef.current;
       if (animated && pager) {
         pendingRef.current = target;
-        pendingTimer.current = setTimeout(clearPending, PENDING_TIMEOUT_MS);
+        pendingTimer.current = setTimeout(() => {
+          clearPending();
+          // Native driver: no per-frame JS listener, so sync the JS copy of the offset once the
+          // animated scroll has landed (a later re-render then commits the right values).
+          if (useNativeScroll) scrollX.setValue(x);
+        }, PENDING_TIMEOUT_MS);
       } else {
         // Not mounted (e.g. tabs shown before the pager) or instant: the indicator follows now.
         scrollX.setValue(x);
       }
       pager?.scrollTo({ x, y: 0, animated });
     },
-    [clearPending, clearSettle, count, mode, scrollX],
+    [clearPending, clearSettle, count, mode, scrollX, useNativeScroll],
   );
 
   /** Tap: select the tab and move the pager to that page's offset. */
@@ -171,8 +176,11 @@ export function useSwipeTabPager({
     [clearSettle, commitIndex, count, mode, scrollToIndex],
   );
 
-  // Every offset (drag, momentum, programmatic) flows through scrollX.
+  // JS-driven pagers (web, /bookmarks, search): every offset flows through scrollX. The native
+  // driver gets NO listener: a listener makes the UI thread post every scroll frame back to JS,
+  // and native settles in onMomentumScrollEnd anyway.
   useEffect(() => {
+    if (useNativeScroll) return undefined;
     const id = scrollX.addListener(({ value }) => {
       const w = widthRef.current;
       const pending = pendingRef.current;
@@ -189,7 +197,7 @@ export function useSwipeTabPager({
       settleTimer.current = setTimeout(() => settle(value), WEB_SETTLE_MS);
     });
     return () => scrollX.removeListener(id);
-  }, [clearPending, clearSettle, count, mode, scrollX, settle]);
+  }, [clearPending, clearSettle, count, mode, scrollX, settle, useNativeScroll]);
 
   const onScroll = useMemo(
     () =>
@@ -209,10 +217,13 @@ export function useSwipeTabPager({
   /** Native swipe: the settled offset decides the index (never an LTR-only formula). */
   const onMomentumScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const x = event.nativeEvent.contentOffset.x;
       clearPending();
-      settle(event.nativeEvent.contentOffset.x);
+      // Keep the JS copy of a native-driven offset current before the index re-render commits.
+      if (useNativeScroll) scrollX.setValue(x);
+      settle(x);
     },
-    [clearPending, settle],
+    [clearPending, scrollX, settle, useNativeScroll],
   );
 
   /** Keep the pager (and indicator) on the selected page without animation. */

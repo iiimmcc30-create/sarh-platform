@@ -37,7 +37,6 @@ import {
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { duration } from '@/design-system/tokens';
 import { spacing, type ThemeColors } from '@/constants/theme';
-import { useAppChromeScroll } from '@/hooks/useAppChrome';
 import { useLayout } from '@/hooks/useLayout';
 import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -186,7 +185,6 @@ export function ProfileScreenLayout({
   const { colors: themeColors, isDark } = useTheme();
   const { gutter } = useLayout();
   const insets = useSafeAreaInsets();
-  const { onChromeScroll } = useAppChromeScroll();
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
   const { width: windowWidth } = useWindowDimensions();
   const profileTabs = useMemo(() => getProfileTabs(mode === 'own'), [mode]);
@@ -195,9 +193,10 @@ export function ProfileScreenLayout({
     count: profileTabs.length,
     width: windowWidth,
     initialIndex: Math.max(0, profileTabs.findIndex((tab) => tab.key === initialTab)),
-    // JS-driven progress, like /bookmarks and search. The native-driven scroll event left the
-    // tab icons / underline frozen on device (new architecture) while the pages still swiped;
-    // ProfileTabs still animates transform / opacity only, so the JS path stays cheap.
+    // UI-thread progress: ProfileTabs animates transform / opacity only (native-driver safe), and
+    // the hook adds no JS scroll listener on native, so a swipe never re-renders React per frame.
+    // (The JS driver re-committed ~16 animated views per frame on Fabric → visible lag.)
+    nativeDriver: true,
   });
   const activeTab: ProfileTabKey = profileTabs[tabPager.index]?.key ?? 'posts';
   const { goTo: goToTab, jumpTo: jumpToTab } = tabPager;
@@ -223,9 +222,10 @@ export function ProfileScreenLayout({
   );
   /**
    * X-style sticky header: a fixed bar (back / more, then name + posts count) over the
-   * user's cover. Scroll-linked layers (cover crop, frost) follow a JS-set Animated value
-   * (the shared ScrollView reports scroll on the JS thread); the title fade runs on the
-   * native driver once its threshold is crossed.
+   * user's cover. Scroll-linked layers (cover crop, frost, scrim) are opacity-only
+   * interpolations of a native-driven scroll value (no JS per frame); the blurred image is
+   * rendered once and never re-rendered by scrolling. The title fade runs on the native
+   * driver once its threshold is crossed (state flips only at thresholds).
    */
   const [nameBottom, setNameBottom] = useState<number | null>(null);
   const sticky = profileStickyHeaderRanges({
@@ -257,8 +257,8 @@ export function ProfileScreenLayout({
   );
   const updateStickyHeader = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      // scrollY itself is driven on the native driver (ScreenBody nativeScrollY).
       const y = event.nativeEvent.contentOffset.y;
-      scrollY.setValue(y);
       const showTitle = y >= sticky.titleAt;
       if (showTitle !== titleShownRef.current) {
         titleShownRef.current = showTitle;
@@ -269,7 +269,7 @@ export function ProfileScreenLayout({
       tabsPinnedRef.current = next;
       setTabsPinned(next);
     },
-    [scrollY, sticky.titleAt, stickyHeight],
+    [sticky.titleAt, stickyHeight],
   );
   /** Bottom of the name block in scroll-content coordinates (cover band + header Stack offset). */
   const onNameBlockLayout = useCallback(
@@ -390,10 +390,11 @@ export function ProfileScreenLayout({
       {focused ? <StatusBar style={statusBarStyle} /> : null}
       <ScreenBody
         gutter={false}
+        nativeScrollY={scrollY}
         bottomInset="tabBar"
         padBottom="md"
         onScroll={(event) => {
-          onChromeScroll(event);
+          // The shared chrome hide-on-scroll is bound by AppScrollView (calling it here too ran it twice per frame).
           updateStickyHeader(event);
           if (activeTab !== 'ads' || !onAdsNearEnd) return;
           if (isSellerListNearEnd(event.nativeEvent)) onAdsNearEnd();
@@ -522,32 +523,35 @@ export function ProfileScreenLayout({
                   <FounderBadge username={user.username} verificationBadgeSize={PROFILE_NAME_BADGE_SIZE} />
                 </Row>
 
-                <Row gap="xs" align="center" style={styles.handleRow} testID="profile-handle-row">
-                  <Pressable
-                    onPress={openAbout}
-                    disabled={!openAbout}
-                    style={styles.usernamePress}
-                    testID="profile-username-press"
-                  >
-                    <AppText
-                      variant="label"
-                      color="textSecondary"
-                      numberOfLines={1}
-                      style={styles.username}
-                      testID="profile-username"
+                {/* @handle (+ «يتابعك» / gold seller) at the inline start; five stars pushed to the far
+                    end (left in RTL) with space-between. The handle truncates first. */}
+                <Row gap="sm" align="center" justify="between" style={styles.handleRow} testID="profile-handle-row">
+                  <Row gap="xs" align="center" style={styles.handleCluster}>
+                    <Pressable
+                      onPress={openAbout}
+                      disabled={!openAbout}
+                      style={styles.usernamePress}
+                      testID="profile-username-press"
                     >
-                      @{user.username}
-                    </AppText>
-                  </Pressable>
-                  {/* Five small gold stars right after the @handle (the handle truncates first). */}
+                      <AppText
+                        variant="label"
+                        color="textSecondary"
+                        numberOfLines={1}
+                        style={styles.username}
+                        testID="profile-username"
+                      >
+                        @{user.username}
+                      </AppText>
+                    </Pressable>
+                    {mode === 'visitor' && followsYou ? (
+                      <AppText variant="caption" color="textSecondary" style={styles.followsYou} testID="profile-follows-you">
+                        يتابعك
+                      </AppText>
+                    ) : null}
+                    {/* «بائع ذهبي»: quiet gold caption beside the handle (Gold sellers only). */}
+                    <GoldSellerLabel user={user} />
+                  </Row>
                   <ProfileRatingStars rating={user.rating} reviewCount={user.reviewCount} onPress={onRatePress} />
-                  {mode === 'visitor' && followsYou ? (
-                    <AppText variant="caption" color="textSecondary" style={styles.followsYou} testID="profile-follows-you">
-                      يتابعك
-                    </AppText>
-                  ) : null}
-                  {/* «بائع ذهبي»: quiet gold caption beside the handle (Gold sellers only). */}
-                  <GoldSellerLabel user={user} />
                 </Row>
               </Stack>
               </View>
@@ -871,6 +875,12 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
       alignSelf: 'flex-start',
     },
     /** Centred on the handle row so the stars sit on the same visual line (was pinned to the row top). */
+    /** Handle side of the row: shrinks (handle truncates) so the stars never get pushed off. */
+    handleCluster: {
+      flexShrink: 1,
+      minWidth: 0,
+      flexWrap: 'nowrap',
+    },
     usernamePress: {
       alignSelf: 'center',
       flexShrink: 1,

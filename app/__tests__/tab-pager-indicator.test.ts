@@ -265,10 +265,12 @@ describe('wiring', () => {
     expect(layoutsHook).toContain('export function useRevealActiveTab');
   });
 
-  it('Profile tabs: computed track + JS pager progress, like /bookmarks (no per-frame layout)', () => {
+  it('Profile tabs: computed track + pager progress on the native driver, no JS scroll listener', () => {
     expect(layout).toContain('progress={tabPager.progress}');
-    // The native-driven scroll event froze the bar on device: profile uses the JS driver.
-    expect(layout).not.toContain('nativeDriver: true');
+    expect(layout).toContain('nativeDriver: true,');
+    // Native: no per-frame JS listener; the JS copy syncs on momentum end / after a tap scroll.
+    expect(hook).toContain('if (useNativeScroll) return undefined;');
+    expect(hook).toContain('if (useNativeScroll) scrollX.setValue(x);');
     expect(layout).toContain('keepMounted');
     expect(profileTabs).toContain('profileTabTrack(count, {');
     expect(profileTabs).toContain('inset: spacing.md,');

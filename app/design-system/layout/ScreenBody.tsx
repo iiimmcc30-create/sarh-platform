@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import {
   StyleSheet,
   View,
+  type Animated,
   type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
@@ -42,6 +43,11 @@ export type ScreenBodyProps = {
   scrollEventThrottle?: ScrollViewProps['scrollEventThrottle'];
   /** Forwarded to AppScrollView. Default keeps the shared tab-shell chrome. */
   bindChromeScroll?: boolean;
+  /**
+   * Drive this value from the vertical offset on the native driver (scroll-linked header
+   * opacity / transform without a JS round-trip per frame). `onScroll` still runs in JS.
+   */
+  nativeScrollY?: Animated.Value;
   testID?: string;
 };
 
@@ -74,6 +80,7 @@ export function ScreenBody({
   onMomentumScrollEnd,
   scrollEventThrottle,
   bindChromeScroll,
+  nativeScrollY,
   testID,
 }: ScreenBodyProps) {
   const layout = useLayout();
@@ -126,6 +133,7 @@ export function ScreenBody({
         onMomentumScrollEnd={onMomentumScrollEnd}
         scrollEventThrottle={scrollEventThrottle}
         bindChromeScroll={bindChromeScroll}
+        nativeScrollY={nativeScrollY}
       >
         {children}
       </AppScrollView>

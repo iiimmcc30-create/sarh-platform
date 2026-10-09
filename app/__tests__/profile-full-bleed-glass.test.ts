@@ -93,9 +93,16 @@ describe('profile sticky header: X-style frosted cover', () => {
     expect(header).toContain('opacity: titleProgress, transform: [{ translateY: titleTranslate }]');
     expect(layout).toContain('backgroundColor: sarh.color.overlay');
     expect(layout).toContain('const stickyTextColor = hasCover ? sarh.color.fab : themeColors.textPrimary;');
-    // Title fade on the native driver; scroll-linked layers follow the JS scroll value.
+    // Title fade on the native driver; scroll-linked layers follow a native-driven scroll value.
     expect(layout).toMatch(/Animated\.timing\(titleProgress, \{[^}]*useNativeDriver: true/);
-    expect(layout).toContain('scrollY.setValue(y);');
+    expect(layout).toContain('nativeScrollY={scrollY}');
+    expect(layout).not.toContain('scrollY.setValue(');
+    // Chrome hide-on-scroll runs once per frame (AppScrollView binds it).
+    expect(layout).not.toContain('onChromeScroll');
+    const asv = src('components/ui/AppScrollView.tsx');
+    expect(asv).toContain("useNativeDriver: Platform.OS !== 'web',");
+    expect(asv).toContain('const Scroller = nativeScrollY ? Animated.ScrollView : ScrollView;');
+    expect(src('design-system/layout/ScreenBody.tsx')).toContain('nativeScrollY={nativeScrollY}');
     expect(layout).not.toContain('expo-blur');
     expect(layout).not.toContain('reanimated');
   });

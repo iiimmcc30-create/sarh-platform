@@ -36,13 +36,20 @@ describe('Profile header: avatar right, name under it, five stars inline with th
     expect(username).toBeLessThan(stats);
   });
 
-  it('five small gold stars right after @username on the handle line (handle truncates first)', () => {
+  it('five small gold stars at the far end of the @handle line (space-between; handle truncates first)', () => {
     const handleRow = layout.indexOf('testID="profile-handle-row"');
     const stars = layout.indexOf('<ProfileRatingStars');
     expect(handleRow).toBeGreaterThan(name);
     expect(username).toBeGreaterThan(handleRow);
     expect(stars).toBeGreaterThan(username);
-    expect(stars).toBeLessThan(layout.indexOf('</Row>', handleRow));
+    // Outer row is space-between: [handle cluster] … [stars] (left edge in RTL).
+    expect(layout).toContain('<Row gap="sm" align="center" justify="between" style={styles.handleRow} testID="profile-handle-row">');
+    const cluster = layout.indexOf('style={styles.handleCluster}');
+    const clusterEnd = layout.indexOf('</Row>', cluster);
+    expect(cluster).toBeGreaterThan(handleRow);
+    expect(stars).toBeGreaterThan(clusterEnd);
+    expect(stars).toBeLessThan(layout.indexOf('</Row>', clusterEnd + 6));
+    expect(styleBlock(layout, 'handleCluster')).toContain('flexShrink: 1');
     expect(stars).toBeLessThan(stats);
     // Not on the display-name row any more.
     expect(stars).toBeGreaterThan(layout.indexOf('</Row>', nameRow));
