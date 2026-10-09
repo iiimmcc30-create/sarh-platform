@@ -1313,15 +1313,22 @@ model AccountVerificationTimelineEvent {
 }
 
 model Faq {
-  id         String      @id @default(uuid())
-  questionAr String
-  answerAr   String
-  category   FaqCategory
-  isActive   Boolean     @default(true)
-  sortOrder  Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  deletedAt  DateTime?
+  id          String      @id @default(uuid())
+  /// Stable seed key (help-center knowledge base); null for admin-created rows.
+  key         String?     @unique
+  questionAr  String
+  answerAr    String
+  category    FaqCategory
+  /// Extra phrasings / synonyms used by search and «مساعد سرح» retrieval.
+  keywords    String[]    @default([])
+  /// Optional in-app deep link shown as a button under the answer.
+  actionRoute String?
+  actionLabel String?
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
 
   @@index([category])
   @@index([isActive])
@@ -1460,6 +1467,11 @@ enum FaqCategory {
   VERIFICATION
   TECHNICAL
   GENERAL
+  SUBSCRIPTIONS
+  COUNCILS
+  SAFETY
+  PROMOTION
+  COMMUNITY
 }
 
 enum KnowledgeSourceType {
