@@ -6,7 +6,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { VerifiedInfoSheet } from '@/components/ui/VerifiedInfoSheet';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { spacing } from '@/constants/theme';
 import { AppText, SarhAvatar, SarhDivider } from '@/design-system/components';
@@ -44,7 +44,7 @@ export default function AboutAccountScreen() {
   const isOwn = !id || id === me.id;
   const [subject, setSubject] = useState<AboutSubject | null>(() => (isOwn ? null : fromProfile(id)));
   const [verifiedSheetOpen, setVerifiedSheetOpen] = useState(false);
-  const fade = useRef(new Animated.Value(0)).current;
+  const [fade] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (isOwn || !id) return;

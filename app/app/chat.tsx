@@ -59,8 +59,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchUserProfile, setBlockUser } from '@/services/users';
 import {
   applyChatSocketEvent,
+  chatOlderCursor,
   mergeChatMessages,
   parseChatSocketPayload,
+  prependOlderMessages,
   reconcileLoadedMessages,
 } from '@/lib/chatRealtime';
 import { useChatThreadSocket } from '@/hooks/useChatThreadSocket';
@@ -75,6 +77,7 @@ import {
   parseOfferMessage,
 } from '@/lib/messageOffers';
 import * as Location from 'expo-location';
+import { avatarUrl } from '@/lib/listingMedia';
 
 /** Media picked or recorded locally, waiting for upload (enables retry). */
 type OutgoingMedia = {
@@ -585,6 +588,12 @@ export default function ChatScreen() {
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  /** Older history (server pages of 40, newest first): cursor for the next older page. */
+  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadingOlderRef = useRef(false);
+  /** Once older pages are merged, a reload of the newest page must not rewind the cursor. */
+  const olderLoadedRef = useRef(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [pendingMedia, setPendingMedia] = useState<OutgoingMedia | null>(null);
   /** Failed / in-flight media jobs by optimistic id (retry without re-picking). */
@@ -662,6 +671,9 @@ export default function ChatScreen() {
         // Merge, never replace: keeps uploading / just-sent bubbles (voice!).
         setMessages((prev) => reconcileLoadedMessages(prev, loaded));
         setMuted(msgJson.data.isMuted === true);
+        if (!olderLoadedRef.current) {
+          setOlderCursor(chatOlderCursor(msgJson.data));
+        }
       }
     };
 
@@ -710,6 +722,31 @@ export default function ChatScreen() {
       cancelled = true;
     };
   }, [hasToken, isThreadMode, isDirectMode, receiverId, threadIdParam]);
+
+  /** Inverted list end reached (top of the thread): prepend the next older page. */
+  const loadOlderMessages = useCallback(async () => {
+    if (!threadId || !olderCursor || loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/messages/${threadId}?cursor=${encodeURIComponent(olderCursor)}`,
+        { headers: { Authorization: `Bearer ${accessTokenRef.current ?? ''}` } },
+      );
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.success || !Array.isArray(json.data?.messages)) return;
+      const older: ChatMessage[] = json.data.messages.map(mapApiMessage);
+      olderLoadedRef.current = true;
+      setMessages((prev) => prependOlderMessages(prev, older));
+      setOlderCursor(chatOlderCursor(json.data));
+    } catch (err) {
+      console.warn('[ChatScreen] Failed to load older messages:', err);
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }, [olderCursor, threadId]);
 
   useChatThreadSocket(accessToken, threadId, (payload) => {
     if (!threadId) return;
@@ -778,7 +815,7 @@ export default function ChatScreen() {
     } else {
       patchMessage(tempId, { status: 'sending', progress: undefined, error: undefined });
     }
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
 
     try {
       const res = await fetch(`${API_BASE}/api/messages`, {
@@ -955,7 +992,7 @@ export default function ChatScreen() {
     };
     mediaJobsRef.current.set(id, media);
     setMessages((prev) => [...prev, optimistic]);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
     void runMediaJob(id, media);
   };
   const runMediaJobRef = useRef(runMediaJob);
@@ -1120,7 +1157,8 @@ export default function ChatScreen() {
     [viewerUri],
   );
 
-  const rows = useMemo(() => buildChatRows(messages), [messages]);
+  /** Newest first: the list is inverted, so the latest bubble sits at the bottom with no scroll-to-end pass. */
+  const rows = useMemo(() => buildChatRows(messages).reverse(), [messages]);
 
   const renderRow = useCallback(
     ({ item }: { item: ChatRow }) =>
@@ -1206,7 +1244,7 @@ export default function ChatScreen() {
         <Row style={styles.header} gap="sm">
           <SarhBackButton onPress={() => router.back()} color={colors.textPrimary} style={styles.backBtn} />
           <UserProfileLink userId={receiverUserId} style={styles.headerCenter}>
-            <Image source={uriSource(headerAvatar)} style={styles.headerAvatar} contentFit="cover" />
+            <Image source={uriSource(avatarUrl(headerAvatar))} style={styles.headerAvatar} contentFit="cover" />
             <View style={styles.headerText}>
               <View style={styles.headerNameRow}>
                 <VerifiedInlineName name={headerName} verified={peerVerified} tier={peerVerifiedTier} username={peerUsername}>
@@ -1238,10 +1276,14 @@ export default function ChatScreen() {
             keyExtractor={(row) => row.key}
             renderItem={renderRow}
             contentContainerStyle={styles.messagesList}
-            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+            // Inverted (chat standard): opens at the newest message with no
+            // scroll-to-end on every content change; older pages load at the top.
+            inverted
+            onEndReached={() => void loadOlderMessages()}
+            onEndReachedThreshold={0.4}
             showsVerticalScrollIndicator={false}
-            ListHeaderComponent={
-              messages.length === 0 && loadingMessages ? (
+            ListFooterComponent={
+              (messages.length === 0 && loadingMessages) || loadingOlder ? (
                 <ActivityIndicator style={styles.threadLoading} color={palette.accent} />
               ) : null
             }
@@ -1445,10 +1487,11 @@ function createStyles(colors: ThemeColors, palette: ChatBubbleColors) {
     flex: 1,
     backgroundColor: 'transparent',
   },
+  // Inverted list: paddingTop renders at the bottom (above the composer), paddingBottom at the top.
   messagesList: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   // Quiet day separator (WhatsApp-style): small neutral pill, AA meta text.
   datePillWrap: { alignItems: 'center', marginVertical: spacing.sm },

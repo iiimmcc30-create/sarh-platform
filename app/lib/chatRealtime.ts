@@ -137,11 +137,40 @@ export function reconcileLoadedMessages(
     const at = Date.parse(m.createdAt);
     if (Number.isFinite(at) && at > newestLoadedAt) newestLoadedAt = at;
   }
+  let oldestLoadedAt = Number.POSITIVE_INFINITY;
+  for (const m of loaded) {
+    const at = Date.parse(m.createdAt);
+    if (Number.isFinite(at) && at < oldestLoadedAt) oldestLoadedAt = at;
+  }
+  // Older pages loaded by scrolling up stay above the refreshed newest page.
+  const older = prev.filter((m) => {
+    if (loadedIds.has(m.id) || m.id.startsWith('temp_')) return false;
+    const at = Date.parse(m.createdAt);
+    return Number.isFinite(at) && at < oldestLoadedAt;
+  });
   const extras = prev.filter((m) => {
     if (loadedIds.has(m.id)) return false;
     if (m.id.startsWith('temp_')) return true;
     const at = Date.parse(m.createdAt);
     return !Number.isFinite(at) || at >= newestLoadedAt;
   });
-  return extras.length ? [...loaded, ...extras] : loaded;
+  if (!older.length && !extras.length) return loaded;
+  return [...older, ...loaded, ...extras];
+}
+
+/**
+ * Prepend an older server page (oldest → newest) above the current thread,
+ * skipping ids already present (socket / reload overlap).
+ */
+export function prependOlderMessages(prev: ChatMessage[], older: ChatMessage[]): ChatMessage[] {
+  if (older.length === 0) return prev;
+  const have = new Set(prev.map((m) => m.id));
+  const fresh = older.filter((m) => !have.has(m.id));
+  return fresh.length ? [...fresh, ...prev] : prev;
+}
+
+/** Cursor for the next older page from a thread GET payload; null when the start is reached. */
+export function chatOlderCursor(data: { hasMore?: unknown; nextCursor?: unknown } | null | undefined): string | null {
+  if (!data || data.hasMore !== true) return null;
+  return typeof data.nextCursor === 'string' && data.nextCursor ? data.nextCursor : null;
 }

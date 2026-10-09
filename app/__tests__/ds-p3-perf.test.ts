@@ -85,7 +85,9 @@ describe('Wave 1 performance foundations', () => {
     const chat = src('app/chat.tsx');
     expect(chat).toContain('function ChatComposer');
     expect(chat).toContain('const ChatMessageBubble = memo');
-    expect(chat).toContain('onContentSizeChange');
+    // Inverted thread: no scrollToEnd on every content-size change (jank); opens at the newest message.
+    expect(chat).toContain('inverted');
+    expect(chat).not.toContain('onContentSizeChange={() => listRef.current?.scrollToEnd');
     expect(chat).not.toContain('onLayout={() => listRef.current?.scrollToEnd');
   });
 
