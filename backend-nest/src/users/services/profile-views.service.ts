@@ -27,7 +27,7 @@ export function profileViewDay(now: Date): Date {
  * («إظهار الحساب في البحث» off = never listed) and no block either way. Same
  * public identity fields every feed already shows.
  */
-function listableViewerWhere(profileId: string) {
+export function listableViewerWhere(profileId: string) {
   return {
     isActive: true,
     deletedAt: null,

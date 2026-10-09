@@ -40,6 +40,16 @@ export function canHostFollowersOnlyCouncils(
   return tier === 'gold';
 }
 
+/** Free weekly boosts are ListingBoost rows (amount 0) with this transaction prefix. */
+export const FREE_WEEKLY_BOOST_TX_PREFIX = 'FREE-WEEKLY-';
+/** Rolling window of the weekly free-boost allowance (7 days). */
+export const FREE_WEEKLY_BOOST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** «دعم بأولوية»: Gold tickets open as HIGH (support/services/ticket-priority.ts). */
+export function hasPrioritySupport(tier: VerificationTier | null): boolean {
+  return tier === 'gold';
+}
+
 /** Fallback when the plan row has no `weeklyFreeBoosts` feature. */
 export const WEEKLY_FREE_BOOSTS_DEFAULT: Record<VerificationTier, number> = {
   blue: 0,

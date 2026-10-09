@@ -37,6 +37,11 @@ model User {
   /// True when `verified` was granted by an active verification subscription
   /// (so it is revoked when the subscription ends). Legacy badges stay false.
   subscriptionBadge                   Boolean                           @default(false)
+  /// Subscriber preference: hide the verification badge from other users
+  /// (ranking / visibility perks stay). Applied to API responses only.
+  hideVerifiedBadge                   Boolean                           @default(false)
+  /// Gold subscriber preference: hide the «بائع ذهبي» label from others.
+  hideGoldSellerLabel                 Boolean                           @default(false)
   isAI                                Boolean                           @default(false)
   country                             Country                           @default(SA)
   role                                Role                              @default(USER)

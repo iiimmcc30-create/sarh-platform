@@ -10,6 +10,24 @@ import {
   buildTrialInfo,
   SubscriptionTrialService,
 } from '../services/subscription-trial.service';
+import { SubscriptionEntitlementService } from '../services/subscription-entitlement.service';
+import { SubscriptionBillingService } from '../billing/subscription-billing.service';
+import { resolveBilling } from '../billing/subscription-billing';
+import { BadgeVisibilityService } from '../visibility/badge-visibility.service';
+import {
+  FREE_WEEKLY_BOOST_TX_PREFIX,
+  FREE_WEEKLY_BOOST_WINDOW_MS,
+  canHostFollowersOnlyCouncils,
+  canScheduleCouncils,
+  canSeeProfileViewers,
+  hasPrioritySupport,
+  weeklyFreeBoostsFor,
+} from '../perks/subscriber-perks';
+import { resolveListingCreateDailyLimit } from '../../listings/listing-policy';
+import {
+  PROFILE_VIEWS_WINDOW_DAYS,
+  listableViewerWhere,
+} from '../../users/services/profile-views.service';
 import {
   BADGE_COLOR_FOR_TIER,
   VERIFICATION_PLAN_SLUGS,
@@ -74,7 +92,98 @@ export class VerificationStatusService {
     private readonly badge: VerificationBadgeService,
     private readonly goldGate: GoldDocumentGateService,
     @Optional() private readonly trial?: SubscriptionTrialService,
+    @Optional() private readonly entitlements?: SubscriptionEntitlementService,
+    @Optional() private readonly billingService?: SubscriptionBillingService,
+    @Optional() private readonly visibility?: BadgeVisibilityService,
   ) {}
+
+  /**
+   * Live perk usage for the «التوثيق» hub. Every value comes from the same
+   * rules the API enforces (free boosts, daily listings, profile views,
+   * support priority, councils); the tier is the EFFECTIVE plan.
+   */
+  async getPerks(userId: string, now = new Date()) {
+    const ctx = await this.entitlements?.getEffectiveContextForUser(userId);
+    const planSlug = ctx?.planSlug ?? 'free';
+    const perms = ctx?.permissions ?? {};
+    const tier = tierForPlanSlug(planSlug);
+
+    const boostLimit = weeklyFreeBoostsFor(tier, perms.weeklyFreeBoosts);
+    const windowStart = new Date(now.getTime() - FREE_WEEKLY_BOOST_WINDOW_MS);
+    const [boosts, sub, viewers] = await Promise.all([
+      boostLimit > 0
+        ? this.prisma.listingBoost.findMany({
+            where: {
+              userId,
+              amount: 0,
+              transactionId: { startsWith: FREE_WEEKLY_BOOST_TX_PREFIX },
+              createdAt: { gte: windowStart },
+            },
+            orderBy: { createdAt: 'asc' },
+            select: { createdAt: true },
+            take: 50,
+          })
+        : Promise.resolve([] as Array<{ createdAt: Date }>),
+      this.prisma.subscription.findUnique({
+        where: { userId },
+        select: { dailyAdsUsed: true, dailyAdsWindowStart: true },
+      }),
+      this.prisma.profileView.findMany({
+        where: {
+          profileId: userId,
+          viewedAt: {
+            gte: new Date(
+              now.getTime() - PROFILE_VIEWS_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+            ),
+          },
+          viewer: listableViewerWhere(userId),
+        },
+        distinct: ['viewerId'],
+        select: { viewerId: true },
+        take: 5000,
+      }),
+    ]);
+
+    const oldest = boosts[0]?.createdAt;
+    const daily = resolveListingCreateDailyLimit(
+      undefined,
+      this.permissions.maxAdsPer24Hours(perms),
+      this.permissions.extraDailyListings(perms, planSlug),
+    );
+    const windowOpen =
+      !!sub?.dailyAdsWindowStart &&
+      now.getTime() - sub.dailyAdsWindowStart.getTime() < 24 * 60 * 60 * 1000;
+    const dailyUsed = windowOpen ? (sub?.dailyAdsUsed ?? 0) : 0;
+
+    return {
+      tier,
+      freeBoosts: {
+        limit: boostLimit,
+        used: Math.min(boosts.length, boostLimit),
+        remaining: Math.max(0, boostLimit - boosts.length),
+        nextResetAt: oldest
+          ? new Date(oldest.getTime() + FREE_WEEKLY_BOOST_WINDOW_MS)
+          : null,
+      },
+      dailyListings: {
+        limit: daily.limit,
+        used: Math.min(dailyUsed, daily.limit),
+        resetsAt:
+          windowOpen && sub?.dailyAdsWindowStart
+            ? new Date(sub.dailyAdsWindowStart.getTime() + 24 * 60 * 60 * 1000)
+            : null,
+      },
+      profileViews30d: {
+        count: viewers.length,
+        unlocked: canSeeProfileViewers(tier),
+      },
+      prioritySupport: hasPrioritySupport(tier),
+      councils: {
+        canSchedule: canScheduleCouncils(tier),
+        canFollowersOnly: canHostFollowersOnlyCouncils(tier),
+      },
+    };
+  }
 
   async getPlans() {
     const rows = await this.prisma.plan.findMany({
@@ -109,6 +218,8 @@ export class VerificationStatusService {
         /** Seller visibility priority (Blue 1 < Blue+ 2 < Gold 3). */
         visibilityBoost: this.permissions.priorityBoost(perms, slug),
         visibilityLevel: VERIFICATION_TIER_DEFAULTS[tier].visibilityLevel,
+        /** Free 24h boosts every 7 days (Blue 0, Blue+ 2, Gold 4 by default). */
+        weeklyFreeBoosts: weeklyFreeBoostsFor(tier, perms.weeklyFreeBoosts),
       };
     });
   }
@@ -171,6 +282,13 @@ export class VerificationStatusService {
           },
         }),
       ]);
+
+    const [store, perks, preferences] = await Promise.all([
+      this.billingService?.findActiveStoreSubscription(userId) ?? null,
+      this.entitlements ? this.getPerks(userId) : null,
+      this.visibility?.getPrefs(userId) ?? null,
+    ]);
+    const billingInfo = resolveBilling({ subscription, store });
 
     const meta = (lastPayment?.metadata ?? {}) as Record<string, unknown>;
     const lastPlan =
@@ -240,6 +358,21 @@ export class VerificationStatusService {
          */
         automaticCharge: false,
         renewal: 'reminder_and_checkout' as const,
+        /**
+         * Where the current period is billed: app_store / google_play (manage
+         * and cancel in the store), ngenius (website, manual renewal), trial
+         * or none. `autoRenew` / `expiresAt` follow the store when store-billed.
+         */
+        source: billingInfo.source,
+        autoRenew: billingInfo.autoRenew,
+        expiresAt: billingInfo.expiresAt,
+      },
+      /** Live perk usage (null when the entitlement service is unavailable). */
+      perks,
+      /** Badge visibility preferences (PATCH /verification/preferences). */
+      preferences: preferences ?? {
+        hideVerifiedBadge: false,
+        hideGoldSellerLabel: false,
       },
     };
   }

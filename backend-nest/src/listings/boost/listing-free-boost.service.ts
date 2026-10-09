@@ -7,7 +7,11 @@ import { RedisCacheService } from '../../redis/services/redis-cache.service';
 import { PaidServicesService } from '../../settings/paid-services.service';
 import { SubscriptionEntitlementService } from '../../subscriptions/services/subscription-entitlement.service';
 import { tierForPlanSlug } from '../../subscriptions/verification/verification-tiers';
-import { weeklyFreeBoostsFor } from '../../subscriptions/perks/subscriber-perks';
+import {
+  FREE_WEEKLY_BOOST_TX_PREFIX,
+  FREE_WEEKLY_BOOST_WINDOW_MS,
+  weeklyFreeBoostsFor,
+} from '../../subscriptions/perks/subscriber-perks';
 import type { JwtPayload } from '../../common/types/jwt-payload.interface';
 import { LISTINGS_FEED_CACHE_PATTERN } from '../listings-cache-keys';
 import { HOUR_MS, extendBoostUntil } from './extend-until';
@@ -16,9 +20,9 @@ import { HOUR_MS, extendBoostUntil } from './extend-until';
 export const FREE_BOOST_TYPE = 'featured' as const;
 export const FREE_BOOST_HOURS = 24;
 /** Rolling window for the weekly allowance. */
-export const FREE_BOOST_WINDOW_MS = 7 * 24 * HOUR_MS;
+export const FREE_BOOST_WINDOW_MS = FREE_WEEKLY_BOOST_WINDOW_MS;
 /** Marks free boosts on the regular ListingBoost row (no Payment row). */
-export const FREE_BOOST_TX_PREFIX = 'FREE-WEEKLY-';
+export const FREE_BOOST_TX_PREFIX = FREE_WEEKLY_BOOST_TX_PREFIX;
 
 export type FreeBoostQuota = {
   eligible: boolean;

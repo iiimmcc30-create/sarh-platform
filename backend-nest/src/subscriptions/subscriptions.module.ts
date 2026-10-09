@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { PlansModule } from '../plans/plans.module';
 import { SubscriptionsController } from './subscriptions.controller';
 import { SubscriptionsService } from './subscriptions.service';
@@ -12,6 +13,9 @@ import { VerificationBadgeService } from './verification/verification-badge.serv
 import { VerificationStatusService } from './verification/verification-status.service';
 import { GoldDocumentGateService } from './verification/gold-document-gate.service';
 import { VerificationController } from './verification/verification.controller';
+import { SubscriptionBillingService } from './billing/subscription-billing.service';
+import { BadgeVisibilityService } from './visibility/badge-visibility.service';
+import { BadgeVisibilityInterceptor } from './visibility/badge-visibility.interceptor';
 
 /** @deprecated Use SubscriptionEntitlementService */
 export { SubscriptionEntitlementService as SubscriptionEntitlementsService } from './services/subscription-entitlement.service';
@@ -31,6 +35,9 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     VerificationBadgeService,
     VerificationStatusService,
     GoldDocumentGateService,
+    SubscriptionBillingService,
+    BadgeVisibilityService,
+    { provide: APP_INTERCEPTOR, useClass: BadgeVisibilityInterceptor },
   ],
   exports: [
     SubscriptionsService,
@@ -41,6 +48,8 @@ export { SubscriptionEntitlementService as SubscriptionEntitlementsService } fro
     SubscriptionLifecycleRepository,
     VerificationBadgeService,
     GoldDocumentGateService,
+    SubscriptionBillingService,
+    BadgeVisibilityService,
   ],
 })
 export class SubscriptionsModule {}

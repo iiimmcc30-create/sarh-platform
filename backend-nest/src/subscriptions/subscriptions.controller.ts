@@ -7,6 +7,7 @@ import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionLifecycleService } from './services/subscription-lifecycle.service';
 import { SubscriptionCacheService } from './services/subscription-cache.service';
 import { SubscriptionTrialService } from './services/subscription-trial.service';
+import { SubscriptionBillingService } from './billing/subscription-billing.service';
 
 @Controller('subscriptions')
 export class SubscriptionsController {
@@ -15,6 +16,7 @@ export class SubscriptionsController {
     private readonly lifecycle: SubscriptionLifecycleService,
     private readonly subscriptionCache: SubscriptionCacheService,
     private readonly trial: SubscriptionTrialService,
+    private readonly billing: SubscriptionBillingService,
   ) {}
 
   @RateLimit('api')
@@ -28,6 +30,8 @@ export class SubscriptionsController {
   @Post('cancel')
   @HttpCode(HttpStatus.OK)
   async cancel(@CurrentUser() user: JwtPayload) {
+    // App Store / Google Play subscriptions are cancelled in the store only.
+    await this.billing.assertNotStoreBilled(user.userId);
     const result = await this.lifecycle.cancelAutoRenew(user.userId);
     await this.subscriptionCache.invalidate(user.userId);
     return successResponse(result);
