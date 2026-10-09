@@ -53,7 +53,6 @@ export function RegionCityPicker({
         {
           key: 'all',
           label: ALL_REGIONS_LABEL,
-          icon: 'map-marker-outline',
           selected: selection.type === 'all' && !nearbyActive,
           onPress: () => pick({ type: 'all' }),
           testID: 'region-picker-all',

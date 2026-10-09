@@ -5,7 +5,6 @@ import {
   type GroupedPickerSection,
 } from '@/components/ui/sheets/GroupedPickerSheet';
 import { buildCategorySections, type CategorySelection } from '@/lib/pickerSections';
-import { hasLucideIcon } from '@/lib/lucideIconMap';
 
 export type { CategorySelection };
 
@@ -33,7 +32,7 @@ export function categorySelectionLabel(
 
 /**
  * «التصنيف» picker: large sheet, sticky search, «الكل» on top, then each animal type
- * (MarketCategory parent, its light icon when it has one) as a grouped section with a
+ * (MarketCategory parent; «الكل» / «كل …» rows are text-only) as a grouped section with a
  * «كل …» row and its subcategories/breeds. Picking applies and closes.
  */
 export function MarketCategoryPicker({ visible, categories, selection, onClose, onSelect }: Props) {
@@ -50,7 +49,6 @@ export function MarketCategoryPicker({ visible, categories, selection, onClose, 
 
   const sections = useMemo<GroupedPickerSection[]>(() => {
     const groups = buildCategorySections(categories, query).map<GroupedPickerSection>((s) => {
-      const icon = s.parent.icon && hasLucideIcon(s.parent.icon) ? s.parent.icon : undefined;
       return {
         key: s.parent.id,
         title: s.parent.nameAr,
@@ -60,7 +58,6 @@ export function MarketCategoryPicker({ visible, categories, selection, onClose, 
                 {
                   key: `parent-${s.parent.id}`,
                   label: s.subs.length > 0 ? `كل ${s.parent.nameAr}` : s.parent.nameAr,
-                  icon,
                   selected: selection.parentId === s.parent.id && selection.subId === null,
                   onPress: () => pick({ parentId: s.parent.id, subId: null }),
                   testID: `category-picker-parent-${s.parent.id}`,
@@ -85,7 +82,6 @@ export function MarketCategoryPicker({ visible, categories, selection, onClose, 
           {
             key: 'all',
             label: 'الكل',
-            icon: 'apps',
             selected: selection.parentId === null,
             onPress: () => pick({ parentId: null, subId: null }),
             testID: 'category-picker-all',

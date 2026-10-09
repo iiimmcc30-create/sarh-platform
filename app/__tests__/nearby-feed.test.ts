@@ -203,3 +203,15 @@ describe('ListingCard distance item', () => {
     expect(card).not.toMatch(/listing\.(lat|lng)\b/);
   });
 });
+
+describe('category picker «الكل» / «كل …» rows', () => {
+  it('render text only (no paw or other icon), aligned with the breed rows', () => {
+    const picker = src('components/market/MarketCategoryPicker.tsx');
+    expect(picker).not.toMatch(/\bicon[:,]/);
+    expect(picker).not.toContain('hasLucideIcon');
+    expect(picker).not.toContain("'paw'");
+    expect(picker).toContain("label: 'الكل',");
+    const regions = src('components/market/RegionCityPicker.tsx');
+    expect(regions).toMatch(/label: ALL_REGIONS_LABEL,\r?\n\s*selected:/);
+  });
+});
