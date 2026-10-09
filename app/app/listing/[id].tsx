@@ -68,6 +68,20 @@ function safeIndex(index: number, length: number): number {
   return Math.min(Math.max(0, Math.floor(index)), length - 1);
 }
 
+/** Listing live broadcast is not shipped yet: the action stays wired but is not rendered. */
+const SHOW_LISTING_LIVE_ACTION = false;
+/** Owner action buttons: equal height, capsule radius. */
+const OWNER_ACTION_HEIGHT = 44;
+
+type OwnerGroupAction = {
+  key: string;
+  icon: string;
+  label: string;
+  onPress: () => void;
+  danger: boolean;
+  active?: boolean;
+};
+
 const CATEGORY_LABELS: Record<string, string> = {
   camels: 'إبل',
   sheep: 'أغنام',
@@ -418,16 +432,20 @@ export default function ListingDetailScreen() {
 
   const galleryImageHeight = screenWidth * 0.72;
 
-  // Owner management actions — single horizontal row
+  // Owner management actions. «بث مباشر» stays wired (handleStartLive) but is
+  // hidden from the group until the feature ships (SHOW_LISTING_LIVE_ACTION).
   const ownerActions = [
-    {
-      key: 'live',
-      icon: 'signal-stream',
-      label: 'بث مباشر',
-      onPress: handleStartLive,
-      badge: 'قريباً',
-      danger: false,
-    },
+    ...(SHOW_LISTING_LIVE_ACTION
+      ? [
+          {
+            key: 'live',
+            icon: 'signal-stream',
+            label: 'بث مباشر',
+            onPress: handleStartLive,
+            danger: false,
+          },
+        ]
+      : []),
     ...(canEditListing
       ? [
           {
@@ -453,7 +471,7 @@ export default function ListingDetailScreen() {
                 {
                   key: 'promote',
                   icon: 'rocket-outline',
-                  label: 'ترقية الإعلان',
+                  label: 'الترقية',
                   onPress: () => openPromote(),
                   danger: false,
                 },
@@ -468,6 +486,25 @@ export default function ListingDetailScreen() {
       onPress: handleDelete,
       danger: true,
     },
+  ];
+
+  /**
+   * Owner action group (presentation only — same handlers as before):
+   * «سداد الرسوم» is the full-width primary pill when shown; تعديل / الترقية /
+   * تفضيل are secondary capsules; حذف is last, muted red.
+   */
+  const ownerPrimaryAction = ownerActions.find((a) => a.key === 'pay-fee') ?? null;
+  const ownerSecondaryActions: OwnerGroupAction[] = [
+    ...ownerActions.filter((a) => a.key !== 'pay-fee' && !a.danger),
+    {
+      key: 'favorite',
+      icon: isFavorited ? 'heart' : 'heart-outline',
+      label: 'تفضيل',
+      onPress: () => void handleToggleFavorite(),
+      danger: false,
+      active: isFavorited,
+    },
+    ...ownerActions.filter((a) => a.danger),
   ];
 
   const showOwnerMenu = async () => {
@@ -831,34 +868,55 @@ export default function ListingDetailScreen() {
         </View>
 
         {isOwner ? (
-          <Row wrap gap="sm" style={styles.ownerToolsSection}>
-            {ownerActions.map((a) => (
+          <View style={styles.ownerToolsSection} testID="listing-owner-actions">
+            {ownerPrimaryAction ? (
               <Pressable
-                key={a.key}
-                onPress={a.onPress}
-                style={({ pressed }) => [
-                  styles.ownerToolChip,
-                  a.danger && styles.ownerToolChipDanger,
-                  pressed && styles.ownerActionPressed,
-                ]}
+                onPress={ownerPrimaryAction.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={ownerPrimaryAction.label}
+                style={({ pressed }) => [styles.ownerPrimaryBtn, pressed && styles.ownerActionPressed]}
               >
                 <Row gap="xs" align="center">
-                  <AppIcon
-                    name={a.icon}
-                    size={18}
-                    color={a.danger ? colors.rose : colors.textSecondary}
-                  />
-                  <AppText
-                    variant="bodySmall"
-                    color="textSecondary"
-                    style={a.danger ? styles.ownerActionTextDanger : undefined}
-                  >
-                    {a.label}
+                  <AppIcon name={ownerPrimaryAction.icon} size={18} color={colors.onElectric} />
+                  <AppText variant="bodySmall" style={styles.ownerPrimaryText}>
+                    {ownerPrimaryAction.label}
                   </AppText>
                 </Row>
               </Pressable>
-            ))}
-          </Row>
+            ) : null}
+            <Row gap="sm" align="center" style={styles.ownerSecondaryRow}>
+              {ownerSecondaryActions.map((a) => (
+                <Pressable
+                  key={a.key}
+                  onPress={a.onPress}
+                  accessibilityRole="button"
+                  accessibilityLabel={a.label}
+                  accessibilityState={a.key === 'favorite' ? { selected: !!a.active } : undefined}
+                  style={({ pressed }) => [
+                    styles.ownerToolChip,
+                    a.active && styles.ownerToolChipActive,
+                    a.danger && styles.ownerToolChipDanger,
+                    pressed && styles.ownerActionPressed,
+                  ]}
+                >
+                  <Row gap="xs" align="center" style={styles.ownerToolInner}>
+                    <AppIcon
+                      name={a.icon}
+                      size={17}
+                      color={a.danger ? colors.rose : a.active ? colors.textPrimary : colors.textSecondary}
+                    />
+                    <AppText
+                      variant="bodySmall"
+                      numberOfLines={1}
+                      style={[styles.ownerToolText, a.danger && styles.ownerActionTextDanger]}
+                    >
+                      {a.label}
+                    </AppText>
+                  </Row>
+                </Pressable>
+              ))}
+            </Row>
+          </View>
         ) : null}
 
         <ListingCommentsSection
@@ -1034,20 +1092,58 @@ function createStyles(colors: ThemeColors) {
     ownerToolsSection: {
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
+      gap: spacing.sm,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.borderHairline,
       backgroundColor: colors.screenRoot,
       width: '100%',
     },
+    // Primary CTA: white pill / black text in dark, black pill / white text in light.
+    ownerPrimaryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs + 2,
+      minHeight: OWNER_ACTION_HEIGHT,
+      borderRadius: OWNER_ACTION_HEIGHT / 2,
+      backgroundColor: colors.electric,
+      width: '100%',
+    },
+    ownerPrimaryText: {
+      color: colors.onElectric,
+      fontWeight: '700',
+    },
+    ownerSecondaryRow: {
+      gap: spacing.sm,
+      width: '100%',
+    },
     ownerToolChip: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
+      flex: 1,
+      minWidth: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      minHeight: OWNER_ACTION_HEIGHT,
+      paddingHorizontal: spacing.sm,
+      borderRadius: OWNER_ACTION_HEIGHT / 2,
       backgroundColor: colors.bgElevated,
-      flexShrink: 0,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    ownerToolChipActive: {
+      borderColor: colors.textSecondary,
     },
     ownerToolChipDanger: {
-      backgroundColor: `${colors.rose}10`,
+      backgroundColor: `${colors.rose}14`,
+      borderColor: `${colors.rose}33`,
+    },
+    ownerToolInner: {
+      justifyContent: 'center',
+      maxWidth: '100%',
+    },
+    ownerToolText: {
+      color: colors.textPrimary,
+      flexShrink: 1,
     },
     ownerActionPressed: {
       opacity: 0.82,

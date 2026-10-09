@@ -15,7 +15,7 @@ describe('listing «تواصل» button sits under the price', () => {
   it('primary pill inside the price section, visitors only, opens the contact sheet', () => {
     const price = screen.indexOf('<View style={styles.priceSection}>');
     const button = screen.indexOf('testID="listing-contact-button"');
-    const owner = screen.indexOf('{isOwner ? (\n          <Row wrap gap="sm" style={styles.ownerToolsSection}>');
+    const owner = screen.indexOf('{isOwner ? (\n          <View style={styles.ownerToolsSection} testID="listing-owner-actions">');
     expect(price).toBeGreaterThan(-1);
     expect(button).toBeGreaterThan(price);
     expect(owner).toBeGreaterThan(button);
