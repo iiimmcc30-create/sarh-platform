@@ -91,9 +91,13 @@ describe('quick-access surface: filter chips + listing cards match the Home quic
     expect(card).not.toContain("backgroundColor: _scheme === 'light' ? '#FFFFFF' : colors.bgSurface");
   });
 
-  it('ListingCard dimensions / radius / spacing are unchanged', () => {
+  it('ListingCard dimensions / radius / spacing (full-bleed list row)', () => {
     expect(card).toMatch(
-      /listRow: \{\n\s+\.\.\.getRtlRow\(\),\n\s+alignItems: 'flex-start',\n\s+flexGrow: 0,\n\s+paddingHorizontal: spacing\.md,\n\s+paddingVertical: LISTING_LIST_LAYOUT\.rowPaddingVertical,\n\s+gap: LISTING_LIST_LAYOUT\.rowGap,/,
+      /listRow: \{\n\s+flexGrow: 0,\n\s+backgroundColor: quickAccess\.backgroundColor,/,
+    );
+    // Full-bleed image row: fixed card height, clipped to the card radius.
+    expect(card).toMatch(
+      /listClip: \{\n\s+alignItems: 'stretch',\n\s+height: LISTING_LIST_LAYOUT\.rowHeight,\n\s+borderRadius: MENU_CARD\.radius,\n\s+overflow: 'hidden',/,
     );
     expect(card).toMatch(
       /listRowChrome: \{\n\s+borderRadius: MENU_CARD\.radius,\n\s+borderWidth: StyleSheet\.hairlineWidth,\n\s+borderColor: colors\.borderHairline,\n\s+marginHorizontal: spacing\.sm,\n\s+\.\.\.ambientShadow\(_scheme, 'soft'\),/,

@@ -1,8 +1,9 @@
 /**
  * Skeleton of `ListingCard variant="list"` (market / home / profile ads rows).
- * Same card chrome (radius, hairline, margin, shadow, padding, gap) and the
- * frozen 120×120 thumb from LISTING_LIST_LAYOUT; the text column is exactly
- * the thumb height with title (2 lines), meta line and seller line.
+ * Same card chrome (radius, hairline, margin, shadow) and the full-bleed
+ * square image from LISTING_LIST_LAYOUT (fills the 140pt card height, flush
+ * with the left edge); the padded text column holds title (2 lines), meta
+ * line and seller line.
  * The thumb is the last child of a logical row → inline end (left in Arabic),
  * matching the real card and the reference.
  */
@@ -16,8 +17,8 @@ import { getRtlRow } from '@/lib/rtl';
 import { SkeletonBox, SkeletonCircle, SkeletonImage, SkeletonPulse, SkeletonText } from './SkeletonPrimitives';
 import { skeletonTextBarHeight } from './skeletonTokens';
 
-/** Real row height: thumb + vertical padding (separator is added by the list). */
-export const LISTING_CARD_SKELETON_HEIGHT = L.thumb + L.rowPaddingVertical * 2;
+/** Real row height (separator is added by the list). */
+export const LISTING_CARD_SKELETON_HEIGHT = L.rowHeight;
 
 export function ListingCardSkeleton() {
   const styles = useThemedStyles(({ colors, scheme }) => createStyles(colors, scheme));
@@ -42,7 +43,7 @@ export function ListingCardSkeleton() {
         </View>
       </SkeletonPulse>
       <SkeletonPulse>
-        <SkeletonImage width={L.thumb} height={L.thumb} radius={L.thumbRadius} />
+        <SkeletonImage width={L.image} height={L.rowHeight} radius={0} />
       </SkeletonPulse>
     </View>
   );
@@ -50,12 +51,11 @@ export function ListingCardSkeleton() {
 
 function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
   return StyleSheet.create({
-    // = ListingCard listRow + listRowChrome
+    // = ListingCard listRow + listRowChrome + listClip
     row: {
-      alignItems: 'flex-start',
-      paddingHorizontal: spacing.md,
-      paddingVertical: L.rowPaddingVertical,
-      gap: L.rowGap,
+      alignItems: 'stretch',
+      height: L.rowHeight,
+      overflow: 'hidden',
       backgroundColor: scheme === 'light' ? '#FFFFFF' : colors.bgSurface,
       borderRadius: MENU_CARD.radius,
       borderWidth: StyleSheet.hairlineWidth,
@@ -66,7 +66,8 @@ function createStyles(colors: ThemeColors, scheme: 'light' | 'dark') {
     content: {
       flex: 1,
       minWidth: 0,
-      height: L.thumb,
+      paddingHorizontal: L.contentPaddingHorizontal,
+      paddingVertical: L.rowPaddingVertical,
       justifyContent: 'space-between',
     },
     meta: {

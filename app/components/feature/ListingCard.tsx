@@ -20,7 +20,13 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { formatRelativeTimeAr } from '@/lib/formatRelativeTime';
 import { getRtlText, getRtlDirection, getRtlRow } from '@/lib/rtl';
-import { listingHasVideo, listingPhotoUris, listingThumbUri, avatarUrl } from '@/lib/listingMedia';
+import {
+  listingHasVideo,
+  listingPhotoUris,
+  listingThumbUri,
+  listingCardImageUri,
+  avatarUrl,
+} from '@/lib/listingMedia';
 import { collectListingMedia } from '@/lib/postMedia';
 import { Listing, getCountryInfo } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
@@ -56,9 +62,8 @@ const CATEGORY_ICONS: Record<Listing['category'], string> = {
 };
 
 const NEW_LISTING_MS = 24 * 60 * 60 * 1000;
-/** Square list thumb — matches the Haraj market row, never stretches. */
-const LIST_THUMB = LISTING_LIST_LAYOUT.thumb;
-const LIST_THUMB_RADIUS = LISTING_LIST_LAYOUT.thumbRadius;
+/** Full-bleed list image: fills the card height, flush with the card's left edge. */
+const LIST_IMAGE = LISTING_LIST_LAYOUT.image;
 
 function listingTimeLabel(listing: Listing): string {
   if (listing.createdAt) return formatRelativeTimeAr(listing.createdAt);
@@ -119,6 +124,7 @@ function ListingCardInner({
     const showNew = isNewListing(listing);
     const hasVideo = listingHasVideo(listing);
     const displayTime = toWesternDigits(timeLabel || 'الآن');
+    const listImageUri = listingCardImageUri(listing);
     return (
       <>
       <Pressable
@@ -130,6 +136,7 @@ function ListingCardInner({
           pressed && styles.pressed,
         ]}
       >
+        <View style={[styles.listClip, getRtlRow()]}>
         <View style={styles.listContent}>
           <View style={[styles.listTitleRow, getRtlRow()]}>
             <View style={styles.listTitleShell}>
@@ -145,13 +152,13 @@ function ListingCardInner({
 
           <View style={[styles.listMetaRow, getRtlRow()]}>
             <View style={[styles.listMetaCluster, getRtlRow()]}>
-              <AppIcon name="map-marker-outline" size={12} color={colors.textSecondary} />
+              <AppIcon name="map-marker-outline" size={LISTING_LIST_LAYOUT.metaIcon} color={colors.textSecondary} />
               <Text style={styles.listMetaText} numberOfLines={1} ellipsizeMode="tail">
                 {location}
               </Text>
             </View>
             <View style={[styles.listMetaClusterFixed, getRtlRow()]}>
-              <AppIcon name="time-outline" size={12} color={colors.textSecondary} />
+              <AppIcon name="refresh-circle-outline" size={LISTING_LIST_LAYOUT.metaIcon} color={colors.textSecondary} />
               <Text style={styles.listMetaText} numberOfLines={1}>
                 {displayTime}
               </Text>
@@ -183,9 +190,9 @@ function ListingCardInner({
         </View>
 
         <View ref={thumbRef} collapsable={false} style={styles.listThumbWrap}>
-          {thumbUri ? (
+          {listImageUri ? (
             <Image
-              source={uriSource(thumbUri)}
+              source={uriSource(listImageUri)}
               style={styles.listThumb}
               contentFit="cover"
               transition={0}
@@ -220,6 +227,7 @@ function ListingCardInner({
               <Text style={styles.listPhotoCountText}>{formatEnNumber(photoCount)}</Text>
             </View>
           ) : null}
+        </View>
         </View>
       </Pressable>
       <MediaViewerModal
@@ -386,20 +394,24 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     opacity: 0.92,
   },
 
-  // Haraj market row — inset square thumb, rounded on both sides, no stretch.
+  // Haraj market row — full-bleed image on the inline end (left in Arabic):
+  // fills the card height edge to edge, outer corners follow the card radius
+  // (clipped by listClip), inner corners square. Card height unchanged (140).
   listRow: {
-    ...getRtlRow(),
-    alignItems: 'flex-start',
     flexGrow: 0,
-    paddingHorizontal: spacing.md,
-    paddingVertical: LISTING_LIST_LAYOUT.rowPaddingVertical,
-    gap: LISTING_LIST_LAYOUT.rowGap,
     backgroundColor: quickAccess.backgroundColor,
+  },
+  listClip: {
+    alignItems: 'stretch',
+    height: LISTING_LIST_LAYOUT.rowHeight,
+    borderRadius: MENU_CARD.radius,
+    overflow: 'hidden',
   },
   listContent: {
     flex: 1,
     minWidth: 0,
-    height: LIST_THUMB,
+    paddingHorizontal: LISTING_LIST_LAYOUT.contentPaddingHorizontal,
+    paddingVertical: LISTING_LIST_LAYOUT.rowPaddingVertical,
     justifyContent: 'space-between',
   },
   listTitleRow: {
@@ -413,7 +425,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
       },
   listTitle: {
     ...typography.cardHeading,
-    color: _scheme === 'light' ? colors.electric : colors.textPrimary,
+    color: colors.textPrimary,
     width: '100%',
     writingDirection: 'rtl',
   },
@@ -421,7 +433,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
     alignItems: 'center',
     justifyContent: 'flex-start',
     flexWrap: 'nowrap',
-    gap: 10,
+    gap: LISTING_LIST_LAYOUT.metaGap,
     width: '100%',
   },
   listMetaCluster: {
@@ -464,7 +476,7 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
   },
   listSeller: {
     alignItems: 'center',
-    gap: 6,
+    gap: LISTING_LIST_LAYOUT.sellerGap,
     flexShrink: 1,
     minWidth: 0,
     maxWidth: '100%',
@@ -486,14 +498,13 @@ function createStyles(colors: ThemeColors, _scheme: 'light' | 'dark') {
         writingDirection: 'rtl',
   },
   listThumbWrap: {
-    width: LIST_THUMB,
-    height: LIST_THUMB,
-    aspectRatio: 1,
+    width: LIST_IMAGE,
+    height: '100%',
     flexShrink: 0,
     overflow: 'hidden',
     backgroundColor: colors.bgElevated,
     position: 'relative',
-    borderRadius: LIST_THUMB_RADIUS,
+    borderRadius: 0,
   },
   listThumb: {
     ...StyleSheet.absoluteFillObject,

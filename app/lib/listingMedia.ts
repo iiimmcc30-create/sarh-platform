@@ -20,6 +20,8 @@ export const CLOUDINARY_FIT = {
   row: ['w_200', 'c_fill', 'q_auto', 'f_auto'],
   /** Listing cards (~118px CSS). */
   list: ['w_240', 'c_fill', 'q_auto', 'f_auto'],
+  /** Full-bleed market row image (140×140pt box, ~2.5x DPR, square crop-fill). */
+  listBleed: ['w_360', 'h_360', 'c_fill', 'q_auto', 'f_auto'],
   /** Medium cards (~130–160px). */
   card: ['w_480', 'c_fill', 'q_auto', 'f_auto'],
   /** Full-width banners / news list (~168px tall). */
@@ -252,6 +254,13 @@ export function listingThumbUri(
   listing: Pick<Listing, 'images' | 'thumbnailUrl' | 'videoUrl'>,
 ): string | undefined {
   return cloudinaryListThumbUrl(listingThumbSource(listing));
+}
+
+/** Market row (ListingCard variant="list") full-bleed square image: same cover source, `listBleed` fit. */
+export function listingCardImageUri(
+  listing: Pick<Listing, 'images' | 'thumbnailUrl' | 'videoUrl'>,
+): string | undefined {
+  return cloudinaryFitUrl(listingThumbSource(listing), 'listBleed');
 }
 
 /** Avatar delivery: small square crop for ≤ 52pt avatars (rows, chat, comments, live). */
