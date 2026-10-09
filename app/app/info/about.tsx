@@ -39,7 +39,6 @@ const OWNERSHIP = [
 ];
 
 const CONTACT = [
-  { icon: 'call-outline', href: 'tel:+966591298136', text: '+966 591 298 136' },
   { icon: 'mail-outline', href: 'mailto:sarh@sarhsa.online', text: 'sarh@sarhsa.online' },
   { icon: 'globe-outline', href: 'https://sarhsa.online', text: 'sarhsa.online' },
 ];

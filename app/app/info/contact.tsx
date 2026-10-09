@@ -17,18 +17,6 @@ import { createTicket } from '@/services/support';
 
 const CHANNELS = [
   {
-    icon: 'call',
-    label: 'الهاتف',
-    value: '+966 591 298 136',
-    href: 'tel:+966591298136',
-  },
-  {
-    icon: 'whatsapp',
-    label: 'واتساب',
-    value: '+966 591 298 136',
-    href: 'https://wa.me/966591298136',
-  },
-  {
     icon: 'mail',
     label: 'البريد الإلكتروني',
     value: 'sarh@sarhsa.online',

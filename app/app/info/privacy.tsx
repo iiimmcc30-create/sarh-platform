@@ -41,7 +41,6 @@ const SECTIONS = [
 
 const CONTACT = [
   { icon: 'mail-outline', href: 'mailto:sarh@sarhsa.online', text: 'sarh@sarhsa.online' },
-  { icon: 'call-outline', href: 'tel:+966591298136', text: '+966 591 298 136' },
 ];
 
 export default function PrivacyScreen() {
