@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { countrySchema } from '../../shared/lib/countries';
 
 export const adminLoginSchema = z
   .object({
