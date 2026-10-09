@@ -348,14 +348,23 @@ const WAVE_1 = [
   'app/support/tickets/[id].tsx',
 ];
 
+/** Shared shell of the inner settings pages (header + large title + grouped body). */
+const SETTINGS_SHELL = 'components/settings/SettingsScreen.tsx';
+
+function delegatesToSettingsShell(file: string): boolean {
+  return src(file).includes('<SettingsScreen');
+}
+
 describe('Architecture V2 — Wave 1 migrated screens', () => {
   for (const file of WAVE_1) {
     it(`${file} composes with the L2 layer`, () => {
-      const text = src(file);
+      // Inner settings pages delegate their shell to the shared SettingsScreen.
+      const text = delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : src(file);
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');
-      expect(text).toContain('<ScreenHeader variant="screen"');
+      if (delegatesToSettingsShell(file)) expect(text).toContain('<SettingsSaveHeader');
+      else expect(text).toContain('<ScreenHeader variant="screen"');
     });
 
     it(`${file} hands layout, RTL and type to the system`, () => {
@@ -399,7 +408,7 @@ describe('Architecture V2 — Wave 1 migrated screens', () => {
       const text = src(file);
       expect(text).toContain('SarhSettingsSection');
       expect(text).toContain('SarhSettingsRow');
-      expect(text).toContain('gutter={false}');
+      expect(delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : text).toContain('gutter={false}');
       expect(text).not.toContain('SarhCard');
     }
     for (const file of ['app/info/privacy.tsx', 'app/info/terms.tsx', 'app/info/refund.tsx']) {
@@ -487,7 +496,7 @@ const WAVE_2 = [...WAVE_2_SHELLS, ...WAVE_2_CONTENT];
 describe('Architecture V2 — Wave 2 profile screens', () => {
   for (const file of WAVE_2_SHELLS) {
     it(`${file} composes its shell with the L2 layer`, () => {
-      const text = src(file);
+      const text = delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : src(file);
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');
@@ -551,6 +560,7 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
     expect(menu).toContain('gutter={false}');
     expect(menu).not.toContain('SarhCard');
 
+    // Inner pages: inset-grouped sections on the shared settings shell, no cards.
     for (const file of [
       'app/profile/settings/account.tsx',
       'app/settings/blocked.tsx',
@@ -558,9 +568,11 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
       const text = code(file);
       expect(text).not.toContain('SarhCard');
       expect(text).not.toContain('LinearGradient');
-      expect(text).toContain('SarhDivider');
+      expect(text).toContain('<SettingsScreen');
     }
-    expect(src('app/profile/settings/account.tsx')).toContain('<Section');
+    expect(src('app/profile/settings/account.tsx')).toContain('<SettingsGroup');
+    expect(src('components/settings/SettingsRows.tsx')).toContain('SarhSettingsSection grouped');
+    expect(src('components/settings/SettingsPeopleList.tsx')).toContain('SarhDivider');
   });
 
   it('routes profile forms through the responsive form cap and DS inputs', () => {
@@ -629,7 +641,7 @@ const WAVE_3B = [...WAVE_3B_SHELLS];
 describe('Architecture V2 — Wave 3b auth and join screens', () => {
   for (const file of WAVE_3B) {
     it(`${file} composes its shell with the L2 layer`, () => {
-      const text = src(file);
+      const text = delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : src(file);
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');
@@ -694,7 +706,7 @@ const WAVE_3C = [
 describe('Architecture V2 — Wave 3c ready screens', () => {
   for (const file of WAVE_3C) {
     it(`${file} composes its shell with the L2 layer`, () => {
-      const text = src(file);
+      const text = delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : src(file);
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');
@@ -744,7 +756,7 @@ const WAVE_4A = [...WAVE_4A_SCREENS, WAVE_4A_PANEL];
 describe('Architecture V2 — Wave 4A community and messages inbox', () => {
   for (const file of WAVE_4A_SCREENS) {
     it(`${file} composes its shell with the L2 layer`, () => {
-      const text = src(file);
+      const text = delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : src(file);
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');
@@ -861,7 +873,7 @@ const WAVE_4C = [
 describe('Architecture V2 — Wave 4C marketplace', () => {
   for (const file of WAVE_4C) {
     it(`${file} composes its shell with the L2 layer`, () => {
-      const text = src(file);
+      const text = delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : src(file);
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');
@@ -939,7 +951,7 @@ const WAVE_4D_CHROME = [
 describe('Architecture V2 — Wave 4D home and explore', () => {
   for (const file of WAVE_4D_SCREENS) {
     it(`${file} composes its shell with the L2 layer`, () => {
-      const text = src(file);
+      const text = delegatesToSettingsShell(file) ? src(SETTINGS_SHELL) : src(file);
       expect(text).toContain("from '@/design-system/layout'");
       expect(text).toContain('<Screen');
       expect(text).toContain('<ScreenBody');

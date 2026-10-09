@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { SarhButton, SarhSettingsRow, SarhSettingsSection } from '@/design-system/components';
-import { Screen, ScreenBody } from '@/design-system/layout';
+import { SettingsScreen } from '@/components/settings/SettingsScreen';
+import { SettingsActionRow, SettingsGroup } from '@/components/settings/SettingsRows';
+import { SarhSettingsRow } from '@/design-system/components';
 import { useAuth } from '@/contexts/AuthContext';
 import { alertMessage } from '@/lib/actionSheet';
 import { presentConfirm } from '@/lib/confirmDialog';
@@ -11,16 +10,20 @@ import { safePush } from '@/lib/safeNavigate';
 import { deleteAccount } from '@/services/users';
 
 const WHAT_HAPPENS = [
-  { title: 'إلغاء تفعيل الحساب', subtitle: 'لن يظهر حسابك لأحد ولن تتمكن من الدخول به' },
-  { title: 'حذف المحتوى', subtitle: 'تُزال بياناتك وإعلاناتك ومنشوراتك' },
-  { title: 'لا يمكن التراجع', subtitle: 'الحذف نهائي ولا يمكن استرجاع الحساب' },
+  { icon: 'eye-off-outline', title: 'إلغاء تفعيل الحساب', subtitle: 'لن يظهر حسابك لأحد ولن تتمكن من الدخول به' },
+  { icon: 'trash-outline', title: 'حذف المحتوى', subtitle: 'تُزال بياناتك وإعلاناتك ومنشوراتك' },
+  { icon: 'information-circle-outline', title: 'لا يمكن التراجع', subtitle: 'الحذف نهائي ولا يمكن استرجاع الحساب' },
 ];
 
-/** Inner page for account deletion: what happens, a data copy first, then confirm. */
+/**
+ * Inner page for account deletion: what happens, a data copy first, an
+ * explicit «أفهم» checkmark, then the destructive confirm.
+ */
 export default function DeleteAccountScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [deleting, setDeleting] = useState(false);
+  const [understood, setUnderstood] = useState(false);
 
   const handleDelete = async () => {
     const ok = await presentConfirm({
@@ -42,44 +45,43 @@ export default function DeleteAccountScreen() {
   };
 
   return (
-    <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="حذف الحساب" showBack />
-      <ScreenBody gutter={false} padBottom="xxxl">
-        <SarhSettingsSection grouped title="ماذا يحدث عند الحذف">
-          {WHAT_HAPPENS.map((line, i) => (
-            <SarhSettingsRow
-              key={line.title}
-              icon="information-circle-outline"
-              title={line.title}
-              subtitle={line.subtitle}
-              showDivider={i < WHAT_HAPPENS.length - 1}
-            />
-          ))}
-        </SarhSettingsSection>
-        <SarhSettingsSection grouped footer="ننصحك بحفظ نسخة من بياناتك قبل الحذف.">
+    <SettingsScreen title="حذف الحساب" largeTitle>
+      <SettingsGroup title="ماذا يحدث عند الحذف">
+        {WHAT_HAPPENS.map((line, i) => (
           <SarhSettingsRow
-            icon="download-outline"
-            title="تحميل بياناتي أولاً"
-            showDivider={false}
-            onPress={() => safePush('/settings/export', undefined, router)}
+            key={line.title}
+            icon={line.icon}
+            title={line.title}
+            subtitle={line.subtitle}
+            showDivider={i < WHAT_HAPPENS.length - 1}
           />
-        </SarhSettingsSection>
-        <View style={styles.actions}>
-          <SarhButton
-            title="حذف حسابي نهائياً"
-            variant="danger"
-            onPress={() => void handleDelete()}
-            loading={deleting}
-            fullWidth
-            leftIcon="trash-outline"
-            accessibilityLabel="حذف الحساب نهائياً"
-          />
-        </View>
-      </ScreenBody>
-    </Screen>
+        ))}
+      </SettingsGroup>
+      <SettingsGroup footer="ننصحك بحفظ نسخة من بياناتك قبل الحذف.">
+        <SarhSettingsRow
+          icon="download-outline"
+          title="تحميل بياناتي أولاً"
+          showDivider={false}
+          onPress={() => safePush('/settings/export', undefined, router)}
+        />
+      </SettingsGroup>
+      <SettingsGroup footer="سيُطلب منك التأكيد مرة أخرى قبل الحذف.">
+        <SarhSettingsRow
+          testID="delete-understood"
+          title="أفهم أن الحذف نهائي"
+          subtitle="ولا يمكن استرجاع الحساب أو محتواه بعده"
+          checked={understood}
+          onPress={() => setUnderstood((v) => !v)}
+        />
+        <SettingsActionRow
+          testID="delete-account-confirm"
+          title="حذف حسابي نهائياً"
+          tone="danger"
+          disabled={!understood}
+          loading={deleting}
+          onPress={() => void handleDelete()}
+        />
+      </SettingsGroup>
+    </SettingsScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  actions: { paddingHorizontal: 16, paddingTop: 28, gap: 10 },
-});

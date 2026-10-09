@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { AppText, SarhButton, SarhSettingsRow, SarhSettingsSection } from '@/design-system/components';
-import { Screen, ScreenBody } from '@/design-system/layout';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { SettingsScreen } from '@/components/settings/SettingsScreen';
+import { SettingsGroup, SettingsStatus } from '@/components/settings/SettingsRows';
+import { SarhSettingsRow } from '@/design-system/components';
+import { safePush } from '@/lib/safeNavigate';
 import { fetchSessions, type ConnectedSession } from '@/services/userSettings';
 import { formatArabicDate } from '@/services/verification';
 
@@ -16,6 +16,7 @@ const PLATFORM_ICON: Record<ConnectedSession['platform'], string> = {
 
 /** «الأجهزة المتصلة»: where the account is signed in (read-only). */
 export default function SessionsScreen() {
+  const router = useRouter();
   const [sessions, setSessions] = useState<ConnectedSession[] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,24 +33,20 @@ export default function SessionsScreen() {
   );
 
   return (
-    <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="الأجهزة المتصلة" showBack />
-      <ScreenBody gutter={false} padBottom="xxxl">
-        {loading && !sessions ? (
-          <View style={styles.center}>
-            <ActivityIndicator />
-          </View>
-        ) : !sessions ? (
-          <View style={styles.center}>
-            <AppText variant="body" color="textMuted" align="center">
-              تعذّر تحميل الأجهزة
-            </AppText>
-            <SarhButton title="إعادة المحاولة" variant="secondary" onPress={() => void load()} />
-          </View>
-        ) : (
-          <SarhSettingsSection
-            grouped
-            title="أماكن تسجيل الدخول"
+    <SettingsScreen title="الأجهزة المتصلة" largeTitle>
+      {loading && !sessions ? (
+        <SettingsStatus state="loading" />
+      ) : !sessions ? (
+        <SettingsStatus
+          state="error"
+          icon="phone-portrait-outline"
+          message="تعذّر تحميل الأجهزة"
+          onRetry={() => void load()}
+        />
+      ) : (
+        <>
+          <SettingsGroup
+            title={sessions.length ? `أماكن تسجيل الدخول · ${sessions.length}` : 'أماكن تسجيل الدخول'}
             footer="إذا رأيت جهازاً لا تعرفه، غيّر كلمة المرور فوراً. تغييرها يُخرج حسابك من كل الأجهزة، ثم تدخل من جديد بكلمة المرور الجديدة."
           >
             {sessions.length === 0 ? (
@@ -65,13 +62,17 @@ export default function SessionsScreen() {
                 />
               ))
             )}
-          </SarhSettingsSection>
-        )}
-      </ScreenBody>
-    </Screen>
+          </SettingsGroup>
+          <SettingsGroup>
+            <SarhSettingsRow
+              icon="lock-outline"
+              title="تغيير كلمة المرور"
+              showDivider={false}
+              onPress={() => safePush('/profile/settings/password', undefined, router)}
+            />
+          </SettingsGroup>
+        </>
+      )}
+    </SettingsScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  center: { paddingTop: 64, paddingHorizontal: 24, gap: 16, alignItems: 'center' },
-});

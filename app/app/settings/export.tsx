@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { AppText, SarhButton, SarhSettingsRow, SarhSettingsSection } from '@/design-system/components';
-import { Screen, ScreenBody } from '@/design-system/layout';
+import { SettingsScreen } from '@/components/settings/SettingsScreen';
+import { SettingsActionRow, SettingsGroup } from '@/components/settings/SettingsRows';
+import { SarhSettingsRow } from '@/design-system/components';
 import { alertMessage } from '@/lib/actionSheet';
 import { exportFileName, saveJsonFile } from '@/lib/saveJsonFile';
 import { showToast } from '@/lib/toast';
@@ -37,48 +36,36 @@ export default function DataExportScreen() {
   const summary = summarizeExport(data);
 
   return (
-    <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="تحميل بياناتي" showBack />
-      <ScreenBody gutter={false} padBottom="xxxl">
-        <SarhSettingsSection
-          grouped
-          footer="الملف بصيغة JSON ويضم بيانات حسابك وإعلاناتك ومنشوراتك وتعليقاتك ومتابعاتك ومدفوعاتك. لا يشمل كلمة المرور. احفظه في مكان آمن."
-        >
-          {data ? (
-            summary.map((row, i) => (
-              <SarhSettingsRow
-                key={row.label}
-                title={row.label}
-                value={String(row.count)}
-                showDivider={i < summary.length - 1}
-              />
-            ))
-          ) : (
+    <SettingsScreen title="تحميل بياناتي" largeTitle>
+      <SettingsGroup
+        title={data ? 'محتوى الملف' : undefined}
+        footer="الملف بصيغة JSON ويضم بيانات حسابك وإعلاناتك ومنشوراتك وتعليقاتك ومتابعاتك ومدفوعاتك. لا يشمل كلمة المرور. احفظه في مكان آمن."
+      >
+        {data ? (
+          summary.map((row, i) => (
             <SarhSettingsRow
-              icon="download-outline"
-              title="نسخة من بياناتك"
-              subtitle="نجهّزها الآن من الخادم، وتأخذ ثوانٍ"
-              showDivider={false}
+              key={row.label}
+              title={row.label}
+              value={String(row.count)}
+              showDivider={i < summary.length - 1}
             />
-          )}
-        </SarhSettingsSection>
-        <View style={styles.actions}>
-          {data ? (
-            <SarhButton title="حفظ الملف" onPress={() => void save()} fullWidth leftIcon="download-outline" />
-          ) : (
-            <SarhButton title="تجهيز بياناتي" onPress={() => void prepare()} loading={busy} fullWidth />
-          )}
-          {!data ? null : (
-            <AppText variant="caption" color="textMuted" align="center">
-              {exportFileName()}
-            </AppText>
-          )}
-        </View>
-      </ScreenBody>
-    </Screen>
+          ))
+        ) : (
+          <SarhSettingsRow
+            icon="download-outline"
+            title="نسخة من بياناتك"
+            subtitle="نجهّزها الآن من الخادم، وتأخذ ثوانٍ"
+            showDivider={false}
+          />
+        )}
+      </SettingsGroup>
+      <SettingsGroup footer={data ? exportFileName() : undefined}>
+        {data ? (
+          <SettingsActionRow title="حفظ الملف" icon="download-outline" onPress={() => void save()} />
+        ) : (
+          <SettingsActionRow title="تجهيز بياناتي" loading={busy} onPress={() => void prepare()} />
+        )}
+      </SettingsGroup>
+    </SettingsScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  actions: { paddingHorizontal: 16, paddingTop: 24, gap: 10 },
-});

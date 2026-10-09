@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { AppText, SarhButton, SarhSettingsRow, SarhSettingsSection } from '@/design-system/components';
-import { Screen, ScreenBody } from '@/design-system/layout';
+import { SettingsScreen } from '@/components/settings/SettingsScreen';
+import { SettingsGroup, SettingsStatus } from '@/components/settings/SettingsRows';
+import { SarhSettingsRow } from '@/design-system/components';
 import { alertMessage } from '@/lib/actionSheet';
 import {
   NOTIFICATION_PREF_COPY,
@@ -14,7 +13,10 @@ import {
   type NotificationSettings,
 } from '@/services/userSettings';
 
-/** Settings → الإشعارات: master switch + one switch per notification type. */
+/**
+ * Settings → الإشعارات: master switch + one switch per notification type.
+ * Toggles auto-save (optimistic, rolled back on failure) — no «حفظ» button.
+ */
 export default function NotificationSettingsScreen() {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,62 +52,52 @@ export default function NotificationSettingsScreen() {
     setSettings(result.settings);
   };
 
+  const allOn = settings ? NOTIFICATION_PREF_KEYS.every((key) => settings.prefs[key]) : false;
+
   return (
-    <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="الإشعارات" showBack />
-      <ScreenBody gutter={false} padBottom="xxxl">
-        {loading && !settings ? (
-          <View style={styles.center}>
-            <ActivityIndicator />
-          </View>
-        ) : failed || !settings ? (
-          <View style={styles.center}>
-            <AppText variant="body" color="textMuted" align="center">
-              تعذّر تحميل إعدادات الإشعارات
-            </AppText>
-            <SarhButton title="إعادة المحاولة" variant="secondary" onPress={() => void load()} />
-          </View>
-        ) : (
-          <>
-            <SarhSettingsSection
-              grouped
-              footer="عند الإيقاف لن تصلك أي إشعارات فورية. تبقى الإشعارات داخل التطبيق."
-            >
+    <SettingsScreen title="الإشعارات" largeTitle>
+      {loading && !settings ? (
+        <SettingsStatus state="loading" />
+      ) : failed || !settings ? (
+        <SettingsStatus
+          state="error"
+          icon="notifications-outline"
+          message="تعذّر تحميل إعدادات الإشعارات"
+          onRetry={() => void load()}
+        />
+      ) : (
+        <>
+          <SettingsGroup footer="عند الإيقاف لن تصلك أي إشعارات فورية. تبقى الإشعارات داخل التطبيق.">
+            <SarhSettingsRow
+              testID="notif-master"
+              icon="notifications-outline"
+              title="الإشعارات الفورية"
+              subtitle={settings.notificationsEnabled ? (allOn ? 'كل الأنواع مفعّلة' : 'مفعّلة لأنواع مختارة') : 'متوقفة'}
+              switchValue={settings.notificationsEnabled}
+              onSwitchChange={(next) => void save({ notificationsEnabled: next })}
+              showDivider={false}
+            />
+          </SettingsGroup>
+          <SettingsGroup
+            title="أنواع الإشعارات"
+            footer="إشعارات الحساب والمدفوعات والأمان تصلك دائماً. تُحفظ التغييرات تلقائياً."
+          >
+            {NOTIFICATION_PREF_KEYS.map((key, index) => (
               <SarhSettingsRow
-                testID="notif-master"
-                icon="notifications-outline"
-                title="الإشعارات الفورية"
-                switchValue={settings.notificationsEnabled}
-                onSwitchChange={(next) => void save({ notificationsEnabled: next })}
-                showDivider={false}
+                key={key}
+                testID={`notif-${key}`}
+                icon={NOTIFICATION_PREF_COPY[key].icon}
+                title={NOTIFICATION_PREF_COPY[key].label}
+                subtitle={NOTIFICATION_PREF_COPY[key].hint}
+                switchValue={settings.prefs[key]}
+                disabled={!settings.notificationsEnabled}
+                onSwitchChange={(next) => void save({ [key]: next })}
+                showDivider={index < NOTIFICATION_PREF_KEYS.length - 1}
               />
-            </SarhSettingsSection>
-            <SarhSettingsSection
-              grouped
-              title="أنواع الإشعارات"
-              footer="إشعارات الحساب والمدفوعات والأمان تصلك دائماً."
-            >
-              {NOTIFICATION_PREF_KEYS.map((key, index) => (
-                <SarhSettingsRow
-                  key={key}
-                  testID={`notif-${key}`}
-                  icon={NOTIFICATION_PREF_COPY[key].icon}
-                  title={NOTIFICATION_PREF_COPY[key].label}
-                  subtitle={NOTIFICATION_PREF_COPY[key].hint}
-                  switchValue={settings.prefs[key]}
-                  disabled={!settings.notificationsEnabled}
-                  onSwitchChange={(next) => void save({ [key]: next })}
-                  showDivider={index < NOTIFICATION_PREF_KEYS.length - 1}
-                />
-              ))}
-            </SarhSettingsSection>
-          </>
-        )}
-      </ScreenBody>
-    </Screen>
+            ))}
+          </SettingsGroup>
+        </>
+      )}
+    </SettingsScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  center: { paddingTop: 64, paddingHorizontal: 24, gap: 16, alignItems: 'center' },
-});

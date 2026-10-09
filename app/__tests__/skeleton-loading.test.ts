@@ -85,7 +85,7 @@ const SKELETON_SCREENS = [
   'app/notifications/index.tsx',
   'app/support/tickets/index.tsx',
   'app/support/faq.tsx',
-  'app/settings/blocked.tsx',
+  'components/settings/SettingsPeopleList.tsx',
   'app/feed-suppliers/index.tsx',
   'app/post/[id].tsx',
   'app/listing/[id].tsx',

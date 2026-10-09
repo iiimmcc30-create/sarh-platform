@@ -1,8 +1,8 @@
-import { AppIcon } from '@/components/ui/FlaticonIcon';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { SettingsScreen, useSettingsSave, useUnsavedChangesGuard } from '@/components/settings/SettingsScreen';
+import { SettingsFieldRow, SettingsGroup, SettingsStatus } from '@/components/settings/SettingsRows';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/hooks/useTheme';
 import { alertMessage } from '@/lib/actionSheet';
+import { safePush } from '@/lib/safeNavigate';
 import {
   fetchAccountSettings,
   updateAccountSettings,
@@ -10,35 +10,27 @@ import {
 } from '@/services/users';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
-import { AppText, SarhButton, SarhDivider, SarhInput } from '@/design-system/components';
-import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
+import { SarhSettingsRow } from '@/design-system/components';
 
-/** Layout and writing direction only — theme colors are read at render. */
-const styles = StyleSheet.create({
-  centered: { alignItems: 'center', justifyContent: 'center' },
-  fill: { flex: 1, minWidth: 0 },
-  latin: { writingDirection: 'ltr' },
-});
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const BIRTH_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function formatPhone(phone: string | null | undefined) {
-  if (!phone) return 'غير مضاف';
-  return phone;
+/** Digits typed as 19950423 → 1995-04-23 (dashes added as you type). */
+function formatBirthInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
 }
 
-function formatBirthDate(value: string | null | undefined) {
-  if (!value) return 'غير محدد';
-  const [y, m, d] = value.split('-');
-  if (!y || !m || !d) return value;
-  return `${d}/${m}/${y}`;
-}
-
+/**
+ * «معلومات الحساب»: phone (opens the OTP flow), email and birth date.
+ * One «حفظ» at the top-left saves whatever changed.
+ */
 export default function AccountInfoScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [account, setAccount] = useState<AccountSettings | null>(null);
   const [email, setEmail] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -60,130 +52,94 @@ export default function AccountInfoScreen() {
     void load();
   }, [load]);
 
-  const saveEmail = async () => {
-    const trimmed = email.trim();
-    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      await alertMessage('البريد الإلكتروني', 'أدخل بريداً إلكترونياً صالحاً');
-      return;
-    }
-    setSaving(true);
-    const result = await updateAccountSettings({
-      email: trimmed || null,
-    }, user?.id);
-    setSaving(false);
-    if (!result.account) {
-      await alertMessage('تعذّر الحفظ', result.message ?? 'تحقق من الاتصال وحاول مجدداً');
-      return;
-    }
-    setAccount(result.account);
-    setEmail(result.account.email ?? '');
-    await alertMessage('تم الحفظ', 'تم تحديث البريد الإلكتروني');
-  };
+  const emailChanged = !!account && email.trim() !== (account.email ?? '');
+  const birthChanged = !!account && birthDate.trim() !== (account.birthDate ?? '');
+  const dirty = emailChanged || birthChanged;
 
-  const saveBirthDate = async () => {
-    const trimmed = birthDate.trim();
-    if (trimmed && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      await alertMessage('تاريخ الميلاد', 'استخدم الصيغة YYYY-MM-DD');
-      return;
-    }
-    setSaving(true);
-    const result = await updateAccountSettings({
-      birthDate: trimmed || null,
-    }, user?.id);
-    setSaving(false);
-    if (!result.account) {
-      await alertMessage('تعذّر الحفظ', result.message ?? 'تحقق من الاتصال وحاول مجدداً');
-      return;
-    }
-    setAccount(result.account);
-    setBirthDate(result.account.birthDate ?? '');
-    await alertMessage('تم الحفظ', 'تم تحديث تاريخ الميلاد');
-  };
+  const allowLeave = useUnsavedChangesGuard(dirty);
+  const { saving, save } = useSettingsSave(allowLeave);
 
-  if (loading && !account) {
-    return (
-      <Screen edges={['top', 'bottom']}>
-        <ScreenHeader variant="screen" title="معلومات الحساب" showBack />
-        <ScreenBody scroll={false} style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </ScreenBody>
-      </Screen>
-    );
-  }
+  const onSave = () =>
+    void save(async () => {
+      const nextEmail = email.trim();
+      const nextBirth = birthDate.trim();
+      if (emailChanged && nextEmail && !EMAIL_RE.test(nextEmail)) {
+        await alertMessage('البريد الإلكتروني', 'أدخل بريداً إلكترونياً صالحاً');
+        return false;
+      }
+      if (birthChanged && nextBirth && !BIRTH_RE.test(nextBirth)) {
+        await alertMessage('تاريخ الميلاد', 'استخدم الصيغة YYYY-MM-DD');
+        return false;
+      }
+      const patch: Parameters<typeof updateAccountSettings>[0] = {};
+      if (emailChanged) patch.email = nextEmail || null;
+      if (birthChanged) patch.birthDate = nextBirth || null;
+      const result = await updateAccountSettings(patch, user?.id);
+      if (!result.account) {
+        await alertMessage('تعذّر الحفظ', result.message ?? 'تحقق من الاتصال وحاول مجدداً');
+        return false;
+      }
+      setAccount(result.account);
+      setEmail(result.account.email ?? '');
+      setBirthDate(result.account.birthDate ?? '');
+      return true;
+    });
 
   return (
-    <Screen edges={['top', 'bottom']} keyboard>
-      <ScreenHeader variant="screen" title="معلومات الحساب" showBack />
-      <ScreenBody padTop="lg" gap="section" width="form" padBottom="xxxl">
-        <Section title="رقم الهاتف">
-          <Row gap="sm" align="center" justify="between">
-            <AppText variant="body" color="textSecondary" style={[styles.fill, styles.latin]}>
-              {formatPhone(account?.phone)}
-            </AppText>
-            <SarhButton
-              title="تغيير"
-              variant="secondary"
-              size="sm"
-              onPress={() => router.push('/profile/settings/change-phone' as any)}
+    <SettingsScreen
+      title="معلومات الحساب"
+      keyboard
+      width="form"
+      save={{ enabled: dirty, saving, onPress: onSave }}
+    >
+      {loading && !account ? (
+        <SettingsStatus state="loading" />
+      ) : (
+        <>
+          <SettingsGroup
+            title="رقم الجوال"
+            footer="لتغيير رقم الجوال ستحتاج إلى التحقق برمز OTP المرسل إلى الرقم الجديد."
+          >
+            <SarhSettingsRow
+              icon="call-outline"
+              title="رقم الجوال"
+              value={account?.phone ?? 'غير مضاف'}
+              valueLtr={!!account?.phone}
+              showDivider={false}
+              onPress={() => safePush('/profile/settings/change-phone', undefined, router)}
             />
-          </Row>
-        </Section>
+          </SettingsGroup>
 
-        <SarhDivider />
+          <SettingsGroup title="البريد الإلكتروني" footer="اترك الحقل فارغاً لإزالة البريد من حسابك.">
+            <SettingsFieldRow
+              testID="account-email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="example@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="done"
+              ltr
+            />
+          </SettingsGroup>
 
-        <Section title="البريد الإلكتروني" gap="md">
-          <SarhInput
-            appearance="theme"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="example@email.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            ltr
-          />
-          <SarhButton
-            title="حفظ البريد"
-            onPress={() => void saveEmail()}
-            loading={saving}
-            fullWidth
-            leftIcon="mail-outline"
-          />
-        </Section>
-
-        <SarhDivider />
-
-        <Section title="تاريخ الميلاد" gap="md">
-          <SarhInput
-            appearance="theme"
-            value={birthDate}
-            onChangeText={setBirthDate}
-            placeholder="YYYY-MM-DD"
-            keyboardType="numbers-and-punctuation"
-            ltr
-          />
-          {account?.birthDate ? (
-            <AppText variant="caption" color="textMuted">
-              المحفوظ: {formatBirthDate(account.birthDate)}
-            </AppText>
-          ) : null}
-          <SarhButton
-            title="حفظ تاريخ الميلاد"
-            onPress={() => void saveBirthDate()}
-            loading={saving}
-            fullWidth
-            leftIcon="calendar-outline"
-          />
-        </Section>
-
-        <Row gap="sm" align="start">
-          <AppIcon name="information-circle-outline" size={20} color={colors.textBrandStrong} />
-          <AppText variant="caption" color="textMuted" style={styles.fill}>
-            لتغيير رقم الجوال ستحتاج إلى التحقق برمز OTP المرسل إلى الرقم الجديد.
-          </AppText>
-        </Row>
-
-      </ScreenBody>
-    </Screen>
+          <SettingsGroup title="تاريخ الميلاد" footer="سنة-شهر-يوم، مثل 1995-04-23.">
+            <SettingsFieldRow
+              testID="account-birthdate"
+              value={birthDate}
+              onChangeText={(text) => setBirthDate(formatBirthInput(text))}
+              placeholder="YYYY-MM-DD"
+              keyboardType="number-pad"
+              maxLength={10}
+              returnKeyType="done"
+              ltr
+            />
+          </SettingsGroup>
+        </>
+      )}
+    </SettingsScreen>
   );
 }

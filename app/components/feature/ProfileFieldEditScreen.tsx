@@ -1,18 +1,17 @@
-import { AppText, SarhBackButton, SarhInput } from '@/design-system/components';
-import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { SettingsSaveHeader, useUnsavedChangesGuard } from '@/components/settings/SettingsScreen';
+import { AppText, SarhInput } from '@/design-system/components';
+import { Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useAppUser } from '@/hooks/useApp';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { profileNameHint, profileUsernameHint } from '@/lib/profileChangeCooldown';
 import { showToast } from '@/lib/toast';
 import { type ThemeColors } from '@/constants/theme';
-import { spacing } from '@/constants/theme';
 import { createRequestGeneration } from '@/services/requestCoordination';
 import { checkUsernameAvailable } from '@/services/users';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 import type { User } from '@/services/types';
 
 export type ProfileEditField = 'name' | 'username' | 'bio';
@@ -72,7 +71,6 @@ type Props = {
 
 export function ProfileFieldEditScreen({ field }: Props) {
   const router = useRouter();
-  const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const { me, updateMe } = useAppUser();
   const config = FIELDS[field];
@@ -91,6 +89,8 @@ export function ProfileFieldEditScreen({ field }: Props) {
   const usernameTaken =
     field === 'username' && usernameAvailability === 'taken' && value !== initial;
   const saveBlocked = cooldownActive || usernameTaken;
+  const dirty = value !== initial;
+  const allowLeave = useUnsavedChangesGuard(dirty && !saving);
 
   useEffect(() => {
     if (field !== 'username') return;
@@ -143,6 +143,7 @@ export function ProfileFieldEditScreen({ field }: Props) {
       } else {
         void showToast('تم حفظ التغييرات بنجاح', 'success');
       }
+      allowLeave();
       router.back();
       return;
     }
@@ -158,31 +159,14 @@ export function ProfileFieldEditScreen({ field }: Props) {
 
   return (
     <Screen edges={['top']} keyboard>
-      <Row justify="between" align="center" style={styles.header}>
-        <SarhBackButton onPress={handleBack} color={colors.textPrimary} accessibilityLabel="رجوع" />
-        <Pressable
-          onPress={() => void handleSave()}
-          disabled={saving || saveBlocked}
-          accessibilityRole="button"
-          accessibilityLabel="حفظ"
-          accessibilityState={{ disabled: saving || saveBlocked, busy: saving }}
-          hitSlop={12}
-          style={styles.saveBtn}
-        >
-          {saving ? (
-            <ActivityIndicator color={colors.electricBright} />
-          ) : (
-            <AppText variant="button" color={saveBlocked ? 'textMuted' : 'primary'}>
-              حفظ
-            </AppText>
-          )}
-        </Pressable>
-      </Row>
+      {/* Back on the right (RTL), field name centered, «حفظ» top-left — dim until the value changes. */}
+      <SettingsSaveHeader
+        title={config.title}
+        onBack={handleBack}
+        save={{ enabled: dirty && !saveBlocked, saving, onPress: () => void handleSave() }}
+      />
       <ScreenBody padTop="lg" gap="sm" width="form">
         <Stack gap="sm">
-          <AppText variant="label" color="textSecondary">
-            {config.title}
-          </AppText>
           {hint ? (
             <AppText variant="meta" color="textMuted">
               {hint}
@@ -232,16 +216,6 @@ export function ProfileFieldEditScreen({ field }: Props) {
 
 function createStyles(_colors: ThemeColors) {
   return StyleSheet.create({
-    header: {
-      minHeight: 52,
-      paddingHorizontal: spacing.lg,
-    },
-    saveBtn: {
-      minWidth: 44,
-      minHeight: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     bioInput: {
       minHeight: 140,
       textAlignVertical: 'top',

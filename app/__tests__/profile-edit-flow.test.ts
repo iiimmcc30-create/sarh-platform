@@ -49,8 +49,12 @@ describe('profile edit redesign', () => {
     expect(field).toContain("value.replace(/\\s/g, '').toLowerCase()");
     expect(field).toContain('maxLength: 160');
     expect(field).toContain('يرجى ملء جميع الحقول المطلوبة');
-    expect(field).toContain('accessibilityLabel="حفظ"');
-    expect(field).toContain('accessibilityLabel="رجوع"');
+    // Shared iOS save bar: back (right) · title · «حفظ» (top-left), dim until changed.
+    expect(field).toContain('<SettingsSaveHeader');
+    expect(field).toContain('useUnsavedChangesGuard');
+    const bar = src('components/settings/SettingsScreen.tsx');
+    expect(bar).toContain("save?.label ?? 'حفظ'");
+    expect(bar).toContain('accessibilityLabel="رجوع"');
     expect(field).not.toContain('authFetch');
   });
 
@@ -65,7 +69,7 @@ describe('profile edit redesign', () => {
   it('disables save during cooldown or a taken username and skips the update', () => {
     expect(field).toContain('saveBlocked');
     expect(field).toContain('if (saveBlocked) return;');
-    expect(field).toContain('disabled={saving || saveBlocked}');
+    expect(field).toContain('enabled: dirty && !saveBlocked');
     expect(field).toContain("usernameAvailability === 'taken'");
   });
 

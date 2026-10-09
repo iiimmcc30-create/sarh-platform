@@ -1,130 +1,132 @@
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { SettingsScreen, useSettingsSave, useUnsavedChangesGuard } from '@/components/settings/SettingsScreen';
+import { SettingsActionRow, SettingsFieldRow, SettingsGroup } from '@/components/settings/SettingsRows';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/hooks/useTheme';
 import { alertMessage } from '@/lib/actionSheet';
+import { showToast } from '@/lib/toast';
 import { changeAccountPhone } from '@/services/users';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { AppText, SarhButton, SarhInput } from '@/design-system/components';
-import { Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { SarhSettingsRow } from '@/design-system/components';
 
 const COUNTRY_CODE = '+966';
 
+/**
+ * «تغيير رقم الجوال»: two steps behind one top-left action —
+ * «إرسال» sends the code to the new number, «تأكيد» verifies it and saves.
+ */
 export default function ChangePhoneScreen() {
-  const router = useRouter();
-  const { sendOtp, verifyOtp, refreshSession } = useAuth();
-  // Subscribe so the hint text re-resolves its color after a scheme switch.
-  useTheme();
+  const { user, sendOtp, verifyOtp, refreshSession } = useAuth();
   const [phoneDigits, setPhoneDigits] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const fullPhone = `${COUNTRY_CODE}${phoneDigits.replace(/^0/, '').replace(/\D/g, '')}`;
   const isPhoneValid = phoneDigits.replace(/\D/g, '').length >= 9;
+
+  const allowLeave = useUnsavedChangesGuard(phoneDigits.length > 0 || step === 'otp');
+  const { saving, save } = useSettingsSave(allowLeave);
 
   const handleSendOtp = async () => {
     if (!isPhoneValid) {
       await alertMessage('رقم الجوال', 'أدخل رقماً صالحاً (9 أرقام على الأقل)');
       return;
     }
-    setLoading(true);
+    setSending(true);
     const result = await sendOtp(fullPhone, 'sms');
-    setLoading(false);
+    setSending(false);
     if (!result.success) {
       await alertMessage('تعذّر الإرسال', result.error ?? 'حاول مجدداً');
       return;
     }
     setStep('otp');
-    await alertMessage(
-      'تم الإرسال',
-      result.devMode ? 'وضع التطوير: أي رمز يعمل' : 'أدخل الرمز المرسل إلى جوالك',
-    );
+    void showToast(result.devMode ? 'وضع التطوير: أي رمز يعمل' : 'أرسلنا رمز التحقق إلى جوالك', 'success');
   };
 
-  const handleVerifyAndSave = async () => {
-    if (code.trim().length < 4) {
-      await alertMessage('رمز التحقق', 'أدخل الرمز المرسل');
-      return;
-    }
-    setLoading(true);
-    const verified = await verifyOtp(fullPhone, code.trim(), 'reset_password');
-    if (!verified.success || !verified.phoneToken) {
-      setLoading(false);
-      await alertMessage('رمز غير صحيح', verified.error ?? 'تحقق من الرمز وحاول مجدداً');
-      return;
-    }
-    const phoneResult = await changeAccountPhone(fullPhone, verified.phoneToken);
-    setLoading(false);
-    if (!phoneResult.account) {
-      await alertMessage('تعذّر التحديث', phoneResult.message ?? 'قد يكون الرقم مستخدماً في حساب آخر');
-      return;
-    }
-    await alertMessage('تم التحديث', 'تم تغيير رقم الجوال بنجاح');
-    void refreshSession();
-    router.back();
-  };
+  const handleVerifyAndSave = () =>
+    void save(
+      async () => {
+        if (code.trim().length < 4) {
+          await alertMessage('رمز التحقق', 'أدخل الرمز المرسل');
+          return false;
+        }
+        const verified = await verifyOtp(fullPhone, code.trim(), 'reset_password');
+        if (!verified.success || !verified.phoneToken) {
+          await alertMessage('رمز غير صحيح', verified.error ?? 'تحقق من الرمز وحاول مجدداً');
+          return false;
+        }
+        const phoneResult = await changeAccountPhone(fullPhone, verified.phoneToken);
+        if (!phoneResult.account) {
+          await alertMessage('تعذّر التحديث', phoneResult.message ?? 'قد يكون الرقم مستخدماً في حساب آخر');
+          return false;
+        }
+        void refreshSession();
+        return true;
+      },
+      { successMessage: 'تم تغيير رقم الجوال بنجاح' },
+    );
+
+  const action =
+    step === 'phone'
+      ? { label: 'إرسال', enabled: isPhoneValid, saving: sending, onPress: () => void handleSendOtp() }
+      : { label: 'تأكيد', enabled: code.trim().length >= 4, saving, onPress: handleVerifyAndSave };
 
   return (
-    <Screen edges={['top', 'bottom']} keyboard>
-      <ScreenHeader variant="screen" title="تغيير رقم الجوال" showBack />
-      <ScreenBody padTop="lg" gap="section" width="form" padBottom="xxxl">
-        <AppText variant="bodySmall" color="textSecondary">
-          {step === 'phone'
-            ? 'أدخل رقم الجوال الجديد. سنرسل إليه رمز تحقق.'
-            : `أدخل الرمز المرسل إلى ${fullPhone}`}
-        </AppText>
+    <SettingsScreen title="تغيير رقم الجوال" keyboard width="form" save={action}>
+      {user?.phone ? (
+        <SettingsGroup title="الرقم الحالي">
+          <SarhSettingsRow icon="call-outline" title="رقم الجوال" value={user.phone} valueLtr showDivider={false} />
+        </SettingsGroup>
+      ) : null}
 
-        {step === 'phone' ? (
-          <Stack gap="lg">
-            <SarhInput
-              appearance="theme"
-              label={`رقم الجوال (${COUNTRY_CODE})`}
-              value={phoneDigits}
-              onChangeText={setPhoneDigits}
-              placeholder="5XXXXXXXX"
-              keyboardType="phone-pad"
-              ltr
-            />
-            <SarhButton
-              title="إرسال رمز التحقق"
-              onPress={() => void handleSendOtp()}
-              loading={loading}
-              fullWidth
-              leftIcon="phone-portrait-outline"
-            />
-          </Stack>
-        ) : (
-          <Stack gap="lg">
-            <SarhInput
-              appearance="theme"
-              label="رمز التحقق"
+      {step === 'phone' ? (
+        <SettingsGroup title="الرقم الجديد" footer="سنرسل رمز تحقق إلى الرقم الجديد للتأكد أنه لك.">
+          <SettingsFieldRow
+            testID="phone-new"
+            prefix={COUNTRY_CODE}
+            value={phoneDigits}
+            onChangeText={setPhoneDigits}
+            placeholder="5XXXXXXXX"
+            keyboardType="phone-pad"
+            textContentType="telephoneNumber"
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => (isPhoneValid ? void handleSendOtp() : undefined)}
+            ltr
+          />
+        </SettingsGroup>
+      ) : (
+        <>
+          <SettingsGroup title="رمز التحقق" footer={`أدخل الرمز المرسل إلى ${fullPhone}`}>
+            <SettingsFieldRow
+              testID="phone-code"
               value={code}
               onChangeText={setCode}
               placeholder="••••••"
               keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoComplete="sms-otp"
               maxLength={6}
+              autoFocus
               ltr
             />
-            <SarhButton
-              title="تأكيد وتغيير الرقم"
-              onPress={() => void handleVerifyAndSave()}
-              loading={loading}
-              fullWidth
-              leftIcon="checkmark-done-outline"
+          </SettingsGroup>
+          <SettingsGroup>
+            <SettingsActionRow
+              title="إعادة إرسال الرمز"
+              loading={sending}
+              onPress={() => void handleSendOtp()}
+              showDivider
             />
-            <SarhButton
+            <SettingsActionRow
               title="تغيير الرقم"
               onPress={() => {
                 setStep('phone');
                 setCode('');
               }}
-              variant="secondary"
-              fullWidth
             />
-          </Stack>
-        )}
-      </ScreenBody>
-    </Screen>
+          </SettingsGroup>
+        </>
+      )}
+    </SettingsScreen>
   );
 }

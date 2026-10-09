@@ -1,4 +1,5 @@
 import { SettingsMenuScreen } from '@/components/ui/SettingsMenuScreen';
+import { appVersionLabel } from '@/lib/appVersion';
 
 export default function InfoCenterScreen() {
   return (
@@ -23,7 +24,7 @@ export default function InfoCenterScreen() {
           ],
         },
       ]}
-      footerValue={{ label: 'الإصدار الحالي', value: '1.0.0' }}
+      footerNote={appVersionLabel()}
     />
   );
 }

@@ -21,6 +21,10 @@ export type SarhSettingsRowProps = {
   tone?: 'default' | 'danger';
   /** Optional second line under the title. */
   subtitle?: string;
+  /** iOS selection list: a checkmark on the end instead of a radio (no chevron). */
+  checked?: boolean;
+  /** Latin / numeric value (phone, email): keep LTR digits inside the RTL row. */
+  valueLtr?: boolean;
   testID?: string;
 };
 
@@ -46,11 +50,14 @@ export function SarhSettingsRow({
   accessibilityLabel,
   tone = 'default',
   subtitle,
+  checked,
+  valueLtr = false,
   testID,
 }: SarhSettingsRowProps) {
   useTheme();
   const isSwitch = typeof switchValue === 'boolean' && !!onSwitchChange;
-  const chevron = showChevron ?? (!isSwitch && !!onPress);
+  const isCheck = typeof checked === 'boolean';
+  const chevron = showChevron ?? (!isSwitch && !isCheck && !!onPress);
   const label = accessibilityLabel ?? title;
 
   const body = (
@@ -89,7 +96,12 @@ export function SarhSettingsRow({
         ) : null}
       </View>
       {value ? (
-        <AppText variant="caption" color="textMuted" numberOfLines={1} style={{ flexShrink: 1, maxWidth: '55%' }}>
+        <AppText
+          variant="bodySmall"
+          color="textMuted"
+          numberOfLines={1}
+          style={[{ flexShrink: 1, maxWidth: '55%' }, valueLtr ? { writingDirection: 'ltr' } : null]}
+        >
           {value}
         </AppText>
       ) : null}
@@ -105,6 +117,11 @@ export function SarhSettingsRow({
           testID={testID}
         />
       ) : null}
+      {isCheck ? (
+        <View style={{ width: SETTINGS_ROW.icon, alignItems: 'center' }}>
+          {checked ? <AppIcon name="checkmark" size={SETTINGS_ROW.icon} color={colors.textPrimary} /> : null}
+        </View>
+      ) : null}
       {chevron ? (
         <AppIcon name={rtlForwardIcon()} size={SETTINGS_ROW.chevron} color={colors.textMuted} />
       ) : null}
@@ -118,7 +135,7 @@ export function SarhSettingsRow({
           testID={testID}
           accessibilityRole="button"
           accessibilityLabel={label}
-          accessibilityState={{ disabled }}
+          accessibilityState={isCheck ? { disabled, selected: !!checked } : { disabled }}
           disabled={disabled}
           onPress={disabled ? undefined : onPress}
           // iOS list row: dims on press, never shrinks.
