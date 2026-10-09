@@ -36,6 +36,7 @@ import {
   type CouncilPerks,
   type CouncilVisibility,
 } from '@/services/councils';
+import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 
 type StartMode = 'now' | 'later';
 const SCHEDULE_LOCKED_TEXT = 'جدولة المجالس متاحة لمشتركي Blue+ وGold';
@@ -105,7 +106,11 @@ export default function CouncilFormScreen() {
     );
   }, [slots]);
 
-  const openPlans = useCallback(() => safePush('/verification', undefined, router), [router]);
+  // Store builds do not sell plans (lib/storePurchases.ts): the locked hint stays, no paywall.
+  const openPlans = useCallback(() => {
+    if (!digitalPurchasesEnabled()) return;
+    safePush('/verification', undefined, router);
+  }, [router]);
 
   useEffect(() => {
     if (!editId || Platform.OS === 'web') return;

@@ -6,6 +6,8 @@
 // only; renewal is manual (no auto-charge). Gold needs a document before
 // payment (the API enforces it too). Accounts that never subscribed can start
 // a one-week free Blue+ trial here (no card, no payment, ends by itself).
+import { DigitalPurchasesUnavailable } from '@/components/feature/DigitalPurchasesUnavailable';
+import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -225,7 +227,7 @@ function TrialCard({
   );
 }
 
-export default function VerificationScreen() {
+function VerificationScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const { isAuthenticated, accessToken } = useAuth();
@@ -821,3 +823,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
 });
+
+/** Store builds hide digital purchases (lib/storePurchases.ts) — deep links land on «غير متاحة حالياً». */
+export default function VerificationRoute() {
+  if (!digitalPurchasesEnabled()) return <DigitalPurchasesUnavailable title="التوثيق" />;
+  return <VerificationScreen />;
+}

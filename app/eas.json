@@ -13,7 +13,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://sarhsa.online",
         "EXPO_PUBLIC_SOCKET_URL": "https://sarhsa.online",
-        "EXPO_PUBLIC_COUNCILS_ENABLED": "true"
+        "EXPO_PUBLIC_COUNCILS_ENABLED": "true",
+        "EXPO_PUBLIC_STORE_DIGITAL_PURCHASES": "false"
       }
     },
     "preview": {
@@ -24,7 +25,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://sarhsa.online",
         "EXPO_PUBLIC_SOCKET_URL": "https://sarhsa.online",
-        "EXPO_PUBLIC_COUNCILS_ENABLED": "true"
+        "EXPO_PUBLIC_COUNCILS_ENABLED": "true",
+        "EXPO_PUBLIC_STORE_DIGITAL_PURCHASES": "false"
       }
     },
     "production": {
@@ -35,7 +37,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://sarhsa.online",
         "EXPO_PUBLIC_SOCKET_URL": "https://sarhsa.online",
-        "EXPO_PUBLIC_COUNCILS_ENABLED": "true"
+        "EXPO_PUBLIC_COUNCILS_ENABLED": "true",
+        "EXPO_PUBLIC_STORE_DIGITAL_PURCHASES": "false"
       }
     }
   },

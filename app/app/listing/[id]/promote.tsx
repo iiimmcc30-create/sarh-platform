@@ -6,6 +6,8 @@
 // Prices/durations come only from the official catalog; the server charges
 // from the same table. Payment still goes through initiatePromotePayment →
 // launchPaymentCheckout (unchanged).
+import { DigitalPurchasesUnavailable } from '@/components/feature/DigitalPurchasesUnavailable';
+import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 import { ListingCard } from '@/components/feature/ListingCard';
 import { FreeBoostOption } from '@/components/listing/FreeBoostOption';
 import { PaymentBrandLogo, FEE_PAYMENT_METHODS } from '@/components/payment/PaymentBrandLogos';
@@ -123,7 +125,7 @@ function boostedPreview(listing: Listing, goal: PromotionGoal | null): Listing {
   return listing;
 }
 
-export default function ListingPromoteScreen() {
+function ListingPromoteScreen() {
   const { id, goal: goalParam } = useLocalSearchParams<{ id: string; goal?: string }>();
   const { accessToken } = useAuth();
   const { colors } = useTheme();
@@ -1036,4 +1038,10 @@ function createStyles(colors: ThemeColors) {
     skelChip: { backgroundColor: colors.bgElevated, borderColor: colors.bgElevated },
     skelPlan: { backgroundColor: colors.bgElevated, borderColor: colors.bgElevated },
   });
+}
+
+/** Store builds hide digital purchases (lib/storePurchases.ts) — deep links land on «غير متاحة حالياً». */
+export default function ListingPromoteRoute() {
+  if (!digitalPurchasesEnabled()) return <DigitalPurchasesUnavailable title="ترقية الإعلان" />;
+  return <ListingPromoteScreen />;
 }

@@ -9,6 +9,7 @@ import type { Router } from 'expo-router';
 import { safePush } from '@/lib/safeNavigate';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
+import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 
 const PUSH_TOKEN_KEY = 'safat_push_token';
 const PUSH_TOKEN_SYNCED_KEY = 'safat_push_token_synced';
@@ -342,10 +343,17 @@ export function handleNotificationNavigation(
         } as never, undefined, ctx.router);
         return true;
       }
-      safePush('/subscription' as never, undefined, ctx.router);
+      // Store builds: listing fees live under «المدفوعات», not the subscription hub.
+      safePush(
+        (digitalPurchasesEnabled() ? '/subscription' : '/settings/payments') as never,
+        undefined,
+        ctx.router,
+      );
       return true;
 
     case 'subscription_renew':
+      // Store builds do not sell plans (lib/storePurchases.ts) — stay on the list.
+      if (!digitalPurchasesEnabled()) return false;
       // Verification plans / free trial notifications open the plans sheet.
       if (stringField(data, 'screen') === 'verification') {
         safePush('/verification' as never, undefined, ctx.router);
@@ -397,7 +405,11 @@ export function handleNotificationNavigation(
       if (ticketId && openSupportTicket(ctx, ticketId)) return true;
       if (postId) return navigateToPost(ctx, postId);
       if (paymentId) {
-        safePush('/subscription' as never, undefined, ctx.router);
+        safePush(
+          (digitalPurchasesEnabled() ? '/subscription' : '/settings/payments') as never,
+          undefined,
+          ctx.router,
+        );
         return true;
       }
       break;

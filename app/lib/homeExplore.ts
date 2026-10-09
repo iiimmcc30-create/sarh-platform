@@ -1,3 +1,5 @@
+import { digitalPurchasesEnabled, isDigitalPurchaseRoute } from '@/lib/storePurchases';
+
 export type HomeExploreDestinationKey =
   | 'community'
   | 'listings'
@@ -121,6 +123,8 @@ export function resolveExploreCard(
   const key = raw.destination as HomeExploreDestinationKey;
   const meta = CATALOG[key];
   if (!meta) return null;
+  // Store builds never surface the boost hub (lib/storePurchases.ts).
+  if (isDigitalPurchaseRoute(meta.route) && !digitalPurchasesEnabled()) return null;
   return {
     id: raw.id,
     destination: key,

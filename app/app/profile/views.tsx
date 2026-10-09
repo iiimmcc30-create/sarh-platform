@@ -24,6 +24,7 @@ import {
   profileViewsSummary,
   type ProfileViewsResult,
 } from '@/services/profileViews';
+import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 
 export default function ProfileViewsScreen() {
   const router = useRouter();
@@ -94,14 +95,18 @@ export default function ProfileViewsScreen() {
             اعرف من شاهد ملفك
           </AppText>
           <AppText variant="body" color="textSecondary" align="center">
-            متاحة لمشتركي Blue وBlue+ وGold — تظهر الأسماء ووقت الزيارة لآخر 30 يوماً.
+            {digitalPurchasesEnabled()
+              ? 'متاحة لمشتركي Blue وBlue+ وGold — تظهر الأسماء ووقت الزيارة لآخر 30 يوماً.'
+              : 'هذه الميزة غير متاحة حالياً في هذا الإصدار من التطبيق.'}
           </AppText>
-          <SarhButton
-            title="عرض الاشتراكات"
-            variant="primary"
-            onPress={() => router.push('/verification' as never)}
-            testID="profile-views-subscribe"
-          />
+          {digitalPurchasesEnabled() ? (
+            <SarhButton
+              title="عرض الاشتراكات"
+              variant="primary"
+              onPress={() => router.push('/verification' as never)}
+              testID="profile-views-subscribe"
+            />
+          ) : null}
         </Stack>
       </Animated.View>
     );

@@ -1,5 +1,6 @@
 import { ensureApiReachable } from './api';
 import { shouldReuseFreshResult } from './requestCoordination';
+import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 
 export type PaidServiceFlags = {
   /** ترويج الظهور */
@@ -96,8 +97,21 @@ export function firstEnabledBoostType(
   return null;
 }
 
+/**
+ * Store builds (lib/storePurchases.ts) never sell digital boosts: featured / pin /
+ * promotion are forced off. Listing fees + the sale commission (physical goods)
+ * keep the server value.
+ */
+export function applyStorePurchasePolicy(
+  flags: PaidServiceFlags,
+  digitalAllowed: boolean = digitalPurchasesEnabled(),
+): PaidServiceFlags {
+  if (digitalAllowed) return flags;
+  return { ...flags, promotionEnabled: false, pinEnabled: false, featureEnabled: false };
+}
+
 export function getCachedPaidServiceFlags(): PaidServiceFlags {
-  return cachedFlags ?? { ...DEFAULT_PAID_SERVICE_FLAGS };
+  return applyStorePurchasePolicy(cachedFlags ?? { ...DEFAULT_PAID_SERVICE_FLAGS });
 }
 
 export function fetchPaidServiceFlags(options?: {
@@ -105,7 +119,7 @@ export function fetchPaidServiceFlags(options?: {
 }): Promise<PaidServiceFlags> {
   const force = options?.force === true;
   if (cachedFlags && shouldReuseFreshResult(cachedAt, PAID_SERVICES_TTL_MS, force)) {
-    return Promise.resolve(cachedFlags);
+    return Promise.resolve(applyStorePurchasePolicy(cachedFlags));
   }
   if (inflight) return inflight;
 
@@ -120,7 +134,7 @@ export function fetchPaidServiceFlags(options?: {
       const flags = normalizeFlags(json?.data?.flags);
       cachedFlags = flags;
       cachedAt = Date.now();
-      return flags;
+      return applyStorePurchasePolicy(flags);
     } catch {
       return getCachedPaidServiceFlags();
     } finally {

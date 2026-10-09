@@ -4,6 +4,7 @@
  * `action` rows to handlers (switches, appearance, logout) and `route` rows to navigation.
  */
 import type { SearchableSettingsGroup, SearchableSettingsRow } from '@/lib/settingsSearch';
+import { withoutDigitalPurchaseRows } from '@/lib/storePurchases';
 
 export type SettingsAction =
   | 'show-in-search'
@@ -96,7 +97,8 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
         },
       ];
 
-  return [
+  // Store builds: drop the subscription / promote rows (lib/storePurchases.ts).
+  return withoutDigitalPurchaseRows<SettingsRow, SettingsGroup>([
     { key: 'subscription', title: 'الاشتراك', rows: subscriptionRows },
     {
       key: 'account',
@@ -323,7 +325,7 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
         },
       ],
     },
-  ];
+  ]);
 }
 
 /** «أزرق+» etc. for the account card and subscription row. */

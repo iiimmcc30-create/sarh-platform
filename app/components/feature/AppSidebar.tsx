@@ -17,6 +17,7 @@ import { sidebarShowsVerifiedBadge } from '@/lib/verifiedBadge';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { avatarUrl } from '@/lib/listingMedia';
+import { digitalPurchasesEnabled, isDigitalPurchaseRoute } from '@/lib/storePurchases';
 
 type NavItem = {
   key: string;
@@ -25,7 +26,7 @@ type NavItem = {
   route: string;
 };
 
-const PRIMARY_ITEMS: NavItem[] = [
+const ALL_PRIMARY_ITEMS: NavItem[] = [
   { key: 'profile', icon: 'person-outline', label: 'الملف الشخصي', route: '/(tabs)/profile' },
   { key: 'create-listing', icon: 'add-circle-outline', label: 'إضافة عرض', route: '/create/listing' },
   { key: 'verification', icon: 'verified', label: 'Verification', route: '/verification' },
@@ -34,6 +35,11 @@ const PRIMARY_ITEMS: NavItem[] = [
   { key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },
   { key: 'promote', icon: 'megaphone-outline', label: 'التعزيز', route: '/promote' },
 ];
+
+/** Store builds hide «Verification» and «التعزيز» (lib/storePurchases.ts; build-time flag). */
+const PRIMARY_ITEMS: NavItem[] = digitalPurchasesEnabled()
+  ? ALL_PRIMARY_ITEMS
+  : ALL_PRIMARY_ITEMS.filter((item) => !isDigitalPurchaseRoute(item.route));
 
 const SECONDARY_ITEMS: NavItem[] = [
   { key: 'info', icon: 'information-outline', label: 'مركز المعلومات', route: '/settings/info' },

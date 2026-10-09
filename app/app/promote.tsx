@@ -1,3 +1,5 @@
+import { DigitalPurchasesUnavailable } from '@/components/feature/DigitalPurchasesUnavailable';
+import { digitalPurchasesEnabled } from '@/lib/storePurchases';
 import { ListingBoostTitleIcons } from '@/components/listing/ListingBoostTitleIcons';
 import { PromotionStatsSheet } from '@/components/listing/PromotionStatsSheet';
 import { Image, uriSource } from '@/components/ui/AppImage';
@@ -49,7 +51,7 @@ function listingThumb(listing: Listing): string | undefined {
   return listingThumbUri(listing);
 }
 
-export default function PromoteHubScreen() {
+function PromoteHubScreen() {
   const { styles, colors } = useThemedStyles((theme) => ({
     styles: createStyles(theme.colors),
     colors: theme.colors,
@@ -360,4 +362,10 @@ function createStyles(colors: ThemeColors) {
       flexShrink: 0,
     },
   });
+}
+
+/** Store builds hide digital purchases (lib/storePurchases.ts) — deep links land on «غير متاحة حالياً». */
+export default function PromoteHubRoute() {
+  if (!digitalPurchasesEnabled()) return <DigitalPurchasesUnavailable title="تعزيز سرح" />;
+  return <PromoteHubScreen />;
 }
