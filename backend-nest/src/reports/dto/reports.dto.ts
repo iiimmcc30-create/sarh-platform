@@ -14,6 +14,8 @@ export const REPORT_TARGET_TYPES = [
   'user',
   'story',
   'collection',
+  /** «عرض صورة» in a council: targetId is the council id (current image is captured). */
+  'council_image',
 ] as const;
 
 export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number];

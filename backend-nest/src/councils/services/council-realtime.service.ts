@@ -20,6 +20,39 @@ import {
 const COUNT_THROTTLE_MS = 2_000;
 const HOST_TOUCH_MS = 60_000;
 export const COUNCIL_PENDING_REQUESTS_LIMIT = 50;
+/** Participants grid page (4 columns × 15 rows). Broadcasts carry the first page only. */
+export const COUNCIL_LISTENERS_PAGE = 60;
+/** Upper bound of present users considered per page query (very large rooms). */
+const COUNCIL_LISTENERS_SCAN_MAX = 5_000;
+
+/** Off-stage participant (a listener, or a moderator who is not on stage). */
+export type CouncilListener = {
+  userId: string;
+  role: string;
+  user: CouncilSpeakerRow['user'];
+};
+
+export type CouncilListenersPage = {
+  listeners: CouncilListener[];
+  /** Opaque cursor for the next page (offset); null when this was the last one. */
+  nextCursor: string | null;
+};
+
+/** «عرض صورة» as every member sees it (null when nothing is shown). */
+export type CouncilImage = {
+  url: string;
+  listingId: string | null;
+  listing: { id: string; title: string } | null;
+  by: CouncilSpeakerRow['user'] | null;
+  at: Date | null;
+};
+
+type CouncilImageRow = {
+  imageUrl: string | null;
+  imageListingId: string | null;
+  imageById: string | null;
+  imageAt: Date | null;
+};
 
 export type CouncilSpeaker = {
   userId: string;
@@ -73,6 +106,87 @@ export class CouncilRealtimeService {
     }));
   }
 
+  /**
+   * Present participants who are not on stage, X Spaces order: moderators first,
+   * then listeners by join time. Only users with a live presence heartbeat appear,
+   * and only one page is loaded (offset cursor) so big rooms stay cheap.
+   */
+  async loadListeners(
+    councilId: string,
+    cursor?: string | null,
+    limit = COUNCIL_LISTENERS_PAGE,
+  ): Promise<CouncilListenersPage> {
+    const offset = Math.max(0, Math.floor(Number(cursor) || 0));
+    const take = Math.min(Math.max(1, limit), COUNCIL_LISTENERS_PAGE);
+    const present = (await this.presence.presentIds(councilId)).slice(
+      0,
+      COUNCIL_LISTENERS_SCAN_MAX,
+    );
+    if (present.length === 0) return { listeners: [], nextCursor: null };
+    const rows = await this.prisma.councilMember.findMany({
+      where: {
+        councilId,
+        userId: { in: present },
+        seatIndex: null,
+        role: { in: ['MODERATOR', 'LISTENER'] },
+        OR: [{ kickedUntil: null }, { kickedUntil: { lt: new Date() } }],
+      },
+      // Enum order: OWNER, MODERATOR, SPEAKER, LISTENER → moderators first.
+      orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }, { userId: 'asc' }],
+      skip: offset,
+      take: take + 1,
+      select: {
+        userId: true,
+        role: true,
+        user: { select: COUNCIL_USER_SELECT },
+      },
+    });
+    const hasMore = rows.length > take;
+    return {
+      listeners: rows.slice(0, take).map((r) => ({
+        userId: r.userId,
+        role: r.role,
+        user: r.user,
+      })),
+      nextCursor: hasMore ? String(offset + take) : null,
+    };
+  }
+
+  /** «عرض صورة»: public shape of the council's current image (poster + listing). */
+  async presentImage(
+    row: CouncilImageRow | null,
+  ): Promise<CouncilImage | null> {
+    if (!row?.imageUrl) return null;
+    const [by, listing] = await Promise.all([
+      row.imageById
+        ? this.prisma.user.findUnique({
+            where: { id: row.imageById },
+            select: COUNCIL_USER_SELECT,
+          })
+        : null,
+      row.imageListingId
+        ? this.prisma.listing.findFirst({
+            where: {
+              id: row.imageListingId,
+              status: { in: ['active', 'sold'] },
+            },
+            select: { id: true, title: true },
+          })
+        : null,
+    ]);
+    return {
+      url: row.imageUrl,
+      listingId: listing?.id ?? null,
+      listing: listing ?? null,
+      by: by ?? null,
+      at: row.imageAt,
+    };
+  }
+
+  async emitImage(councilId: string, image: CouncilImage | null) {
+    this.bridge.toCouncil(councilId, 'council:image', { councilId, image });
+  }
+
   /** Present users who are not on stage (never below 0). */
   async listenerCount(councilId: string, speakers?: CouncilSpeaker[]) {
     const present = await this.presence.count(councilId);
@@ -100,11 +214,14 @@ export class CouncilRealtimeService {
   async emitSpeakers(councilId: string) {
     const speakers = await this.loadSpeakers(councilId);
     const listenerCount = await this.listenerCount(councilId, speakers);
+    const page = await this.loadListeners(councilId);
     this.bridge.toCouncil(councilId, 'council:speakers', {
       councilId,
       speakers,
       speakersCount: speakers.length,
       listenerCount,
+      listeners: page.listeners,
+      listenersNextCursor: page.nextCursor,
     });
   }
 
@@ -129,9 +246,14 @@ export class CouncilRealtimeService {
 
   private async sendListenerCount(councilId: string) {
     const listenerCount = await this.listenerCount(councilId);
+    // First page of the participants grid rides along (computed once per throttle
+    // window for the whole room, instead of every client refetching it).
+    const page = await this.loadListeners(councilId);
     this.bridge.toCouncil(councilId, 'council:listeners', {
       councilId,
       listenerCount,
+      listeners: page.listeners,
+      listenersNextCursor: page.nextCursor,
     });
   }
 

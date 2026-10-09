@@ -18,6 +18,7 @@ import {
   FREE_WEEKLY_BOOST_TX_PREFIX,
   FREE_WEEKLY_BOOST_WINDOW_MS,
   canHostFollowersOnlyCouncils,
+  canShowCouncilImages,
   canScheduleCouncils,
   canSeeProfileViewers,
   hasPrioritySupport,
@@ -181,6 +182,7 @@ export class VerificationStatusService {
       councils: {
         canSchedule: canScheduleCouncils(tier),
         canFollowersOnly: canHostFollowersOnlyCouncils(tier),
+        canShowImages: canShowCouncilImages(tier),
       },
     };
   }

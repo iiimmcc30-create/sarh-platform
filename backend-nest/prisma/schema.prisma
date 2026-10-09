@@ -315,6 +315,13 @@ model Council {
   /// When «ذكّرني» users were notified that the council started (sent once).
   remindersSentAt      DateTime?
   hostLastSeenAt       DateTime              @default(now())
+  /// «عرض صورة» (Gold): image pinned at the top of the room; null = none. Late joiners
+  /// read it from here, live members get `council:image`.
+  imageUrl             String?
+  /// Set when the image came from one of the poster's listings («عرض الإعلان»).
+  imageListingId       String?
+  imageById            String?
+  imageAt              DateTime?
   createdAt            DateTime              @default(now())
   startedAt            DateTime              @default(now())
   endedAt              DateTime?

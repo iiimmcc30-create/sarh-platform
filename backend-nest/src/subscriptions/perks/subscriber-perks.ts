@@ -10,7 +10,8 @@ import type { SubscriptionEntitlementService } from '../services/subscription-en
  * - Weekly free boosts: Blue+ 2, Gold 4, Blue 0 (plan feature `weeklyFreeBoosts`).
  * - «بائع ذهبي» + Gold-first in the searched region: the public Gold badge
  *   (`User.verifiedTier === 'gold'`, set only while Gold is active + approved).
- * - Councils: followers-only for Gold hosts, scheduling for Blue+ and Gold.
+ * - Councils: followers-only for Gold hosts, scheduling for Blue+ and Gold,
+ *   «عرض صورة» in the room for Gold.
  *
  * The tier comes from the ACTIVE subscription (effective plan slug), never
  * from the client.
@@ -37,6 +38,11 @@ export function canScheduleCouncils(tier: VerificationTier | null): boolean {
 export function canHostFollowersOnlyCouncils(
   tier: VerificationTier | null,
 ): boolean {
+  return tier === 'gold';
+}
+
+/** «عرض صورة» in councils (owner or a speaker on stage): Gold only. */
+export function canShowCouncilImages(tier: VerificationTier | null): boolean {
   return tier === 'gold';
 }
 

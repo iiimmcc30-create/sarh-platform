@@ -10,6 +10,7 @@ const TARGET_LABEL_AR: Record<CreateReportDto['targetType'], string> = {
   user: 'مستخدم',
   story: 'قصة',
   collection: 'مجموعة',
+  council_image: 'صورة في مجلس',
 };
 
 @Injectable()
@@ -29,12 +30,38 @@ export class ReportsService {
       throwApi(400, 'invalid_action', 'لا يمكنك الإبلاغ عن نفسك');
     }
 
+    // «عرض صورة»: capture the exact image (it can be replaced or removed later).
+    let imageLines: string[] = [];
+    let imageMeta: Record<string, string | null> = {};
+    if (dto.targetType === 'council_image') {
+      const council = await this.prisma.council.findUnique({
+        where: { id: dto.targetId },
+        select: { imageUrl: true, imageById: true, imageListingId: true },
+      });
+      if (!council?.imageUrl) {
+        throwApi(404, 'not_found', 'لا توجد صورة معروضة في هذا المجلس');
+      }
+      if (council.imageById === user.userId) {
+        throwApi(400, 'invalid_action', 'لا يمكنك الإبلاغ عن صورتك');
+      }
+      imageLines = [
+        `الصورة: ${council.imageUrl}`,
+        council.imageById ? `صاحب الصورة: ${council.imageById}` : null,
+        council.imageListingId ? `الإعلان: ${council.imageListingId}` : null,
+      ].filter((l): l is string => Boolean(l));
+      imageMeta = {
+        imageUrl: council.imageUrl,
+        imageById: council.imageById,
+      };
+    }
+
     const label = TARGET_LABEL_AR[dto.targetType];
     const subject = `بلاغ على ${label}: ${dto.reason}`;
     const description = [
       `النوع: ${dto.targetType}`,
       `المعرّف: ${dto.targetId}`,
       `السبب: ${dto.reason}`,
+      ...imageLines,
       dto.details ? `التفاصيل: ${dto.details}` : null,
       `المُبلِغ: ${user.username} (${user.userId})`,
     ]
@@ -56,6 +83,7 @@ export class ReportsService {
           targetType: dto.targetType,
           targetId: dto.targetId,
           reason: dto.reason,
+          ...imageMeta,
         },
       },
       select: {

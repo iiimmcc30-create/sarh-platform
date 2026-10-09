@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { RateLimit } from '../common/decorators/auth.decorators';
@@ -17,6 +18,8 @@ import { successResponse } from '../common/utils/response.util';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import {
   CouncilAccessQueryDto,
+  CouncilImageDto,
+  CouncilListenersQueryDto,
   CouncilMemberActionDto,
   CouncilMicDto,
   CouncilRemindDto,
@@ -73,6 +76,13 @@ export class CouncilsController {
     return successResponse(await this.councils.upcoming(user));
   }
 
+  /** «عرض صورة» picker: photos from my own active listings (+ whether I may use it). */
+  @RateLimit('api')
+  @Get('image-sources')
+  async imageSources(@CurrentUser() user: JwtPayload) {
+    return successResponse(await this.councils.imageSources(user));
+  }
+
   @RateLimit('api')
   @Get('users/search')
   async searchUsers(
@@ -101,6 +111,40 @@ export class CouncilsController {
     @Query() query: CouncilAccessQueryDto,
   ) {
     return successResponse(await this.councils.getState(user, id, query.code));
+  }
+
+  /** Participants grid: next page of off-stage participants. */
+  @RateLimit('api')
+  @Get(':id/listeners')
+  async listeners(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: CouncilListenersQueryDto,
+  ) {
+    return successResponse(
+      await this.councils.listeners(user, id, query.cursor),
+    );
+  }
+
+  /** «عرض صورة» (Gold): pin / replace the image at the top of the room. */
+  @RateLimit('api')
+  @Put(':id/image')
+  @HttpCode(HttpStatus.OK)
+  async showImage(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CouncilImageDto,
+  ) {
+    return successResponse(await this.councils.showImage(user, id, dto));
+  }
+
+  @RateLimit('api')
+  @Delete(':id/image')
+  async removeImage(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return successResponse(await this.councils.removeImage(user, id));
   }
 
   @RateLimit('api')

@@ -96,6 +96,32 @@ export class CouncilPresenceService {
     return n;
   }
 
+  /**
+   * Every user currently present (most recent heartbeat first). Used for the
+   * participants grid; the caller pages the result, never the whole room per client.
+   */
+  async presentIds(councilId: string, now = Date.now()): Promise<string[]> {
+    const cutoff = now - COUNCIL_PRESENCE_STALE_MS;
+    const client = this.client();
+    if (client) {
+      try {
+        return await client.zrevrangebyscore(
+          councilPresenceKey(councilId),
+          '+inf',
+          cutoff,
+        );
+      } catch {
+        /* fall through */
+      }
+    }
+    const local = this.memory.get(councilId);
+    if (!local) return [];
+    return [...local.entries()]
+      .filter(([, at]) => at >= cutoff)
+      .sort((a, b) => b[1] - a[1])
+      .map(([userId]) => userId);
+  }
+
   /** Subset of `userIds` currently present. */
   async presentAmong(
     councilId: string,

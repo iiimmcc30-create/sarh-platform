@@ -39,8 +39,12 @@ import {
   activeSubscriberTier,
   canHostFollowersOnlyCouncils,
   canScheduleCouncils,
+  canShowCouncilImages,
 } from '../subscriptions/perks/subscriber-perks';
+import { isOurUploadUrl } from '../shared/lib/storage';
+import { isListingVideoUrl } from '../shared/lib/media-url';
 import type {
+  CouncilImageDto,
   CouncilMemberAction,
   CreateCouncilDto,
   JoinCouncilDto,
@@ -52,6 +56,10 @@ export const COUNCIL_PRIVATE_LIST_LIMIT = 50;
 export const COUNCIL_BANNED_LIST_LIMIT = 100;
 export const COUNCIL_USERS_SEARCH_LIMIT = 20;
 export const COUNCIL_UPCOMING_LIMIT = 30;
+/** «عرض صورة» picker: my latest listings with photos. */
+export const COUNCIL_IMAGE_SOURCE_LISTINGS = 30;
+const COUNCIL_IMAGE_SOURCE_PHOTOS = 8;
+const GOLD_ONLY_AR = 'عرض الصور في المجالس متاح لمشتركي Gold';
 const BAN_AGORA_SECONDS = 24 * 60 * 60;
 
 const NOT_FOUND_AR = 'المجلس غير موجود';
@@ -114,6 +122,7 @@ export class CouncilsService {
       tier,
       canFollowersOnly: canHostFollowersOnlyCouncils(tier),
       canSchedule: canScheduleCouncils(tier),
+      canShowImages: canShowCouncilImages(tier),
     };
   }
 
@@ -302,12 +311,30 @@ export class CouncilsService {
             select: { id: true },
           })
         : null;
+    const listenersPage = live
+      ? await this.realtime.loadListeners(council.id)
+      : { listeners: [], nextCursor: null };
+    const image = live ? await this.realtime.presentImage(council) : null;
     const now = new Date();
+    const activeMember =
+      Boolean(member) &&
+      member!.role !== 'BANNED' &&
+      !(member!.kickedUntil && member!.kickedUntil > now);
+    const canShowImage =
+      live &&
+      activeMember &&
+      (perms.isOwner || member!.seatIndex !== null) &&
+      canShowCouncilImages(await this.subscriberTier(viewerId));
     return {
       council: this.presentMeta(council, perms),
       speakers,
       speakersCount: speakers.length,
       listenerCount,
+      /** Off-stage participants (first page; more via GET :id/listeners). */
+      listeners: listenersPage.listeners,
+      listenersNextCursor: listenersPage.nextCursor,
+      /** «عرض صورة»: the image pinned at the top of the room, or null. */
+      image,
       isFull: speakers.length >= COUNCIL_MAX_SPEAKERS,
       me: {
         userId: viewerId,
@@ -327,6 +354,8 @@ export class CouncilsService {
         pendingRequestId: myRequest?.id ?? null,
         rtcRole: rtcRoleFor(member),
         permissions: perms,
+        /** Gold owner / speaker on stage may use «عرض صورة» (server re-checks). */
+        canShowImage,
       },
       pendingRequests,
     };
@@ -1135,6 +1164,145 @@ export class CouncilsService {
   }
 
   // ─── Member self-actions ────────────────────────────────────────────────
+
+  // ─── Participants grid ─────────────────────────────────────────────────
+
+  /** Next page of off-stage participants (members of the room only). */
+  async listeners(user: JwtPayload, id: string, cursor?: string) {
+    const { council, member } = await this.loadForViewer(id, user.userId);
+    this.assertActiveMember(member);
+    if (council.status !== 'LIVE') return { listeners: [], nextCursor: null };
+    return this.realtime.loadListeners(id, cursor);
+  }
+
+  // ─── «عرض صورة» (Gold) ─────────────────────────────────────────────────
+
+  /** Photos from my own listings for the «عرض صورة» picker. */
+  async imageSources(user: JwtPayload) {
+    const tier = await this.subscriberTier(user.userId);
+    const rows = await this.prisma.listing.findMany({
+      where: { sellerId: user.userId, status: 'active' },
+      orderBy: { createdAt: 'desc' },
+      take: COUNCIL_IMAGE_SOURCE_LISTINGS,
+      select: { id: true, title: true, images: true, thumbnailUrl: true },
+    });
+    const listings = rows
+      .map((l) => ({
+        id: l.id,
+        title: l.title,
+        images: (l.images ?? [])
+          .filter((u) => typeof u === 'string' && u && !isListingVideoUrl(u))
+          .slice(0, COUNCIL_IMAGE_SOURCE_PHOTOS),
+      }))
+      .filter((l) => l.images.length > 0);
+    return { canShowImages: canShowCouncilImages(tier), listings };
+  }
+
+  /**
+   * Pins an image at the top of the room. Server-side rules: active Gold
+   * subscription, the owner or a member on stage, an image we host (our upload
+   * storage), and for a listing photo the listing must be mine and contain it.
+   * The owner may replace anyone's image; others only an empty slot or their own.
+   */
+  async showImage(user: JwtPayload, id: string, dto: CouncilImageDto) {
+    const tier = await this.subscriberTier(user.userId);
+    if (!canShowCouncilImages(tier)) {
+      throwApi(403, 'council_image_gold_only', GOLD_ONLY_AR);
+    }
+    const url = dto.imageUrl.trim();
+    if (!isOurUploadUrl(url) || isListingVideoUrl(url)) {
+      throwApi(400, 'invalid_image', 'الصورة غير صالحة');
+    }
+    let listingId: string | null = null;
+    if (dto.listingId) {
+      const listing = await this.prisma.listing.findFirst({
+        where: {
+          id: dto.listingId,
+          sellerId: user.userId,
+          status: { in: ['active', 'sold'] },
+        },
+        select: { id: true, images: true, thumbnailUrl: true },
+      });
+      const photos = [...(listing?.images ?? []), listing?.thumbnailUrl];
+      if (!listing || !photos.includes(url)) {
+        throwApi(400, 'invalid_image', 'الصورة غير موجودة في إعلانك');
+      }
+      listingId = listing.id;
+    }
+    const updated = await this.withCouncilLock(id, async (tx, council) => {
+      const member = await this.findMember(tx, id, user.userId);
+      this.assertActiveMember(member);
+      const isOwner = council.ownerId === user.userId;
+      if (!isOwner && member.seatIndex === null) {
+        throwApi(403, 'forbidden', 'عرض الصور متاح للمضيف والمتحدثين');
+      }
+      if (
+        !isOwner &&
+        council.imageUrl &&
+        council.imageById &&
+        council.imageById !== user.userId
+      ) {
+        throwApi(409, 'council_image_busy', 'تُعرض صورة حالياً في المجلس');
+      }
+      return tx.council.update({
+        where: { id },
+        data: {
+          imageUrl: url,
+          imageListingId: listingId,
+          imageById: user.userId,
+          imageAt: new Date(),
+        },
+        select: {
+          imageUrl: true,
+          imageListingId: true,
+          imageById: true,
+          imageAt: true,
+        },
+      });
+    });
+    const image = await this.realtime.presentImage(updated);
+    await this.realtime.emitImage(id, image);
+    return { image };
+  }
+
+  /** Removes the image: the owner, a moderator who may remove members, or its poster. */
+  async removeImage(user: JwtPayload, id: string) {
+    const removed = await this.withCouncilLock(
+      id,
+      async (tx, council) => {
+        if (!council.imageUrl) return false;
+        const member = await this.findMember(tx, id, user.userId);
+        const perms = councilPermissions(council, user.userId, member);
+        const isPoster =
+          Boolean(member) &&
+          member!.role !== 'BANNED' &&
+          council.imageById === user.userId;
+        if (
+          !perms.isOwner &&
+          !(perms.isModerator && perms.canRemove) &&
+          !isPoster
+        ) {
+          if (!member || member.role === 'BANNED') {
+            throwApi(404, 'not_found', NOT_FOUND_AR);
+          }
+          throwApi(403, 'forbidden', FORBIDDEN_AR);
+        }
+        await tx.council.update({
+          where: { id },
+          data: {
+            imageUrl: null,
+            imageListingId: null,
+            imageById: null,
+            imageAt: null,
+          },
+        });
+        return true;
+      },
+      { allowEnded: true },
+    );
+    if (removed) await this.realtime.emitImage(id, null);
+    return { removed };
+  }
 
   async leave(user: JwtPayload, id: string) {
     const member = await this.findMember(this.prisma, id, user.userId);

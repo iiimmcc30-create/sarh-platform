@@ -8,11 +8,13 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsUrl,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
 
 export const COUNCIL_VISIBILITIES = ['PUBLIC', 'PRIVATE'] as const;
 export type CouncilVisibilityValue = (typeof COUNCIL_VISIBILITIES)[number];
@@ -199,4 +201,26 @@ export class CouncilRemindDto {
   /** true = «ذكّرني», false = cancel the reminder. */
   @IsBoolean()
   on!: boolean;
+}
+
+/** Participants grid paging (offset cursor returned by the server). */
+export class CouncilListenersQueryDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,6}$/)
+  cursor?: string;
+}
+
+export const COUNCIL_IMAGE_URL_MAX = 2048;
+
+/** «عرض صورة» (Gold): an uploaded image, or a photo from one of my listings. */
+export class CouncilImageDto {
+  @IsString()
+  @MaxLength(COUNCIL_IMAGE_URL_MAX)
+  @IsUrl(MEDIA_URL_OPTS)
+  imageUrl!: string;
+
+  @IsOptional()
+  @IsUUID()
+  listingId?: string;
 }
