@@ -174,12 +174,21 @@ export class UploadService {
     const dto = { ...rawDto, mimetype: normalizeUploadMime(rawDto.mimetype) };
 
     const count = dto.count ?? 1;
+    const signFormats = dto.formats === 'signed';
+    if (
+      !signFormats &&
+      process.env.UPLOAD_REQUIRE_SIGNED_FORMATS === 'true' &&
+      getStorageProvider() === 'cloudinary'
+    ) {
+      throwApi(426, 'app_update_required', 'حدّث التطبيق لرفع الصور والفيديو.');
+    }
+    // Every slot carries the uploader: public media goes to a per-user folder
+    // (ownership is checked when the URL is saved) and new builds get a signed
+    // `allowed_formats`.
     const presignOptions =
-      dto.folder === 'support'
-        ? { userId: user.userId }
-        : dto.folder === 'messages' && dto.delivery === 'authenticated'
-          ? { userId: user.userId, protectedDelivery: true }
-          : undefined;
+      dto.folder === 'messages' && dto.delivery === 'authenticated'
+        ? { userId: user.userId, protectedDelivery: true, signFormats }
+        : { userId: user.userId, signFormats };
 
     await this.enforceUploadRateLimit(user.userId, count);
 

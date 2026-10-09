@@ -19,6 +19,7 @@ import {
   postViewDedupeKey,
   resolvePostViewerKey,
 } from './lib/post-view-dedupe';
+import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 
 const PAGE_SIZE = 20;
 
@@ -310,6 +311,10 @@ export class PostsService {
     if (!hasText && !hasMedia) {
       throwApi(400, 'empty_post', 'اكتب نصاً أو أضف صورة أو فيديو');
     }
+    await assertUserMediaUrls(
+      [...media.map((m) => m.url), ...(images ?? []), image],
+      user.userId,
+    );
     const post = await this.repo.create({
       content: dto.content,
       arabicContent: dto.arabicContent,
@@ -400,6 +405,20 @@ export class PostsService {
           : dto.image !== undefined
             ? normalizeCreateMedia({ image: dto.image })
             : null;
+    if (mediaPatch) {
+      await assertUserMediaUrls(
+        [
+          ...mediaPatch.media.map((m) => m.url),
+          ...mediaPatch.images,
+          mediaPatch.image,
+        ],
+        post.authorId,
+        {
+          existing: await this.repo.findMediaUrls(id),
+          allowAnyOwner: user.role === 'ADMIN',
+        },
+      );
+    }
 
     const updated = await this.repo.update(id, {
       content: dto.content,

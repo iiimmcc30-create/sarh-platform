@@ -44,7 +44,7 @@ describe('voice message uploads', () => {
       'messages',
       'audio/webm',
       300,
-      undefined,
+      expect.objectContaining({ signFormats: false }),
     );
   });
 
@@ -94,7 +94,7 @@ describe('voice message uploads', () => {
       'messages',
       'audio/mp4',
       300,
-      { userId: 'user-a', protectedDelivery: true },
+      { userId: 'user-a', protectedDelivery: true, signFormats: false },
     );
     // Old app builds (no `delivery`) keep the legacy public slot.
     await service.presign(jwt, { mimetype: 'audio/mp4', folder: 'messages' });
@@ -102,7 +102,7 @@ describe('voice message uploads', () => {
       'messages',
       'audio/mp4',
       300,
-      undefined,
+      expect.objectContaining({ signFormats: false }),
     );
     // `delivery` is ignored outside the messages folder.
     await service.presign(jwt, {
@@ -114,7 +114,7 @@ describe('voice message uploads', () => {
       'listings',
       'image/jpeg',
       300,
-      undefined,
+      expect.objectContaining({ signFormats: false }),
     );
   });
 });

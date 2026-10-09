@@ -24,6 +24,7 @@ import {
 import { resolveVerifiedSince } from '../lib/verified-since';
 import { normalizeProfileLinks, readProfileLinks } from '../lib/profile-links';
 import { ProfileViewsService } from './profile-views.service';
+import { assertUserMediaUrls } from '../../shared/lib/media-ownership';
 
 const MIN_RATING = 1;
 const MAX_RATING = 5;
@@ -173,6 +174,17 @@ export class UsersService {
         }
         birthDate = parsed;
       }
+    }
+
+    if (typeof dto.avatar === 'string' || typeof dto.coverImage === 'string') {
+      const current = (await this.repo.findUserById(id, {
+        avatar: true,
+        coverImage: true,
+      })) as { avatar?: string | null; coverImage?: string | null } | null;
+      await assertUserMediaUrls([dto.avatar, dto.coverImage], id, {
+        existing: [current?.avatar, current?.coverImage],
+        allowAnyOwner: user.role === 'ADMIN' && id !== user.userId,
+      });
     }
 
     let profileLinks: { url: string; label?: string }[] | undefined;

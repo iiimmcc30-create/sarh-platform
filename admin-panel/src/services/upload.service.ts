@@ -16,6 +16,8 @@ type CloudinaryUploadSlot = {
   signature: string;
   folder: string;
   publicId: string;
+  /** Signed `allowed_formats` — must be echoed back when present. */
+  allowedFormats?: string;
 };
 
 type LocalUploadSlot = {
@@ -43,6 +45,7 @@ async function uploadToCloudinary(
   form.append('signature', slot.signature);
   form.append('folder', slot.folder);
   form.append('public_id', slot.publicId);
+  if (slot.allowedFormats) form.append('allowed_formats', slot.allowedFormats);
 
   const res = await fetch(slot.uploadUrl, { method: 'POST', body: form });
   const json = (await res.json().catch(() => ({}))) as {
@@ -102,6 +105,7 @@ export async function uploadImageToFolder(
     mimetype: file.type,
     folder,
     count: 1,
+    formats: 'signed',
   });
 
   const { urls, maxSizeMb = 20 } = unwrap(presignRes);
@@ -140,6 +144,7 @@ export async function uploadEditorialStoryImage(file: File): Promise<string> {
     mimetype: file.type,
     folder: 'stories',
     count: 1,
+    formats: 'signed',
   });
 
   const { urls, maxSizeMb = 20 } = unwrap(presignRes);
@@ -179,6 +184,7 @@ export async function uploadListingMedia(file: File): Promise<string> {
     mimetype: file.type,
     folder: 'listings',
     count: 1,
+    formats: 'signed',
   });
 
   const { urls, maxSizeMb = 20 } = unwrap(presignRes);

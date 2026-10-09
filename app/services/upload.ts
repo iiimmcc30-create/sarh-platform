@@ -29,6 +29,8 @@ type CloudinaryUploadSlot = {
   publicId: string;
   /** Protected chat uploads: signed Cloudinary delivery type (sent as `type`). */
   type?: 'authenticated';
+  /** Signed `allowed_formats` (sent back as `allowed_formats` when present). */
+  allowedFormats?: string;
 };
 
 type LocalUploadSlot = {
@@ -215,6 +217,7 @@ async function uploadWithProgress(
     form.append('folder', c.folder);
     form.append('public_id', c.publicId);
     if (c.type) form.append('type', c.type);
+    if (c.allowedFormats) form.append('allowed_formats', c.allowedFormats);
     const res = await xhrSend('POST', c.uploadUrl, form, common);
     const json = parseJson(res.body);
     if (res.status < 200 || res.status >= 300 || !json.secure_url) {
@@ -285,6 +288,7 @@ async function uploadToCloudinary(
   form.append('folder', slot.folder);
   form.append('public_id', slot.publicId);
   if (slot.type) form.append('type', slot.type);
+  if (slot.allowedFormats) form.append('allowed_formats', slot.allowedFormats);
 
   const res = await fetch(slot.uploadUrl, { method: 'POST', body: form });
   const json = await res.json().catch(() => ({}));
@@ -360,6 +364,8 @@ export async function uploadMediaFromUri(
       mimetype,
       folder,
       count: 1,
+      // Signed `allowed_formats`: Cloudinary refuses any other file type.
+      formats: 'signed',
       // Chat media: protected (signed, participant-only) delivery for new uploads.
       ...(folder === 'messages' && options ? { delivery: 'authenticated' } : {}),
     }),
@@ -473,7 +479,7 @@ export async function uploadSupportFileFromUri(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ mimetype, folder: 'support', count: 1 }),
+    body: JSON.stringify({ mimetype, folder: 'support', count: 1, formats: 'signed' }),
   });
 
   const presignJson = await presignRes.json().catch(() => ({}));

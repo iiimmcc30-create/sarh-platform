@@ -19,6 +19,7 @@ import {
 import { StoriesRepository } from './repositories/stories.repository';
 import { StoryViewRepository } from './repositories/story-view.repository';
 import { StoryReactionRepository } from './repositories/story-reaction.repository';
+import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 
 type StoryRow = Awaited<
   ReturnType<StoriesRepository['findActiveStories']>
@@ -253,6 +254,7 @@ export class StoriesService {
   }
 
   async createStory(user: JwtPayload, dto: CreateStoryDto) {
+    const listingMedia: Array<string | null> = [];
     if (dto.listingId) {
       const listing = await this.repo.findListingOwnedByUser(
         dto.listingId,
@@ -261,7 +263,16 @@ export class StoriesService {
       if (!listing) {
         throwApi(400, 'invalid_listing', 'الإعلان غير موجود أو غير مملوك لك');
       }
+      // A story about my own listing may reuse that listing's photos/video.
+      listingMedia.push(
+        ...(listing.images ?? []),
+        listing.thumbnailUrl ?? null,
+        listing.videoUrl ?? null,
+      );
     }
+    await assertUserMediaUrls([dto.thumbnail, dto.mediaUrl], user.userId, {
+      existing: listingMedia,
+    });
 
     const expiresAt = storyExpiresAt();
     const duration = clampStoryDuration(

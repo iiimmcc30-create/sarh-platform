@@ -41,6 +41,15 @@ export class PresignUploadDto {
   @IsOptional()
   @IsIn(['authenticated'])
   delivery?: 'authenticated';
+
+  /**
+   * Opt-in signed `allowed_formats` on Cloudinary slots. New app builds send
+   * `signed` and echo `allowedFormats` back as the `allowed_formats` field;
+   * older builds omit it and keep their exact signed params.
+   */
+  @IsOptional()
+  @IsIn(['signed'])
+  formats?: 'signed';
 }
 
 export { UPLOAD_FOLDERS };

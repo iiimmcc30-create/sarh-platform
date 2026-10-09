@@ -56,7 +56,7 @@ describe('UploadService presign (existing storage)', () => {
       'listings',
       'image/jpeg',
       300,
-      undefined,
+      expect.objectContaining({ signFormats: false }),
     );
     expect(result.maxSizeMb).toBe(20);
     expect(result.urls[0]).toEqual(
@@ -94,7 +94,7 @@ describe('UploadService presign (existing storage)', () => {
       'posts',
       'video/mp4',
       300,
-      undefined,
+      expect.objectContaining({ signFormats: false }),
     );
     expect(video.maxSizeMb).toBe(50);
   });
@@ -117,5 +117,35 @@ describe('UploadService presign (existing storage)', () => {
     await expect(
       service.presign(jwt(), { mimetype: 'image/png', folder: 'listings' }),
     ).rejects.toMatchObject({ status: 503 } satisfies Partial<ApiException>);
+  });
+
+  it('opts new builds into signed allowed_formats', async () => {
+    (getPresignedUploadUrl as jest.Mock).mockResolvedValue({
+      provider: 'cloudinary',
+      uploadUrl: 'https://api.cloudinary.com/v1_1/demo/image/upload',
+    });
+    await service.presign(jwt(), {
+      mimetype: 'image/jpeg',
+      folder: 'listings',
+      formats: 'signed',
+    });
+    expect(getPresignedUploadUrl).toHaveBeenLastCalledWith(
+      'listings',
+      'image/jpeg',
+      300,
+      expect.objectContaining({ signFormats: true }),
+    );
+  });
+
+  it('can refuse unconstrained slots once old builds are retired', async () => {
+    (getStorageProvider as jest.Mock).mockReturnValue('cloudinary');
+    process.env.UPLOAD_REQUIRE_SIGNED_FORMATS = 'true';
+    try {
+      await expect(
+        service.presign(jwt(), { mimetype: 'image/jpeg', folder: 'listings' }),
+      ).rejects.toMatchObject({ status: 426 });
+    } finally {
+      delete process.env.UPLOAD_REQUIRE_SIGNED_FORMATS;
+    }
   });
 });

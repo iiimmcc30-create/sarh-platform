@@ -75,6 +75,7 @@ import {
   resolveListingGeo,
   type ListingGeoFields,
 } from '../geo/lib/listing-geo-input';
+import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 
 const PAGE_SIZE = 20;
 /** Radius mode scans the geo keyset in batches and filters each batch with Prisma. */
@@ -604,6 +605,10 @@ export class ListingsService {
       dto.thumbnailUrl,
       dto.videoUrl,
     ]);
+    await assertUserMediaUrls(
+      [...(dto.images ?? []), dto.thumbnailUrl, dto.videoUrl],
+      user.userId,
+    );
 
     let legacyCategory = dto.category;
     let categoryId = dto.categoryId ?? null;
@@ -781,6 +786,18 @@ export class ListingsService {
       dto.thumbnailUrl,
       dto.videoUrl,
     ]);
+    await assertUserMediaUrls(
+      [...(dto.images ?? []), dto.thumbnailUrl, dto.videoUrl],
+      listing.sellerId ?? user.userId,
+      {
+        existing: [
+          ...(listing.images ?? []),
+          listing.thumbnailUrl,
+          listing.videoUrl,
+        ],
+        allowAnyOwner: user.role === 'ADMIN',
+      },
+    );
 
     let category = dto.category ?? listing.category;
     let categoryId =

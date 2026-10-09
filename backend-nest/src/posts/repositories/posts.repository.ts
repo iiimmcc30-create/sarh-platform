@@ -122,6 +122,20 @@ export class PostsRepository {
     return this.prisma.postLike.count({ where: { postId } });
   }
 
+  /** Media URLs currently on a post (kept as-is on edit). */
+  async findMediaUrls(id: string): Promise<string[]> {
+    const post = await this.prisma.post.findUnique({
+      where: { id },
+      select: { image: true, images: true, media: { select: { url: true } } },
+    });
+    if (!post) return [];
+    return [
+      ...(post.image ? [post.image] : []),
+      ...(post.images ?? []),
+      ...post.media.map((m) => m.url),
+    ];
+  }
+
   findOwnerMeta(id: string) {
     return this.prisma.post.findFirst({
       where: { id, ...notDeleted },

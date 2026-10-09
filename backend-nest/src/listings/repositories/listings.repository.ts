@@ -117,6 +117,8 @@ export class ListingsRepository {
         country: true,
         weightKg: true,
         videoUrl: true,
+        images: true,
+        thumbnailUrl: true,
         pinned: true,
         featured: true,
         pinnedUntil: true,

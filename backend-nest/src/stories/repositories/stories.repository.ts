@@ -90,7 +90,7 @@ export class StoriesRepository {
   findListingOwnedByUser(listingId: string, userId: string) {
     return this.prisma.listing.findFirst({
       where: { id: listingId, sellerId: userId, status: 'active' },
-      select: { id: true },
+      select: { id: true, images: true, thumbnailUrl: true, videoUrl: true },
     });
   }
 

@@ -13,6 +13,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v2 as cloudinary } from 'cloudinary';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger';
+import { allowedFormatsForMime } from './upload-formats';
 
 export type StorageProvider = 'cloudinary' | 's3' | 'local';
 export type UploadFolder =
@@ -51,6 +52,11 @@ export type CloudinaryUploadSlot = {
    * Legacy slots omit it, so older app builds keep their exact signed params.
    */
   type?: 'authenticated';
+  /**
+   * Signed `allowed_formats` (comma list). Present only when the client asked
+   * for constrained slots; it must then be sent as the `allowed_formats` field.
+   */
+  allowedFormats?: string;
 };
 
 export type LocalUploadSlot = {
@@ -209,9 +215,23 @@ export function protectedMessageFolder(userId: string): string {
   return `${CLOUDINARY_BASE_FOLDER}/messages/${userId}`;
 }
 
+/** Public user media: new uploads go to `<base>/<folder>/<uploaderId>/`. */
+const PER_USER_MEDIA_FOLDERS = new Set<UploadFolder>([
+  'avatars',
+  'listings',
+  'stories',
+  'posts',
+  'temp',
+]);
+
 function cloudinaryFolder(folder: UploadFolder, userId?: string): string {
   if (folder === 'support') {
     if (!userId) throw new Error(`userId is required for ${folder} uploads`);
+    return `${CLOUDINARY_BASE_FOLDER}/${folder}/${userId}`;
+  }
+  // Per-user folder lets the API check, when a listing/post/story/profile is
+  // saved, that each URL is the saver's own upload (shared/lib/media-ownership).
+  if (userId && PER_USER_MEDIA_FOLDERS.has(folder)) {
     return `${CLOUDINARY_BASE_FOLDER}/${folder}/${userId}`;
   }
   return `${CLOUDINARY_BASE_FOLDER}/${folder}`;
@@ -246,6 +266,7 @@ async function getCloudinaryUploadSlot(
   userId?: string,
   mimetype?: string,
   protectedDelivery = false,
+  signFormats = false,
 ): Promise<CloudinaryUploadSlot> {
   if (!isCloudinaryConfigured()) {
     throw new Error('Cloudinary is not configured');
@@ -265,6 +286,13 @@ async function getCloudinaryUploadSlot(
     public_id: publicId,
   };
   if (isProtected) paramsToSign.type = 'authenticated';
+  // Signed `allowed_formats`: Cloudinary rejects any other file type, even if
+  // the client lies about its MIME. Only for clients that send the field back
+  // (older builds would fail the signature otherwise).
+  const allowedFormats = signFormats
+    ? allowedFormatsForMime(mimetype ?? '')
+    : undefined;
+  if (allowedFormats) paramsToSign.allowed_formats = allowedFormats;
 
   const signature = cloudinary.utils.api_sign_request(
     paramsToSign,
@@ -280,6 +308,7 @@ async function getCloudinaryUploadSlot(
     folder: targetFolder,
     publicId,
     ...(isProtected ? { type: 'authenticated' as const } : {}),
+    ...(allowedFormats ? { allowedFormats } : {}),
   };
 }
 
@@ -311,6 +340,8 @@ export type PresignOptions = {
   userId?: string;
   /** Chat media only: upload as Cloudinary `authenticated` (signed delivery). */
   protectedDelivery?: boolean;
+  /** Sign `allowed_formats` into the Cloudinary slot (new app builds). */
+  signFormats?: boolean;
 };
 
 export async function getPresignedUploadUrl(
@@ -333,6 +364,7 @@ export async function getPresignedUploadUrl(
       userId,
       mimetype,
       options?.protectedDelivery === true,
+      options?.signFormats === true,
     );
   }
 
