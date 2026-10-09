@@ -55,12 +55,16 @@ describe('iOS-style bottom sheet motion', () => {
       'components/market/RegionCityPicker.tsx',
       'components/live/LiveBroadcastPledgeModal.tsx',
       'components/support/SupportFlowSheet.tsx',
+      'components/ui/VerifiedInfoSheet.tsx',
+      'components/listing/ListingFeePaymentSheet.tsx',
+      'components/listing/ListingDeleteDialog.tsx',
+      'components/feature/chat/ChatActionsSheet.tsx',
     ]) {
       const s = src(file);
       expect(s).toContain('<SheetModal');
       expect(s).not.toContain('<Modal');
     }
-    for (const file of ['components/feature/NewMessageSheet.tsx', 'components/feature/chat/ChatActionsSheet.tsx']) {
+    for (const file of ['components/feature/NewMessageSheet.tsx']) {
       expect(src(file)).toContain('Animated.spring(progress, { toValue: 1, ...spring.ios, useNativeDriver: true })');
     }
   });

@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
   Image,
   Pressable,
   StyleSheet,
@@ -28,6 +27,7 @@ import {
 } from '@/services/collections';
 import { needsUpload } from '@/services/mediaUri';
 import { resolveMediaUrl } from '@/services/media';
+import { showAlert } from '@/lib/confirmDialog';
 
 type Mode = 'create' | 'edit';
 
@@ -76,7 +76,7 @@ export default function CollectionFormScreen() {
   const pickCover = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول إلى مكتبة الصور');
+      showAlert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول إلى مكتبة الصور');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

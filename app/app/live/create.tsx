@@ -7,7 +7,6 @@ import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -32,6 +31,7 @@ import { API_BASE } from '@/services/api';
 import { showLiveBroadcastComingSoonAlert, showLiveStreamEligibilityDeniedAlert } from '@/lib/liveStreamAccess';
 import { SarhBackButton, SarhChip } from '@/design-system/components';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { showAlert } from '@/lib/confirmDialog';
 
 const AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID ?? '';
 /** Disabled until app launch — see liveStreamAccess.ts */
@@ -196,7 +196,7 @@ export default function CreateStreamScreen() {
           });
           setAccessDenied(true);
         } else {
-          Alert.alert('خطأ', msg);
+          showAlert('خطأ', msg);
         }
         setLoading(false);
         setShowPledge(false);
@@ -223,7 +223,7 @@ export default function CreateStreamScreen() {
         },
       });
     } catch {
-      Alert.alert('خطأ في الاتصال', 'تأكد من الإنترنت وحاول مجدداً');
+      showAlert('خطأ في الاتصال', 'تأكد من الإنترنت وحاول مجدداً');
       setLoading(false);
       setShowPledge(false);
     }

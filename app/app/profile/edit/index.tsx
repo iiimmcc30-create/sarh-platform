@@ -4,7 +4,7 @@ import { Image } from '@/components/ui/AppImage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
@@ -19,6 +19,7 @@ import { profileLinksSummary } from '@/lib/profileLinks';
 import { AppText, SarhCard, SarhDivider } from '@/design-system/components';
 import { FullBleed, Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { avatarUrl } from '@/lib/listingMedia';
+import { showAlert } from '@/lib/confirmDialog';
 
 export default function EditProfileScreen() {
   const { colors } = useTheme();
@@ -38,7 +39,7 @@ export default function EditProfileScreen() {
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول إلى مكتبة الصور');
+      showAlert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول إلى مكتبة الصور');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -79,7 +80,7 @@ export default function EditProfileScreen() {
   const pickCover = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول إلى مكتبة الصور');
+      showAlert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول إلى مكتبة الصور');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

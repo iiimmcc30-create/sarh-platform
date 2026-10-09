@@ -23,7 +23,6 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  Alert,
   Linking,
   Pressable,
   Share,
@@ -62,6 +61,7 @@ import {
 import { usePaidServices } from '@/hooks/usePaidServices';
 import { GoldSellerLabel } from '@/components/feature/GoldSellerLabel';
 import { firstEnabledPromoteGoal, isPromoteGoalEnabled } from '@/services/paidServices';
+import { showAlert } from '@/lib/confirmDialog';
 
 function safeIndex(index: number, length: number): number {
   if (length <= 0) return 0;
@@ -260,7 +260,7 @@ export default function ListingDetailScreen() {
   const openSellerChat = (draftMessage?: string) => {
     if (!listing || isManagedListing(listing) || !listing.seller.id) return;
     if (!isAuthenticated) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لمراسلة البائع');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول لمراسلة البائع');
       return;
     }
     // General 1:1 with the listing owner (pair thread reused by the chat
@@ -278,24 +278,24 @@ export default function ListingDetailScreen() {
   const openSellerCall = async () => {
     if (!listing) return;
     if (!listing.contactPhone) {
-      Alert.alert('لا يوجد رقم', 'لم يُذكر رقم تواصل في هذا الإعلان.');
+      showAlert('لا يوجد رقم', 'لم يُذكر رقم تواصل في هذا الإعلان.');
       return;
     }
     const phone = listing.contactPhone.replace(/\D/g, '');
     if (!phone) {
-      Alert.alert('رقم غير صالح', 'تعذّر قراءة رقم التواصل.');
+      showAlert('رقم غير صالح', 'تعذّر قراءة رقم التواصل.');
       return;
     }
     try {
       await Linking.openURL(`tel:${phone}`);
     } catch {
-      Alert.alert('تعذّر الاتصال', 'تحقق من صحة رقم التواصل.');
+      showAlert('تعذّر الاتصال', 'تحقق من صحة رقم التواصل.');
     }
   };
 
   const handleFollowSeller = async () => {
     if (!listing || !accessToken || isFollowing === null) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
       return;
     }
     setFollowLoading(true);
@@ -385,14 +385,14 @@ export default function ListingDetailScreen() {
   const categoryLabel = CATEGORY_LABELS[listing.category] ?? '';
 
   const handleStartLive = () => {
-    Alert.alert('البث المباشر', 'قريباً 🔴\nميزة البث المباشر للإعلانات ستتوفر قريباً.');
+    showAlert('البث المباشر', 'قريباً 🔴\nميزة البث المباشر للإعلانات ستتوفر قريباً.');
   };
 
   const canEditListing = listingAllowsOwnerEdit(listing.editCount, user?.role);
 
   const handleEdit = () => {
     if (!canEditListing) {
-      Alert.alert('تعديل غير متاح', LISTING_EDIT_LIMIT_MESSAGE_AR);
+      showAlert('تعديل غير متاح', LISTING_EDIT_LIMIT_MESSAGE_AR);
       return;
     }
     void navigateToCreateListing({ editId: listing.id });

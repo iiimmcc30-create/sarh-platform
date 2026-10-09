@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 
 type PromotionStatsSheetProps = {
   visible: boolean;
@@ -56,7 +57,7 @@ export function PromotionStatsSheet({
 
   return (
     <SheetModal visible={visible} onClose={onClose}>
-      <View style={[styles.sheet, getRtlDirection()]}>
+      <SheetSurface style={styles.sheet}>
         <View style={[styles.header, getRtlRow()]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, getRtlText()]}>إحصائيات التعزيز</Text>
@@ -95,7 +96,7 @@ export function PromotionStatsSheet({
             </View>
           </>
         )}
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
@@ -103,13 +104,7 @@ export function PromotionStatsSheet({
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     sheet: {
-      backgroundColor: colors.bgElevated,
-      borderTopLeftRadius: radius.xxl,
-      borderTopRightRadius: radius.xxl,
       padding: spacing.lg,
-      paddingBottom: spacing.xxl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
       gap: spacing.md,
     },
     header: {

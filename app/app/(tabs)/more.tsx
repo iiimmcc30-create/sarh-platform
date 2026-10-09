@@ -14,7 +14,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   DevSettings,
   I18nManager,
   Linking,
@@ -27,6 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoverTrailRow } from '@/components/ui/CoverTrailRow';
 import { AppText } from '@/components/ui/AppText';
+import { showAlert } from '@/lib/confirmDialog';
 
 const TAB_CLEARANCE = ds.tabBar.height + ds.tabBar.fabLift + ds.space.xxl + 24;
 const APP_STORE_URL = 'https://apps.apple.com/app/id0000000000';
@@ -65,7 +65,7 @@ export default function MoreScreen() {
       const needsRtl = next === 'ar';
       if (I18nManager.isRTL !== needsRtl) {
         setupRtl(next);
-        Alert.alert('تغيير اللغة', 'سيتم تطبيق اتجاه الواجهة بعد إعادة تشغيل التطبيق.', [
+        showAlert('تغيير اللغة', 'سيتم تطبيق اتجاه الواجهة بعد إعادة تشغيل التطبيق.', [
           {
             text: 'حسنًا',
             onPress: () => {

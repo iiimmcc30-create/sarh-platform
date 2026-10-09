@@ -19,8 +19,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 
 type Props = {
   visible: boolean;
@@ -34,7 +34,6 @@ type Props = {
  * pick an admin region → its cities appear; Apply commits the draft filter.
  */
 export function RegionCityPicker({ visible, selection, onClose, onSelect }: Props) {
-  const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { styles, colors } = useThemedStyles((theme) => ({
     styles: createStyles(theme.colors),
@@ -89,13 +88,7 @@ export function RegionCityPicker({ visible, selection, onClose, onSelect }: Prop
 
   return (
     <SheetModal visible={visible} onClose={onClose} backdropColor="rgba(0,0,0,0.55)">
-      <View
-        style={[
-          styles.sheet,
-          { maxHeight: sheetMaxHeight, paddingBottom: Math.max(insets.bottom, spacing.md) },
-        ]}
-      >
-        <View style={styles.handle} />
+      <SheetSurface style={[styles.sheet, { maxHeight: sheetMaxHeight }]}>
 
         <View style={[styles.header, getRtlRow()]}>
           <View style={styles.headerTextShell}>
@@ -303,30 +296,14 @@ export function RegionCityPicker({ visible, selection, onClose, onSelect }: Prop
             <Text style={styles.resetText}>إعادة تعيين</Text>
           </Pressable>
         </View>
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    sheet: {
-      backgroundColor: colors.bgElevated || colors.bgDeep,
-      borderTopLeftRadius: 22,
-      borderTopRightRadius: 22,
-      paddingTop: spacing.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
-      borderBottomWidth: 0,
-    },
-    handle: {
-      alignSelf: 'center',
-      width: 42,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.borderMid || colors.borderSoft,
-      marginBottom: spacing.sm,
-    },
+    sheet: {},
     header: {
       alignItems: 'flex-start',
       justifyContent: 'space-between',

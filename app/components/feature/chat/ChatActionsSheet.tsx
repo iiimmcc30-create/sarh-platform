@@ -1,25 +1,16 @@
 /**
  * Chat header «المزيد» sheet — conversation actions (mute, block, profile).
- * RN Animated + Modal only (no new libraries), same motion as NewMessageSheet.
+ * Built on the shared sheet system (SheetModal + SheetSurface): spring up, dim
+ * backdrop, drag down to dismiss, surface flush to the bottom edge.
  */
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 import { AppText } from '@/design-system/components';
-import { radius, space, spring } from '@/design-system';
+import { space } from '@/design-system';
 import { useTheme } from '@/hooks/useTheme';
-import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Switch,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const SHEET_OFFSET = 360;
+import { useRef } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 export type ChatActionsSheetProps = {
   visible: boolean;
@@ -50,66 +41,23 @@ export function ChatActionsSheet({
   onViewProfile,
 }: ChatActionsSheetProps) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const [progress] = useState(() => new Animated.Value(0));
-  const [mounted, setMounted] = useState(visible);
   const afterCloseRef = useRef<(() => void) | null>(null);
-
-  const [prevVisible, setPrevVisible] = useState(visible);
-  if (visible !== prevVisible) {
-    setPrevVisible(visible);
-    if (visible) setMounted(true);
-  }
-
-  useEffect(() => {
-    if (!mounted) return;
-    // Open: iOS spring; close: quick ease-in.
-    (visible
-      ? Animated.spring(progress, { toValue: 1, ...spring.ios, useNativeDriver: true })
-      : Animated.timing(progress, {
-          toValue: 0,
-          duration: 180,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        })
-    ).start(({ finished }) => {
-      if (!finished || visible) return;
-      setMounted(false);
-      // A follow-up modal (block confirmation) opens only once this one is gone.
-      const next = afterCloseRef.current;
-      afterCloseRef.current = null;
-      next?.();
-    });
-  }, [mounted, progress, visible]);
-
-  if (!mounted) return null;
 
   const closeThen = (fn: () => void) => {
     afterCloseRef.current = fn;
     onClose();
   };
 
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [SHEET_OFFSET, 0] });
+  // A follow-up modal (block confirmation) opens only once this one is gone.
+  const runAfterClose = () => {
+    const next = afterCloseRef.current;
+    afterCloseRef.current = null;
+    next?.();
+  };
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: progress }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="إغلاق" />
-      </Animated.View>
-      <Animated.View
-        accessibilityViewIsModal
-        testID="chat-actions-sheet"
-        style={[
-          styles.sheet,
-          {
-            paddingBottom: Math.max(insets.bottom, space[12]),
-            backgroundColor: colors.bgElevated,
-            borderColor: colors.borderSoft,
-            transform: [{ translateY }],
-          },
-        ]}
-      >
-        <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
+    <SheetModal visible={visible} onClose={onClose} onClosed={runAfterClose}>
+      <SheetSurface testID="chat-actions-sheet">
         <AppText
           variant="label"
           color="textSecondary"
@@ -124,7 +72,7 @@ export function ChatActionsSheet({
         <Pressable
           onPress={muteAvailable && !muteBusy ? onToggleMute : undefined}
           disabled={!muteAvailable || muteBusy}
-          style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgSurface }]}
+          style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgElevated }]}
           accessibilityRole="switch"
           accessibilityLabel="كتم المحادثة"
           accessibilityState={{ checked: muted, disabled: !muteAvailable || muteBusy }}
@@ -167,7 +115,7 @@ export function ChatActionsSheet({
         {onViewProfile ? (
           <Pressable
             onPress={() => closeThen(onViewProfile)}
-            style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgSurface }]}
+            style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgElevated }]}
             accessibilityRole="button"
             accessibilityLabel="عرض الملف الشخصي"
           >
@@ -184,7 +132,7 @@ export function ChatActionsSheet({
 
         <Pressable
           onPress={() => closeThen(onBlockToggle)}
-          style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgSurface }]}
+          style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgElevated }]}
           accessibilityRole="button"
           accessibilityLabel={blocked ? 'إلغاء حظر الحساب' : 'حظر الحساب'}
           testID="chat-action-block"
@@ -203,30 +151,12 @@ export function ChatActionsSheet({
             ) : null}
           </View>
         </Pressable>
-      </Animated.View>
-    </Modal>
+      </SheetSurface>
+    </SheetModal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { backgroundColor: 'rgba(16, 24, 32, 0.45)' },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopLeftRadius: radius[20],
-    borderTopRightRadius: radius[20],
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingTop: space[8],
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: space[8],
-  },
   title: { paddingHorizontal: space[24], paddingBottom: space[8] },
   row: {
     flexDirection: 'row',

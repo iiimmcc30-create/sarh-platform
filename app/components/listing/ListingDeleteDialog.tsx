@@ -1,8 +1,10 @@
 import { radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
-import { getRtlText, getRtlDirection, getRtlRow } from '@/lib/rtl';
+import { getRtlText, getRtlRow } from '@/lib/rtl';
 import { useState } from 'react';
-import { Modal, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 import { SarhButton } from '@/design-system/components';
 
 type ListingDeleteDialogProps = {
@@ -36,11 +38,8 @@ export function ListingDeleteDialog({
   const canConfirm = sold !== null && reason.trim().length >= 2;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        <View style={[styles.dialog, getRtlDirection()]}>
+    <SheetModal visible={visible} onClose={handleClose} dismissible={!submitting} keyboardAvoiding>
+      <SheetSurface style={styles.dialog}>
           <Text style={[styles.title, getRtlText()]}>هل تم بيع هذا الإعلان؟</Text>
           <View style={[styles.choices, getRtlRow()]}>
             <Pressable
@@ -82,25 +81,15 @@ export function ListingDeleteDialog({
               <Text style={[styles.cancelText, getRtlText()]}>إلغاء</Text>
             </Pressable>
           )}
-        </View>
-      </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      </SheetSurface>
+    </SheetModal>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: colors.bgOverlay,
-      justifyContent: 'center',
-      padding: spacing.lg,
-    },
     dialog: {
-      backgroundColor: colors.bgElevated,
-      borderRadius: radius.xxl,
-      padding: spacing.lg,
+      paddingHorizontal: spacing.lg,
       gap: spacing.md,
     },
     title: { ...typography.h3, color: colors.textPrimary },

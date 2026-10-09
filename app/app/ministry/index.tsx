@@ -36,7 +36,6 @@ import type { Post } from '@/services/types';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
   Linking,
   Pressable,
   Share,
@@ -45,6 +44,7 @@ import {
 } from 'react-native';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 import { avatarUrl } from '@/lib/listingMedia';
+import { showAlert } from '@/lib/confirmDialog';
 
 type MinistryTab = 'info' | 'posts' | 'services';
 
@@ -150,11 +150,11 @@ export default function MinistryProfileScreen() {
 
   const handleFollow = async () => {
     if (!account?.id) {
-      Alert.alert('الحساب', 'تعذّر تحميل حساب الوزارة حالياً');
+      showAlert('الحساب', 'تعذّر تحميل حساب الوزارة حالياً');
       return;
     }
     if (!isAuthenticated) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
       return;
     }
     if (followLoading) return;

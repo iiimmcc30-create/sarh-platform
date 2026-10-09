@@ -24,13 +24,14 @@ import { mapPostFromApi } from '@/services/posts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   StyleSheet,
   View,
 } from 'react-native';
 import { ComposerKeyboardView } from '@/components/ui/ComposerKeyboardView';
 import { useComposerKeyboardPad } from '@/hooks/useComposerKeyboardPad';
 
+
+import { showAlert } from '@/lib/confirmDialog';
 
 export default function PostDetailScreen() {
   const params = useLocalSearchParams<{ id: string; focusComment?: string; replyId?: string }>();
@@ -86,12 +87,12 @@ export default function PostDetailScreen() {
         }
       }
       if (!cachedRef.current) {
-        Alert.alert('غير موجود', 'تعذّر العثور على هذا المنشور');
+        showAlert('غير موجود', 'تعذّر العثور على هذا المنشور');
         router.back();
       }
     } catch {
       if (!cachedRef.current) {
-        Alert.alert('خطأ', 'تعذّر تحميل المنشور');
+        showAlert('خطأ', 'تعذّر تحميل المنشور');
         router.back();
       }
     } finally {

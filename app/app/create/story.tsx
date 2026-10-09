@@ -12,7 +12,6 @@ import type { ImagePickerAsset } from 'expo-image-picker';
 import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
 import { StoryVideoTrimmer } from '@/components/feature/StoryVideoTrimmer';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -40,6 +39,7 @@ import {
   validateStoryVideoDuration,
   type StoryMediaKind,
 } from '@/lib/storyMedia';
+import { showAlert } from '@/lib/confirmDialog';
 
 type StoryDraft = {
   uri: string;
@@ -80,7 +80,7 @@ export default function CreateStoryScreen() {
     if (isVideo) {
       const durationSec = storyDurationFromAsset(asset.duration);
       if (durationSec != null && durationSec < STORY_MIN_DURATION_SEC) {
-        Alert.alert(
+        showAlert(
           'مدة الفيديو',
           `مدة الفيديو يجب أن تكون ${STORY_MIN_DURATION_SEC} ثوانٍ على الأقل`,
         );
@@ -97,7 +97,7 @@ export default function CreateStoryScreen() {
 
       const durationError = validateStoryVideoDuration(durationSec);
       if (durationError) {
-        Alert.alert('مدة الفيديو', durationError);
+        showAlert('مدة الفيديو', durationError);
         return;
       }
 
@@ -119,7 +119,7 @@ export default function CreateStoryScreen() {
   const pickFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور والفيديو لنشر قصة');
+      showAlert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور والفيديو لنشر قصة');
       return;
     }
 
@@ -138,7 +138,7 @@ export default function CreateStoryScreen() {
   const captureFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الكاميرا لالتقاط قصة');
+      showAlert('إذن مطلوب', 'يرجى السماح بالوصول إلى الكاميرا لالتقاط قصة');
       return;
     }
 
@@ -161,11 +161,11 @@ export default function CreateStoryScreen() {
 
   const handlePublish = async () => {
     if (!accessToken) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لنشر قصة');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول لنشر قصة');
       return;
     }
     if (!media) {
-      Alert.alert('محتوى مطلوب', 'اختر صورة أو فيديو للقصة أولاً');
+      showAlert('محتوى مطلوب', 'اختر صورة أو فيديو للقصة أولاً');
       return;
     }
 
@@ -223,14 +223,14 @@ export default function CreateStoryScreen() {
 
       if (!res.ok || !json.success) {
         const msg = json.messageAr || json.message || 'فشل نشر القصة';
-        Alert.alert('خطأ', msg);
+        showAlert('خطأ', msg);
         return;
       }
 
       await alertMessage('تم النشر', 'قصتك متاحة الآن لمدة ٢٤ ساعة');
       router.back();
     } catch (err: unknown) {
-      Alert.alert('خطأ', err instanceof Error ? err.message : 'تعذّر نشر القصة');
+      showAlert('خطأ', err instanceof Error ? err.message : 'تعذّر نشر القصة');
     } finally {
       setSubmitting(false);
       setPublishStage('idle');

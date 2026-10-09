@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,6 +26,7 @@ import { authFetch } from '@/services/authFetch';
 import { uploadMediaFromUri } from '@/services/upload';
 import { rtlInputText } from '@/lib/rtl';
 import { cloudinaryVideoFirstFrameUrl, avatarUrl } from '@/lib/listingMedia';
+import { showAlert } from '@/lib/confirmDialog';
 
 const MAX_POST_MEDIA = 4;
 const MAX_CHARS = 280;
@@ -72,12 +72,12 @@ export default function CreatePostScreen() {
         if (res.ok && json.success && json.data) {
           setArabicContent(json.data.arabicContent ?? json.data.content ?? '');
         } else {
-          Alert.alert('خطأ', 'تعذر تحميل المنشور');
+          showAlert('خطأ', 'تعذر تحميل المنشور');
           router.back();
         }
       } catch {
         if (active) {
-          Alert.alert('خطأ', 'تعذر تحميل المنشور');
+          showAlert('خطأ', 'تعذر تحميل المنشور');
           router.back();
         }
       } finally {
@@ -107,7 +107,7 @@ export default function CreatePostScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور والفيديو لإضافتها للمنشور');
+        showAlert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور والفيديو لإضافتها للمنشور');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -129,7 +129,7 @@ export default function CreatePostScreen() {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('إذن مطلوب', 'يرجى السماح باستخدام الكاميرا لالتقاط صورة أو فيديو');
+        showAlert('إذن مطلوب', 'يرجى السماح باستخدام الكاميرا لالتقاط صورة أو فيديو');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -172,7 +172,7 @@ export default function CreatePostScreen() {
       }
 
       if (draftMedia.length > 0 && uploaded.length === 0) {
-        Alert.alert('خطأ', 'فشل رفع الوسائط. حاول مجدداً.');
+        showAlert('خطأ', 'فشل رفع الوسائط. حاول مجدداً.');
         return;
       }
 
@@ -191,10 +191,10 @@ export default function CreatePostScreen() {
       if (success) {
         router.back();
       } else {
-        Alert.alert('خطأ', isEditing ? 'فشل تحديث المنشور.' : 'فشل نشر المنشور. يرجى المحاولة لاحقاً.');
+        showAlert('خطأ', isEditing ? 'فشل تحديث المنشور.' : 'فشل نشر المنشور. يرجى المحاولة لاحقاً.');
       }
     } catch {
-      Alert.alert('خطأ', 'حدث خطأ أثناء النشر. حاول مجدداً.');
+      showAlert('خطأ', 'حدث خطأ أثناء النشر. حاول مجدداً.');
     } finally {
       submittingRef.current = false;
       setSubmitting(false);

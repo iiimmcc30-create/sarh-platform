@@ -4,7 +4,7 @@ import { UserIdentityRow, USER_IDENTITY } from '@/components/ui/UserIdentityRow'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SkeletonRegion, UserIdentityRowSkeleton } from '@/components/ui/skeleton';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useLayout } from '@/hooks/useLayout';
@@ -21,6 +21,7 @@ import {
   setFollowUser,
   type ConnectionUser,
 } from '@/services/users';
+import { showAlert } from '@/lib/confirmDialog';
 
 type ConnectionsTab = 'followers' | 'following';
 
@@ -79,7 +80,7 @@ export default function ProfileConnectionsScreen() {
 
   const handleFollowToggle = async (user: ConnectionUser) => {
     if (!accessToken || followLoadingId === user.id) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول للمتابعة');
       return;
     }
     if (user.id === me.id) return;
@@ -104,7 +105,7 @@ export default function ProfileConnectionsScreen() {
     } catch (error) {
       if (__DEV__) console.warn('[Follow] connection mutation failed', error);
       await loadConnections();
-      Alert.alert('خطأ', 'تعذّرت المتابعة');
+      showAlert('خطأ', 'تعذّرت المتابعة');
     } finally {
       setFollowLoadingId(null);
     }

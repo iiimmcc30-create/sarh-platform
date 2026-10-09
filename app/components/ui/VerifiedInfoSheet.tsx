@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { AppText } from '@/design-system/components';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
@@ -24,14 +24,12 @@ export type VerifiedInfoSheetProps = {
  * drag down to dismiss) with the seal, the title and «موثّق منذ …» when known.
  */
 export function VerifiedInfoSheet({ visible, onClose, tier, verifiedSince }: VerifiedInfoSheetProps) {
-  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const since = formatVerifiedSince(verifiedSince);
 
   return (
     <SheetModal visible={visible} onClose={onClose} testID="verified-info-sheet">
-      <View style={[styles.sheet, getRtlDirection(), { paddingBottom: spacing.xl + insets.bottom }]}>
-        <View style={styles.grabber} />
+      <SheetSurface style={styles.sheet}>
         <VerificationBadge size={VERIFIED_SHEET_BADGE_SIZE} tier={tier} />
         <AppText variant="heading3" color="textPrimary" align="center" accessibilityRole="header">
           {VERIFIED_SHEET_TITLE}
@@ -41,7 +39,7 @@ export function VerifiedInfoSheet({ visible, onClose, tier, verifiedSince }: Ver
             {since}
           </AppText>
         ) : null}
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
@@ -49,22 +47,9 @@ export function VerifiedInfoSheet({ visible, onClose, tier, verifiedSince }: Ver
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     sheet: {
-      backgroundColor: colors.bgElevated,
-      borderTopLeftRadius: radius.xxl,
-      borderTopRightRadius: radius.xxl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
       alignItems: 'center',
       gap: spacing.sm,
-    },
-    grabber: {
-      width: 36,
-      height: 5,
-      borderRadius: 3,
-      backgroundColor: colors.borderStrong,
-      marginBottom: spacing.sm,
     },
   });
 }

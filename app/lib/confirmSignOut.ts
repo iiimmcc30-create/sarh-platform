@@ -1,4 +1,5 @@
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { showAlert } from '@/lib/confirmDialog';
 
 const TITLE = 'تسجيل الخروج';
 const MESSAGE = 'هل أنت متأكد أنك تريد الخروج من حسابك؟';
@@ -14,7 +15,7 @@ export function confirmSignOut(onConfirm: () => void | Promise<void>) {
     return;
   }
 
-  Alert.alert(TITLE, MESSAGE, [
+  showAlert(TITLE, MESSAGE, [
     { text: 'إلغاء', style: 'cancel' },
     { text: 'خروج', style: 'destructive', onPress: run },
   ]);

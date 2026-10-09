@@ -282,8 +282,8 @@ describe('chat header «المزيد» sheet', () => {
     expect(chat).toContain('onPress={() => setMoreOpen(true)}');
     expect(chat).toContain('accessibilityLabel="المزيد"');
     expect(chat).toContain('<ChatActionsSheet');
-    expect(sheet).toContain('Animated.timing');
-    expect(sheet).toContain('<Modal');
+    expect(sheet).toContain('<SheetModal');
+    expect(sheet).toContain('<SheetSurface');
     expect(sheet).toContain('<Switch');
     expect(sheet).toContain('كتم المحادثة');
     expect(sheet).toContain('حظر الحساب');

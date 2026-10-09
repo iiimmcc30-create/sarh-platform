@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { AppText } from '@/design-system/components';
 import { Row } from '@/design-system/layout';
@@ -33,11 +33,9 @@ export function CouncilSheet({
 }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   return (
     <SheetModal visible={visible} onClose={onClose} dismissible={dismissible} containerStyle={styles.container}>
-      <View style={[styles.sheet, getRtlDirection(), { paddingBottom: spacing.lg + insets.bottom }]}>
-        <View style={styles.grabber} />
+      <SheetSurface style={styles.sheet}>
         <Row gap="md" align="center">
           <View style={{ flex: 1 }}>
             <AppText variant="heading3" color="textPrimary">
@@ -59,7 +57,7 @@ export function CouncilSheet({
           {children}
         </ScrollView>
         {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
@@ -69,22 +67,8 @@ function createStyles(colors: ThemeColors) {
     container: { maxHeight: '85%' },
     sheet: {
       flexShrink: 1,
-      backgroundColor: colors.bgElevated,
-      borderTopLeftRadius: radius.xxl,
-      borderTopRightRadius: radius.xxl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderSoft,
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
       gap: spacing.md,
-    },
-    grabber: {
-      alignSelf: 'center',
-      width: 36,
-      height: 4,
-      borderRadius: radius.pill,
-      backgroundColor: colors.borderMid,
-      marginBottom: spacing.xs,
     },
     body: { flexGrow: 0 },
     bodyContent: { gap: spacing.sm, paddingBottom: spacing.xs },

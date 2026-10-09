@@ -11,7 +11,6 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -38,6 +37,7 @@ import {
   validateListingVideo,
 } from '@/services/listingVideo';
 import { getExpoVideoModule, type ExpoVideoPlayer } from '@/lib/expoVideo';
+import { showAlert } from '@/lib/confirmDialog';
 
 export type ListingVideoState =
   | { status: 'idle' }
@@ -93,7 +93,7 @@ export function ListingVideoSection({
     }) => {
       const validationErr = validateListingVideo(input.durationSecs, input.fileSizeBytes);
       if (validationErr) {
-        Alert.alert('فيديو غير صالح', listingVideoValidationMessage(validationErr));
+        showAlert('فيديو غير صالح', listingVideoValidationMessage(validationErr));
         return;
       }
 
@@ -116,7 +116,7 @@ export function ListingVideoSection({
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى معرض الوسائط لإضافة فيديو.');
+      showAlert('إذن مطلوب', 'يرجى السماح بالوصول إلى معرض الوسائط لإضافة فيديو.');
       return;
     }
 
@@ -127,7 +127,7 @@ export function ListingVideoSection({
         allowsMultipleSelection: false,
       });
     } catch {
-      Alert.alert('خطأ', 'تعذّر فتح معرض الوسائط.');
+      showAlert('خطأ', 'تعذّر فتح معرض الوسائط.');
       return;
     }
 
@@ -142,7 +142,7 @@ export function ListingVideoSection({
 
     const sizeErr = validateListingVideo(null, fileSizeBytes);
     if (sizeErr) {
-      Alert.alert('فيديو غير صالح', listingVideoValidationMessage(sizeErr));
+      showAlert('فيديو غير صالح', listingVideoValidationMessage(sizeErr));
       return;
     }
 
@@ -167,7 +167,7 @@ export function ListingVideoSection({
   }, [applyPickedVideo, disabled]);
 
   const removeVideo = useCallback(() => {
-    Alert.alert('حذف الفيديو', 'هل تريد إزالة الفيديو من الإعلان؟', [
+    showAlert('حذف الفيديو', 'هل تريد إزالة الفيديو من الإعلان؟', [
       { text: 'إلغاء', style: 'cancel' },
       {
         text: 'حذف',

@@ -5,8 +5,8 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { getRtlRow } from '@/lib/rtl';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 
 type ListingContactSheetProps = {
   visible: boolean;
@@ -29,15 +29,12 @@ export function ListingContactSheet({
   canCall,
   allowMessage = true,
 }: ListingContactSheetProps) {
-  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
 
   return (
     <SheetModal visible={visible} onClose={onClose}>
-      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-        <View style={styles.handle} />
-
+      <SheetSurface style={styles.sheet}>
         <View style={[styles.header, getRtlRow()]}>
           <Pressable
             onPress={onClose}
@@ -109,7 +106,7 @@ export function ListingContactSheet({
             </View>
           </Pressable>
         </View>
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
@@ -117,19 +114,7 @@ export function ListingContactSheet({
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     sheet: {
-      backgroundColor: colors.bgSurface,
-      borderTopLeftRadius: radius.xxl,
-      borderTopRightRadius: radius.xxl,
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
-    },
-    handle: {
-      alignSelf: 'center',
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.borderMid,
-      marginBottom: spacing.md,
     },
     header: {
       alignItems: 'center',

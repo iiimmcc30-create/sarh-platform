@@ -78,6 +78,7 @@ import {
 } from '@/lib/messageOffers';
 import * as Location from 'expo-location';
 import { avatarUrl } from '@/lib/listingMedia';
+import { showAlert } from '@/lib/confirmDialog';
 
 /** Media picked or recorded locally, waiting for upload (enables retry). */
 type OutgoingMedia = {
@@ -634,7 +635,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!isThreadMode && !isDirectMode) {
-      Alert.alert('خطأ', 'لم يتم تحديد المحادثة المطلوبة.');
+      showAlert('خطأ', 'لم يتم تحديد المحادثة المطلوبة.');
       router.back();
     }
   }, [isThreadMode, isDirectMode, router]);
@@ -888,7 +889,7 @@ export default function ChatScreen() {
         if (err instanceof FinalSendError) finalizeMediaJob(tempId);
       } else {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        Alert.alert('خطأ', reason);
+        showAlert('خطأ', reason);
       }
       return false;
     }
@@ -971,7 +972,7 @@ export default function ChatScreen() {
     try {
       assertUploadSize(media.kind, media.sizeBytes);
     } catch (err) {
-      Alert.alert('الملف كبير', err instanceof Error ? err.message : 'حجم الملف أكبر من المسموح');
+      showAlert('الملف كبير', err instanceof Error ? err.message : 'حجم الملف أكبر من المسموح');
       media.dispose?.();
       return;
     }
@@ -1012,13 +1013,13 @@ export default function ChatScreen() {
     if (source === 'camera') {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('صلاحية مطلوبة', 'يجب السماح بالوصول للكاميرا.');
+        showAlert('صلاحية مطلوبة', 'يجب السماح بالوصول للكاميرا.');
         return;
       }
     } else {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('صلاحية مطلوبة', 'يجب السماح بالوصول للصور والفيديو لإرسال الوسائط.');
+        showAlert('صلاحية مطلوبة', 'يجب السماح بالوصول للصور والفيديو لإرسال الوسائط.');
         return;
       }
     }
@@ -1059,7 +1060,7 @@ export default function ChatScreen() {
   const startVoice = async () => {
     setAttachOpen(false);
     const res = await voice.start();
-    if (!res.ok) Alert.alert('الرسائل الصوتية', res.error);
+    if (!res.ok) showAlert('الرسائل الصوتية', res.error);
   };
 
   const sendVoice = async () => {
@@ -1068,7 +1069,7 @@ export default function ChatScreen() {
 
   const handleVoiceResult = (res: VoiceStopResult) => {
     if (!res.ok) {
-      if (res.error) Alert.alert('الرسائل الصوتية', res.error);
+      if (res.error) showAlert('الرسائل الصوتية', res.error);
       return;
     }
     const rec: VoiceRecording = res.recording;
@@ -1090,7 +1091,7 @@ export default function ChatScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('إذن الموقع', 'يرجى السماح بالوصول للموقع لمشاركته.');
+        showAlert('إذن الموقع', 'يرجى السماح بالوصول للموقع لمشاركته.');
         return;
       }
       const pos = await Location.getCurrentPositionAsync({
@@ -1100,7 +1101,7 @@ export default function ChatScreen() {
       const lng = pos.coords.longitude.toFixed(5);
       await sendMessage(`📍 موقعي: https://maps.google.com/?q=${lat},${lng}`);
     } catch {
-      Alert.alert('خطأ', 'تعذّر الحصول على الموقع.');
+      showAlert('خطأ', 'تعذّر الحصول على الموقع.');
     }
   };
 
@@ -1117,7 +1118,7 @@ export default function ChatScreen() {
             onPress: (value?: string) => {
               const amount = Number(String(value ?? '').replace(/[^\d.]/g, ''));
               if (!Number.isFinite(amount) || amount <= 0) {
-                Alert.alert('تنبيه', 'أدخل مبلغاً صالحاً');
+                showAlert('تنبيه', 'أدخل مبلغاً صالحاً');
                 return;
               }
               void sendMessage(formatOfferMessage(amount));
@@ -1130,7 +1131,7 @@ export default function ChatScreen() {
       );
       return;
     }
-    Alert.alert('إرسال عرض سعر', 'اختر مبلغاً سريعاً أو عدّل لاحقاً', [
+    showAlert('إرسال عرض سعر', 'اختر مبلغاً سريعاً أو عدّل لاحقاً', [
       { text: 'إلغاء', style: 'cancel' },
       {
         text: '٢٬٠٠٠ ر.س',
@@ -1206,7 +1207,7 @@ export default function ChatScreen() {
   const toggleBlock = async () => {
     if (!receiverUserId) return;
     if (!accessToken) {
-      Alert.alert('تسجيل الدخول', 'يجب تسجيل الدخول لحظر الحساب');
+      showAlert('تسجيل الدخول', 'يجب تسجيل الدخول لحظر الحساب');
       return;
     }
     const blocking = !peerBlocked;

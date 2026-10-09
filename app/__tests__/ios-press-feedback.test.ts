@@ -30,8 +30,9 @@ describe('iOS press feedback', () => {
 
   it('list rows dim instead of shrinking (iOS lists)', () => {
     expect(src('design-system/components/SarhSettingsRow.tsx')).not.toContain('transform: [{ scale');
-    const sheet = src('components/ui/ActionSheetHost.tsx');
-    expect(sheet).toMatch(/itemPressed: \{\s*opacity: 0\.6,\s*\}/);
+    const row = src('components/ui/sheets/SheetRow.tsx');
+    expect(row).not.toContain('transform: [{ scale');
+    expect(row).toContain('pressed && { backgroundColor: colors.bgElevated }');
   });
 });
 

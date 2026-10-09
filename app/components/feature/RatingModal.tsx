@@ -15,6 +15,7 @@ import { radius, spacing, typography, type ThemeColors } from '@/constants/theme
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 
 interface RatingModalProps {
   visible: boolean;
@@ -56,9 +57,7 @@ export function RatingModal({
 
   return (
     <SheetModal visible={visible} onClose={onClose} backdropColor="rgba(0,0,0,0.5)">
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
-
+      <SheetSurface style={styles.sheet}>
         <Text style={styles.title}>
           {myRating ? 'تعديل تقييمك' : 'تقييم الحساب'}
         </Text>
@@ -104,7 +103,7 @@ export function RatingModal({
         <Pressable style={styles.cancelBtn} onPress={onClose}>
           <Text style={styles.cancelText}>إلغاء</Text>
         </Pressable>
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
@@ -112,20 +111,8 @@ export function RatingModal({
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     sheet: {
-      backgroundColor: colors.bgSurface,
-      borderTopLeftRadius: radius.xxl,
-      borderTopRightRadius: radius.xxl,
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.xxl,
       alignItems: 'center',
-    },
-    handle: {
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.borderMid,
-      marginBottom: spacing.lg,
     },
     title: {
       ...typography.h3,

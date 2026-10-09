@@ -3,7 +3,6 @@ import Slider from '@react-native-community/slider';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -29,6 +28,7 @@ import {
   type ExpoVideoPlayer,
 } from '@/lib/expoVideo';
 import { StoryVideoPlayer } from './StoryVideoPlayer';
+import { showAlert } from '@/lib/confirmDialog';
 
 type StoryVideoTrimmerProps = {
   visible: boolean;
@@ -168,7 +168,7 @@ export function StoryVideoTrimmer({
       onConfirm({ uri: trimmedUri, durationSec: clipDuration });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'تعذّر قص الفيديو';
-      Alert.alert('قص الفيديو', message);
+      showAlert('قص الفيديو', message);
     } finally {
       setBusy(false);
     }

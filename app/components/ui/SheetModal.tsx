@@ -178,7 +178,16 @@ export function SheetModal({
   );
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      // Android: draw under the navigation bar so the sheet surface reaches the
+      // bottom edge (its own safe-area padding sits inside it, not as a gap).
+      navigationBarTranslucent
+      onRequestClose={close}
+    >
       {keyboardAvoiding ? (
         <KeyboardAvoidingView
           style={styles.root}

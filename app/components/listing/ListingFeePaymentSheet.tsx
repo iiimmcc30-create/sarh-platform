@@ -1,5 +1,6 @@
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 import {
   FEE_PAYMENT_METHODS,
   PaymentBrandLogo,
@@ -18,7 +19,6 @@ import { launchPaymentCheckout } from '@/services/payments';
 import type { NIPaymentMethod } from '@/services/network_international';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type SheetPhase = 'form' | 'success' | 'error';
 
@@ -42,7 +42,6 @@ export function ListingFeePaymentSheet({
 }: ListingFeePaymentSheetProps) {
   const { accessToken } = useAuth();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
 
   const [amount, setAmount] = useState('');
@@ -145,7 +144,8 @@ export function ListingFeePaymentSheet({
     );
   };
 
-  const bottomPad = Math.max(insets.bottom, spacing.lg);
+  // The shared SheetSurface already clears the home indicator / nav bar.
+  const bottomPad = spacing.md;
 
   return (
     <SheetModal
@@ -155,9 +155,7 @@ export function ListingFeePaymentSheet({
       keyboardAvoiding
       containerStyle={styles.container}
     >
-      <View style={[styles.sheet, getRtlDirection()]}>
-        <View style={styles.handle} />
-
+      <SheetSurface style={styles.sheet}>
         <View style={[styles.header, getRtlRow()]}>
           <View style={styles.headerText}>
             <AppText variant="heading2" style={getRtlText()}>
@@ -327,7 +325,7 @@ export function ListingFeePaymentSheet({
             </View>
           </>
         )}
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
@@ -336,22 +334,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { maxHeight: '92%' },
     sheet: {
-      backgroundColor: colors.bgSurface,
-      borderTopLeftRadius: radius.xxl,
-      borderTopRightRadius: radius.xxl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderBottomWidth: 0,
-      borderColor: colors.borderSoft,
-      paddingTop: spacing.sm,
       flexShrink: 1,
-    },
-    handle: {
-      alignSelf: 'center',
-      width: 36,
-      height: 5,
-      borderRadius: 3,
-      backgroundColor: colors.borderMid,
-      marginBottom: spacing.sm,
     },
     header: {
       alignItems: 'flex-start',

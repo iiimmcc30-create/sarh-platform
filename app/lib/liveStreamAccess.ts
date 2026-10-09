@@ -1,7 +1,7 @@
-import { Alert } from 'react-native';
 import type { Router } from 'expo-router';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { API_BASE } from '@/services/api';
+import { showAlert } from '@/lib/confirmDialog';
 
 export type LiveStreamEligibility = {
   canStream: boolean;
@@ -44,7 +44,7 @@ export async function fetchLiveStreamEligibility(
 }
 
 export function showListingRequiredAlert(router: Router) {
-  Alert.alert(
+  showAlert(
     'إعلان مطلوب',
     'لا يمكن بدء بث مباشر إلا بعد نشر إعلان واحد على الأقل في السوق.',
     [
@@ -64,7 +64,7 @@ export function showLiveStreamEligibilityDeniedAlert(
       return;
 
     case 'plan_required':
-      Alert.alert(
+      showAlert(
         'البث المباشر غير متاح',
         eligibility.messageAr ?? 'البث المباشر غير متاح في الحساب المجاني حالياً.',
         [{ text: 'حسناً' }],
@@ -73,7 +73,7 @@ export function showLiveStreamEligibilityDeniedAlert(
 
     case 'weekly_limit':
     case 'live_minutes_limit':
-      Alert.alert('البث المباشر غير متاح', eligibility.messageAr ?? 'لقد استنفدت حصة البث الأسبوعية.');
+      showAlert('البث المباشر غير متاح', eligibility.messageAr ?? 'لقد استنفدت حصة البث الأسبوعية.');
       return;
 
     default:
@@ -81,13 +81,13 @@ export function showLiveStreamEligibilityDeniedAlert(
         showListingRequiredAlert(router);
         return;
       }
-      Alert.alert('البث المباشر غير متاح', eligibility.messageAr ?? 'تعذّر التحقق من أهلية البث. حاول مرة أخرى.');
+      showAlert('البث المباشر غير متاح', eligibility.messageAr ?? 'تعذّر التحقق من أهلية البث. حاول مرة أخرى.');
   }
 }
 
 /** Starting a live broadcast is disabled until launch — watching streams stays available. */
 export function showLiveBroadcastComingSoonAlert() {
-  Alert.alert(
+  showAlert(
     'قريباً',
     'ميزة بدء البث المباشر ستتوفر قريباً مع إطلاق التطبيق.\n\nيمكنك مشاهدة البثوث الحية الآن.',
     [{ text: 'حسناً' }],

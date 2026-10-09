@@ -4,7 +4,6 @@ import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -44,6 +43,7 @@ import {
 import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
 import { rtlForwardIcon } from '@/lib/rtl';
 import { avatarUrl } from '@/lib/listingMedia';
+import { showAlert } from '@/lib/confirmDialog';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -246,7 +246,7 @@ export function StoryViewer({
       setStoryIndex((i) => i);
       onRefresh();
     } catch (err) {
-      Alert.alert('خطأ', err instanceof Error ? err.message : 'فشل التفاعل');
+      showAlert('خطأ', err instanceof Error ? err.message : 'فشل التفاعل');
     } finally {
       setBusy(false);
     }
@@ -277,7 +277,7 @@ export function StoryViewer({
         },
       });
     } catch (err) {
-      Alert.alert('خطأ', err instanceof Error ? err.message : 'فشل إرسال الرد');
+      showAlert('خطأ', err instanceof Error ? err.message : 'فشل إرسال الرد');
     } finally {
       setBusy(false);
     }
@@ -312,7 +312,7 @@ export function StoryViewer({
       const data = await fetchStoryViewers(accessToken, story.id);
       setViewers(data.viewers);
     } catch (err) {
-      Alert.alert('خطأ', err instanceof Error ? err.message : 'فشل التحميل');
+      showAlert('خطأ', err instanceof Error ? err.message : 'فشل التحميل');
     }
   };
 

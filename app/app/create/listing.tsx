@@ -9,7 +9,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Pressable,
@@ -57,6 +56,7 @@ import {
   detectCurrentListingLocation,
   formatListingAddress,
 } from '@/lib/listingLocation';
+import { showAlert } from '@/lib/confirmDialog';
 
 const GCC_COUNTRIES: { code: Country; ar: string; flag: string; currency: string }[] = [
   { code: 'SA', ar: 'السعودية', flag: '🇸🇦', currency: 'SAR' },
@@ -128,14 +128,14 @@ export default function CreateListingScreen() {
         const json = await res.json().catch(() => ({}));
         if (!active) return;
         if (!res.ok || !json.success || !json.data) {
-          Alert.alert('خطأ', 'تعذر تحميل الإعلان');
+          showAlert('خطأ', 'تعذر تحميل الإعلان');
           router.back();
           return;
         }
         const raw = json.data;
         const editCount = typeof raw.editCount === 'number' ? raw.editCount : 0;
         if (!listingAllowsOwnerEdit(editCount, user?.role)) {
-          Alert.alert('تعديل غير متاح', LISTING_EDIT_LIMIT_MESSAGE_AR);
+          showAlert('تعديل غير متاح', LISTING_EDIT_LIMIT_MESSAGE_AR);
           router.back();
           return;
         }
@@ -175,7 +175,7 @@ export default function CreateListingScreen() {
         setCategoryLocked(true);
       } catch {
         if (active) {
-          Alert.alert('خطأ', 'تعذر تحميل الإعلان');
+          showAlert('خطأ', 'تعذر تحميل الإعلان');
           router.back();
         }
       } finally {
@@ -276,7 +276,7 @@ export default function CreateListingScreen() {
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور لإضافتها للإعلان');
+      showAlert('إذن مطلوب', 'يرجى السماح بالوصول إلى الصور لإضافتها للإعلان');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -407,7 +407,7 @@ export default function CreateListingScreen() {
         } catch {
           if (uploadedUrls.length === 0) {
             setVideoState({ status: 'failed', meta: videoState.meta, error: 'فشل رفع الفيديو' });
-            Alert.alert('خطأ', 'تعذّر رفع الفيديو. أضف صورة أو أعد المحاولة.');
+            showAlert('خطأ', 'تعذّر رفع الفيديو. أضف صورة أو أعد المحاولة.');
             setSubmitting(false);
             return;
           }
@@ -421,7 +421,7 @@ export default function CreateListingScreen() {
           cloudinaryVideoFirstFrameUrl(videoFields.videoUrl) ??
           undefined;
         if (!cover || !videoFields.videoUrl) {
-          Alert.alert(
+          showAlert(
             'وسائط مطلوبة',
             'أضف صورة واحدة على الأقل، أو فيديو ليُستخدم إطار بدايته كصورة الإعلان.',
           );

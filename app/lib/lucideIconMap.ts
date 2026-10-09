@@ -1,7 +1,11 @@
 /**
  * Lucide stroke icons — unified 20–22px, strokeWidth 2.
  */
-import type { LucideIcon } from 'lucide-react-native';
+import type { LucideIcon   Smartphone,
+  Download,
+  SunMoon,
+  VolumeX,
+} from 'lucide-react-native';
 import {
   AlertCircle,
   ArrowLeft,
@@ -137,6 +141,12 @@ export const ICON_STROKE = 2;
 export const VIEWS_BARS_ICON = 'views-4-bars';
 
 const MAP: Record<string, LucideIcon> = {
+  // Settings redesign
+  'phone-portrait-outline': Smartphone,
+  'download-outline': Download,
+  'contrast-outline': SunMoon,
+  'volume-mute-outline': VolumeX,
+  'mic-outline': Mic,
   plus: Plus,
   add: Plus,
   'add-circle-outline': Plus,

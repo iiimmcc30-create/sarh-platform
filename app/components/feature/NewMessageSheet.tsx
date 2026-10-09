@@ -149,7 +149,7 @@ export function NewMessageSheet({ visible, onClose, onSelect }: Props) {
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [sheetH, 0] });
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={close} statusBarTranslucent>
+    <Modal visible transparent animationType="none" onRequestClose={close} statusBarTranslucent navigationBarTranslucent>
       <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: progress }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="إغلاق" />
       </Animated.View>

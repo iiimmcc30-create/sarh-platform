@@ -10,6 +10,7 @@ import {
 import { colors, radius, spacing, typography, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { SheetSurface } from '@/components/ui/sheets/SheetSurface';
 
 type Props = {
   visible: boolean;
@@ -43,7 +44,7 @@ export function LiveBroadcastPledgeModal({
       backdropColor="rgba(6,9,26,0.85)"
       containerStyle={styles.container}
     >
-      <View style={styles.sheet}>
+      <SheetSurface grabber={false} style={styles.sheet}>
         <View style={styles.header}>
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
             <AppIcon name="close" size={20} color="#fff" />
@@ -101,7 +102,7 @@ export function LiveBroadcastPledgeModal({
             <Text style={styles.cancelText}>إلغاء</Text>
           </Pressable>
         </View>
-      </View>
+      </SheetSurface>
     </SheetModal>
   );
 }
@@ -112,11 +113,7 @@ function createStyles(colors: ThemeColors) {
     maxHeight: '88%',
   },
   sheet: {
-    backgroundColor: colors.bgDeep,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.borderMid,
+    paddingTop: 0,
     flexShrink: 1,
   },
   header: {

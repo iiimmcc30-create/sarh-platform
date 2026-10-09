@@ -45,7 +45,6 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -63,6 +62,7 @@ import {
   trackPromotedClick,
   trackPromotedImpression,
 } from '@/lib/promotionTracking';
+import { showAlert } from '@/lib/confirmDialog';
 
 const MARKET_FOCUS_TTL_MS = 60_000;
 const EMPTY_LISTINGS: Listing[] = [];
@@ -335,7 +335,7 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('إذن الموقع', 'يرجى السماح بالوصول للموقع لعرض الإعلانات القريبة');
+          showAlert('إذن الموقع', 'يرجى السماح بالوصول للموقع لعرض الإعلانات القريبة');
           return;
         }
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -349,13 +349,13 @@ export const MarketListingsFeed = forwardRef<MarketListingsFeedHandle, MarketLis
           region: geo?.region,
         });
         if (!resolved) {
-          Alert.alert('الموقع', 'تعذّر تحديد مدينتك');
+          showAlert('الموقع', 'تعذّر تحديد مدينتك');
           return;
         }
         setRegionSelection(resolved);
         setNearbyActive(true);
       } catch {
-        Alert.alert('خطأ', 'تعذّر الحصول على موقعك');
+        showAlert('خطأ', 'تعذّر الحصول على موقعك');
       } finally {
         nearbyBusyRef.current = false;
       }
