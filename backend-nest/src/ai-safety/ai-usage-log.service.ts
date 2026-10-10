@@ -80,6 +80,42 @@ export class AiUsageLogService {
     }
   }
 
+  async outcomeCountsSince(
+    since: Date,
+  ): Promise<{ answered: number; escalated: number; fallback: number; error: number }> {
+    const empty = { answered: 0, escalated: 0, fallback: 0, error: 0 };
+    const delegate = (
+      this.prisma as unknown as {
+        aiUsageLog?: {
+          groupBy: (args: unknown) => Promise<
+            Array<{ outcome: string; _count: { _all: number } }>
+          >;
+        };
+      }
+    ).aiUsageLog;
+    if (!delegate?.groupBy) return empty;
+    try {
+      const rows = await delegate.groupBy({
+        by: ['outcome'],
+        where: { createdAt: { gte: since } },
+        _count: { _all: true },
+      });
+      for (const row of rows) {
+        if (row.outcome in empty) {
+          empty[row.outcome as keyof typeof empty] = row._count?._all ?? 0;
+        }
+      }
+      return empty;
+    } catch (err) {
+      if (isMissingRelation(err)) return empty;
+      this.logger.warn(
+        { errorName: err instanceof Error ? err.name : undefined },
+        'AI usage counts failed',
+      );
+      return empty;
+    }
+  }
+
   private warnMissing() {
     if (this.warnedMissing) return;
     this.warnedMissing = true;

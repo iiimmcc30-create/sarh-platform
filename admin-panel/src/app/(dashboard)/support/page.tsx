@@ -6,8 +6,11 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { LifeBuoy, Ticket, BadgeCheck, HelpCircle, Activity } from 'lucide-react';
 import {
+  fetchAiDashboard,
   fetchServiceStatus,
+  setAiFlag,
   updateServiceStatus,
+  type AiDashboard,
   type ServiceStatus,
 } from '@/services/support.service';
 
@@ -33,6 +36,90 @@ const sections = [
     icon: HelpCircle,
   },
 ];
+
+function AiControlCard() {
+  const [data, setData] = useState<AiDashboard | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = () => {
+    void fetchAiDashboard()
+      .then(setData)
+      .catch(() => setMessage('تعذّر تحميل بطاقة الذكاء (يتطلب مديرًا)'));
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const toggle = async (name: string, enabled: boolean) => {
+    setBusy(name);
+    setMessage(null);
+    try {
+      const result = await setAiFlag(name, enabled);
+      if (!result.ok && result.reason === 'env_ceiling') {
+        setMessage('البيئة تطفي هذا المفتاح، والزر لا يشغّله');
+      }
+      load();
+    } catch {
+      setMessage('تعذّر تغيير المفتاح');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+      <h2 className="text-white font-medium">الذكاء الاصطناعي</h2>
+      <div className="grid gap-2 md:grid-cols-2">
+        {(data?.flags ?? []).map((flag) => (
+          <div key={flag.name} className="rounded-xl border border-slate-800 p-3 text-sm">
+            <p className="text-white">{flag.name}</p>
+            <p className="text-slate-400">
+              {flag.effective ? 'يعمل' : 'متوقف'}
+              {!flag.envAllows ? ' — البيئة تطفيه' : ''}
+              {flag.runtimeOff ? ' — إيقاف فوري' : ''}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button
+                onClick={() => void toggle(flag.name, false)}
+                disabled={busy === flag.name || !flag.effective}
+              >
+                إيقاف
+              </Button>
+              <Button
+                onClick={() => void toggle(flag.name, true)}
+                disabled={busy === flag.name || !flag.envAllows || flag.effective}
+              >
+                تشغيل
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-sm text-slate-300">
+        اليوم {data?.usage.day ?? '…'}: {data?.usage.tokens ?? 0} / {data?.usage.tokenBudget ?? 0} توكن،{' '}
+        {data?.usage.requests ?? 0} / {data?.usage.requestLimit ?? 0} طلب. مجاب{' '}
+        {data?.outcomes.answered ?? 0}، محوّل {data?.outcomes.escalated ?? 0}.
+      </p>
+      <ul className="text-sm text-slate-400 space-y-1">
+        {(data?.audit ?? []).map((row, index) => (
+          <li key={`${row.tool}-${index}`}>
+            {row.tool} — {row.status} — {row.resultSummary}
+          </li>
+        ))}
+      </ul>
+      <ul className="text-sm text-slate-400 space-y-1">
+        {(data?.drafts ?? []).map((draft, index) => (
+          <li key={`${draft.service}-${index}`}>
+            {draft.severity} {draft.service}: {draft.cause}
+          </li>
+        ))}
+      </ul>
+      {message ? <p className="text-sm text-slate-300">{message}</p> : null}
+    </div>
+  );
+}
 
 function ServiceStatusCard() {
   const [status, setStatus] = useState<ServiceStatus | null>(null);
@@ -123,6 +210,7 @@ export default function SupportHubPage() {
           </Link>
         ))}
       </div>
+      <AiControlCard />
       <ServiceStatusCard />
       <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/30 p-5 flex items-center gap-3 text-slate-400">
         <LifeBuoy className="h-5 w-5 text-emerald-400" />

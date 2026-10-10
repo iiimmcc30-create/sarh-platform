@@ -27,6 +27,7 @@ import {
 } from '../constants/support.constants';
 import { ticketPriorityFor } from './ticket-priority';
 import { isAssistantEnabled, isCsAgentEnabled } from '../../ai-safety/ai-flags';
+import { AiRuntimeFlagsService } from '../../ai-safety/ai-runtime-flags.service';
 import { CsAgentService } from '../../ai-agents/cs/cs-agent.service';
 import {
   FRAUD_RE,
@@ -210,6 +211,7 @@ export class SupportTicketsService {
     private readonly aiContext: SupportAiContextService,
     @Optional() private readonly supportBridge?: SupportSocketBridgeService,
     @Optional() private readonly csAgent?: CsAgentService,
+    @Optional() private readonly runtimeFlags?: AiRuntimeFlagsService,
   ) {}
 
   private legacyTicketNumber() {
@@ -888,6 +890,7 @@ export class SupportTicketsService {
   }
 
   private async runSarhanIfActive(ticketId: string) {
+    await this.runtimeFlags?.refresh();
     const ticket = await this.repo.findTicketById(ticketId);
     if (!ticket || ticket.handlerMode !== 'AI_ACTIVE') return;
     if (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') return;

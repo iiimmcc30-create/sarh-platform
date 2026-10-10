@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import OpenAI from 'openai';
 import { LoggerService } from '../../common/services/logger.service';
 import { AiCallGuardService } from '../../ai-safety/ai-call-guard.service';
 import { isAiEnabled } from '../../ai-safety/ai-flags';
+import { AiRuntimeFlagsService } from '../../ai-safety/ai-runtime-flags.service';
 import { PiiPseudonymizer } from '../../ai-safety/pii-redaction';
 
 const SUMMARY_MAX_OUTPUT_TOKENS = 1_000;
@@ -64,6 +65,7 @@ export class AISummarizerService {
   constructor(
     private readonly logger: LoggerService,
     private readonly guard: AiCallGuardService,
+    @Optional() private readonly runtimeFlags?: AiRuntimeFlagsService,
   ) {
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     this.client = apiKey ? new OpenAI({ apiKey, maxRetries: 0 }) : null;
@@ -95,6 +97,7 @@ export class AISummarizerService {
   }
 
   async summarize(input: SummarizeInput): Promise<SummarizeResult> {
+    await this.runtimeFlags?.refresh();
     const client = this.client;
     if (!client || !isAiEnabled()) {
       return this.fallbackSummarize(input);

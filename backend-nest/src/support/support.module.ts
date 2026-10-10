@@ -22,6 +22,11 @@ import { CsAccountReads } from '../ai-agents/cs/cs-account-reads';
 import { CsAgentService } from '../ai-agents/cs/cs-agent.service';
 import { CsWriteBudget } from '../ai-agents/cs/cs-write-budget';
 import { CS_WRITE_API } from '../ai-agents/cs/cs-write-tools';
+import { AiAdminService } from '../ai-agents/admin/ai-admin.service';
+import { TechAgentService } from '../ai-agents/tech/tech-agent.service';
+import { TechDraftStore } from '../ai-agents/tech/tech-draft-store';
+import { TechOpsService } from '../ai-agents/tech/tech-ops.service';
+import { AdminAiController } from './admin-ai.controller';
 import { FeesModule } from '../fees/fees.module';
 
 @Module({
@@ -33,7 +38,7 @@ import { FeesModule } from '../fees/fees.module';
     AiAgentsModule,
     FeesModule,
   ],
-  controllers: [SupportController, AdminSupportController],
+  controllers: [SupportController, AdminSupportController, AdminAiController],
   providers: [
     SupportRepository,
     SupportTicketsService,
@@ -46,6 +51,10 @@ import { FeesModule } from '../fees/fees.module';
     CsAccountReads,
     CsWriteBudget,
     CsAgentService,
+    TechDraftStore,
+    TechOpsService,
+    TechAgentService,
+    AiAdminService,
     { provide: CS_WRITE_API, useExisting: SupportTicketsService },
     {
       provide: AI_PROVIDER,

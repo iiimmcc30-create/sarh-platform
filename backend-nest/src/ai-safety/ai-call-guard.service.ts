@@ -6,6 +6,7 @@ import {
   AiUsageLogService,
   type AiUsageOutcome,
 } from './ai-usage-log.service';
+import { AiRuntimeFlagsService } from './ai-runtime-flags.service';
 
 export type AiUsage = {
   prompt_tokens?: number | null;
@@ -69,6 +70,7 @@ export class AiCallGuardService {
     private readonly budget: AiBudgetService,
     private readonly logger: LoggerService,
     @Optional() private readonly usageLog?: AiUsageLogService,
+    @Optional() private readonly runtimeFlags?: AiRuntimeFlagsService,
   ) {}
 
   private async persistUsage(input: {
@@ -112,6 +114,7 @@ export class AiCallGuardService {
   }): Promise<AiCallResult<T>> {
     const started = Date.now();
     const base = { feature: opts.feature, model: opts.model };
+    await this.runtimeFlags?.refresh();
 
     if (!isAiEnabled()) {
       return { ok: false, reason: 'disabled', latencyMs: 0 };

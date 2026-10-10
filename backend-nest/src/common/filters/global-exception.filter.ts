@@ -8,6 +8,7 @@ import { Response } from 'express';
 import { ApiException } from '../exceptions/api.exception';
 import { RateLimitException } from '../exceptions/rate-limit.exception';
 import { Sentry } from '../../shared/lib/sentry';
+import { noteServerError } from '../../ai-safety/http-error-counter';
 
 function sendJson(
   res: Response,
@@ -23,6 +24,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
+    const req = ctx.getRequest<{ path?: string; url?: string }>();
 
     if (res.headersSent) return;
 
@@ -49,6 +51,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const payload = exception.getResponse();
 
       if (status >= 500) {
+        noteServerError(req?.path || req?.url || '/');
         Sentry.captureException(exception);
       }
 
@@ -92,6 +95,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    noteServerError(req?.path || req?.url || '/');
     Sentry.captureException(exception);
     sendJson(res, 500, {
       success: false,

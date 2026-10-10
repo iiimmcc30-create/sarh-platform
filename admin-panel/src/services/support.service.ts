@@ -110,3 +110,34 @@ export async function updateServiceStatus(body: { state: 'ok' | 'degraded'; text
   const res = await apiClient.put('/admin/support/status', body);
   return unwrap<ServiceStatus>(res);
 }
+
+export type AiFlagRow = {
+  name: string;
+  envAllows: boolean;
+  runtimeOff: boolean;
+  effective: boolean;
+};
+
+export type AiDashboard = {
+  flags: AiFlagRow[];
+  usage: {
+    day: string;
+    tokens: number;
+    requests: number;
+    tokenBudget: number;
+    requestLimit: number;
+  };
+  outcomes: { answered: number; escalated: number; fallback: number; error: number };
+  audit: Array<{ tool: string; status: string; resultSummary: string; actorKind: string }>;
+  drafts: Array<{ severity: string; service: string; cause: string; fix: string }>;
+};
+
+export async function fetchAiDashboard() {
+  const res = await apiClient.get('/admin/support/ai');
+  return unwrap<AiDashboard>(res);
+}
+
+export async function setAiFlag(name: string, enabled: boolean) {
+  const res = await apiClient.post('/admin/support/ai/flags', { name, enabled });
+  return unwrap<{ ok: boolean; reason?: string; effective: boolean }>(res);
+}

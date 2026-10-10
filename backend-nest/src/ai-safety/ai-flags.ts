@@ -24,8 +24,46 @@ function envInt(name: string, fallback: number, min: number, max: number) {
 }
 
 /** SARH_AI_ENABLED — master switch: no new model (OpenAI) calls anywhere when off. */
+export const AI_CONTROL_FLAGS = [
+  'SARH_AI_ENABLED',
+  'SARH_ASSISTANT_ENABLED',
+  'AI_CS_AGENT_ENABLED',
+  'AI_CS_AGENT_WRITE_ENABLED',
+  'AI_TECH_AGENT_ENABLED',
+] as const;
+
+export type AiControlFlag = (typeof AI_CONTROL_FLAGS)[number];
+
+const runtimeOff = new Set<string>();
+
+/** Process-local copy of the Redis kill switch. Env off always wins. */
+export function setRuntimeFlagOff(name: string, off: boolean): void {
+  if (off) runtimeOff.add(name);
+  else runtimeOff.delete(name);
+}
+
+export function isRuntimeFlagOff(name: string): boolean {
+  return runtimeOff.has(name);
+}
+
+export function clearRuntimeFlagsForTests(): void {
+  runtimeOff.clear();
+}
+
+function explicitOn(name: string): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+}
+
+/** What the environment allows. A runtime switch cannot widen this. */
+export function envAllowsFlag(name: AiControlFlag): boolean {
+  if (name === 'SARH_AI_ENABLED') return envFlag('SARH_AI_ENABLED');
+  if (name === 'SARH_ASSISTANT_ENABLED') return envFlag('SARH_ASSISTANT_ENABLED');
+  return explicitOn(name);
+}
+
 export function isAiEnabled(): boolean {
-  return envFlag('SARH_AI_ENABLED');
+  return envAllowsFlag('SARH_AI_ENABLED') && !isRuntimeFlagOff('SARH_AI_ENABLED');
 }
 
 /**
@@ -34,7 +72,11 @@ export function isAiEnabled(): boolean {
  * straight to the human support team.
  */
 export function isAssistantEnabled(): boolean {
-  return isAiEnabled() && envFlag('SARH_ASSISTANT_ENABLED');
+  return (
+    isAiEnabled() &&
+    envAllowsFlag('SARH_ASSISTANT_ENABLED') &&
+    !isRuntimeFlagOff('SARH_ASSISTANT_ENABLED')
+  );
 }
 
 /** SARH_AI_EMAIL_ALERTS_ENABLED — e-mail to support when a ticket is handed to a human. */
@@ -48,8 +90,10 @@ export function isAiEmailAlertsEnabled(): boolean {
  * including an unset variable, keeps the current «مساعد سرح» path.
  */
 export function isCsAgentEnabled(): boolean {
-  const raw = process.env.AI_CS_AGENT_ENABLED?.trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+  return (
+    envAllowsFlag('AI_CS_AGENT_ENABLED') &&
+    !isRuntimeFlagOff('AI_CS_AGENT_ENABLED')
+  );
 }
 
 /**
@@ -59,8 +103,19 @@ export function isCsAgentEnabled(): boolean {
  */
 export function isCsAgentWriteEnabled(): boolean {
   if (!isAiEnabled() || !isCsAgentEnabled()) return false;
-  const raw = process.env.AI_CS_AGENT_WRITE_ENABLED?.trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+  return (
+    envAllowsFlag('AI_CS_AGENT_WRITE_ENABLED') &&
+    !isRuntimeFlagOff('AI_CS_AGENT_WRITE_ENABLED')
+  );
+}
+
+/** AI_TECH_AGENT_ENABLED — read-only tech agent. Default OFF. */
+export function isTechAgentEnabled(): boolean {
+  if (!isAiEnabled()) return false;
+  return (
+    envAllowsFlag('AI_TECH_AGENT_ENABLED') &&
+    !isRuntimeFlagOff('AI_TECH_AGENT_ENABLED')
+  );
 }
 
 /** Hard deadline for one model request, retries included (ms). */
