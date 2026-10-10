@@ -268,6 +268,35 @@ export class SupportRepository {
    * AI_ACTIVE gets `true` (concurrent turns / retries get `false`), so the
    * handoff alert fires once per real transition.
    */
+  findRecentOpenByCategory(userId: string, category: string, since: Date) {
+    return this.prisma.supportTicket.findFirst({
+      where: {
+        reporterId: userId,
+        category,
+        deletedAt: null,
+        createdAt: { gte: since },
+        status: { notIn: ['CLOSED', 'RESOLVED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, ticketNumber: true },
+    });
+  }
+
+  findOwnedByNumber(userId: string, ticketNumber: string) {
+    return this.prisma.supportTicket.findFirst({
+      where: { reporterId: userId, ticketNumber, deletedAt: null },
+      select: {
+        id: true,
+        ticketNumber: true,
+        status: true,
+        priority: true,
+        metadata: true,
+        handlerMode: true,
+        subject: true,
+      },
+    });
+  }
+
   async claimHumanHandoff(id: string): Promise<boolean> {
     const res = await this.prisma.supportTicket.updateMany({
       where: { id, handlerMode: 'AI_ACTIVE' },

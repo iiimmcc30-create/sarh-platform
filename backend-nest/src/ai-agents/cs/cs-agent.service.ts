@@ -1,5 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { AiCallGuardService } from '../../ai-safety/ai-call-guard.service';
+import { isCsAgentWriteEnabled } from '../../ai-safety/ai-flags';
 import { AGENT_MODEL } from '../ai-agents.module';
 import {
   AgentRunner,
@@ -13,6 +14,8 @@ import { CS_AGENT_SYSTEM_PROMPT } from './cs-prompt';
 import { CsAccountReads } from './cs-account-reads';
 import { buildCsTools } from './cs-tools';
 import { replyGroundedInTools } from './money-guard';
+import { CsWriteBudget } from './cs-write-budget';
+import { buildCsWriteTools, CS_WRITE_API, type CsWriteApi } from './cs-write-tools';
 
 export type CsReply =
   | { accepted: true; replyAr: string }
@@ -29,12 +32,29 @@ export class CsAgentService {
     private readonly audit: AiAuditService,
     private readonly reads: CsAccountReads,
     @Inject(AGENT_MODEL) private readonly model: AgentModel,
+    @Optional() private readonly writeBudget?: CsWriteBudget,
+    @Optional() @Inject(CS_WRITE_API) private readonly writes?: CsWriteApi,
   ) {}
 
-  async reply(input: { userId: string; text: string }): Promise<CsReply> {
+  async reply(input: {
+    userId: string;
+    text: string;
+    ticketId?: string;
+  }): Promise<CsReply> {
     const seen: unknown[] = [];
     const registry = new ToolRegistry();
-    for (const tool of buildCsTools(this.reads)) {
+    const tools = buildCsTools(this.reads);
+    if (isCsAgentWriteEnabled() && this.writes && this.writeBudget) {
+      tools.push(
+        ...buildCsWriteTools({
+          customerText: input.text,
+          ticketId: input.ticketId || input.userId,
+          tickets: this.writes,
+          budget: this.writeBudget,
+        }),
+      );
+    }
+    for (const tool of tools) {
       registry.register({
         ...tool,
         execute: async (args, actor) => {
@@ -60,6 +80,7 @@ export class CsAgentService {
       scope: 'self',
       model: 'cs-agent',
       messages,
+      allowWrite: isCsAgentWriteEnabled(),
     });
     if (result.stopped !== 'done' || result.deniedCount > 0) {
       return { accepted: false, replyAr: '' };

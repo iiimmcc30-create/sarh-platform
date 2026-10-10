@@ -5,6 +5,7 @@ import { aiMaxOutputTokens } from '../../ai-safety/ai-flags';
 import { AiAuditService, type AuditStatus } from './audit.service';
 import {
   scopeAllows,
+  ToolDenied,
   ToolRegistry,
   type ToolActor,
   type ToolScope,
@@ -55,6 +56,8 @@ export type AgentRunInput = {
   scope: ToolScope;
   model: string;
   messages: AgentTurnMessage[];
+  /** When true, sideEffect "write" may run. "action" never runs. */
+  allowWrite?: boolean;
 };
 
 export type AgentRunResult = {
@@ -191,7 +194,10 @@ export class AgentRunner {
       await finish('denied', rawInput, 'scope');
       return { content: wrapUntrusted('denied'), status: 'denied' };
     }
-    if (tool.sideEffect !== 'none') {
+    if (
+      tool.sideEffect === 'action' ||
+      (tool.sideEffect === 'write' && !input.allowWrite)
+    ) {
       await finish('denied', rawInput, 'side_effect');
       return { content: wrapUntrusted('denied'), status: 'denied' };
     }
@@ -201,7 +207,11 @@ export class AgentRunner {
         typeof value === 'string' ? value : JSON.stringify(value ?? null);
       await finish('ok', rawInput, raw);
       return { content: wrapUntrusted(raw), status: 'ok' };
-    } catch {
+    } catch (err) {
+      if (err instanceof ToolDenied) {
+        await finish('denied', rawInput, err.code.slice(0, 64));
+        return { content: wrapUntrusted('denied'), status: 'denied' };
+      }
       await finish('error', rawInput, 'tool_error');
       return { content: wrapUntrusted('error'), status: 'error' };
     }

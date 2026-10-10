@@ -22,6 +22,14 @@ export function objectJsonSchema(
   };
 }
 
+/** A write tool refused the call. `code` is a short token, never user text. */
+export class ToolDenied extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = 'ToolDenied';
+  }
+}
+
 export type AgentTool = {
   name: string;
   description: string;

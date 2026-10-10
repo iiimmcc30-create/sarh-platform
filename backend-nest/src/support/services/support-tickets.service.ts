@@ -347,6 +347,7 @@ export class SupportTicketsService {
   private async createHelpTicket(
     user: JwtPayload,
     dto: CreateSupportTicketDto,
+    options?: { scheduleAssistant?: boolean },
   ) {
     const description = dto.description.trim();
 
@@ -419,7 +420,7 @@ export class SupportTicketsService {
       subject: ticket.subject,
     });
 
-    this.scheduleSarhan(ticket.id);
+    if (options?.scheduleAssistant !== false) this.scheduleSarhan(ticket.id);
 
     const fresh = await this.repo.findUserTicket(ticket.id, user.userId);
     this.emitTicket(ticket.id, 'support:message', {
@@ -436,6 +437,110 @@ export class SupportTicketsService {
         createdAt: ticket.createdAt,
       },
     };
+  }
+
+  /**
+   * Agent path: same help-ticket insert as a customer, without scheduling
+   * another assistant turn. An open ticket in the same category from the
+   * last 24 hours is returned instead of creating a second one.
+   */
+  async createOwnedHelpTicket(
+    userId: string,
+    category: string,
+    summary: string,
+  ): Promise<{ ticketNumber: string; duplicate: boolean }> {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const existing = await this.repo.findRecentOpenByCategory(
+      userId,
+      category,
+      since,
+    );
+    if (existing) {
+      return { ticketNumber: existing.ticketNumber, duplicate: true };
+    }
+    const created = await this.createHelpTicket(
+      { userId, username: userId, role: 'USER' },
+      {
+        helpKind: 'OTHER_HELP',
+        description: summary,
+        category: category as CreateSupportTicketDto['category'],
+      },
+      { scheduleAssistant: false },
+    );
+    return { ticketNumber: created.ticket.ticketNumber, duplicate: false };
+  }
+
+  /** A note on a ticket this user owns. Does not start another assistant turn. */
+  async addOwnedNote(
+    userId: string,
+    ticketNumber: string,
+    body: string,
+  ): Promise<{ ok: boolean; reason?: 'not_owner' | 'closed' }> {
+    const ticket = await this.repo.findOwnedByNumber(userId, ticketNumber);
+    if (!ticket) return { ok: false, reason: 'not_owner' };
+    if (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') {
+      return { ok: false, reason: 'closed' };
+    }
+    const message = await this.repo.createMessage({
+      ticket: { connect: { id: ticket.id } },
+      author: { connect: { id: userId } },
+      authorKind: 'CUSTOMER',
+      body: body.trim(),
+      isStaffReply: false,
+    });
+    let nextStatus = ticket.status;
+    if (
+      ticket.handlerMode === 'HUMAN_ACTIVE' &&
+      (ticket.status === 'AWAITING_USER' ||
+        ticket.status === 'WAITING_FOR_CUSTOMER')
+    ) {
+      nextStatus = 'WAITING_FOR_SUPPORT';
+    }
+    const updated = await this.repo.updateTicket(ticket.id, {
+      status: nextStatus,
+    });
+    await this.notifications.notifyUserReply({
+      id: updated.id,
+      ticketNumber: updated.ticketNumber,
+      subject: updated.subject,
+    });
+    this.emitTicket(ticket.id, 'support:message', {
+      ticketId: ticket.id,
+      message,
+    });
+    return { ok: true };
+  }
+
+  /** Same human handoff as the assistant: atomic claim plus the existing e-mail. */
+  async handoffOwnedTicket(
+    userId: string,
+    ticketNumber: string,
+    reason: SupportEscalationReason,
+  ): Promise<{ ok: boolean; reason?: 'not_owner' | 'closed'; already?: boolean }> {
+    const ticket = await this.repo.findOwnedByNumber(userId, ticketNumber);
+    if (!ticket) return { ok: false, reason: 'not_owner' };
+    if (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') {
+      return { ok: false, reason: 'closed' };
+    }
+    const claimed = await this.repo.claimHumanHandoff(ticket.id);
+    if (!claimed) return { ok: true, already: true };
+    const body = sarhanHandoff(ticket.ticketNumber);
+    await this.repo.createMessage({
+      ticket: { connect: { id: ticket.id } },
+      authorKind: 'SARHAN',
+      isStaffReply: true,
+      body,
+    });
+    await this.repo.updateTicket(ticket.id, {
+      metadata: withHandoffAt(asMeta(ticket.metadata)) as Prisma.InputJsonValue,
+    });
+    await this.alertHandoff(ticket, reason);
+    this.emitTicket(ticket.id, 'support:message', {
+      ticketId: ticket.id,
+      authorKind: 'SARHAN',
+      body,
+    });
+    return { ok: true, already: false };
   }
 
   async replyAsUser(
@@ -753,11 +858,16 @@ export class SupportTicketsService {
   private async csTurn(
     reporterId: string | null | undefined,
     text: string,
+    ticketId: string,
   ): Promise<SarhanTurnResult | null> {
     if (!isCsAgentEnabled() || !this.csAgent || !reporterId) return null;
     if (this.mustKeepCurrentAssistant(text)) return null;
     try {
-      const reply = await this.csAgent.reply({ userId: reporterId, text });
+      const reply = await this.csAgent.reply({
+        userId: reporterId,
+        text,
+        ticketId,
+      });
       if (!reply.accepted) return null;
       return {
         replyAr: reply.replyAr,
@@ -818,7 +928,11 @@ export class SupportTicketsService {
     const context = await this.aiContext.build(ticket);
     const existingMeta = asMeta(ticket.metadata);
     const customerText = lastCustomerBody(ticket);
-    const agentTurn = await this.csTurn(ticket.reporterId, customerText);
+    const agentTurn = await this.csTurn(
+      ticket.reporterId,
+      customerText,
+      ticket.id,
+    );
     const turn = agentTurn ?? (await this.sarhan.nextTurn(context, existingMeta));
 
     await this.repo.createMessage({

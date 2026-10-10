@@ -31,6 +31,8 @@ describe('SupportTicketsService', () => {
     findAllStaffUserIds: jest.fn(),
     findReporterTier: jest.fn(),
     claimHumanHandoff: jest.fn(),
+    findRecentOpenByCategory: jest.fn(),
+    findOwnedByNumber: jest.fn(),
   };
   const notifications = {
     notifyTicketCreated: jest.fn(),
@@ -55,6 +57,7 @@ describe('SupportTicketsService', () => {
     await flushScheduledTurn();
     jest.clearAllMocks();
     delete process.env.AI_CS_AGENT_ENABLED;
+    delete process.env.AI_CS_AGENT_WRITE_ENABLED;
     repo.findUserNames.mockResolvedValue({
       arabicName: 'متعب العتيبي',
       displayName: 'Muteb',
@@ -873,6 +876,7 @@ describe('SupportTicketsService', () => {
       expect(csAgent.reply).toHaveBeenCalledWith({
         userId: 'cust-a',
         text: 'وش حالة اشتراكي',
+        ticketId: 't1',
       });
       expect(sarhan.nextTurn).not.toHaveBeenCalled();
       expect(repo.createMessage).toHaveBeenCalledWith(
@@ -912,6 +916,59 @@ describe('SupportTicketsService', () => {
       await flushScheduledTurn();
       expect(csAgent.reply).not.toHaveBeenCalled();
       expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
+    });
+  });
+
+  describe('agent write helpers', () => {
+    it('returns the open ticket from the last 24 hours instead of creating another', async () => {
+      repo.findRecentOpenByCategory.mockResolvedValue({
+        ticketNumber: 'SRH-2026-000099',
+      });
+      await expect(
+        service.createOwnedHelpTicket('cust-a', 'ACCOUNT', 'ما اقدر ادخل'),
+      ).resolves.toEqual({
+        ticketNumber: 'SRH-2026-000099',
+        duplicate: true,
+      });
+      expect(repo.createTicket).not.toHaveBeenCalled();
+    });
+
+    it('refuses a note on a ticket the user does not own', async () => {
+      repo.findOwnedByNumber.mockResolvedValue(null);
+      await expect(
+        service.addOwnedNote('cust-a', 'SRH-2026-000002', 'متابعة'),
+      ).resolves.toEqual({ ok: false, reason: 'not_owner' });
+      expect(repo.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('hands an owned ticket to humans through the existing e-mail alert', async () => {
+      repo.findOwnedByNumber.mockResolvedValue({
+        id: 't1',
+        ticketNumber: 'SRH-2026-000001',
+        status: 'AI_ASSISTING',
+        priority: 'NORMAL',
+        metadata: {},
+        handlerMode: 'AI_ACTIVE',
+        subject: 'مساعدة',
+      });
+      await expect(
+        service.handoffOwnedTicket('cust-a', 'SRH-2026-000001', 'human_requested'),
+      ).resolves.toEqual({ ok: true, already: false });
+      expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
+      expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 't1',
+          ticketNumber: 'SRH-2026-000001',
+          reason: 'human_requested',
+        }),
+      );
+      const metaWrite = repo.updateTicket.mock.calls.find(
+        (call) =>
+          call[1] &&
+          typeof call[1] === 'object' &&
+          'metadata' in (call[1] as object),
+      );
+      expect(metaWrite?.[1]).not.toHaveProperty('status');
     });
   });
 });

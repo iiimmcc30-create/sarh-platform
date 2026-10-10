@@ -20,6 +20,8 @@ import { AiCallGuardService } from '../ai-safety/ai-call-guard.service';
 import { AiAgentsModule } from '../ai-agents/ai-agents.module';
 import { CsAccountReads } from '../ai-agents/cs/cs-account-reads';
 import { CsAgentService } from '../ai-agents/cs/cs-agent.service';
+import { CsWriteBudget } from '../ai-agents/cs/cs-write-budget';
+import { CS_WRITE_API } from '../ai-agents/cs/cs-write-tools';
 import { FeesModule } from '../fees/fees.module';
 
 @Module({
@@ -42,7 +44,9 @@ import { FeesModule } from '../fees/fees.module';
     SupportAiContextService,
     SarhanSupportService,
     CsAccountReads,
+    CsWriteBudget,
     CsAgentService,
+    { provide: CS_WRITE_API, useExisting: SupportTicketsService },
     {
       provide: AI_PROVIDER,
       useFactory: (logger: LoggerService, guard: AiCallGuardService) =>

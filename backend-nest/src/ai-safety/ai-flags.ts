@@ -52,6 +52,17 @@ export function isCsAgentEnabled(): boolean {
   return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
 }
 
+/**
+ * AI_CS_AGENT_WRITE_ENABLED — let the customer-service agent open a ticket,
+ * add a note, or hand off to a human. Default OFF. Requires both the
+ * customer-service agent and the master AI switch.
+ */
+export function isCsAgentWriteEnabled(): boolean {
+  if (!isAiEnabled() || !isCsAgentEnabled()) return false;
+  const raw = process.env.AI_CS_AGENT_WRITE_ENABLED?.trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+}
+
 /** Hard deadline for one model request, retries included (ms). */
 export function aiTimeoutMs(): number {
   return envInt('SARH_AI_TIMEOUT_MS', 15_000, 1_000, 60_000);
