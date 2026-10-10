@@ -66,3 +66,52 @@ export function aiDailyTokenBudget(): number {
 export function aiDailyRequestLimit(): number {
   return envInt('SARH_AI_DAILY_REQUEST_LIMIT', 2_000, 0, 10_000_000);
 }
+
+/**
+ * Extra daily token cap for one feature. Defaults to the shared budget, so
+ * an unset value does not raise or bypass the shared ceiling.
+ */
+export function aiFeatureTokenBudget(
+  feature: 'support_assistant' | 'knowledge_summarizer' | 'other',
+): number {
+  if (feature === 'support_assistant') {
+    return envInt(
+      'SARH_AI_ASSISTANT_DAILY_TOKEN_BUDGET',
+      aiDailyTokenBudget(),
+      0,
+      1_000_000_000,
+    );
+  }
+  if (feature === 'knowledge_summarizer') {
+    return envInt(
+      'SARH_AI_SUMMARIZER_DAILY_TOKEN_BUDGET',
+      aiDailyTokenBudget(),
+      0,
+      1_000_000_000,
+    );
+  }
+  return aiDailyTokenBudget();
+}
+
+/** Extra daily request cap for one feature. Same default rule as tokens. */
+export function aiFeatureRequestLimit(
+  feature: 'support_assistant' | 'knowledge_summarizer' | 'other',
+): number {
+  if (feature === 'support_assistant') {
+    return envInt(
+      'SARH_AI_ASSISTANT_DAILY_REQUEST_LIMIT',
+      aiDailyRequestLimit(),
+      0,
+      10_000_000,
+    );
+  }
+  if (feature === 'knowledge_summarizer') {
+    return envInt(
+      'SARH_AI_SUMMARIZER_DAILY_REQUEST_LIMIT',
+      aiDailyRequestLimit(),
+      0,
+      10_000_000,
+    );
+  }
+  return aiDailyRequestLimit();
+}

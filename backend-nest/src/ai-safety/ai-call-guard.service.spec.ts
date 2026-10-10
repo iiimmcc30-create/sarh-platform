@@ -52,7 +52,7 @@ describe('AiCallGuardService', () => {
       150,
     );
     // reservation = input estimate (300/3 + 50) + max output
-    expect(budget.reserve).toHaveBeenCalledWith(250);
+    expect(budget.reserve).toHaveBeenCalledWith(250, 'test');
   });
 
   it('SARH_AI_ENABLED=false: no call and no budget use', async () => {

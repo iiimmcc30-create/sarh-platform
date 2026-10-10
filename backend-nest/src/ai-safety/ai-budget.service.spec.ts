@@ -21,21 +21,31 @@ function fakeRedis(): AiBudgetRedis & { store: Map<string, number> } {
     status: 'ready',
     eval: ((
       _script: string,
-      _n: number,
-      tKey: string,
-      rKey: string,
-      amount: string,
-      tokenLimit: string,
-      reqLimit: string,
+      nKeys: number,
+      ...rest: string[]
     ) => {
       const run = async () => {
         await new Promise((r) => setImmediate(r));
-        const t = store.get(tKey) ?? 0;
-        const r = store.get(rKey) ?? 0;
-        if (r + 1 > Number(reqLimit)) return [0, 2];
-        if (t + Number(amount) > Number(tokenLimit)) return [0, 1];
-        store.set(tKey, t + Number(amount));
-        store.set(rKey, r + 1);
+        const keys = rest.slice(0, nKeys);
+        const args = rest.slice(nKeys);
+        const [stKey, srKey, ftKey, frKey] = keys;
+        const amount = Number(args[0]);
+        const sharedTokenLimit = Number(args[1]);
+        const sharedReqLimit = Number(args[2]);
+        const featureTokenLimit = Number(args[3]);
+        const featureReqLimit = Number(args[4]);
+        const st = store.get(stKey) ?? 0;
+        const sr = store.get(srKey) ?? 0;
+        const ft = store.get(ftKey) ?? 0;
+        const fr = store.get(frKey) ?? 0;
+        if (fr + 1 > featureReqLimit) return [0, 2];
+        if (sr + 1 > sharedReqLimit) return [0, 2];
+        if (ft + amount > featureTokenLimit) return [0, 1];
+        if (st + amount > sharedTokenLimit) return [0, 1];
+        store.set(stKey, st + amount);
+        store.set(srKey, sr + 1);
+        store.set(ftKey, ft + amount);
+        store.set(frKey, fr + 1);
         return [1, 0];
       };
       const p = chain.then(run);
@@ -128,6 +138,66 @@ describe('AiBudgetService (shared daily budget)', () => {
     }) as never;
     const svc = new AiBudgetService(logger, redis);
     expect(await svc.reserve(10)).toEqual({ ok: false, reason: 'unavailable' });
+  });
+
+  it('assistant cap does not spend the summarizer cap, and the shared cap still binds', async () => {
+    process.env.SARH_AI_DAILY_TOKEN_BUDGET = '10000';
+    process.env.SARH_AI_DAILY_REQUEST_LIMIT = '100';
+    process.env.SARH_AI_ASSISTANT_DAILY_TOKEN_BUDGET = '100';
+    process.env.SARH_AI_SUMMARIZER_DAILY_TOKEN_BUDGET = '5000';
+    const redis = fakeRedis();
+    const svc = new AiBudgetService(logger, redis);
+    const day = riyadhDay();
+    expect((await svc.reserve(80, 'support_assistant')).ok).toBe(true);
+    expect(await svc.reserve(80, 'support_assistant')).toEqual({
+      ok: false,
+      reason: 'tokens',
+    });
+    expect((await svc.reserve(200, 'knowledge_summarizer')).ok).toBe(true);
+    expect(
+      redis.store.get(AI_BUDGET_KEYS.featureTokens('support_assistant', day)),
+    ).toBe(80);
+    expect(
+      redis.store.get(
+        AI_BUDGET_KEYS.featureTokens('knowledge_summarizer', day),
+      ),
+    ).toBe(200);
+    expect(redis.store.get(AI_BUDGET_KEYS.tokens(day))).toBe(280);
+
+    process.env.SARH_AI_DAILY_TOKEN_BUDGET = '100';
+    process.env.SARH_AI_ASSISTANT_DAILY_TOKEN_BUDGET = '10000';
+    process.env.SARH_AI_SUMMARIZER_DAILY_TOKEN_BUDGET = '10000';
+    const shared = fakeRedis();
+    const limited = new AiBudgetService(logger, shared);
+    expect((await limited.reserve(60, 'support_assistant')).ok).toBe(true);
+    expect(await limited.reserve(60, 'knowledge_summarizer')).toEqual({
+      ok: false,
+      reason: 'tokens',
+    });
+    expect(
+      shared.store.get(
+        AI_BUDGET_KEYS.featureTokens('knowledge_summarizer', day),
+      ),
+    ).toBeUndefined();
+  });
+
+  it('settles and refunds the shared counter and the feature counter together', async () => {
+    process.env.SARH_AI_DAILY_TOKEN_BUDGET = '1000';
+    process.env.SARH_AI_ASSISTANT_DAILY_TOKEN_BUDGET = '1000';
+    const redis = fakeRedis();
+    const svc = new AiBudgetService(logger, redis);
+    const day = riyadhDay();
+    const held = await svc.reserve(300, 'support_assistant');
+    await svc.settle(held, null, { refund: true });
+    expect(redis.store.get(AI_BUDGET_KEYS.tokens(day))).toBe(0);
+    expect(
+      redis.store.get(AI_BUDGET_KEYS.featureTokens('support_assistant', day)),
+    ).toBe(0);
+    expect(
+      redis.store.get(
+        AI_BUDGET_KEYS.featureTokens('knowledge_summarizer', day),
+      ),
+    ).toBeUndefined();
   });
 
   it('REDIS_ENABLED=false (single-process dev) uses an in-memory counter', async () => {

@@ -119,6 +119,7 @@ export class AiCallGuardService {
 
     const reservation = await this.budget.reserve(
       estimateInputTokens(opts.inputChars) + opts.maxOutputTokens,
+      opts.feature,
     );
     if (!reservation.ok) {
       this.logger.warn(
