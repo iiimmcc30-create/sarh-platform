@@ -406,9 +406,15 @@ describe('SupportTicketsService', () => {
         typeof call[1] === 'object' &&
         'metadata' in (call[1] as object),
     );
-    expect(metadataWrite?.[1]).toEqual({
-      metadata: { issueType: 'REFUND_ISSUE' },
-    });
+    const written = metadataWrite?.[1] as {
+      metadata?: { issueType?: string; handoffAt?: string };
+    };
+    expect(written).not.toHaveProperty('status');
+    expect(written).not.toHaveProperty('handlerMode');
+    expect(written.metadata?.issueType).toBe('REFUND_ISSUE');
+    expect(Number.isFinite(Date.parse(written.metadata?.handoffAt ?? ''))).toBe(
+      true,
+    );
     expect(repo.createMessage).toHaveBeenCalledWith(
       expect.objectContaining({ authorKind: 'SARHAN' }),
     );
@@ -670,7 +676,9 @@ describe('SupportTicketsService', () => {
       const data = handoffWrite![1] as Record<string, unknown>;
       expect(data).not.toHaveProperty('status');
       expect(data).not.toHaveProperty('handlerMode');
-      expect(data.metadata).toEqual({ issueType: 'PAYMENT_ISSUE' });
+      const meta = data.metadata as { issueType?: string; handoffAt?: string };
+      expect(meta.issueType).toBe('PAYMENT_ISSUE');
+      expect(Number.isFinite(Date.parse(meta.handoffAt ?? ''))).toBe(true);
       expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledTimes(1);
     });
 
@@ -771,6 +779,13 @@ describe('SupportTicketsService', () => {
         expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledWith(
           expect.objectContaining({ reason: 'assistant_disabled' }),
         );
+        const clockWrite = repo.updateTicket.mock.calls.find((call) => {
+          const data = call[1] as { metadata?: { handoffAt?: unknown } };
+          return typeof data?.metadata?.handoffAt === 'string';
+        });
+        expect(clockWrite).toBeDefined();
+        expect(clockWrite![1]).not.toHaveProperty('status');
+        expect(clockWrite![1]).not.toHaveProperty('handlerMode');
         // the customer still gets the normal "ticket created" notification
         expect(notifications.notifyTicketCreated).toHaveBeenCalled();
       },

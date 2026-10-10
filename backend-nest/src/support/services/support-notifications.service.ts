@@ -70,16 +70,65 @@ export class SupportNotificationsService {
    * to a human. Contains only the ticket number, priority, reason and an
    * admin-panel link. Never throws; failures are logged without PII.
    */
-  async notifyEscalatedToHuman(ticket: {
+  notifyEscalatedToHuman(ticket: {
     id: string;
     ticketNumber: string;
     priority: string;
     reason: SupportEscalationReason;
   }): Promise<HandoffAlertResult> {
-    const log = {
+    return this.queueStaffAlert({
       event: 'SUPPORT_HANDOFF_ALERT',
-      ticketNumber: ticket.ticketNumber,
+      ticket,
+      claimKey: `support:handoff-alert:${ticket.id}`,
+      jobIdPrefix: `support-handoff-${ticket.id}`,
+      subject: `تذكرة محوّلة للدعم: ${ticket.ticketNumber}`,
+      reason: HANDOFF_REASON_LABEL_AR[ticket.reason] ?? ticket.reason,
+      queued: 'Support handoff e-mail queued',
+      failed: 'Support handoff e-mail failed',
+      unavailable:
+        'Support handoff e-mail could not be queued (Redis/queue unavailable)',
+    });
+  }
+
+  /**
+   * One follow-up e-mail when a handed-off ticket still has no staff reply.
+   * Same fields as the first alert: number, priority, a fixed reason, admin link.
+   */
+  notifyUnansweredHandoff(ticket: {
+    id: string;
+    ticketNumber: string;
+    priority: string;
+  }): Promise<HandoffAlertResult> {
+    return this.queueStaffAlert({
+      event: 'SUPPORT_HANDOFF_REMINDER',
+      ticket,
+      claimKey: `support:handoff-reminder:${ticket.id}`,
+      jobIdPrefix: `support-handoff-reminder-${ticket.id}`,
+      subject: `تذكير: تذكرة تنتظر رد الدعم: ${ticket.ticketNumber}`,
+      reason: 'مرّت ساعتان بدون رد من الموظف',
+      queued: 'Support handoff reminder queued',
+      failed: 'Support handoff reminder failed',
+      unavailable:
+        'Support handoff reminder could not be queued (Redis/queue unavailable)',
+    });
+  }
+
+  private async queueStaffAlert(input: {
+    event: string;
+    ticket: { id: string; ticketNumber: string; priority: string };
+    claimKey: string;
+    jobIdPrefix: string;
+    subject: string;
+    reason: string;
+    queued: string;
+    failed: string;
+    unavailable: string;
+  }): Promise<HandoffAlertResult> {
+    const log = {
+      event: input.event,
+      ticketNumber: input.ticket.ticketNumber,
     };
+    let claimed = false;
     try {
       if (!isAiEmailAlertsEnabled()) return 'disabled';
       const recipients = supportAlertRecipients();
@@ -94,67 +143,49 @@ export class SupportNotificationsService {
         );
         return 'not_configured';
       }
-      const claimKey = `support:handoff-alert:${ticket.id}`;
       const first = await this.cache.claimOnce(
-        claimKey,
+        input.claimKey,
         HANDOFF_ALERT_TTL_SECONDS,
       );
       if (!first) return 'duplicate';
+      claimed = true;
 
       const variables = {
-        ticketNumber: ticket.ticketNumber,
-        priority: PRIORITY_LABEL_AR[ticket.priority] ?? ticket.priority,
-        reason: HANDOFF_REASON_LABEL_AR[ticket.reason] ?? ticket.reason,
-        ticketUrl: adminTicketUrl(ticket.id),
+        ticketNumber: input.ticket.ticketNumber,
+        priority:
+          PRIORITY_LABEL_AR[input.ticket.priority] ?? input.ticket.priority,
+        reason: input.reason,
+        ticketUrl: adminTicketUrl(input.ticket.id),
       };
-      let results: Array<unknown>;
-      try {
-        results = await Promise.all(
-          recipients.map((to, i) =>
-            this.emailQueue!.addEmail(
-              {
-                to,
-                subject: `تذكرة محوّلة للدعم: ${ticket.ticketNumber}`,
-                template: 'support_handoff',
-                variables,
-              },
-              { jobId: `support-handoff-${ticket.id}-${i}` },
-            ),
+      const results = await Promise.all(
+        recipients.map((to, i) =>
+          this.emailQueue!.addEmail(
+            {
+              to,
+              subject: input.subject,
+              template: 'support_handoff',
+              variables,
+            },
+            { jobId: `${input.jobIdPrefix}-${i}` },
           ),
-        );
-      } catch (err) {
-        await this.releaseHandoffClaim(claimKey);
-        this.logger?.warn(
-          {
-            ...log,
-            outcome: 'failed',
-            errorName: err instanceof Error ? err.name : undefined,
-          },
-          'Support handoff e-mail failed',
-        );
-        return 'failed';
-      }
-      if (results.some((r) => !r)) {
-        await this.releaseHandoffClaim(claimKey);
-        this.logger?.warn(
-          { ...log, outcome: 'failed' },
-          'Support handoff e-mail could not be queued (Redis/queue unavailable)',
-        );
-        return 'failed';
-      }
-      this.logger?.info(
-        { ...log, outcome: 'queued' },
-        'Support handoff e-mail queued',
+        ),
       );
+      if (results.some((r) => !r)) {
+        await this.releaseHandoffClaim(input.claimKey);
+        this.logger?.warn({ ...log, outcome: 'failed' }, input.unavailable);
+        return 'failed';
+      }
+      this.logger?.info({ ...log, outcome: 'queued' }, input.queued);
       return 'queued';
     } catch (err) {
+      if (claimed) await this.releaseHandoffClaim(input.claimKey);
       this.logger?.warn(
         {
           ...log,
           outcome: 'failed',
           errorName: err instanceof Error ? err.name : undefined,
         },
-        'Support handoff e-mail failed',
+        input.failed,
       );
       return 'failed';
     }

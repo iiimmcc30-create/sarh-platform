@@ -8,11 +8,14 @@ import { SubscriptionQueueService } from './subscription-queue.service';
 import { KnowledgeCenterService } from '../../knowledge/services/knowledge-center.service';
 import { cronCleanupAuthHeader } from '../../admin/lib/cron-auth';
 import { processMediaDeletionBatch } from '../../shared/lib/media-deletion';
+import { SupportHandoffReminderService } from '../../support/services/support-handoff-reminder.service';
 
 @Injectable()
 export class WorkerCronService implements OnModuleDestroy {
   private interval: ReturnType<typeof setInterval> | null = null;
   private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
+  private handoffReminderInterval: ReturnType<typeof setInterval> | null = null;
+  private handoffReminderKick: ReturnType<typeof setTimeout> | null = null;
   private readonly lastRun: Record<string, string> = {};
 
   constructor(
@@ -22,6 +25,7 @@ export class WorkerCronService implements OnModuleDestroy {
     private readonly subscriptionQueue: SubscriptionQueueService,
     private readonly knowledge: KnowledgeCenterService,
     private readonly logger: LoggerService,
+    private readonly handoffReminder: SupportHandoffReminderService,
   ) {
     this.interval = setInterval(() => void this.tick(), 60 * 60 * 1000);
     this.keepAliveInterval = setInterval(
@@ -33,11 +37,21 @@ export class WorkerCronService implements OnModuleDestroy {
     setTimeout(() => void this.runKnowledgeSyncCron(), 20_000);
     setTimeout(() => void this.pingPublicHealth(), 15_000);
     setTimeout(() => void this.runMediaDeletionCron(), 60_000);
+    this.handoffReminderInterval = setInterval(
+      () => void this.runHandoffReminder(),
+      15 * 60 * 1000,
+    );
+    this.handoffReminderKick = setTimeout(
+      () => void this.runHandoffReminder(),
+      60_000,
+    );
   }
 
   onModuleDestroy() {
     if (this.interval) clearInterval(this.interval);
     if (this.keepAliveInterval) clearInterval(this.keepAliveInterval);
+    if (this.handoffReminderInterval) clearInterval(this.handoffReminderInterval);
+    if (this.handoffReminderKick) clearTimeout(this.handoffReminderKick);
   }
 
   private shouldRun(key: string, hour: number): boolean {
@@ -244,6 +258,25 @@ export class WorkerCronService implements OnModuleDestroy {
 
     // Knowledge Center: every hourly tick
     await this.runKnowledgeSyncCron();
+  }
+
+  /** Second handoff e-mail. Separate from fee and subscription crons. */
+  private async runHandoffReminder(): Promise<void> {
+    const run = async () => {
+      await this.handoffReminder.run();
+    };
+    if (!this.cache.isEnabled()) {
+      try {
+        await run();
+      } catch (err) {
+        this.logger.error(
+          { errorName: err instanceof Error ? err.name : undefined },
+          'Handoff reminder cron error',
+        );
+      }
+      return;
+    }
+    await this.withLock('cron:support_handoff_reminder:lock', 10 * 60, run);
   }
 
   private async runMediaDeletionCron(): Promise<void> {

@@ -5,6 +5,14 @@ import { ADMIN_TICKET_STATUS_GROUPS } from '../constants/support.constants';
 
 const notDeleted = { deletedAt: null };
 
+/** Open human tickets with no staff message. Clock is metadata.handoffAt. */
+export const AWAITING_STAFF_HANDOFF_WHERE: Prisma.SupportTicketWhereInput = {
+  deletedAt: null,
+  handlerMode: 'HUMAN_ACTIVE',
+  status: { notIn: ['CLOSED', 'RESOLVED'] },
+  messages: { none: { authorKind: 'STAFF' } },
+};
+
 function paginate<T>(
   items: T[],
   total: number,
@@ -233,6 +241,25 @@ export class SupportRepository {
     return this.prisma.supportTicket.create({
       data,
       include: TICKET_INCLUDE,
+    });
+  }
+
+  /**
+   * Handed to a human, still open, and no staff message yet.
+   * The two-hour clock is `metadata.handoffAt`, applied by the caller.
+   * `updatedAt` is absent: customer replies and metadata writes move it.
+   */
+  listAwaitingStaffHandoffs(take = 100) {
+    return this.prisma.supportTicket.findMany({
+      where: AWAITING_STAFF_HANDOFF_WHERE,
+      select: {
+        id: true,
+        ticketNumber: true,
+        priority: true,
+        metadata: true,
+      },
+      orderBy: { createdAt: 'asc' },
+      take,
     });
   }
 

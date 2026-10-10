@@ -24,6 +24,7 @@ import {
 } from '../constants/support.constants';
 import { ticketPriorityFor } from './ticket-priority';
 import { isAssistantEnabled } from '../../ai-safety/ai-flags';
+import { withHandoffAt } from './support-handoff-clock';
 import type { SupportEscalationReason } from '../ai/ai-provider';
 
 const TICKET_STATUSES = [
@@ -733,6 +734,11 @@ export class SupportTicketsService {
         },
         'Support assistant disabled — ticket handed to staff',
       );
+      await this.repo.updateTicket(ticket.id, {
+        metadata: withHandoffAt(
+          asMeta(ticket.metadata),
+        ) as Prisma.InputJsonValue,
+      });
       await this.alertHandoff(ticket, 'assistant_disabled');
       this.emitTicket(ticket.id, 'support:message', {
         ticketId: ticket.id,
@@ -763,8 +769,18 @@ export class SupportTicketsService {
     // claimHumanHandoff (conditional AI_ACTIVE → HUMAN_ACTIVE). A later
     // update here would clobber a staff reply that landed in between
     // (IN_PROGRESS) back to WAITING_FOR_SUPPORT.
+    const previous = asMeta(ticket.metadata);
+    const metadata: Record<string, unknown> = {
+      ...previous,
+      ...(turn.metadata ?? {}),
+    };
+    delete metadata.handoffAt;
+    if (handedOff) metadata.handoffAt = new Date().toISOString();
+    else if (typeof previous.handoffAt === 'string') {
+      metadata.handoffAt = previous.handoffAt;
+    }
     await this.repo.updateTicket(ticket.id, {
-      metadata: turn.metadata as Prisma.InputJsonValue,
+      metadata: metadata as Prisma.InputJsonValue,
       ...(turn.escalate
         ? {}
         : {
