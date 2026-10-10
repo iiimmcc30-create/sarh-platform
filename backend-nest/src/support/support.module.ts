@@ -17,9 +17,20 @@ import { SupportAiContextService } from './ai/support-ai-context.service';
 import { LoggerService } from '../common/services/logger.service';
 import { AiSafetyModule } from '../ai-safety/ai-safety.module';
 import { AiCallGuardService } from '../ai-safety/ai-call-guard.service';
+import { AiAgentsModule } from '../ai-agents/ai-agents.module';
+import { CsAccountReads } from '../ai-agents/cs/cs-account-reads';
+import { CsAgentService } from '../ai-agents/cs/cs-agent.service';
+import { FeesModule } from '../fees/fees.module';
 
 @Module({
-  imports: [PrismaModule, QueueModule, GatewaySharedModule, AiSafetyModule],
+  imports: [
+    PrismaModule,
+    QueueModule,
+    GatewaySharedModule,
+    AiSafetyModule,
+    AiAgentsModule,
+    FeesModule,
+  ],
   controllers: [SupportController, AdminSupportController],
   providers: [
     SupportRepository,
@@ -30,6 +41,8 @@ import { AiCallGuardService } from '../ai-safety/ai-call-guard.service';
     SupportSeedService,
     SupportAiContextService,
     SarhanSupportService,
+    CsAccountReads,
+    CsAgentService,
     {
       provide: AI_PROVIDER,
       useFactory: (logger: LoggerService, guard: AiCallGuardService) =>

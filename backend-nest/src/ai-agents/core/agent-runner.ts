@@ -61,6 +61,8 @@ export type AgentRunResult = {
   stopped: 'done' | 'max_rounds' | 'disabled' | 'budget' | 'timeout' | 'error';
   text: string;
   rounds: number;
+  /** Tool attempts that were denied or errored. */
+  deniedCount: number;
 };
 
 /**
@@ -84,6 +86,7 @@ export class AgentRunner {
       parameters: tool.parameters,
     }));
     let text = '';
+    let deniedCount = 0;
     for (let round = 1; round <= AGENT_MAX_ROUNDS; round++) {
       const inputChars = JSON.stringify(messages).length;
       const guarded = await this.guard.run({
@@ -104,7 +107,7 @@ export class AgentRunner {
         },
       });
       if (!guarded.ok) {
-        return { stopped: guarded.reason, text, rounds: round };
+        return { stopped: guarded.reason, text, rounds: round, deniedCount };
       }
       const turn = guarded.value;
       text = turn.content ?? '';
@@ -114,20 +117,31 @@ export class AgentRunner {
           stopped: calls.length ? 'max_rounds' : 'done',
           text,
           rounds: round,
+          deniedCount,
         };
       }
       for (const call of calls) {
-        const content = await this.executeTool(call, input);
-        messages.push({ role: 'tool', content, toolCallId: call.id });
+        const outcome = await this.executeTool(call, input);
+        if (outcome.status !== 'ok') deniedCount += 1;
+        messages.push({
+          role: 'tool',
+          content: outcome.content,
+          toolCallId: call.id,
+        });
       }
     }
-    return { stopped: 'max_rounds', text, rounds: AGENT_MAX_ROUNDS };
+    return {
+      stopped: 'max_rounds',
+      text,
+      rounds: AGENT_MAX_ROUNDS,
+      deniedCount,
+    };
   }
 
   private async executeTool(
     call: AgentToolCall,
     input: AgentRunInput,
-  ): Promise<string> {
+  ): Promise<{ content: string; status: AuditStatus }> {
     const started = Date.now();
     const actor: ToolActor = {
       actorKind: input.actorKind,
@@ -156,40 +170,40 @@ export class AgentRunner {
       parsed = JSON.parse(call.arguments || '{}');
     } catch {
       await finish('denied', call.arguments || '', 'invalid_json');
-      return wrapUntrusted('denied');
+      return { content: wrapUntrusted('denied'), status: 'denied' };
     }
     const rawInput = JSON.stringify(stripActorFields(parsed));
     if (containsActorField(parsed)) {
       await finish('denied', rawInput, 'actor_from_model');
-      return wrapUntrusted('denied');
+      return { content: wrapUntrusted('denied'), status: 'denied' };
     }
     const tool = this.registry.get(call.name);
     if (!tool) {
       await finish('denied', rawInput, 'unknown_tool');
-      return wrapUntrusted('denied');
+      return { content: wrapUntrusted('denied'), status: 'denied' };
     }
     const checked = tool.schema.safeParse(parsed);
     if (!checked.success) {
       await finish('denied', rawInput, 'invalid_input');
-      return wrapUntrusted('denied');
+      return { content: wrapUntrusted('denied'), status: 'denied' };
     }
     if (!scopeAllows(input.scope, tool.scope)) {
       await finish('denied', rawInput, 'scope');
-      return wrapUntrusted('denied');
+      return { content: wrapUntrusted('denied'), status: 'denied' };
     }
     if (tool.sideEffect !== 'none') {
       await finish('denied', rawInput, 'side_effect');
-      return wrapUntrusted('denied');
+      return { content: wrapUntrusted('denied'), status: 'denied' };
     }
     try {
       const value = await tool.execute(checked.data, actor);
       const raw =
         typeof value === 'string' ? value : JSON.stringify(value ?? null);
       await finish('ok', rawInput, raw);
-      return wrapUntrusted(raw);
+      return { content: wrapUntrusted(raw), status: 'ok' };
     } catch {
       await finish('error', rawInput, 'tool_error');
-      return wrapUntrusted('error');
+      return { content: wrapUntrusted('error'), status: 'error' };
     }
   }
 }

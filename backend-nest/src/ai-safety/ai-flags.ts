@@ -42,6 +42,16 @@ export function isAiEmailAlertsEnabled(): boolean {
   return envFlag('SARH_AI_EMAIL_ALERTS_ENABLED');
 }
 
+/**
+ * AI_CS_AGENT_ENABLED — customer-service agent with read-only tools.
+ * Default OFF. Only an explicit on/true/1/yes enables it. Anything else,
+ * including an unset variable, keeps the current «مساعد سرح» path.
+ */
+export function isCsAgentEnabled(): boolean {
+  const raw = process.env.AI_CS_AGENT_ENABLED?.trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+}
+
 /** Hard deadline for one model request, retries included (ms). */
 export function aiTimeoutMs(): number {
   return envInt('SARH_AI_TIMEOUT_MS', 15_000, 1_000, 60_000);

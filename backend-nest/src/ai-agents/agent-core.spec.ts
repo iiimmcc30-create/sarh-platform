@@ -98,12 +98,7 @@ describe('agent core (phase 1)', () => {
       additionalProperties: false,
     });
     const app = readFileSync(join(__dirname, '../app.module.ts'), 'utf8');
-    const support = readFileSync(
-      join(__dirname, '../support/support.module.ts'),
-      'utf8',
-    );
     expect(app).not.toContain('AiAgentsModule');
-    expect(support).not.toContain('AiAgentsModule');
     const registry = readFileSync(
       join(__dirname, 'core/tool-registry.ts'),
       'utf8',
@@ -211,7 +206,12 @@ describe('agent core (phase 1)', () => {
     const result = await runnerFor({ complete }, registry, audit).run(baseRun);
     expect(complete).toHaveBeenCalledTimes(4);
     expect(execute).toHaveBeenCalledTimes(3);
-    expect(result).toEqual({ stopped: 'max_rounds', text: '', rounds: 4 });
+    expect(result).toEqual({
+      stopped: 'max_rounds',
+      text: '',
+      rounds: 4,
+      deniedCount: 0,
+    });
     for (const call of complete.mock.calls as unknown as Array<
       [{ parallelToolCalls: boolean }]
     >) {
@@ -248,7 +248,12 @@ describe('agent core (phase 1)', () => {
       }),
     };
     const result = await runnerFor(model, registry, audit).run(baseRun);
-    expect(result).toEqual({ stopped: 'done', text: 'تم', rounds: 2 });
+    expect(result).toEqual({
+      stopped: 'done',
+      text: 'تم',
+      rounds: 2,
+      deniedCount: 0,
+    });
     expect(execute.mock.calls.map((call) => (call[0] as { n: string }).n)).toEqual([
       'a',
       'b',

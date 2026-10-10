@@ -54,6 +54,7 @@ describe('SupportTicketsService', () => {
   beforeEach(async () => {
     await flushScheduledTurn();
     jest.clearAllMocks();
+    delete process.env.AI_CS_AGENT_ENABLED;
     repo.findUserNames.mockResolvedValue({
       arabicName: 'متعب العتيبي',
       displayName: 'Muteb',
@@ -823,6 +824,94 @@ describe('SupportTicketsService', () => {
       });
       expect(res.message).toBeDefined();
       expect(notifications.notifyStaffReply).toHaveBeenCalled();
+    });
+
+    function withCsAgent() {
+      const csAgent = { reply: jest.fn() };
+      const local = new SupportTicketsService(
+        repo as never,
+        notifications as never,
+        prisma as never,
+        logger as never,
+        sockets as never,
+        sarhan as never,
+        aiContext as never,
+        undefined,
+        csAgent as never,
+      );
+      repo.findUserTicket.mockResolvedValue({
+        ...aiTicket,
+        subject: 'مشكلة',
+        reporterId: 'cust-a',
+      });
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        reporterId: 'cust-a',
+        messages: [{ authorKind: 'CUSTOMER', body: 'وش حالة اشتراكي' }],
+      });
+      return { local, csAgent };
+    }
+
+    it('AI_CS_AGENT_ENABLED off keeps the current assistant', async () => {
+      delete process.env.AI_CS_AGENT_ENABLED;
+      const { local, csAgent } = withCsAgent();
+      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await flushScheduledTurn();
+      expect(csAgent.reply).not.toHaveBeenCalled();
+      expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the customer-service agent only when the flag is on and the reply is accepted', async () => {
+      process.env.AI_CS_AGENT_ENABLED = 'on';
+      const { local, csAgent } = withCsAgent();
+      csAgent.reply.mockResolvedValue({
+        accepted: true,
+        replyAr: 'اشتراكك مجاني',
+      });
+      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await flushScheduledTurn();
+      expect(csAgent.reply).toHaveBeenCalledWith({
+        userId: 'cust-a',
+        text: 'وش حالة اشتراكي',
+      });
+      expect(sarhan.nextTurn).not.toHaveBeenCalled();
+      expect(repo.createMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authorKind: 'SARHAN',
+          body: 'اشتراكك مجاني',
+        }),
+      );
+    });
+
+    it('falls back to the FAQ assistant when the agent rejects the reply', async () => {
+      process.env.AI_CS_AGENT_ENABLED = 'on';
+      const { local, csAgent } = withCsAgent();
+      csAgent.reply.mockResolvedValue({ accepted: false, replyAr: '' });
+      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await flushScheduledTurn();
+      expect(csAgent.reply).toHaveBeenCalled();
+      expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
+    });
+
+    it('a refund question still uses the current assistant when the agent flag is on', async () => {
+      process.env.AI_CS_AGENT_ENABLED = 'on';
+      const { local, csAgent } = withCsAgent();
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        reporterId: 'cust-a',
+        messages: [{ authorKind: 'CUSTOMER', body: 'ابي استرجع فلوسي' }],
+      });
+      sarhan.nextTurn.mockResolvedValue({
+        replyAr: 'حوّلت طلبك',
+        escalate: true,
+        escalationReason: 'refund',
+        metadata: {},
+        missingInformation: [],
+      });
+      await local.replyAsUser(user('cust-a'), 't1', { body: 'ابي استرجع فلوسي' });
+      await flushScheduledTurn();
+      expect(csAgent.reply).not.toHaveBeenCalled();
+      expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
     });
   });
 });

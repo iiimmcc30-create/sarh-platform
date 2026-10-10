@@ -9,7 +9,10 @@ import { SupportRepository } from '../repositories/support.repository';
 import { SupportNotificationsService } from './support-notifications.service';
 import { SocketEmitService } from '../../gateway/services/socket-emit.service';
 import { SupportSocketBridgeService } from '../../gateway/services/support-socket-bridge.service';
-import { SarhanSupportService } from '../ai/sarhan-support.service';
+import {
+  SarhanSupportService,
+  type SarhanTurnResult,
+} from '../ai/sarhan-support.service';
 import { SupportAiContextService } from '../ai/support-ai-context.service';
 import type {
   CreateSupportTicketDto,
@@ -23,7 +26,15 @@ import {
   TICKET_STATUS_LABEL_AR,
 } from '../constants/support.constants';
 import { ticketPriorityFor } from './ticket-priority';
-import { isAssistantEnabled } from '../../ai-safety/ai-flags';
+import { isAssistantEnabled, isCsAgentEnabled } from '../../ai-safety/ai-flags';
+import { CsAgentService } from '../../ai-agents/cs/cs-agent.service';
+import {
+  FRAUD_RE,
+  HUMAN_REQUEST_RE,
+  JAILBREAK_RE,
+  PAYMENT_DISPUTE_RE,
+  REFUND_RE,
+} from '../ai/support-guards';
 import { withHandoffAt } from './support-handoff-clock';
 import type { SupportEscalationReason } from '../ai/ai-provider';
 
@@ -158,6 +169,20 @@ const adminReplySchema = z.object({
     .optional(),
 });
 
+function lastCustomerBody(ticket: {
+  description?: string | null;
+  messages?: Array<{ authorKind?: string | null; body?: string | null }>;
+}): string {
+  const messages = ticket.messages ?? [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message?.authorKind === 'CUSTOMER' && message.body?.trim()) {
+      return message.body.trim();
+    }
+  }
+  return (ticket.description ?? '').trim();
+}
+
 function asMeta(value: unknown): Record<string, unknown> {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return { ...(value as Record<string, unknown>) };
@@ -184,6 +209,7 @@ export class SupportTicketsService {
     private readonly sarhan: SarhanSupportService,
     private readonly aiContext: SupportAiContextService,
     @Optional() private readonly supportBridge?: SupportSocketBridgeService,
+    @Optional() private readonly csAgent?: CsAgentService,
   ) {}
 
   private legacyTicketNumber() {
@@ -710,6 +736,47 @@ export class SupportTicketsService {
     }
   }
 
+  /**
+   * Refunds, fraud, payment disputes, human requests and instruction-injection
+   * stay on the current assistant. The agent is only an extra read-only path.
+   */
+  private mustKeepCurrentAssistant(text: string): boolean {
+    return (
+      REFUND_RE.test(text) ||
+      FRAUD_RE.test(text) ||
+      PAYMENT_DISPUTE_RE.test(text) ||
+      HUMAN_REQUEST_RE.test(text) ||
+      JAILBREAK_RE.test(text)
+    );
+  }
+
+  private async csTurn(
+    reporterId: string | null | undefined,
+    text: string,
+  ): Promise<SarhanTurnResult | null> {
+    if (!isCsAgentEnabled() || !this.csAgent || !reporterId) return null;
+    if (this.mustKeepCurrentAssistant(text)) return null;
+    try {
+      const reply = await this.csAgent.reply({ userId: reporterId, text });
+      if (!reply.accepted) return null;
+      return {
+        replyAr: reply.replyAr,
+        escalate: false,
+        metadata: {},
+        missingInformation: [],
+      };
+    } catch (err) {
+      this.logger.warn(
+        {
+          event: 'CS_AGENT_FAILED',
+          errorName: err instanceof Error ? err.name : undefined,
+        },
+        'Customer-service agent failed — using the FAQ assistant',
+      );
+      return null;
+    }
+  }
+
   private async runSarhanIfActive(ticketId: string) {
     const ticket = await this.repo.findTicketById(ticketId);
     if (!ticket || ticket.handlerMode !== 'AI_ACTIVE') return;
@@ -750,7 +817,9 @@ export class SupportTicketsService {
 
     const context = await this.aiContext.build(ticket);
     const existingMeta = asMeta(ticket.metadata);
-    const turn = await this.sarhan.nextTurn(context, existingMeta);
+    const customerText = lastCustomerBody(ticket);
+    const agentTurn = await this.csTurn(ticket.reporterId, customerText);
+    const turn = agentTurn ?? (await this.sarhan.nextTurn(context, existingMeta));
 
     await this.repo.createMessage({
       ticket: { connect: { id: ticket.id } },

@@ -39,6 +39,6 @@ export const AGENT_MODEL = Symbol('AGENT_MODEL');
       inject: [AiCallGuardService, AiAuditService, ToolRegistry, AGENT_MODEL],
     },
   ],
-  exports: [AgentRunner, ToolRegistry, AiAuditService],
+  exports: [AgentRunner, ToolRegistry, AiAuditService, AGENT_MODEL],
 })
 export class AiAgentsModule {}
