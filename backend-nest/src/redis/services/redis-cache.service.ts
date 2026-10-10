@@ -169,6 +169,22 @@ export class RedisCacheService {
     return this.claimOnceInMemory(key, ttl);
   }
 
+  /**
+   * Drops a claimOnce key so a failed caller can try again.
+   * Clears both Redis and the in-process fallback.
+   */
+  async releaseClaim(key: string): Promise<void> {
+    this.memoryClaims.delete(key);
+    if (!this.isEnabled()) return;
+    try {
+      const client = this.getClient();
+      if (client.status !== 'ready') return;
+      await client.del(key);
+    } catch (err) {
+      this.markUnavailable(err);
+    }
+  }
+
   private claimOnceInMemory(key: string, ttl: number): boolean {
     const now = Date.now();
     const expiresAt = this.memoryClaims.get(key);

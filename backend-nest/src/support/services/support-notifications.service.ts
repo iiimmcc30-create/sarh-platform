@@ -94,8 +94,9 @@ export class SupportNotificationsService {
         );
         return 'not_configured';
       }
+      const claimKey = `support:handoff-alert:${ticket.id}`;
       const first = await this.cache.claimOnce(
-        `support:handoff-alert:${ticket.id}`,
+        claimKey,
         HANDOFF_ALERT_TTL_SECONDS,
       );
       if (!first) return 'duplicate';
@@ -106,20 +107,35 @@ export class SupportNotificationsService {
         reason: HANDOFF_REASON_LABEL_AR[ticket.reason] ?? ticket.reason,
         ticketUrl: adminTicketUrl(ticket.id),
       };
-      const results = await Promise.all(
-        recipients.map((to, i) =>
-          this.emailQueue!.addEmail(
-            {
-              to,
-              subject: `تذكرة محوّلة للدعم: ${ticket.ticketNumber}`,
-              template: 'support_handoff',
-              variables,
-            },
-            { jobId: `support-handoff-${ticket.id}-${i}` },
+      let results: Array<unknown>;
+      try {
+        results = await Promise.all(
+          recipients.map((to, i) =>
+            this.emailQueue!.addEmail(
+              {
+                to,
+                subject: `تذكرة محوّلة للدعم: ${ticket.ticketNumber}`,
+                template: 'support_handoff',
+                variables,
+              },
+              { jobId: `support-handoff-${ticket.id}-${i}` },
+            ),
           ),
-        ),
-      );
+        );
+      } catch (err) {
+        await this.releaseHandoffClaim(claimKey);
+        this.logger?.warn(
+          {
+            ...log,
+            outcome: 'failed',
+            errorName: err instanceof Error ? err.name : undefined,
+          },
+          'Support handoff e-mail failed',
+        );
+        return 'failed';
+      }
       if (results.some((r) => !r)) {
+        await this.releaseHandoffClaim(claimKey);
         this.logger?.warn(
           { ...log, outcome: 'failed' },
           'Support handoff e-mail could not be queued (Redis/queue unavailable)',
@@ -141,6 +157,22 @@ export class SupportNotificationsService {
         'Support handoff e-mail failed',
       );
       return 'failed';
+    }
+  }
+
+  /** Drop the once-only lock so a failed enqueue can be retried. */
+  private async releaseHandoffClaim(key: string) {
+    try {
+      await this.cache?.releaseClaim(key);
+    } catch (err) {
+      this.logger?.warn(
+        {
+          event: 'SUPPORT_HANDOFF_ALERT',
+          outcome: 'release_failed',
+          errorName: err instanceof Error ? err.name : undefined,
+        },
+        'Support handoff claim could not be released',
+      );
     }
   }
 

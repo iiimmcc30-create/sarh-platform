@@ -17,6 +17,9 @@ describe('Support handoff e-mail alert (Phase 0)', () => {
       claims.add(key);
       return true;
     }),
+    releaseClaim: jest.fn(async (key: string) => {
+      claims.delete(key);
+    }),
   };
   const logger = { info: jest.fn(), warn: jest.fn() };
   let svc: SupportNotificationsService;
@@ -68,6 +71,7 @@ describe('Support handoff e-mail alert (Phase 0)', () => {
     });
     expect(opts).toEqual({ jobId: `support-handoff-${ticket.id}-0` });
     expect(opts.jobId).not.toContain(':');
+    expect(cache.releaseClaim).not.toHaveBeenCalled();
   });
 
   it('never sends twice for the same ticket (retries / repeated events)', async () => {
@@ -97,13 +101,27 @@ describe('Support handoff e-mail alert (Phase 0)', () => {
     );
   });
 
-  it('queue failure is reported but never thrown', async () => {
-    emailQueue.addEmail.mockResolvedValue(null);
+  it('queue failure releases the claim so the same ticket can be retried', async () => {
+    const key = `support:handoff-alert:${ticket.id}`;
+    emailQueue.addEmail.mockResolvedValueOnce(null);
     expect(await svc.notifyEscalatedToHuman(ticket)).toBe('failed');
+    expect(cache.releaseClaim).toHaveBeenCalledWith(key);
+    expect(claims.has(key)).toBe(false);
+
+    emailQueue.addEmail.mockResolvedValue({ id: 'job-retry' });
+    expect(await svc.notifyEscalatedToHuman(ticket)).toBe('queued');
+    expect(await svc.notifyEscalatedToHuman(ticket)).toBe('duplicate');
+    expect(emailQueue.addEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it('a thrown enqueue releases the claim and never throws', async () => {
     emailQueue.addEmail.mockRejectedValue(new Error('redis down'));
-    expect(await svc.notifyEscalatedToHuman({ ...ticket, id: 'other' })).toBe(
-      'failed',
-    );
+    expect(await svc.notifyEscalatedToHuman(ticket)).toBe('failed');
+    expect(claims.has(`support:handoff-alert:${ticket.id}`)).toBe(false);
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('redis down');
+
+    emailQueue.addEmail.mockResolvedValue({ id: 'job-retry' });
+    expect(await svc.notifyEscalatedToHuman(ticket)).toBe('queued');
   });
 
   it('works without the optional e-mail deps (older wiring) → not_configured', async () => {
