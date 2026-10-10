@@ -16,11 +16,14 @@ import type {
 } from '../dto/support.dto';
 import {
   firstNameFromUser,
+  sarhanHandoff,
   sarhanWelcome,
   SUPPORT_TICKET_CATEGORY_LABEL_AR,
   TICKET_STATUS_LABEL_AR,
 } from '../constants/support.constants';
 import { ticketPriorityFor } from './ticket-priority';
+import { isAssistantEnabled } from '../../ai-safety/ai-flags';
+import type { SupportEscalationReason } from '../ai/ai-provider';
 
 const TICKET_STATUSES = [
   'OPEN',
@@ -357,12 +360,16 @@ export class SupportTicketsService {
     }
     if (!ticket) throwApi(500, 'ticket_create_failed', 'تعذر إنشاء البلاغ');
 
-    await this.repo.createMessage({
-      ticket: { connect: { id: ticket.id } },
-      authorKind: 'SARHAN',
-      isStaffReply: true,
-      body: sarhanWelcome(firstName, subject),
-    });
+    // With the assistant switched off the ticket is handed straight to the
+    // human team (runSarhanIfActive below), so skip the assistant greeting.
+    if (isAssistantEnabled()) {
+      await this.repo.createMessage({
+        ticket: { connect: { id: ticket.id } },
+        authorKind: 'SARHAN',
+        isStaffReply: true,
+        body: sarhanWelcome(firstName, subject),
+      });
+    }
 
     await this.repo.createMessage({
       ticket: { connect: { id: ticket.id } },
@@ -660,10 +667,61 @@ export class SupportTicketsService {
     this.sockets.emitToTicket(ticketId, event, data);
   }
 
+  /** Fire the one-time handoff alert; never throws (ticket flow must not fail). */
+  private async alertHandoff(
+    ticket: { id: string; ticketNumber: string; priority?: string | null },
+    reason: SupportEscalationReason,
+  ) {
+    try {
+      await this.notifications.notifyEscalatedToHuman({
+        id: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        priority: ticket.priority ?? 'NORMAL',
+        reason,
+      });
+    } catch {
+      this.logger.warn(
+        {
+          event: 'SUPPORT_HANDOFF_ALERT_FAILED',
+          ticketNumber: ticket.ticketNumber,
+        },
+        'Support handoff alert failed',
+      );
+    }
+  }
+
   private async runSarhanIfActive(ticketId: string) {
     const ticket = await this.repo.findTicketById(ticketId);
     if (!ticket || ticket.handlerMode !== 'AI_ACTIVE') return;
     if (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') return;
+
+    // SARH_AI_ENABLED / SARH_ASSISTANT_ENABLED off → no assistant turn and no
+    // model call; hand the ticket to the human team instead.
+    if (!isAssistantEnabled()) {
+      const claimed = await this.repo.claimHumanHandoff(ticket.id);
+      if (!claimed) return;
+      const body = sarhanHandoff(ticket.ticketNumber);
+      await this.repo.createMessage({
+        ticket: { connect: { id: ticket.id } },
+        authorKind: 'SARHAN',
+        isStaffReply: true,
+        body,
+      });
+      this.logger.info(
+        {
+          event: 'AI_ASSISTANT_DISABLED_HANDOFF',
+          ticketNumber: ticket.ticketNumber,
+        },
+        'Support assistant disabled — ticket handed to staff',
+      );
+      await this.alertHandoff(ticket, 'assistant_disabled');
+      this.emitTicket(ticket.id, 'support:message', {
+        ticketId: ticket.id,
+        authorKind: 'SARHAN',
+        body,
+      });
+      return;
+    }
 
     const context = await this.aiContext.build(ticket);
     const existingMeta = asMeta(ticket.metadata);
@@ -676,13 +734,21 @@ export class SupportTicketsService {
       body: turn.replyAr,
     });
 
+    // The handoff is claimed atomically (AI_ACTIVE → HUMAN_ACTIVE) so a
+    // concurrent turn or a retried request cannot alert twice.
+    const handedOff = turn.escalate
+      ? await this.repo.claimHumanHandoff(ticket.id)
+      : false;
+
     await this.repo.updateTicket(ticket.id, {
       metadata: turn.metadata as Prisma.InputJsonValue,
       ...(turn.escalate
-        ? {
-            status: 'WAITING_FOR_SUPPORT' as const,
-            handlerMode: 'HUMAN_ACTIVE' as const,
-          }
+        ? handedOff
+          ? {
+              status: 'WAITING_FOR_SUPPORT' as const,
+              handlerMode: 'HUMAN_ACTIVE' as const,
+            }
+          : {} // staff already took over meanwhile — keep their status
         : {
             status: 'WAITING_FOR_CUSTOMER' as const,
           }),
@@ -693,6 +759,12 @@ export class SupportTicketsService {
         { event: 'AI_ESCALATED', ticketNumber: ticket.ticketNumber },
         'Support assistant escalated ticket',
       );
+      if (handedOff) {
+        await this.alertHandoff(
+          ticket,
+          turn.escalationReason ?? 'assistant_decision',
+        );
+      }
     }
 
     this.emitTicket(ticket.id, 'support:message', {

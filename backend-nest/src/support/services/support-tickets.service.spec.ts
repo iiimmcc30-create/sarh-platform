@@ -25,6 +25,7 @@ describe('SupportTicketsService', () => {
     ),
     findAllStaffUserIds: jest.fn(),
     findReporterTier: jest.fn(),
+    claimHumanHandoff: jest.fn(),
   };
   const notifications = {
     notifyTicketCreated: jest.fn(),
@@ -33,6 +34,7 @@ describe('SupportTicketsService', () => {
     notifyTicketStatusChanged: jest.fn(),
     notifyTicketAwaitingUser: jest.fn(),
     notifyTicketClosed: jest.fn(),
+    notifyEscalatedToHuman: jest.fn(),
   };
   const prisma = {
     user: { findMany: jest.fn() },
@@ -52,6 +54,8 @@ describe('SupportTicketsService', () => {
     });
     repo.findLatestSrhTicketNumber.mockResolvedValue(null);
     repo.findReporterTier.mockResolvedValue({ verifiedTier: null });
+    repo.claimHumanHandoff.mockResolvedValue(true);
+    notifications.notifyEscalatedToHuman.mockResolvedValue('queued');
     repo.createMessage.mockResolvedValue({ id: 'm1', body: 'x' });
     repo.updateTicket.mockImplementation(
       async (id: string, data: Record<string, unknown>) => ({
@@ -488,6 +492,183 @@ describe('SupportTicketsService', () => {
         description: 'ما أقدر أدخل حسابي من أمس',
       });
       expect(repo.createTicket.mock.calls[0][0].priority).toBe('NORMAL');
+    });
+  });
+
+  describe('Phase 0: handoff alert + kill switches', () => {
+    const env = { ...process.env };
+    afterEach(() => {
+      process.env = { ...env };
+    });
+
+    const aiTicket = {
+      id: 't1',
+      ticketNumber: 'SRH-2026-000001',
+      handlerMode: 'AI_ACTIVE',
+      status: 'AI_ASSISTING',
+      priority: 'HIGH',
+      metadata: {},
+      messages: [],
+    };
+
+    function primeReply() {
+      repo.findUserTicket.mockResolvedValue({
+        ...aiTicket,
+        subject: 'مشكلة',
+      });
+      repo.findTicketById.mockResolvedValue(aiTicket);
+    }
+
+    it('alerts once on the real AI → human transition, with reason and priority only', async () => {
+      primeReply();
+      sarhan.nextTurn.mockResolvedValue({
+        replyAr: 'حوّلت طلبك',
+        escalate: true,
+        escalationReason: 'refund',
+        metadata: {},
+        missingInformation: [],
+      });
+      await service.replyAsUser(user('cust-a'), 't1', {
+        body: 'أبي استرجع فلوسي',
+      });
+      expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
+      expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledTimes(1);
+      expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledWith({
+        id: 't1',
+        ticketNumber: 'SRH-2026-000001',
+        priority: 'HIGH',
+        reason: 'refund',
+      });
+    });
+
+    it('no alert when the transition was already claimed (retry / concurrent turn)', async () => {
+      primeReply();
+      repo.claimHumanHandoff.mockResolvedValue(false);
+      sarhan.nextTurn.mockResolvedValue({
+        replyAr: 'حوّلت طلبك',
+        escalate: true,
+        metadata: {},
+        missingInformation: [],
+      });
+      await service.replyAsUser(user('cust-a'), 't1', { body: 'موظف' });
+      expect(notifications.notifyEscalatedToHuman).not.toHaveBeenCalled();
+      // staff status is not overwritten
+      const data = repo.updateTicket.mock.calls[
+        repo.updateTicket.mock.calls.length - 1
+      ]?.[1] as Record<string, unknown>;
+      expect(data.status).not.toBe('WAITING_FOR_SUPPORT');
+    });
+
+    it('no alert and no handoff claim on a normal (non-escalating) turn', async () => {
+      primeReply();
+      await service.replyAsUser(user('cust-a'), 't1', {
+        body: 'ما جاني الكود',
+      });
+      expect(repo.claimHumanHandoff).not.toHaveBeenCalled();
+      expect(notifications.notifyEscalatedToHuman).not.toHaveBeenCalled();
+    });
+
+    it('ticket creation still succeeds when the e-mail alert throws', async () => {
+      repo.createTicket.mockResolvedValue({
+        ...aiTicket,
+        subject: 's',
+        createdAt: new Date(),
+      });
+      repo.findTicketById.mockResolvedValue(aiTicket);
+      repo.findUserTicket.mockResolvedValue({
+        ...aiTicket,
+        status: 'WAITING_FOR_SUPPORT',
+        handlerMode: 'HUMAN_ACTIVE',
+      });
+      sarhan.nextTurn.mockResolvedValue({
+        replyAr: '',
+        escalate: true,
+        escalationReason: 'low_confidence',
+        metadata: {},
+        missingInformation: [],
+      });
+      notifications.notifyEscalatedToHuman.mockRejectedValue(
+        new Error('smtp down'),
+      );
+      const res = await service.createTicket(user('cust-a'), {
+        helpKind: 'OTHER_HELP',
+        description: 'عندي مشكلة غريبة ما لها وصف',
+      });
+      expect(res.ticket.ticketNumber).toBe('SRH-2026-000001');
+      expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('smtp down');
+    });
+
+    it.each([
+      ['SARH_ASSISTANT_ENABLED', 'false'],
+      ['SARH_AI_ENABLED', 'false'],
+    ])(
+      '%s=%s: help ticket goes straight to staff, assistant not run',
+      async (key, value) => {
+        process.env[key] = value;
+        repo.createTicket.mockResolvedValue({
+          ...aiTicket,
+          subject: 's',
+          createdAt: new Date(),
+        });
+        repo.findTicketById.mockResolvedValue(aiTicket);
+        repo.findUserTicket.mockResolvedValue({
+          ...aiTicket,
+          status: 'WAITING_FOR_SUPPORT',
+          handlerMode: 'HUMAN_ACTIVE',
+        });
+
+        const res = await service.createTicket(user('cust-a'), {
+          helpKind: 'OTHER_HELP',
+          description: 'ما جاني الكود',
+        });
+
+        expect((res.ticket as { handlerMode?: string }).handlerMode).toBe(
+          'HUMAN_ACTIVE',
+        );
+        expect(sarhan.nextTurn).not.toHaveBeenCalled();
+        expect(aiContext.build).not.toHaveBeenCalled();
+        expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
+        const bodies = repo.createMessage.mock.calls.map((c) => c[0].body);
+        expect(bodies.some((b: string) => b.startsWith('هلا '))).toBe(false);
+        expect(bodies).toContain('ما جاني الكود');
+        expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: 'assistant_disabled' }),
+        );
+        // the customer still gets the normal "ticket created" notification
+        expect(notifications.notifyTicketCreated).toHaveBeenCalled();
+      },
+    );
+
+    it('assistant off: a reply on an AI ticket is handed to staff, no model turn', async () => {
+      process.env.SARH_ASSISTANT_ENABLED = 'off';
+      primeReply();
+      await service.replyAsUser(user('cust-a'), 't1', { body: 'وش صار؟' });
+      expect(sarhan.nextTurn).not.toHaveBeenCalled();
+      expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
+    });
+
+    it('switches default ON: unset / "true" keep the assistant running', async () => {
+      process.env.SARH_ASSISTANT_ENABLED = 'true';
+      delete process.env.SARH_AI_ENABLED;
+      primeReply();
+      await service.replyAsUser(user('cust-a'), 't1', {
+        body: 'ما جاني الكود',
+      });
+      expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
+    });
+
+    it('human support keeps working with AI off (staff reply unaffected)', async () => {
+      process.env.SARH_AI_ENABLED = 'false';
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        handlerMode: 'HUMAN_ACTIVE',
+        reporterId: 'cust-a',
+      });
+      const res = await service.replyAsStaff(user('mod-1', 'MODERATOR'), 't1', {
+        body: 'هلا، نشيّك لك',
+      });
+      expect(res.message).toBeDefined();
+      expect(notifications.notifyStaffReply).toHaveBeenCalled();
     });
   });
 });

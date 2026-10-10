@@ -20,7 +20,8 @@ export class EmailQueueService {
     private readonly logger: LoggerService,
   ) {}
 
-  async addEmail(job: EmailJob) {
+  /** `opts.jobId` makes the enqueue idempotent (BullMQ ignores a duplicate id). */
+  async addEmail(job: EmailJob, opts: { jobId?: string } = {}) {
     if (!isSafeEmailAddress(job.to) || !isAllowedEmailTemplate(job.template)) {
       this.logger.warn(
         { to: job.to, template: job.template },
@@ -31,6 +32,7 @@ export class EmailQueueService {
     if (!this.cache.isEnabled() || !this.queue) return null;
     try {
       return await this.queue.add('send', job, {
+        ...(opts.jobId ? { jobId: opts.jobId } : {}),
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },
       });

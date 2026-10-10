@@ -1,5 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { AppNotificationsService } from '../../queue/services/app-notifications.service';
+import { EmailQueueService } from '../../queue/services/email-queue.service';
+import { RedisCacheService } from '../../redis/services/redis-cache.service';
+import { LoggerService } from '../../common/services/logger.service';
+import { isSafeEmailAddress } from '../../queue/processors/email.sanitize';
+import { isAiEmailAlertsEnabled } from '../../ai-safety/ai-flags';
+import type { SupportEscalationReason } from '../ai/ai-provider';
 import { SupportRepository } from '../repositories/support.repository';
 import {
   TICKET_STATUS_LABEL_AR,
@@ -8,12 +14,135 @@ import {
 
 const SYSTEM_TYPE = 'system';
 
+const HANDOFF_ALERT_TTL_SECONDS = 60 * 24 * 60 * 60;
+
+export const HANDOFF_REASON_LABEL_AR: Record<SupportEscalationReason, string> =
+  {
+    human_requested: 'العميل طلب موظف',
+    fraud: 'بلاغ احتيال',
+    refund: 'طلب استرداد أو تعويض',
+    payment_dispute: 'مشكلة في الدفع',
+    repeated: 'تكرر السؤال أو وصل حد الرسائل',
+    low_confidence: 'ما لقى المساعد جواب واضح في الأسئلة الشائعة',
+    assistant_decision: 'المساعد قرر التحويل',
+    assistant_disabled: 'المساعد الذكي متوقف',
+  };
+
+export const PRIORITY_LABEL_AR: Record<string, string> = {
+  LOW: 'منخفضة',
+  NORMAL: 'عادية',
+  HIGH: 'عالية',
+  URGENT: 'عاجلة',
+};
+
+export type HandoffAlertResult =
+  'queued' | 'disabled' | 'not_configured' | 'duplicate' | 'failed';
+
+/** SUPPORT_ALERT_EMAIL: one address or a comma-separated list (max 5). */
+export function supportAlertRecipients(): string[] {
+  return (process.env.SUPPORT_ALERT_EMAIL || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && isSafeEmailAddress(s))
+    .slice(0, 5);
+}
+
+export function adminTicketUrl(ticketId: string): string {
+  const base = (
+    process.env.ADMIN_PANEL_URL?.trim() ||
+    `${(process.env.APP_URL?.trim() || 'https://sarhsa.online').replace(/\/$/, '')}/admin`
+  ).replace(/\/$/, '');
+  return `${base}/support/tickets/${encodeURIComponent(ticketId)}`;
+}
+
 @Injectable()
 export class SupportNotificationsService {
   constructor(
     private readonly notifications: AppNotificationsService,
     private readonly repo: SupportRepository,
+    @Optional() private readonly emailQueue?: EmailQueueService,
+    @Optional() private readonly cache?: RedisCacheService,
+    @Optional() private readonly logger?: LoggerService,
   ) {}
+
+  /**
+   * E-mail the support inbox once when a ticket is handed from «مساعد سرح»
+   * to a human. Contains only the ticket number, priority, reason and an
+   * admin-panel link. Never throws; failures are logged without PII.
+   */
+  async notifyEscalatedToHuman(ticket: {
+    id: string;
+    ticketNumber: string;
+    priority: string;
+    reason: SupportEscalationReason;
+  }): Promise<HandoffAlertResult> {
+    const log = {
+      event: 'SUPPORT_HANDOFF_ALERT',
+      ticketNumber: ticket.ticketNumber,
+    };
+    try {
+      if (!isAiEmailAlertsEnabled()) return 'disabled';
+      const recipients = supportAlertRecipients();
+      const missing: string[] = [];
+      if (!recipients.length) missing.push('SUPPORT_ALERT_EMAIL');
+      if (!process.env.SMTP_HOST?.trim()) missing.push('SMTP_HOST');
+      if (!process.env.SMTP_PASS?.trim()) missing.push('SMTP_PASS');
+      if (missing.length || !this.emailQueue || !this.cache) {
+        this.logger?.warn(
+          { ...log, outcome: 'not_configured', missing },
+          'Support handoff e-mail skipped — set SUPPORT_ALERT_EMAIL and SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/EMAIL_FROM',
+        );
+        return 'not_configured';
+      }
+      const first = await this.cache.claimOnce(
+        `support:handoff-alert:${ticket.id}`,
+        HANDOFF_ALERT_TTL_SECONDS,
+      );
+      if (!first) return 'duplicate';
+
+      const variables = {
+        ticketNumber: ticket.ticketNumber,
+        priority: PRIORITY_LABEL_AR[ticket.priority] ?? ticket.priority,
+        reason: HANDOFF_REASON_LABEL_AR[ticket.reason] ?? ticket.reason,
+        ticketUrl: adminTicketUrl(ticket.id),
+      };
+      const results = await Promise.all(
+        recipients.map((to, i) =>
+          this.emailQueue!.addEmail(
+            {
+              to,
+              subject: `تذكرة محوّلة للدعم: ${ticket.ticketNumber}`,
+              template: 'support_handoff',
+              variables,
+            },
+            { jobId: `support-handoff-${ticket.id}-${i}` },
+          ),
+        ),
+      );
+      if (results.some((r) => !r)) {
+        this.logger?.warn(
+          { ...log, outcome: 'failed' },
+          'Support handoff e-mail could not be queued (Redis/queue unavailable)',
+        );
+        return 'failed';
+      }
+      this.logger?.info(
+        { ...log, outcome: 'queued' },
+        'Support handoff e-mail queued',
+      );
+      return 'queued';
+    } catch (err) {
+      this.logger?.warn(
+        {
+          ...log,
+          outcome: 'failed',
+          errorName: err instanceof Error ? err.name : undefined,
+        },
+        'Support handoff e-mail failed',
+      );
+      return 'failed';
+    }
+  }
 
   private async notifyStaff(payload: {
     titleAr: string;

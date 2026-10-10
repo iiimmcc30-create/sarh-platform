@@ -7,6 +7,9 @@ import {
 } from './ai-provider';
 import { HeuristicAiProvider } from './heuristic-ai.provider';
 import { LoggerService } from '../../common/services/logger.service';
+import type { AiCallGuardService } from '../../ai-safety/ai-call-guard.service';
+import { aiMaxOutputTokens } from '../../ai-safety/ai-flags';
+import { PiiPseudonymizer } from '../../ai-safety/pii-redaction';
 import {
   SUPPORT_ASSISTANT_NAME_AR,
   SUPPORT_ISSUE_TYPES,
@@ -34,6 +37,12 @@ export const SUPPORT_SYSTEM_PROMPT = `أنت «${SUPPORT_ASSISTANT_NAME_AR}»، 
 أرجع JSON فقط بالمفاتيح: replyAr, issueType, escalate, missingInformation, summary.
 issueType واحد من: ${SUPPORT_ISSUE_TYPES.join(', ')}.`;
 
+/** Shown above the rule-based FAQ answer when the model could not be used. */
+export const AI_TIMEOUT_NOTICE_AR =
+  'تأخر الرد الذكي، فهذا الجواب من مركز المساعدة:';
+export const AI_PAUSED_NOTICE_AR =
+  'الرد الذكي متوقف مؤقتاً، فهذا الجواب من مركز المساعدة:';
+
 export class OpenAiAiProvider implements AiProvider {
   private readonly client: OpenAI;
   private readonly fallback = new HeuristicAiProvider();
@@ -42,8 +51,26 @@ export class OpenAiAiProvider implements AiProvider {
     apiKey: string,
     private readonly model: string,
     private readonly logger: LoggerService,
+    private readonly guard: AiCallGuardService,
   ) {
-    this.client = new OpenAI({ apiKey });
+    // Retries / timeout are set per request (see AiCallGuardService).
+    this.client = new OpenAI({ apiKey, maxRetries: 0 });
+  }
+
+  /** Test seam. */
+  protected get chat(): Pick<OpenAI['chat']['completions'], 'create'> {
+    return this.client.chat.completions;
+  }
+
+  private async fallbackWithNotice(
+    context: SupportAiContext,
+    notice: string | null,
+  ): Promise<SarhanDecision> {
+    const decision = await this.fallback.completeSupportTurn(context);
+    if (!notice || decision.escalate || !decision.replyAr.trim()) {
+      return decision;
+    }
+    return { ...decision, replyAr: `${notice}\n\n${decision.replyAr}` };
   }
 
   async completeSupportTurn(
@@ -68,57 +95,98 @@ export class OpenAiAiProvider implements AiProvider {
     ) {
       return this.fallback.completeSupportTurn(context);
     }
-    try {
-      const knowledge = (context.knowledge ?? []).map((k) => ({
-        question: k.questionAr,
-        answer: k.answerAr,
-        relevance: k.score,
-      }));
-      const completion = await this.client.chat.completions.create({
-        model: this.model,
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SUPPORT_SYSTEM_PROMPT },
+
+    // PII minimisation: everything that leaves for the model (customer text,
+    // staff/assistant history, FAQ context) goes through one pseudonymizer;
+    // the customer's name is not sent at all. Values are restored locally.
+    const pii = new PiiPseudonymizer();
+    const knowledge = (context.knowledge ?? []).map((k) => ({
+      question: pii.redact(k.questionAr),
+      answer: pii.redact(k.answerAr),
+      relevance: k.score,
+    }));
+    const userContent = JSON.stringify({
+      ticketNumber: context.ticketNumber,
+      category: context.category,
+      customerDescription: pii.redact(
+        context.customerDescription.slice(0, 800),
+      ),
+      knowledge,
+      recent: context.recentMessages.slice(-8).map((m) => ({
+        role: m.authorKind === 'SARHAN' ? 'ASSISTANT' : m.authorKind,
+        text: pii.redact(m.body.slice(0, 500)),
+      })),
+    });
+    const maxOutputTokens = aiMaxOutputTokens();
+
+    const result = await this.guard.run({
+      feature: 'support_assistant',
+      model: this.model,
+      inputChars: SUPPORT_SYSTEM_PROMPT.length + userContent.length,
+      maxOutputTokens,
+      call: async ({ signal, timeout, maxRetries }) => {
+        const completion = await this.chat.create(
           {
-            role: 'user',
-            content: JSON.stringify({
-              ticketNumber: context.ticketNumber,
-              category: context.category,
-              customerFirstName: context.customerFirstName,
-              customerDescription: context.customerDescription.slice(0, 800),
-              knowledge,
-              recent: context.recentMessages.slice(-8).map((m) => ({
-                role: m.authorKind === 'SARHAN' ? 'ASSISTANT' : m.authorKind,
-                text: m.body.slice(0, 500),
-              })),
-            }),
+            model: this.model,
+            temperature: 0.2,
+            max_completion_tokens: maxOutputTokens,
+            store: false,
+            response_format: { type: 'json_object' },
+            messages: [
+              { role: 'system', content: SUPPORT_SYSTEM_PROMPT },
+              { role: 'user', content: userContent },
+            ],
           },
-        ],
-      });
-      const raw = completion.choices[0]?.message?.content ?? '{}';
-      const parsed = JSON.parse(raw) as Partial<SarhanDecision>;
+          { signal, timeout, maxRetries },
+        );
+        return {
+          value: completion.choices[0]?.message?.content ?? '{}',
+          usage: completion.usage ?? null,
+        };
+      },
+    });
+
+    if (!result.ok) {
+      if (result.reason === 'timeout') {
+        return this.fallbackWithNotice(context, AI_TIMEOUT_NOTICE_AR);
+      }
+      if (result.reason === 'budget') {
+        return this.fallbackWithNotice(context, AI_PAUSED_NOTICE_AR);
+      }
+      // 'disabled' (master switch) and provider errors: rule-based answer.
+      return this.fallback.completeSupportTurn(context);
+    }
+
+    try {
+      const parsed = JSON.parse(result.value) as Partial<SarhanDecision>;
       const issueType = (SUPPORT_ISSUE_TYPES as readonly string[]).includes(
         String(parsed.issueType),
       )
         ? (parsed.issueType as SarhanDecision['issueType'])
         : 'OTHER';
       const escalate = Boolean(parsed.escalate);
-      const reply = (parsed.replyAr ?? '').toString().trim().slice(0, 1200);
+      const reply = pii
+        .restore((parsed.replyAr ?? '').toString().trim())
+        .slice(0, 1200);
       if (!escalate && !reply) throw new Error('empty_assistant_reply');
       return {
         replyAr: reply,
         issueType,
         escalate,
+        ...(escalate
+          ? { escalationReason: 'assistant_decision' as const }
+          : {}),
         missingInformation: Array.isArray(parsed.missingInformation)
           ? parsed.missingInformation.map(String).slice(0, 12)
           : [],
-        summary: parsed.summary?.toString().slice(0, 400),
+        summary: parsed.summary
+          ? pii.restore(parsed.summary.toString()).slice(0, 400)
+          : undefined,
       };
     } catch (err) {
       this.logger.warn(
-        { err: err instanceof Error ? err.message : 'ai_error' },
-        'Support assistant OpenAI provider failed — heuristic fallback',
+        { errorName: err instanceof Error ? err.name : 'ai_error' },
+        'Support assistant reply unusable — heuristic fallback',
       );
       return this.fallback.completeSupportTurn(context);
     }

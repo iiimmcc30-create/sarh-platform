@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
 import { CommonModule } from '../common/common.module';
+import { AiSafetyModule } from '../ai-safety/ai-safety.module';
 import { AdminKnowledgeController } from './admin-knowledge.controller';
 import { KnowledgeRepository } from './repositories/knowledge.repository';
 import { KnowledgeCenterService } from './services/knowledge-center.service';
@@ -10,7 +11,7 @@ import { AISummarizerService } from './services/ai-summarizer.service';
 import { PublisherService } from './services/publisher.service';
 
 @Module({
-  imports: [PrismaModule, RedisModule, CommonModule],
+  imports: [PrismaModule, RedisModule, CommonModule, AiSafetyModule],
   controllers: [AdminKnowledgeController],
   providers: [
     KnowledgeRepository,

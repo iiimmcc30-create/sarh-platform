@@ -10,6 +10,7 @@ import {
   isSafeEmailAddress,
   sanitizeEmailVariable,
   sanitizeHeaderValue,
+  sanitizeHttpUrl,
 } from './email.sanitize';
 
 const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
@@ -22,6 +23,18 @@ const transporter = nodemailer.createTransport({
   pool: true,
   maxConnections: 3,
 });
+
+export function supportHandoffHtml(vars: Record<string, string>): string {
+  const link = sanitizeHttpUrl(vars.ticketUrl);
+  return [
+    '<p>تذكرة دعم تحوّلت من «مساعد سرح» لفريق الدعم وتنتظر رد.</p>',
+    `<p>رقم التذكرة: <strong>${sanitizeEmailVariable(vars.ticketNumber)}</strong><br/>`,
+    `الأولوية: ${sanitizeEmailVariable(vars.priority)}<br/>`,
+    `سبب التحويل: ${sanitizeEmailVariable(vars.reason)}</p>`,
+    link ? `<p><a href="${link}">فتح التذكرة في لوحة التحكم</a></p>` : '',
+    '<p style="color:#666;font-size:12px">لا يحتوي هذا البريد على نص المحادثة أو بيانات العميل. يتطلب الرابط تسجيل الدخول للوحة التحكم.</p>',
+  ].join('');
+}
 
 @Injectable()
 @Processor(QUEUE_NAMES.EMAILS, { concurrency: 3 })
@@ -68,6 +81,9 @@ export class EmailProcessor extends WorkerHost implements OnModuleInit {
       fee_reminder: `تذكير: لديك رسوم معلقة ${sanitizeEmailVariable(vars.amount)} ريال مستحقة بتاريخ ${sanitizeEmailVariable(vars.dueDate)}.`,
       subscription_renew: `تجديد اشتراكك: ${sanitizeEmailVariable(vars.plan)} - ${sanitizeEmailVariable(vars.amount)} ريال`,
       email_verification: `رمز التحقق: <strong>${sanitizeEmailVariable(vars.code)}</strong> (صالح 10 دقائق)`,
+      // Staff alert: ticket number, priority, reason and an admin-panel link
+      // only — never conversation text or customer data.
+      support_handoff: supportHandoffHtml(vars),
     };
 
     await transporter.sendMail({

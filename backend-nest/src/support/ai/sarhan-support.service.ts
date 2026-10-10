@@ -6,6 +6,7 @@ import {
   type AiProvider,
   type SarhanDecision,
   type SupportAiContext,
+  type SupportEscalationReason,
 } from './ai-provider';
 
 const SENSITIVE_META = /password|token|secret|api[_-]?key|fcm|authorization/i;
@@ -13,6 +14,7 @@ const SENSITIVE_META = /password|token|secret|api[_-]?key|fcm|authorization/i;
 export type SarhanTurnResult = {
   replyAr: string;
   escalate: boolean;
+  escalationReason?: SupportEscalationReason;
   issueType?: string;
   summary?: string;
   missingInformation: string[];
@@ -76,6 +78,11 @@ export class SarhanSupportService {
     return {
       replyAr,
       escalate: decision.escalate,
+      ...(decision.escalate
+        ? {
+            escalationReason: decision.escalationReason ?? 'assistant_decision',
+          }
+        : {}),
       issueType: String(metadata.issueType),
       summary:
         typeof metadata.summary === 'string' ? metadata.summary : undefined,

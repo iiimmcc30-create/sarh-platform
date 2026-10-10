@@ -6,6 +6,7 @@ const ALLOWED_TEMPLATES = new Set([
   'fee_reminder',
   'subscription_renew',
   'email_verification',
+  'support_handoff',
 ]);
 
 export function escapeHtml(value: string): string {

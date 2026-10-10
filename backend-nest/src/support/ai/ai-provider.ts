@@ -30,6 +30,20 @@ export type SupportAiContext = {
   knowledge: SupportKnowledgeSnippet[];
 };
 
+/** Why a turn was handed to a human (shown to staff in the alert e-mail). */
+export const SUPPORT_ESCALATION_REASONS = [
+  'human_requested',
+  'fraud',
+  'refund',
+  'payment_dispute',
+  'repeated',
+  'low_confidence',
+  'assistant_decision',
+  'assistant_disabled',
+] as const;
+export type SupportEscalationReason =
+  (typeof SUPPORT_ESCALATION_REASONS)[number];
+
 export type SarhanDecision = {
   /**
    * Reply text. When `escalate` is true this holds only the informational
@@ -41,6 +55,8 @@ export type SarhanDecision = {
   missingInformation?: string[];
   summary?: string;
   metadataPatch?: Record<string, unknown>;
+  /** Set when `escalate` is true. */
+  escalationReason?: SupportEscalationReason;
 };
 
 export interface AiProvider {

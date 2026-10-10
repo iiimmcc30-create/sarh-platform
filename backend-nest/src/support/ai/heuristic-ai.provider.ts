@@ -53,6 +53,7 @@ export class HeuristicAiProvider implements AiProvider {
         issueType:
           (context.issueType as SarhanDecision['issueType']) || 'OTHER',
         escalate: true,
+        escalationReason: 'human_requested',
         summary,
       };
     }
@@ -65,6 +66,7 @@ export class HeuristicAiProvider implements AiProvider {
         replyAr: info,
         issueType: 'FRAUD_REPORT',
         escalate: true,
+        escalationReason: 'fraud',
         summary,
       };
     }
@@ -79,6 +81,7 @@ export class HeuristicAiProvider implements AiProvider {
         replyAr: info,
         issueType: refund ? 'REFUND_ISSUE' : 'PAYMENT_ISSUE',
         escalate: true,
+        escalationReason: refund ? 'refund' : 'payment_dispute',
         summary,
       };
     }
@@ -105,6 +108,7 @@ export class HeuristicAiProvider implements AiProvider {
           replyAr: '',
           issueType: issueTypeForFaqKey(top.key),
           escalate: true,
+          escalationReason: 'repeated',
           summary,
         };
       }
@@ -138,6 +142,7 @@ export class HeuristicAiProvider implements AiProvider {
       replyAr: '',
       issueType: (context.issueType as SarhanDecision['issueType']) || 'OTHER',
       escalate: true,
+      escalationReason: 'low_confidence',
       summary,
     };
   }

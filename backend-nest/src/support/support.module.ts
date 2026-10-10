@@ -15,9 +15,11 @@ import { createAiProvider } from './ai/create-ai-provider';
 import { SarhanSupportService } from './ai/sarhan-support.service';
 import { SupportAiContextService } from './ai/support-ai-context.service';
 import { LoggerService } from '../common/services/logger.service';
+import { AiSafetyModule } from '../ai-safety/ai-safety.module';
+import { AiCallGuardService } from '../ai-safety/ai-call-guard.service';
 
 @Module({
-  imports: [PrismaModule, QueueModule, GatewaySharedModule],
+  imports: [PrismaModule, QueueModule, GatewaySharedModule, AiSafetyModule],
   controllers: [SupportController, AdminSupportController],
   providers: [
     SupportRepository,
@@ -30,8 +32,9 @@ import { LoggerService } from '../common/services/logger.service';
     SarhanSupportService,
     {
       provide: AI_PROVIDER,
-      useFactory: (logger: LoggerService) => createAiProvider(logger),
-      inject: [LoggerService],
+      useFactory: (logger: LoggerService, guard: AiCallGuardService) =>
+        createAiProvider(logger, guard),
+      inject: [LoggerService, AiCallGuardService],
     },
   ],
   exports: [SupportTicketsService, AccountVerificationService, FaqService],

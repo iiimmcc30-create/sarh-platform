@@ -236,6 +236,19 @@ export class SupportRepository {
     });
   }
 
+  /**
+   * Atomic AI → human handoff. Only the first caller while the ticket is still
+   * AI_ACTIVE gets `true` (concurrent turns / retries get `false`), so the
+   * handoff alert fires once per real transition.
+   */
+  async claimHumanHandoff(id: string): Promise<boolean> {
+    const res = await this.prisma.supportTicket.updateMany({
+      where: { id, handlerMode: 'AI_ACTIVE' },
+      data: { handlerMode: 'HUMAN_ACTIVE', status: 'WAITING_FOR_SUPPORT' },
+    });
+    return res.count === 1;
+  }
+
   updateTicket(id: string, data: Prisma.SupportTicketUpdateInput) {
     return this.prisma.supportTicket.update({
       where: { id },
