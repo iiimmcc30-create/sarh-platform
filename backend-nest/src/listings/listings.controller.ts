@@ -50,8 +50,11 @@ export class ListingsController {
   @RateLimit('api')
   @Get(':id/comments')
   @HttpCode(HttpStatus.OK)
-  async listComments(@Param('id') id: string) {
-    return successResponse(await this.listings.listComments(id));
+  async listComments(
+    @Param('id') id: string,
+    @CurrentUser() user?: JwtPayload,
+  ) {
+    return successResponse(await this.listings.listComments(id, user));
   }
 
   @RateLimit('api')
@@ -82,8 +85,8 @@ export class ListingsController {
   @RateLimit('api')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async getById(@Param('id') id: string) {
-    return successResponse(await this.listings.getById(id));
+  async getById(@Param('id') id: string, @CurrentUser() user?: JwtPayload) {
+    return successResponse(await this.listings.getById(id, user));
   }
 
   @RateLimit('api')

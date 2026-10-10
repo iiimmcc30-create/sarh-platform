@@ -76,6 +76,7 @@ import {
   type ListingGeoFields,
 } from '../geo/lib/listing-geo-input';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
+import { filterBlockedComments } from '../users/lib/block-filter';
 
 const PAGE_SIZE = 20;
 /** Radius mode scans the geo keyset in batches and filters each batch with Prisma. */
@@ -567,7 +568,21 @@ export class ListingsService {
     };
   }
 
-  async getById(id: string) {
+  /** Two-way block between the viewer and the seller → 403 «blocked». */
+  private async assertNotBlockedWithSeller(
+    viewerId: string | undefined,
+    sellerId: string | null | undefined,
+    messageAr = 'لا يمكنك عرض هذا الإعلان',
+  ) {
+    if (!viewerId || !sellerId || viewerId === sellerId) return;
+    const blockedIds =
+      await this.usersRepo.findBlockedRelationshipIds(viewerId);
+    if (blockedIds.includes(sellerId)) {
+      throwApi(403, 'blocked', messageAr);
+    }
+  }
+
+  async getById(id: string, viewer?: JwtPayload) {
     if (!id) throwApi(400, 'invalid_id', 'معرّف غير صالح');
 
     this.promotions.expireStalePromotions().catch(() => {});
@@ -575,6 +590,10 @@ export class ListingsService {
     const cacheKey = `listing:${id}`;
     const cached = await this.cache.get<BoostFlagFields>(cacheKey);
     if (cached) {
+      await this.assertNotBlockedWithSeller(
+        viewer?.userId,
+        (cached as { sellerId?: string | null }).sellerId,
+      );
       // Old Redis copies are re-evaluated at read time (Until vs now).
       const effective = withEffectiveBoostState(cached);
       this.repo.incrementViews(id).catch(() => {});
@@ -586,6 +605,7 @@ export class ListingsService {
 
     const listing = await this.repo.findById(id);
     if (!listing) throwApi(404, 'not_found', 'الإعلان غير موجود');
+    await this.assertNotBlockedWithSeller(viewer?.userId, listing.sellerId);
 
     this.repo.incrementViews(id).catch(() => {});
     if (isPromotedActive(listing)) {
@@ -1057,14 +1077,19 @@ export class ListingsService {
     return { deleted: true, sellerDeclaredSold: dto.sold };
   }
 
-  async listComments(listingId: string) {
+  async listComments(listingId: string, viewer?: JwtPayload) {
     if (!listingId) throwApi(400, 'invalid_id', 'معرّف غير صالح');
 
     const listing = await this.repo.findActiveListingMeta(listingId);
     if (!listing) throwApi(404, 'not_found', 'الإعلان غير موجود');
+    await this.assertNotBlockedWithSeller(viewer?.userId, listing.sellerId);
 
     const comments = await this.repo.findComments(listingId);
-    return { comments };
+    if (!viewer?.userId) return { comments };
+    const blockedIds = await this.usersRepo.findBlockedRelationshipIds(
+      viewer.userId,
+    );
+    return { comments: filterBlockedComments(comments, blockedIds) };
   }
 
   async createComment(
@@ -1076,6 +1101,11 @@ export class ListingsService {
 
     const listing = await this.repo.findActiveListingMeta(listingId);
     if (!listing) throwApi(404, 'not_found', 'الإعلان غير موجود');
+    await this.assertNotBlockedWithSeller(
+      user.userId,
+      listing.sellerId,
+      'لا يمكنك التفاعل مع هذا المستخدم',
+    );
 
     if (listing.sellerId && listing.sellerId !== user.userId) {
       const owner = await this.usersRepo.findUserCommentsAudience(
@@ -1109,6 +1139,12 @@ export class ListingsService {
         ? await this.repo.findCommentMeta(target.parentId, listingId)
         : target;
       if (!parent) throwApi(404, 'not_found', 'التعليق غير موجود');
+      // No replying to (or under) a comment by an account in a block pair.
+      await this.assertNotBlockedWithSeller(
+        user.userId,
+        parent.authorId,
+        'لا يمكنك التفاعل مع هذا المستخدم',
+      );
     }
 
     const comment = await this.repo.createComment(

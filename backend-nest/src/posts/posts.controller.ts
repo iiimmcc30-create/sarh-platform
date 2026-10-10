@@ -51,8 +51,11 @@ export class PostsController {
   @RateLimit('api')
   @Get(':id/comments')
   @HttpCode(HttpStatus.OK)
-  async listComments(@Param('id') id: string) {
-    return successResponse(await this.posts.listComments(id));
+  async listComments(
+    @Param('id') id: string,
+    @CurrentUser() user?: JwtPayload,
+  ) {
+    return successResponse(await this.posts.listComments(id, user));
   }
 
   @RateLimit('api')

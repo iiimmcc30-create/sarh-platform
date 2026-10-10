@@ -751,6 +751,14 @@ export class UsersService {
     const target = await this.repo.findActiveUserId(targetId);
     if (!target) throwApi(404, 'not_found', 'المستخدم غير موجود');
 
+    const [blockedByMe, blockedMe] = await Promise.all([
+      this.repo.findBlock(reviewerId, targetId),
+      this.repo.findBlock(targetId, reviewerId),
+    ]);
+    if (blockedByMe || blockedMe) {
+      throwApi(403, 'blocked', 'لا يمكنك التفاعل مع هذا المستخدم');
+    }
+
     await this.repo.upsertUserRating(targetId, reviewerId, rating);
 
     const agg = await this.repo.aggregateUserRating(targetId);

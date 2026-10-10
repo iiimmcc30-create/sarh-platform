@@ -103,6 +103,32 @@ export class StoriesService {
     };
   }
 
+  /** Accounts in a block pair with the viewer (either direction). */
+  private async blockedIds(viewerId: string): Promise<Set<string>> {
+    if (!this.prisma) return new Set();
+    try {
+      const rows = await this.prisma.userBlock.findMany({
+        where: { OR: [{ blockerId: viewerId }, { blockedId: viewerId }] },
+        select: { blockerId: true, blockedId: true },
+        take: 4000,
+      });
+      const ids = new Set<string>();
+      for (const r of rows) {
+        ids.add(r.blockerId === viewerId ? r.blockedId : r.blockerId);
+      }
+      return ids;
+    } catch {
+      return new Set();
+    }
+  }
+
+  private async assertNotBlocked(viewerId: string, ownerId: string) {
+    if (viewerId === ownerId) return;
+    if ((await this.blockedIds(viewerId)).has(ownerId)) {
+      throwApi(403, 'blocked', 'لا يمكنك التفاعل مع هذا المستخدم');
+    }
+  }
+
   private async buildFeed(viewerId?: string) {
     const active = await this.repo.findActiveStories();
     const storyIds = active.map((s) => s.id);
@@ -186,11 +212,19 @@ export class StoriesService {
       const myStories = viewerId
         ? (items.find((i) => i.user.id === viewerId) ?? null)
         : null;
-      const muted = viewerId
-        ? await this.mutedIds(viewerId)
-        : new Set<string>();
+      const [muted, blocked] = viewerId
+        ? await Promise.all([
+            this.mutedIds(viewerId),
+            this.blockedIds(viewerId),
+          ])
+        : [new Set<string>(), new Set<string>()];
       const others = viewerId
-        ? items.filter((i) => i.user.id !== viewerId && !muted.has(i.user.id))
+        ? items.filter(
+            (i) =>
+              i.user.id !== viewerId &&
+              !muted.has(i.user.id) &&
+              !blocked.has(i.user.id),
+          )
         : items;
 
       const payload: StoriesFeedPayload = { items: others, myStories };
@@ -216,6 +250,14 @@ export class StoriesService {
 
   async getUserStories(userId: string, viewer?: JwtPayload) {
     if (!userId) throwApi(400, 'invalid_id', 'معرّف غير صالح');
+
+    if (
+      viewer?.userId &&
+      viewer.userId !== userId &&
+      (await this.blockedIds(viewer.userId)).has(userId)
+    ) {
+      return { user: null, stories: [], hasUnseen: false };
+    }
 
     const stories = await this.repo.findActiveStoriesForUser(userId);
     if (stories.length === 0) {
@@ -336,6 +378,9 @@ export class StoriesService {
     if (story.userId === user.userId) {
       return { recorded: false, viewsCount: undefined };
     }
+    if ((await this.blockedIds(user.userId)).has(story.userId)) {
+      return { recorded: false };
+    }
 
     const existing = await this.views.findView(storyId, user.userId);
     if (existing) {
@@ -381,6 +426,7 @@ export class StoriesService {
     if (!story || story.expiresAt <= new Date()) {
       throwApi(404, 'not_found', 'القصة غير موجودة أو منتهية');
     }
+    await this.assertNotBlocked(user.userId, story.userId);
 
     const previous = await this.reactions.findReaction(storyId, user.userId);
     await this.reactions.upsertReaction(storyId, user.userId, dto.type);
@@ -429,6 +475,7 @@ export class StoriesService {
     if (story.userId === user.userId) {
       throwApi(400, 'invalid_action', 'لا يمكنك الرد على قصتك');
     }
+    await this.assertNotBlocked(user.userId, story.userId);
 
     const caption = story.captionAr || story.caption;
     const prefix = caption ? `رد على قصتك: ${caption}\n` : 'رد على قصتك:\n';

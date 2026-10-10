@@ -20,6 +20,7 @@ import {
   resolvePostViewerKey,
 } from './lib/post-view-dedupe';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
+import { filterBlockedComments } from '../users/lib/block-filter';
 
 const PAGE_SIZE = 20;
 
@@ -588,14 +589,21 @@ export class PostsService {
     return row?.viewsCount ?? 0;
   }
 
-  async listComments(postId: string) {
+  async listComments(postId: string, viewer?: JwtPayload) {
     if (!postId) throwApi(400, 'invalid_id', 'معرّف غير صالح');
 
     const post = await this.repo.findOwnerMeta(postId);
     if (!post) throwApi(404, 'not_found', 'المنشور غير موجود');
 
     const comments = await this.repo.findComments(postId);
-    return { comments };
+    if (!viewer?.userId) return { comments };
+    const blockedIds = await this.usersRepo.findBlockedRelationshipIds(
+      viewer.userId,
+    );
+    if (post.authorId !== viewer.userId && blockedIds.includes(post.authorId)) {
+      throwApi(403, 'blocked', 'لا يمكنك عرض هذا المنشور');
+    }
+    return { comments: filterBlockedComments(comments, blockedIds) };
   }
 
   async createComment(user: JwtPayload, postId: string, dto: CreateCommentDto) {
