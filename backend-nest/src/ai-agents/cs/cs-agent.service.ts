@@ -17,6 +17,12 @@ import { replyGroundedInTools } from './money-guard';
 import { CsWriteBudget } from './cs-write-budget';
 import { buildCsWriteTools, CS_WRITE_API, type CsWriteApi } from './cs-write-tools';
 
+export const CS_WRITE_CONFIRM_HINT = [
+  'إذا تبي أفتح تذكرة اكتب حرفيًا: نعم افتح تذكرة',
+  'إذا تبي أضيف ملاحظة اكتب حرفيًا: نعم أضف',
+  'إذا تبي أحوّلك لموظف اكتب حرفيًا: نعم حول',
+].join('\n');
+
 export type CsReply =
   | { accepted: true; replyAr: string }
   | { accepted: false; replyAr: '' };
@@ -89,6 +95,9 @@ export class CsAgentService {
     if (!replyAr || !replyGroundedInTools(replyAr, seen)) {
       return { accepted: false, replyAr: '' };
     }
-    return { accepted: true, replyAr };
+    const withHint = isCsAgentWriteEnabled()
+      ? `${replyAr}\n\n${CS_WRITE_CONFIRM_HINT}`
+      : replyAr;
+    return { accepted: true, replyAr: withHint };
   }
 }

@@ -2,6 +2,7 @@ export type WriteKind = 'ticket' | 'note' | 'handoff';
 
 function normalize(text: string): string {
   return text
+    .replace(/[\u064B-\u0652]/g, '')
     .replace(/[أإآ]/g, 'ا')
     .replace(/ة/g, 'ه')
     .replace(/[،,]/g, ' ')

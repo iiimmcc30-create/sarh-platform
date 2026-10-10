@@ -7,6 +7,8 @@
  * false / 0 / off / no / disabled turns it off.
  */
 
+import { currentCsRollout } from '../ai-agents/cs/cs-rollout';
+
 const OFF_VALUES = new Set(['false', '0', 'off', 'no', 'disabled']);
 
 export function envFlag(name: string, defaultValue = true): boolean {
@@ -59,6 +61,7 @@ function explicitOn(name: string): boolean {
 export function envAllowsFlag(name: AiControlFlag): boolean {
   if (name === 'SARH_AI_ENABLED') return envFlag('SARH_AI_ENABLED');
   if (name === 'SARH_ASSISTANT_ENABLED') return envFlag('SARH_ASSISTANT_ENABLED');
+  if (name === 'AI_CS_AGENT_ENABLED') return currentCsRollout().kind !== 'off';
   return explicitOn(name);
 }
 

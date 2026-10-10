@@ -80,7 +80,7 @@ describe('customer-service agent', () => {
     process.env.AI_CS_AGENT_ENABLED = 'off';
     expect(isCsAgentEnabled()).toBe(false);
     process.env.AI_CS_AGENT_ENABLED = 'staff_only';
-    expect(isCsAgentEnabled()).toBe(false);
+    expect(isCsAgentEnabled()).toBe(true);
     process.env.AI_CS_AGENT_ENABLED = 'on';
     expect(isCsAgentEnabled()).toBe(true);
   });

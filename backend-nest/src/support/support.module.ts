@@ -26,6 +26,8 @@ import { AiAdminService } from '../ai-agents/admin/ai-admin.service';
 import { TechAgentService } from '../ai-agents/tech/tech-agent.service';
 import { TechDraftStore } from '../ai-agents/tech/tech-draft-store';
 import { TechOpsService } from '../ai-agents/tech/tech-ops.service';
+import { SafeActionService } from '../ai-agents/tech/safe-action.service';
+import { CsQualityService } from '../ai-agents/cs/cs-quality';
 import { AdminAiController } from './admin-ai.controller';
 import { FeesModule } from '../fees/fees.module';
 
@@ -54,6 +56,8 @@ import { FeesModule } from '../fees/fees.module';
     TechDraftStore,
     TechOpsService,
     TechAgentService,
+    SafeActionService,
+    CsQualityService,
     AiAdminService,
     { provide: CS_WRITE_API, useExisting: SupportTicketsService },
     {

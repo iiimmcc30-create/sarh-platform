@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { AiAdminService } from '../ai-agents/admin/ai-admin.service';
 import { RateLimit, Roles } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -37,5 +37,13 @@ export class AdminAiController {
   @HttpCode(HttpStatus.OK)
   async techRun(@CurrentUser() admin: JwtPayload) {
     return successResponse(await this.admin.runTech(admin));
+  }
+
+  @Roles('ADMIN')
+  @RateLimit('api')
+  @Post('actions/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  async approve(@CurrentUser() admin: JwtPayload, @Param('id') id: string) {
+    return successResponse(await this.admin.approveAction(admin, id));
   }
 }

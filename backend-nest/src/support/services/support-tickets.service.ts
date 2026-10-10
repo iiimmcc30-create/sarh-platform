@@ -29,6 +29,8 @@ import { ticketPriorityFor } from './ticket-priority';
 import { isAssistantEnabled, isCsAgentEnabled } from '../../ai-safety/ai-flags';
 import { AiRuntimeFlagsService } from '../../ai-safety/ai-runtime-flags.service';
 import { CsAgentService } from '../../ai-agents/cs/cs-agent.service';
+import { CsQualityService } from '../../ai-agents/cs/cs-quality';
+import { csRolloutIncludes, currentCsRollout } from '../../ai-agents/cs/cs-rollout';
 import {
   FRAUD_RE,
   HUMAN_REQUEST_RE,
@@ -212,6 +214,7 @@ export class SupportTicketsService {
     @Optional() private readonly supportBridge?: SupportSocketBridgeService,
     @Optional() private readonly csAgent?: CsAgentService,
     @Optional() private readonly runtimeFlags?: AiRuntimeFlagsService,
+    @Optional() private readonly quality?: CsQualityService,
   ) {}
 
   private legacyTicketNumber() {
@@ -861,16 +864,34 @@ export class SupportTicketsService {
     reporterId: string | null | undefined,
     text: string,
     ticketId: string,
+    audience: { role?: string | null; username?: string | null },
   ): Promise<SarhanTurnResult | null> {
     if (!isCsAgentEnabled() || !this.csAgent || !reporterId) return null;
-    if (this.mustKeepCurrentAssistant(text)) return null;
+    if (
+      !csRolloutIncludes(currentCsRollout(), {
+        userId: reporterId,
+        role: audience.role,
+        username: audience.username,
+      })
+    ) {
+      return null;
+    }
+    if (this.quality?.shouldFallback()) return null;
+    if (this.mustKeepCurrentAssistant(text)) {
+      this.quality?.note('escalated');
+      return null;
+    }
     try {
       const reply = await this.csAgent.reply({
         userId: reporterId,
         text,
         ticketId,
       });
-      if (!reply.accepted) return null;
+      if (!reply.accepted) {
+        this.quality?.note('rejected');
+        return null;
+      }
+      this.quality?.note('accepted');
       return {
         replyAr: reply.replyAr,
         escalate: false,
@@ -931,11 +952,13 @@ export class SupportTicketsService {
     const context = await this.aiContext.build(ticket);
     const existingMeta = asMeta(ticket.metadata);
     const customerText = lastCustomerBody(ticket);
-    const agentTurn = await this.csTurn(
-      ticket.reporterId,
-      customerText,
-      ticket.id,
-    );
+    const reporter = (
+      ticket as { reporter?: { role?: string | null; username?: string | null } }
+    ).reporter;
+    const agentTurn = await this.csTurn(ticket.reporterId, customerText, ticket.id, {
+      role: reporter?.role,
+      username: reporter?.username,
+    });
     const turn = agentTurn ?? (await this.sarhan.nextTurn(context, existingMeta));
 
     await this.repo.createMessage({

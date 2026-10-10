@@ -6,8 +6,10 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { LifeBuoy, Ticket, BadgeCheck, HelpCircle, Activity } from 'lucide-react';
 import {
+  approveSafeAction,
   fetchAiDashboard,
   fetchServiceStatus,
+  runTechCheck,
   setAiFlag,
   updateServiceStatus,
   type AiDashboard,
@@ -70,7 +72,21 @@ function AiControlCard() {
 
   return (
     <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
-      <h2 className="text-white font-medium">الذكاء الاصطناعي</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-white font-medium">الذكاء الاصطناعي</h2>
+        <Button
+          onClick={() => {
+            setBusy('tech-run');
+            void runTechCheck()
+              .then(() => load())
+              .catch(() => setMessage('تعذّر تشغيل الفحص'))
+              .finally(() => setBusy(null));
+          }}
+          disabled={busy === 'tech-run'}
+        >
+          تشغيل الفحص
+        </Button>
+      </div>
       <div className="grid gap-2 md:grid-cols-2">
         {(data?.flags ?? []).map((flag) => (
           <div key={flag.name} className="rounded-xl border border-slate-800 p-3 text-sm">
@@ -100,12 +116,25 @@ function AiControlCard() {
       <p className="text-sm text-slate-300">
         اليوم {data?.usage.day ?? '…'}: {data?.usage.tokens ?? 0} / {data?.usage.tokenBudget ?? 0} توكن،{' '}
         {data?.usage.requests ?? 0} / {data?.usage.requestLimit ?? 0} طلب. مجاب{' '}
-        {data?.outcomes.answered ?? 0}، محوّل {data?.outcomes.escalated ?? 0}.
+        {data?.outcomes.answered ?? 0}، محوّل {data?.outcomes.escalated ?? 0}. رفض الوكيل{' '}
+        {data?.quality ? Math.round(data.quality.rejectedRate * 100) : 0}%
+        {data?.quality?.fallbackActive ? ' — رجع لمساعد سرح' : ''}. تقييم مفيد{' '}
+        {data?.quality?.helpful ?? 0} / غير مفيد {data?.quality?.notHelpful ?? 0}.
       </p>
       <ul className="text-sm text-slate-400 space-y-1">
         {(data?.audit ?? []).map((row, index) => (
           <li key={`${row.tool}-${index}`}>
             {row.tool} — {row.status} — {row.resultSummary}
+          </li>
+        ))}
+      </ul>
+      <ul className="text-sm text-slate-300 space-y-2">
+        {(data?.proposals ?? []).filter((item) => item.status === 'pending').map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-2">
+            <span>{item.action.action}</span>
+            <Button onClick={() => void approveSafeAction(item.id).then(() => load())}>
+              موافقة
+            </Button>
           </li>
         ))}
       </ul>

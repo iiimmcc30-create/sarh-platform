@@ -17,6 +17,7 @@ import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import { SupportTicketsService } from './services/support-tickets.service';
 import { AccountVerificationService } from './services/account-verification.service';
 import { FaqService } from './services/faq.service';
+import { CsQualityService } from '../ai-agents/cs/cs-quality';
 import {
   CreateSupportTicketDto,
   ReplySupportTicketDto,
@@ -30,6 +31,7 @@ export class SupportController {
     private readonly tickets: SupportTicketsService,
     private readonly verification: AccountVerificationService,
     private readonly faq: FaqService,
+    private readonly quality: CsQualityService,
   ) {}
 
   @Public()
@@ -107,6 +109,22 @@ export class SupportController {
     @Body() body: ReplySupportTicketDto,
   ) {
     return successResponse(await this.tickets.replyAsUser(user, id, body));
+  }
+
+  @RateLimit('api')
+  @Post('tickets/:id/ai-rating')
+  @HttpCode(HttpStatus.OK)
+  async rateAiReply(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() body: { helpful?: boolean },
+  ) {
+    await this.tickets.getUserTicket(user, id);
+    if (typeof body?.helpful !== 'boolean') {
+      return successResponse({ ok: false });
+    }
+    this.quality.rate(body.helpful);
+    return successResponse({ ok: true });
   }
 
   @RateLimit('api')

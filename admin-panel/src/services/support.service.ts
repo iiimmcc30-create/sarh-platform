@@ -130,6 +130,16 @@ export type AiDashboard = {
   outcomes: { answered: number; escalated: number; fallback: number; error: number };
   audit: Array<{ tool: string; status: string; resultSummary: string; actorKind: string }>;
   drafts: Array<{ severity: string; service: string; cause: string; fix: string }>;
+  quality: {
+    accepted: number;
+    rejected: number;
+    escalated: number;
+    rejectedRate: number;
+    fallbackActive: boolean;
+    helpful: number;
+    notHelpful: number;
+  } | null;
+  proposals: Array<{ id: string; status: string; expiresAt: number; action: { action: string } }>;
 };
 
 export async function fetchAiDashboard() {
@@ -140,4 +150,14 @@ export async function fetchAiDashboard() {
 export async function setAiFlag(name: string, enabled: boolean) {
   const res = await apiClient.post('/admin/support/ai/flags', { name, enabled });
   return unwrap<{ ok: boolean; reason?: string; effective: boolean }>(res);
+}
+
+export async function runTechCheck() {
+  const res = await apiClient.post('/admin/support/ai/tech-run');
+  return unwrap<{ ran: boolean; drafted: boolean }>(res);
+}
+
+export async function approveSafeAction(id: string) {
+  const res = await apiClient.post(`/admin/support/ai/actions/${id}/approve`);
+  return unwrap<{ ok: boolean; reason?: string }>(res);
 }

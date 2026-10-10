@@ -1,3 +1,4 @@
+import { CsQualityService } from '../../ai-agents/cs/cs-quality';
 import { SupportTicketsService } from './support-tickets.service';
 import { ApiException } from '../../common/exceptions/api.exception';
 import {
@@ -916,6 +917,36 @@ describe('SupportTicketsService', () => {
       await flushScheduledTurn();
       expect(csAgent.reply).not.toHaveBeenCalled();
       expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
+    });
+
+    it('returns to Sarhan when rejected replies pass the threshold', async () => {
+      process.env.AI_CS_AGENT_ENABLED = 'on';
+      const quality = new CsQualityService();
+      for (let i = 0; i < 10; i += 1) quality.note('rejected');
+      const csAgent = { reply: jest.fn() };
+      const local = new SupportTicketsService(
+        repo as never,
+        notifications as never,
+        prisma as never,
+        logger as never,
+        sockets as never,
+        sarhan as never,
+        aiContext as never,
+        undefined,
+        csAgent as never,
+        undefined,
+        quality,
+      );
+      repo.findUserTicket.mockResolvedValue({ ...aiTicket, subject: 'مشكلة' });
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        reporterId: 'cust-a',
+        messages: [{ authorKind: 'CUSTOMER', body: 'وش حالة اشتراكي' }],
+      });
+      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await flushScheduledTurn();
+      expect(csAgent.reply).not.toHaveBeenCalled();
+      expect(sarhan.nextTurn).toHaveBeenCalled();
     });
   });
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { AiBudgetService } from '../../ai-safety/ai-budget.service';
 import {
   aiDailyRequestLimit,
@@ -9,8 +9,10 @@ import { AiRuntimeFlagsService, isAiControlFlag } from '../../ai-safety/ai-runti
 import { AiUsageLogService } from '../../ai-safety/ai-usage-log.service';
 import type { JwtPayload } from '../../common/types/jwt-payload.interface';
 import { AiAuditService } from '../core/audit.service';
+import { CsQualityService } from '../cs/cs-quality';
 import { TechAgentService } from '../tech/tech-agent.service';
 import { TechDraftStore } from '../tech/tech-draft-store';
+import { SafeActionService } from '../tech/safe-action.service';
 
 function riyadhStart(day: string): Date {
   return new Date(`${day}T00:00:00+03:00`);
@@ -25,6 +27,8 @@ export class AiAdminService {
     private readonly audit: AiAuditService,
     private readonly drafts: TechDraftStore,
     private readonly tech: TechAgentService,
+    @Optional() private readonly quality?: CsQualityService,
+    @Optional() private readonly actions?: SafeActionService,
   ) {}
 
   async dashboard() {
@@ -45,6 +49,8 @@ export class AiAdminService {
       outcomes,
       audit: [...cs, ...tech].slice(0, 8).map(publicAudit),
       drafts: await this.drafts.list(),
+      quality: this.quality?.snapshot() ?? null,
+      proposals: this.actions?.list() ?? [],
     };
   }
 
@@ -77,6 +83,11 @@ export class AiAdminService {
       return Promise.resolve({ ran: false, drafted: false, reason: 'forbidden' as const });
     }
     return this.tech.observe(admin.userId);
+  }
+
+  approveAction(admin: JwtPayload, id: string) {
+    if (!this.actions) return Promise.resolve({ ok: false, reason: 'unavailable' });
+    return this.actions.approve(admin, id);
   }
 }
 

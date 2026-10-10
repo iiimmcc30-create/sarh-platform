@@ -226,6 +226,15 @@ export async function fetchTicket(id: string): Promise<SupportTicketDetail | nul
   return json.success ? json.data.ticket : null;
 }
 
+export async function rateAiReply(ticketId: string, helpful: boolean): Promise<boolean> {
+  const res = await authFetch(`${API_BASE}/api/support/tickets/${ticketId}/ai-rating`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ helpful }),
+  });
+  return res.ok;
+}
+
 export async function createTicket(payload: {
   category?: SupportTicketCategory;
   subject?: string;

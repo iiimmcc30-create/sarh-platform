@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import {
@@ -24,6 +24,7 @@ import { SUPPORT_CUSTOMER_SERVICE } from '@/constants/supportIdentity';
 import { userFacingTicketStatus } from '@/lib/supportFlow';
 import {
   fetchTicket,
+  rateAiReply,
   replyToTicket,
   type SupportTicketDetail,
   type SupportTicketMessage,
@@ -218,6 +219,16 @@ export default function SupportTicketDetailScreen() {
                       </AppText>
                     ) : null}
                     <AppText variant="body">{msg.body}</AppText>
+                    {msg.authorKind === 'SARHAN' && ticket?.id ? (
+                      <View style={styles.rateRow}>
+                        <Pressable onPress={() => void rateAiReply(ticket.id, true)}>
+                          <AppText variant="meta" color="textMuted">مفيد</AppText>
+                        </Pressable>
+                        <Pressable onPress={() => void rateAiReply(ticket.id, false)}>
+                          <AppText variant="meta" color="textMuted">غير مفيد</AppText>
+                        </Pressable>
+                      </View>
+                    ) : null}
                   </Stack>
                 </Row>
               )}
@@ -285,5 +296,6 @@ function createStyles(colors: ThemeColors) {
       borderRadius: radius.md,
     },
     replyBox: { marginTop: spacing.md },
+    rateRow: { flexDirection: 'row', gap: spacing.md },
   });
 }

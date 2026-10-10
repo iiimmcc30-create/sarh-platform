@@ -56,8 +56,10 @@ export type AgentRunInput = {
   scope: ToolScope;
   model: string;
   messages: AgentTurnMessage[];
-  /** When true, sideEffect "write" may run. "action" never runs. */
+  /** When true, sideEffect "write" may run. */
   allowWrite?: boolean;
+  /** When true, sideEffect "action" may record a proposal. It still must not execute. */
+  allowPropose?: boolean;
 };
 
 export type AgentRunResult = {
@@ -194,10 +196,11 @@ export class AgentRunner {
       await finish('denied', rawInput, 'scope');
       return { content: wrapUntrusted('denied'), status: 'denied' };
     }
-    if (
-      tool.sideEffect === 'action' ||
-      (tool.sideEffect === 'write' && !input.allowWrite)
-    ) {
+    if (tool.sideEffect === 'action' && !input.allowPropose) {
+      await finish('denied', rawInput, 'side_effect');
+      return { content: wrapUntrusted('denied'), status: 'denied' };
+    }
+    if (tool.sideEffect === 'write' && !input.allowWrite) {
       await finish('denied', rawInput, 'side_effect');
       return { content: wrapUntrusted('denied'), status: 'denied' };
     }

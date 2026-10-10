@@ -44,4 +44,12 @@ export class NotificationQueueService {
     if (!this.queue) return {};
     return this.queue.getJobCounts();
   }
+
+  /** Retry a bounded number of failed jobs. Not used for payment queues. */
+  async retryFailed(max: number): Promise<number> {
+    if (!this.queue) return 0;
+    const jobs = await this.queue.getFailed(0, Math.max(0, max - 1));
+    for (const job of jobs) await job.retry();
+    return jobs.length;
+  }
 }
