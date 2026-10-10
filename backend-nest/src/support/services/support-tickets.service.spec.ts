@@ -387,13 +387,16 @@ describe('SupportTicketsService', () => {
       body: 'أبي استرجع فلوسي',
     });
 
-    expect(repo.updateTicket).toHaveBeenCalledWith(
-      't1',
-      expect.objectContaining({
-        status: 'WAITING_FOR_SUPPORT',
-        handlerMode: 'HUMAN_ACTIVE',
-      }),
+    expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
+    const metadataWrite = repo.updateTicket.mock.calls.find(
+      (call) =>
+        call[1] &&
+        typeof call[1] === 'object' &&
+        'metadata' in (call[1] as object),
     );
+    expect(metadataWrite?.[1]).toEqual({
+      metadata: { issueType: 'REFUND_ISSUE' },
+    });
     expect(repo.createMessage).toHaveBeenCalledWith(
       expect.objectContaining({ authorKind: 'SARHAN' }),
     );
@@ -539,6 +542,61 @@ describe('SupportTicketsService', () => {
         priority: 'HIGH',
         reason: 'refund',
       });
+    });
+
+    it('does not rewrite status after the atomic handoff if staff already replied', async () => {
+      primeReply();
+      let staffReplyLanded = false;
+      repo.claimHumanHandoff.mockImplementation(async () => {
+        staffReplyLanded = true;
+        return true;
+      });
+      repo.updateTicket.mockImplementation(
+        async (id: string, data: Record<string, unknown>) => {
+          // A staff reply between the claim and this write sets IN_PROGRESS.
+          // Copying status/handlerMode here would undo that reply.
+          if (
+            staffReplyLanded &&
+            ('status' in data || 'handlerMode' in data)
+          ) {
+            return {
+              id,
+              ticketNumber: 'SRH-2026-000001',
+              status: data.status,
+              handlerMode: data.handlerMode,
+            };
+          }
+          return {
+            id,
+            ticketNumber: 'SRH-2026-000001',
+            status: staffReplyLanded ? 'IN_PROGRESS' : 'AI_ASSISTING',
+            handlerMode: staffReplyLanded ? 'HUMAN_ACTIVE' : 'AI_ACTIVE',
+            ...data,
+          };
+        },
+      );
+      sarhan.nextTurn.mockResolvedValue({
+        replyAr: 'حوّلت طلبك',
+        escalate: true,
+        escalationReason: 'refund',
+        metadata: { issueType: 'PAYMENT_ISSUE' },
+        missingInformation: [],
+      });
+      await service.replyAsUser(user('cust-a'), 't1', {
+        body: 'أبي استرجع فلوسي',
+      });
+      const handoffWrite = repo.updateTicket.mock.calls.find(
+        (call) =>
+          call[1] &&
+          typeof call[1] === 'object' &&
+          'metadata' in (call[1] as object),
+      );
+      expect(handoffWrite).toBeDefined();
+      const data = handoffWrite![1] as Record<string, unknown>;
+      expect(data).not.toHaveProperty('status');
+      expect(data).not.toHaveProperty('handlerMode');
+      expect(data.metadata).toEqual({ issueType: 'PAYMENT_ISSUE' });
+      expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledTimes(1);
     });
 
     it('no alert when the transition was already claimed (retry / concurrent turn)', async () => {

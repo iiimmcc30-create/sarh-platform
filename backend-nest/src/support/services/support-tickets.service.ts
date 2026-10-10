@@ -740,15 +740,14 @@ export class SupportTicketsService {
       ? await this.repo.claimHumanHandoff(ticket.id)
       : false;
 
+    // Status and handlerMode for a handoff are written only inside
+    // claimHumanHandoff (conditional AI_ACTIVE → HUMAN_ACTIVE). A later
+    // update here would clobber a staff reply that landed in between
+    // (IN_PROGRESS) back to WAITING_FOR_SUPPORT.
     await this.repo.updateTicket(ticket.id, {
       metadata: turn.metadata as Prisma.InputJsonValue,
       ...(turn.escalate
-        ? handedOff
-          ? {
-              status: 'WAITING_FOR_SUPPORT' as const,
-              handlerMode: 'HUMAN_ACTIVE' as const,
-            }
-          : {} // staff already took over meanwhile — keep their status
+        ? {}
         : {
             status: 'WAITING_FOR_CUSTOMER' as const,
           }),
