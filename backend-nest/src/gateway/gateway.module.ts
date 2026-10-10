@@ -15,6 +15,7 @@ import { SocketDisconnectListenerService } from './services/socket-disconnect-li
 import { SocketGatewayService } from './services/socket-gateway.service';
 import { SocketRedisAdapterService } from './services/socket-redis-adapter.service';
 import { CouncilSocketBridgeListenerService } from './services/council-socket-bridge-listener.service';
+import { SupportSocketBridgeListenerService } from './services/support-socket-bridge-listener.service';
 import { CouncilsCoreModule } from '../councils/councils-core.module';
 
 @Module({
@@ -38,6 +39,7 @@ import { CouncilsCoreModule } from '../councils/councils-core.module';
     SocketDisconnectListenerService,
     SocketRedisAdapterService,
     CouncilSocketBridgeListenerService,
+    SupportSocketBridgeListenerService,
   ],
 })
 export class GatewayModule {}

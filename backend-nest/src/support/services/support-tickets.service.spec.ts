@@ -10,6 +10,11 @@ function user(id: string, role: JwtPayload['role'] = 'USER'): JwtPayload {
   return { userId: id, username: id, role };
 }
 
+/** The assistant turn is scheduled after the HTTP handler returns. */
+function flushScheduledTurn() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 describe('SupportTicketsService', () => {
   const repo = {
     listUserTickets: jest.fn(),
@@ -46,7 +51,8 @@ describe('SupportTicketsService', () => {
 
   let service: SupportTicketsService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await flushScheduledTurn();
     jest.clearAllMocks();
     repo.findUserNames.mockResolvedValue({
       arabicName: 'متعب العتيبي',
@@ -90,6 +96,10 @@ describe('SupportTicketsService', () => {
     );
   });
 
+  afterEach(async () => {
+    await flushScheduledTurn();
+  });
+
   it('creates a help ticket with a server SRH number and welcome from backend first name', async () => {
     repo.createTicket.mockResolvedValue({
       id: 't1',
@@ -118,6 +128,7 @@ describe('SupportTicketsService', () => {
       helpKind: 'OTHER_HELP',
       description: 'ما جاني الكود',
     });
+    await flushScheduledTurn();
 
     expect(result.ticket.ticketNumber).toMatch(/^SRH-\d{4}-\d{6}$/);
     expect(repo.createTicket).toHaveBeenCalledWith(
@@ -386,6 +397,7 @@ describe('SupportTicketsService', () => {
     await service.replyAsUser(user('cust-a'), 't1', {
       body: 'أبي استرجع فلوسي',
     });
+    await flushScheduledTurn();
 
     expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
     const metadataWrite = repo.updateTicket.mock.calls.find(
@@ -499,6 +511,67 @@ describe('SupportTicketsService', () => {
   });
 
   describe('Phase 0: handoff alert + kill switches', () => {
+    it('returns the HTTP reply before the model finishes, then pings the open ticket', async () => {
+      const ticketId = '0f8fad5b-d9cb-469f-a165-70867728950e';
+      const bridge = { notify: jest.fn() };
+      const local = new SupportTicketsService(
+        repo as never,
+        notifications as never,
+        prisma as never,
+        logger as never,
+        sockets as never,
+        sarhan as never,
+        aiContext as never,
+        bridge as never,
+      );
+      repo.findUserTicket.mockResolvedValue({
+        id: ticketId,
+        status: 'AI_ASSISTING',
+        handlerMode: 'AI_ACTIVE',
+        ticketNumber: 'SRH-2026-000001',
+        subject: 'مشكلة',
+      });
+      repo.findTicketById.mockResolvedValue({
+        id: ticketId,
+        ticketNumber: 'SRH-2026-000001',
+        handlerMode: 'AI_ACTIVE',
+        status: 'AI_ASSISTING',
+        priority: 'NORMAL',
+        metadata: {},
+        messages: [],
+      });
+      let release: (value: unknown) => void = () => undefined;
+      sarhan.nextTurn.mockReturnValue(
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+      );
+      await expect(
+        local.replyAsUser(user('cust-a'), ticketId, { body: 'ابي اميز اعلاني' }),
+      ).resolves.toEqual(expect.objectContaining({ message: expect.anything() }));
+      expect(sarhan.nextTurn).not.toHaveBeenCalled();
+
+      await flushScheduledTurn();
+      expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
+      release({
+        replyAr: 'تمييز الإعلان من صفحة الإعلان',
+        escalate: false,
+        metadata: {},
+        missingInformation: [],
+      });
+      await flushScheduledTurn();
+      expect(sockets.emitToTicket).toHaveBeenCalledWith(
+        ticketId,
+        'support:message',
+        expect.objectContaining({
+          authorKind: 'SARHAN',
+          body: 'تمييز الإعلان من صفحة الإعلان',
+        }),
+      );
+      expect(bridge.notify).toHaveBeenCalledWith(ticketId);
+      expect(JSON.stringify(bridge.notify.mock.calls)).not.toContain('تمييز');
+    });
+
     const env = { ...process.env };
     afterEach(() => {
       process.env = { ...env };
@@ -534,6 +607,7 @@ describe('SupportTicketsService', () => {
       await service.replyAsUser(user('cust-a'), 't1', {
         body: 'أبي استرجع فلوسي',
       });
+      await flushScheduledTurn();
       expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
       expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledTimes(1);
       expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledWith({
@@ -585,6 +659,7 @@ describe('SupportTicketsService', () => {
       await service.replyAsUser(user('cust-a'), 't1', {
         body: 'أبي استرجع فلوسي',
       });
+      await flushScheduledTurn();
       const handoffWrite = repo.updateTicket.mock.calls.find(
         (call) =>
           call[1] &&
@@ -609,6 +684,7 @@ describe('SupportTicketsService', () => {
         missingInformation: [],
       });
       await service.replyAsUser(user('cust-a'), 't1', { body: 'موظف' });
+      await flushScheduledTurn();
       expect(notifications.notifyEscalatedToHuman).not.toHaveBeenCalled();
       // staff status is not overwritten
       const data = repo.updateTicket.mock.calls[
@@ -622,6 +698,7 @@ describe('SupportTicketsService', () => {
       await service.replyAsUser(user('cust-a'), 't1', {
         body: 'ما جاني الكود',
       });
+      await flushScheduledTurn();
       expect(repo.claimHumanHandoff).not.toHaveBeenCalled();
       expect(notifications.notifyEscalatedToHuman).not.toHaveBeenCalled();
     });
@@ -652,6 +729,7 @@ describe('SupportTicketsService', () => {
         helpKind: 'OTHER_HELP',
         description: 'عندي مشكلة غريبة ما لها وصف',
       });
+      await flushScheduledTurn();
       expect(res.ticket.ticketNumber).toBe('SRH-2026-000001');
       expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('smtp down');
     });
@@ -679,6 +757,7 @@ describe('SupportTicketsService', () => {
           helpKind: 'OTHER_HELP',
           description: 'ما جاني الكود',
         });
+        await flushScheduledTurn();
 
         expect((res.ticket as { handlerMode?: string }).handlerMode).toBe(
           'HUMAN_ACTIVE',
@@ -701,6 +780,7 @@ describe('SupportTicketsService', () => {
       process.env.SARH_ASSISTANT_ENABLED = 'off';
       primeReply();
       await service.replyAsUser(user('cust-a'), 't1', { body: 'وش صار؟' });
+      await flushScheduledTurn();
       expect(sarhan.nextTurn).not.toHaveBeenCalled();
       expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
     });
@@ -712,6 +792,7 @@ describe('SupportTicketsService', () => {
       await service.replyAsUser(user('cust-a'), 't1', {
         body: 'ما جاني الكود',
       });
+      await flushScheduledTurn();
       expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
     });
 

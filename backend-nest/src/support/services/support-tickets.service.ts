@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -8,6 +8,7 @@ import type { JwtPayload } from '../../common/types/jwt-payload.interface';
 import { SupportRepository } from '../repositories/support.repository';
 import { SupportNotificationsService } from './support-notifications.service';
 import { SocketEmitService } from '../../gateway/services/socket-emit.service';
+import { SupportSocketBridgeService } from '../../gateway/services/support-socket-bridge.service';
 import { SarhanSupportService } from '../ai/sarhan-support.service';
 import { SupportAiContextService } from '../ai/support-ai-context.service';
 import type {
@@ -181,6 +182,7 @@ export class SupportTicketsService {
     private readonly sockets: SocketEmitService,
     private readonly sarhan: SarhanSupportService,
     private readonly aiContext: SupportAiContextService,
+    @Optional() private readonly supportBridge?: SupportSocketBridgeService,
   ) {}
 
   private legacyTicketNumber() {
@@ -390,7 +392,7 @@ export class SupportTicketsService {
       subject: ticket.subject,
     });
 
-    await this.runSarhanIfActive(ticket.id);
+    this.scheduleSarhan(ticket.id);
 
     const fresh = await this.repo.findUserTicket(ticket.id, user.userId);
     this.emitTicket(ticket.id, 'support:message', {
@@ -465,7 +467,7 @@ export class SupportTicketsService {
     });
 
     if (ticket.handlerMode === 'AI_ACTIVE') {
-      await this.runSarhanIfActive(ticketId);
+      this.scheduleSarhan(ticketId);
     }
 
     const fresh = await this.repo.findUserTicket(ticketId, user.userId);
@@ -665,6 +667,23 @@ export class SupportTicketsService {
 
   private emitTicket(ticketId: string, event: string, data: unknown) {
     this.sockets.emitToTicket(ticketId, event, data);
+    // Cross-process ping (ticket id only). The app refetches the thread.
+    if (event === 'support:message') this.supportBridge?.notify(ticketId);
+  }
+
+  /** Model work must not hold the HTTP request. The socket ping delivers the reply. */
+  private scheduleSarhan(ticketId: string) {
+    setImmediate(() => {
+      void this.runSarhanIfActive(ticketId).catch((err) => {
+        this.logger.warn(
+          {
+            event: 'AI_TURN_FAILED',
+            errorName: err instanceof Error ? err.name : undefined,
+          },
+          'Support assistant turn failed',
+        );
+      });
+    });
   }
 
   /** Fire the one-time handoff alert; never throws (ticket flow must not fail). */
