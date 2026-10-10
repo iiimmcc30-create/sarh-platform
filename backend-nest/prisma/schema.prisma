@@ -1851,3 +1851,23 @@ model AiUsageLog {
   @@index([agent, createdAt])
   @@index([createdAt])
 }
+
+/// One row per agent tool attempt. No conversation text and no user foreign key.
+model AiAuditLog {
+  id            String   @id @default(uuid())
+  /// cs | tech
+  agent         String
+  /// user | system | admin
+  actorKind     String
+  actorId       String?
+  tool          String
+  /// Redacted, size-capped JSON. Not a relation.
+  inputJson     String
+  resultSummary String
+  /// ok | denied | error
+  status        String
+  durationMs    Int
+  createdAt     DateTime @default(now())
+
+  @@index([agent, createdAt])
+}
