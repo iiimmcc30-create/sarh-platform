@@ -37,6 +37,33 @@ export const SUPPORT_SYSTEM_PROMPT = `أنت «${SUPPORT_ASSISTANT_NAME_AR}»، 
 أرجع JSON فقط بالمفاتيح: replyAr, issueType, escalate, missingInformation, summary.
 issueType واحد من: ${SUPPORT_ISSUE_TYPES.join(', ')}.`;
 
+/** Strict structured output. Every property is required; unused text is "". */
+export const SUPPORT_TURN_RESPONSE_FORMAT = {
+  type: 'json_schema' as const,
+  json_schema: {
+    name: 'sarhan_support_turn',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        replyAr: { type: 'string' },
+        issueType: { type: 'string', enum: [...SUPPORT_ISSUE_TYPES] },
+        escalate: { type: 'boolean' },
+        missingInformation: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+      },
+      required: [
+        'replyAr',
+        'issueType',
+        'escalate',
+        'missingInformation',
+        'summary',
+      ],
+    },
+  },
+};
+
 /** Shown above the rule-based FAQ answer when the model could not be used. */
 export const AI_TIMEOUT_NOTICE_AR =
   'تأخر الرد الذكي، فهذا الجواب من مركز المساعدة:';
@@ -131,7 +158,7 @@ export class OpenAiAiProvider implements AiProvider {
             temperature: 0.2,
             max_completion_tokens: maxOutputTokens,
             store: false,
-            response_format: { type: 'json_object' },
+            response_format: SUPPORT_TURN_RESPONSE_FORMAT,
             messages: [
               { role: 'system', content: SUPPORT_SYSTEM_PROMPT },
               { role: 'user', content: userContent },
@@ -159,6 +186,9 @@ export class OpenAiAiProvider implements AiProvider {
 
     try {
       const parsed = JSON.parse(result.value) as Partial<SarhanDecision>;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('invalid_assistant_json');
+      }
       const issueType = (SUPPORT_ISSUE_TYPES as readonly string[]).includes(
         String(parsed.issueType),
       )

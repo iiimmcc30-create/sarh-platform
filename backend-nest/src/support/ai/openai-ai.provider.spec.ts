@@ -5,6 +5,7 @@ import {
   AI_PAUSED_NOTICE_AR,
   AI_TIMEOUT_NOTICE_AR,
   OpenAiAiProvider,
+  SUPPORT_TURN_RESPONSE_FORMAT,
 } from './openai-ai.provider';
 
 /** Synthetic values only. */
@@ -135,6 +136,11 @@ describe('OpenAiAiProvider (guarded «مساعد سرح» model calls)', () => {
     const [params, options] = create.mock.calls[0];
     expect(params.max_completion_tokens).toBe(500);
     expect(params.store).toBe(false);
+    expect(params.response_format).toEqual(SUPPORT_TURN_RESPONSE_FORMAT);
+    expect(params.response_format.json_schema.strict).toBe(true);
+    expect(
+      params.response_format.json_schema.schema.additionalProperties,
+    ).toBe(false);
     expect(options.signal).toBeInstanceOf(AbortSignal);
     expect(options.timeout).toBe(15000);
     expect(options.maxRetries).toBe(1);
@@ -209,6 +215,14 @@ describe('OpenAiAiProvider (guarded «مساعد سرح» model calls)', () => {
       ctx('ابي اميز اعلاني'),
     );
     expect(d2.replyAr).toContain('تمييز');
+
+    const notObject: CreateFn = jest.fn(async () => ({
+      choices: [{ message: { content: '[]' } }],
+    }));
+    const d3 = await new TestProvider(guard, notObject).completeSupportTurn(
+      ctx('ابي اميز اعلاني'),
+    );
+    expect(d3.replyAr).toContain('تمييز');
   });
 
   it('model escalation carries a reason; deterministic paths never call the model', async () => {

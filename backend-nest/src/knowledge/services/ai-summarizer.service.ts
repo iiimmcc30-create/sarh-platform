@@ -40,6 +40,23 @@ const SYSTEM_PROMPT = `أنت محرر أخبار متخصص في قطاع ال�
 titleAr (عنوان عربي مختصر)
 summary (الملخص الكامل بما فيه سطر المصدر في النهاية)`;
 
+export const SUMMARY_RESPONSE_FORMAT = {
+  type: 'json_schema' as const,
+  json_schema: {
+    name: 'knowledge_summary',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        titleAr: { type: 'string' },
+        summary: { type: 'string' },
+      },
+      required: ['titleAr', 'summary'],
+    },
+  },
+};
+
 @Injectable()
 export class AISummarizerService {
   private readonly client: OpenAI | null;
@@ -106,7 +123,7 @@ export class AISummarizerService {
             temperature: 0.2,
             max_completion_tokens: SUMMARY_MAX_OUTPUT_TOKENS,
             store: false,
-            response_format: { type: 'json_object' },
+            response_format: SUMMARY_RESPONSE_FORMAT,
             messages: [
               { role: 'system', content: SYSTEM_PROMPT },
               { role: 'user', content: userContent },
@@ -127,6 +144,15 @@ export class AISummarizerService {
         titleAr?: string;
         summary?: string;
       };
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('invalid_summary_json');
+      }
+      if (
+        typeof parsed.summary !== 'string' ||
+        typeof parsed.titleAr !== 'string'
+      ) {
+        throw new Error('invalid_summary_json');
+      }
 
       const titleAr = pii.restore(parsed.titleAr || input.title).trim();
       let summary = pii.restore(parsed.summary || '').trim();

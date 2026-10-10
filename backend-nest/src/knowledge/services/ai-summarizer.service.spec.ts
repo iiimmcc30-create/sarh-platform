@@ -1,4 +1,7 @@
-import { AISummarizerService } from './ai-summarizer.service';
+import {
+  AISummarizerService,
+  SUMMARY_RESPONSE_FORMAT,
+} from './ai-summarizer.service';
 import { LoggerService } from '../../common/services/logger.service';
 import type { AiCallGuardService } from '../../ai-safety/ai-call-guard.service';
 
@@ -83,5 +86,58 @@ describe('AISummarizerService', () => {
     expect(result.titleAr).toBe('عنوان');
     expect(result.summary).toContain('ملخص');
     expect(result.summary).toContain(input.sourceUrl);
+  });
+
+  it('sends a strict json_schema and falls back when the model JSON cannot be parsed', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-not-real';
+    const create = jest.fn();
+    const service = new AISummarizerService(
+      logger,
+      guard as unknown as AiCallGuardService,
+    );
+    const client = (
+      service as unknown as {
+        client: { chat: { completions: { create: typeof create } } };
+      }
+    ).client;
+    client.chat.completions.create = create;
+
+    create.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({ titleAr: 'عنوان', summary: 'ملخص' }),
+          },
+        },
+      ],
+      usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
+    });
+    guard.run.mockImplementationOnce(async (opts: { call: (c: unknown) => Promise<{ value: string }> }) => {
+      const res = await opts.call({
+        signal: new AbortController().signal,
+        timeout: 1000,
+        maxRetries: 0,
+      });
+      return { ok: true, value: res.value, latencyMs: 4 };
+    });
+    const ok = await service.summarize(input);
+    expect(ok.summary).toContain('ملخص');
+    expect(create.mock.calls[0][0].response_format).toEqual(
+      SUMMARY_RESPONSE_FORMAT,
+    );
+    expect(create.mock.calls[0][0].response_format.json_schema.strict).toBe(
+      true,
+    );
+
+    guard.run.mockResolvedValueOnce({
+      ok: true,
+      latencyMs: 1,
+      value: '{not json',
+    });
+    const broken = await service.summarize(input);
+    expect(broken.summary).toContain(input.sourceUrl);
+    expect(broken.summary).toContain('محتوى الخبر');
+    const errorLog = logger.error as unknown as jest.Mock;
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain('{not json');
   });
 });
