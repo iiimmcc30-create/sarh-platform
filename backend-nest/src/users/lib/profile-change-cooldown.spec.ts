@@ -164,7 +164,7 @@ describe('profile change cooldown planner', () => {
       'utf8',
     );
     expect(schema).toMatch(/username\s+String\s+@unique/);
-    expect(schema).toMatch(/displayName\s+String\n/);
+    expect(schema).toMatch(/displayName\s+String\r?\n/);
     expect(schema).not.toMatch(/displayName\s+String\s+@unique/);
     expect(schema).not.toMatch(/arabicName\s+String\s+@unique/);
     expect(schema).toMatch(/nameChangedAt\s+DateTime\?/);

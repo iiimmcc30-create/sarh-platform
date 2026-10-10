@@ -124,7 +124,7 @@
     "rootDir": "src",
     "testRegex": ".*\\.(spec|test)\\.ts$",
     "transformIgnorePatterns": [
-      "/node_modules/(?!(@nestjs)/)"
+      "[/\\\\]node_modules[/\\\\](?!(@nestjs)[/\\\\])"
     ],
     "moduleNameMapper": {
       "^@/lib/(.*)$": "<rootDir>/shared/lib/$1",
@@ -132,7 +132,7 @@
       "^@/(.*)$": "<rootDir>/$1"
     },
     "transform": {
-      "/node_modules/@nestjs/.+\\.js$": "<rootDir>/../jest-nestjs-cjs.cjs",
+      "[/\\\\]node_modules[/\\\\]@nestjs[/\\\\].+\\.js$": "<rootDir>/../jest-nestjs-cjs.cjs",
       "^.+\\.(t|j)s$": [
         "ts-jest",
         {
