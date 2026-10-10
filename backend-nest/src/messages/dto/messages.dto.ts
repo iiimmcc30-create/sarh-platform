@@ -5,7 +5,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
   Matches,
   Max,
@@ -15,7 +14,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MessageContentType, MessageThreadType } from '@prisma/client';
-import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 import { VOICE_MAX_DURATION_MS } from '../lib/message-payload';
 
 /** image/*, video/* or audio/* mime (metadata only; the upload step enforces the whitelist). */
@@ -54,11 +53,11 @@ export class SendMessageDto {
   text?: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   imageUrl?: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   videoUrl?: string;
 
   /** Optional explicit kind; legacy clients omit it and it is inferred. */
@@ -70,7 +69,7 @@ export class SendMessageDto {
     (o: SendMessageDto) => o.messageType === 'VOICE' || o.audioUrl != null,
   )
   @IsDefined()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   audioUrl?: string;
 
   @ValidateIf(

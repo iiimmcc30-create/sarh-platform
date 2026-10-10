@@ -1,7 +1,6 @@
 import {
   IsOptional,
   IsString,
-  IsUrl,
   MaxLength,
   MinLength,
   IsArray,
@@ -13,7 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 import {
   MAX_POST_MEDIA,
   POST_MEDIA_TYPES,
@@ -21,7 +20,7 @@ import {
 } from '../lib/post-media';
 
 export class PostMediaItemDto {
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   url!: string;
 
   @IsIn(POST_MEDIA_TYPES)
@@ -71,14 +70,14 @@ export class CreatePostDto {
   arabicContent!: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   image?: string;
 
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(4)
-  @IsUrl(MEDIA_URL_OPTS, { each: true })
+  @IsMediaUrl({ each: true })
   images?: string[];
 
   @IsOptional()
@@ -104,13 +103,13 @@ export class UpdatePostDto {
   arabicContent!: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   image?: string | null;
 
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(4)
-  @IsUrl(MEDIA_URL_OPTS, { each: true })
+  @IsMediaUrl({ each: true })
   images?: string[];
 
   @IsOptional()

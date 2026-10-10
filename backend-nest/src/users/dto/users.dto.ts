@@ -8,7 +8,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   Max,
   MaxLength,
@@ -20,7 +19,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { SUPPORTED_COUNTRIES } from '../../lib/countries';
 import { IsOurUploadUrl } from '../validators/is-our-upload-url.validator';
-import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 
 export class ListUsersQueryDto {
   @IsOptional()
@@ -103,13 +102,13 @@ export class UpdateUserDto {
   username?: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   @IsOurUploadUrl()
   avatar?: string;
 
   /** `null` removes the profile cover (back to the default). */
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   @IsOurUploadUrl()
   coverImage?: string | null;
 

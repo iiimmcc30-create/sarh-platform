@@ -1,8 +1,71 @@
-/** Shared @IsUrl options — allow localhost/dev URLs used by local storage uploads */
-export const MEDIA_URL_OPTS = {
-  require_tld: false,
-  protocols: ['http', 'https'] as ('http' | 'https')[],
-};
+import { registerDecorator, type ValidationOptions } from 'class-validator';
+
+const MAX_MEDIA_URL_LENGTH = 2048;
+const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+const LOCAL_SUFFIX = /(^|\.)(localhost|local|internal|localdomain|home|lan)$/i;
+const TLD = /\.[a-z]{2,63}$/i;
+
+/** Strict media URL rules apply in production (NODE_ENV=production). */
+export function isStrictMediaUrlMode(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
+/**
+ * Shape check for a client-supplied media URL (no network, no ownership).
+ * Strict (production): https only, default port, no credentials, a public host
+ * name with a real TLD — never localhost / *.local / an IP literal. Which host
+ * and whose folder is enforced on save by assertUserMediaUrls (media-ownership)
+ * or isOurUploadUrl. Development: any http(s) URL, so local disk uploads on
+ * localhost keep working.
+ */
+export function isAcceptableMediaUrl(
+  value: unknown,
+  strict = isStrictMediaUrlMode(),
+): boolean {
+  if (typeof value !== 'string') return false;
+  const url = value.trim();
+  if (!url || url.length > MAX_MEDIA_URL_LENGTH || url !== value) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (!strict) {
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  }
+  if (parsed.protocol !== 'https:') return false;
+  if (parsed.username || parsed.password) return false;
+  if (parsed.port && parsed.port !== '443') return false;
+  const host = parsed.hostname.toLowerCase();
+  if (!host || host.startsWith('[') || host.includes(':')) return false; // IPv6
+  if (IPV4.test(host) || LOCAL_SUFFIX.test(host)) return false;
+  return TLD.test(host);
+}
+
+/**
+ * DTO decorator for every client-supplied media URL (replaces
+ * `@IsUrl({ require_tld: false, protocols: ['http','https'] })`).
+ * Pass `{ each: true }` for arrays.
+ */
+export function IsMediaUrl(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'isMediaUrl',
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: unknown) {
+          return isAcceptableMediaUrl(value);
+        },
+        defaultMessage() {
+          return 'Media URL must be an https link to an upload made from the app';
+        },
+      },
+    });
+  };
+}
 
 const LISTING_VIDEO_EXT = /\.(mp4|mov|webm|m4v|quicktime)(\?|$)/i;
 const LISTING_VIDEO_HINT = /\/video\/|resource_type=video|\/videos\//i;

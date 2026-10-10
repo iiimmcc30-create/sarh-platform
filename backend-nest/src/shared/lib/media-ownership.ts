@@ -23,7 +23,7 @@ import {
   getCloudinaryCloudName,
   getStorageProvider,
   inspectCloudinaryAsset,
-  isOurUploadUrl,
+  isOurUploadUrlStrict,
   type CloudinaryAssetRef,
 } from './storage';
 import { BYTES_PER_MB, UPLOAD_MAX_MB } from './upload-limits';
@@ -72,6 +72,20 @@ export function classifyMediaUrl(
   ownerId: string,
   opts: { allowAnyOwner?: boolean } = {},
 ): MediaUrlVerdict {
+  // https only, no credentials / odd ports (the URL is shown to every viewer).
+  try {
+    const u = new URL(url);
+    if (
+      u.protocol !== 'https:' ||
+      u.username ||
+      u.password ||
+      (u.port && u.port !== '443')
+    ) {
+      return { ok: false, reason: 'foreign_host' };
+    }
+  } catch {
+    return { ok: false, reason: 'foreign_host' };
+  }
   const cloud = getCloudinaryCloudName();
   const ref = parseCloudinaryUrl(url);
   if (ref) {
@@ -118,7 +132,7 @@ export function classifyMediaUrl(
 
   // Not a Cloudinary URL: only our S3 / CDN origins, and never a Cloudinary
   // host we failed to parse.
-  if (getStorageProvider() !== 'cloudinary' && isOurUploadUrl(url)) {
+  if (getStorageProvider() !== 'cloudinary' && isOurUploadUrlStrict(url)) {
     try {
       if (/(^|\.)cloudinary\.com$/i.test(new URL(url).hostname)) {
         return { ok: false, reason: 'foreign_host' };

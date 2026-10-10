@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isAcceptableMediaUrl } from '../../shared/lib/media-url';
 
 export const createStreamBodySchema = z
   .object({
@@ -15,7 +16,11 @@ export const createStreamBodySchema = z
       'general',
     ]),
     topic: z.string().max(200).optional(),
-    thumbnail: z.string().url().optional(),
+    thumbnail: z
+      .string()
+      .url()
+      .refine((v) => isAcceptableMediaUrl(v), { message: 'invalid_media_url' })
+      .optional(),
   })
   .strict();
 

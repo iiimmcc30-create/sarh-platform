@@ -9,7 +9,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
   Length,
   Matches,
@@ -21,7 +20,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { SUPPORTED_COUNTRIES } from '../../lib/countries';
-import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 import { LISTING_CATEGORIES } from '../listing-categories';
 
 export { LISTING_CATEGORIES };
@@ -251,16 +250,16 @@ export class CreateListingDto extends ListingGeoDtoFields {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(8)
-  @IsUrl(MEDIA_URL_OPTS, { each: true })
+  @IsMediaUrl({ each: true })
   images!: string[];
 
   /** Optional video — one per listing, max 45 s, uploaded before listing creation. */
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   videoUrl?: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   thumbnailUrl?: string;
 
   @IsOptional()
@@ -380,7 +379,7 @@ export class UpdateListingDto extends ListingGeoDtoFields {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(8)
-  @IsUrl(MEDIA_URL_OPTS, { each: true })
+  @IsMediaUrl({ each: true })
   images?: string[];
 
   @IsOptional()
@@ -426,12 +425,12 @@ export class UpdateListingDto extends ListingGeoDtoFields {
 
   @IsOptional()
   @ValidateIf((_, value) => value != null && value !== '')
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   videoUrl?: string | null;
 
   @IsOptional()
   @ValidateIf((_, value) => value != null && value !== '')
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   thumbnailUrl?: string | null;
 }
 

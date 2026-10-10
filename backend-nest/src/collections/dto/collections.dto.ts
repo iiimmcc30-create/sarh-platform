@@ -2,7 +2,6 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
   MaxLength,
   MinLength,
@@ -10,7 +9,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsOurUploadUrl } from '../../users/validators/is-our-upload-url.validator';
-import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 
 export const COLLECTION_TYPES = ['POSTS', 'ADS'] as const;
 export type CollectionTypeValue = (typeof COLLECTION_TYPES)[number];
@@ -36,7 +35,7 @@ export class CreateCollectionDto {
   description?: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   @IsOurUploadUrl()
   coverUrl?: string;
 
@@ -61,7 +60,7 @@ export class UpdateCollectionDto {
 
   /** `null` removes the cover. */
   @ValidateIf((_, value) => value !== null && value !== undefined)
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   @IsOurUploadUrl()
   coverUrl?: string | null;
 

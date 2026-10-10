@@ -16,6 +16,7 @@ import {
   createStreamBodySchema,
   type CreateStreamBodyDto,
 } from './dto/livestreams.dto';
+import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 
 @Injectable()
 export class LivestreamsService {
@@ -78,6 +79,10 @@ export class LivestreamsService {
       if (!access.allowed) {
         throwApi(403, access.code, access.messageAr);
       }
+
+      // Optional cover image: only our upload storage, the host's own folder,
+      // real size/format (same save-time check as listings/posts/stories).
+      await assertUserMediaUrls([parsed.data.thumbnail], user.userId);
 
       const stream = await this.repo.createStream({
         hostId: user.userId,

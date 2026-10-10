@@ -4,13 +4,13 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
   Max,
   MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -18,11 +18,6 @@ import {
   STORY_MAX_DURATION_SEC,
   STORY_MIN_DURATION_SEC,
 } from '@/lib/stories';
-
-const MEDIA_URL_OPTS = {
-  require_tld: false,
-  protocols: ['http', 'https'] as ('http' | 'https')[],
-};
 
 export const STORY_REACTION_TYPES = [
   'like',
@@ -36,12 +31,12 @@ export type StoryReactionType = (typeof STORY_REACTION_TYPES)[number];
 
 export class CreateStoryDto {
   @ApiProperty({ description: 'Story thumbnail / image URL' })
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   thumbnail!: string;
 
   @ApiPropertyOptional({ description: 'Video URL when story is video' })
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   mediaUrl?: string | null;
 
   @ApiPropertyOptional()

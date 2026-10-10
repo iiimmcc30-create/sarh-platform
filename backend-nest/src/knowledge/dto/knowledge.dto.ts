@@ -10,7 +10,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { KnowledgeArticleStatus, KnowledgeSourceType } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 
 export class CreateKnowledgeSourceDto {
   @ApiProperty({ example: 'وزارة البيئة والمياه والزراعة' })
@@ -91,7 +91,7 @@ export class CreateKnowledgePostDto {
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/image.jpg' })
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   @MaxLength(500)
   imageUrl?: string;
 }
@@ -99,7 +99,7 @@ export class CreateKnowledgePostDto {
 export class UpdateKnowledgeProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   @MaxLength(500)
   avatar?: string;
 

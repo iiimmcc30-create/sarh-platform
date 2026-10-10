@@ -8,13 +8,12 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  IsUrl,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { MEDIA_URL_OPTS } from '../../shared/lib/media-url';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 
 export const COUNCIL_VISIBILITIES = ['PUBLIC', 'PRIVATE'] as const;
 export type CouncilVisibilityValue = (typeof COUNCIL_VISIBILITIES)[number];
@@ -217,7 +216,7 @@ export const COUNCIL_IMAGE_URL_MAX = 2048;
 export class CouncilImageDto {
   @IsString()
   @MaxLength(COUNCIL_IMAGE_URL_MAX)
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   imageUrl!: string;
 
   @IsOptional()

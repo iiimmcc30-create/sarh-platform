@@ -145,36 +145,66 @@ export function isS3Configured(): boolean {
   );
 }
 
-/** Allowed image URL origins for avatar/listing validation */
+/**
+ * Allowed image URL origins for avatar/listing validation.
+ *
+ * Production (NODE_ENV=production, set by the Dockerfile and every prod compose
+ * service) always enforces: https only, no credentials in the URL, our
+ * Cloudinary cloud as the first path segment (or its private CDN host), or an
+ * exact configured S3 / CDN origin with a path-segment boundary (a prefix match
+ * like `https://cdn.example.com.evil.net` or `/<cloud>evil/` never passes).
+ * Local development keeps accepting any URL (local disk uploads on localhost).
+ */
 export function isOurUploadUrl(url: string): boolean {
   if (process.env.NODE_ENV !== 'production') return true;
-  try {
-    const parsed = new URL(url);
-    // Cloudinary hostnames vary slightly by account/region
-    if (
-      CLOUD_NAME &&
-      (parsed.hostname === 'res.cloudinary.com' ||
-        parsed.hostname.endsWith('.cloudinary.com')) &&
-      parsed.pathname.includes(`/${CLOUD_NAME}/`)
-    ) {
-      return true;
-    }
+  return isOurUploadUrlStrict(url);
+}
 
-    const allowedOrigins = getAllowedUploadOrigins();
-    return allowedOrigins.some((origin) => {
-      try {
-        const allowed = new URL(origin);
-        return (
-          parsed.origin === allowed.origin ||
-          url.startsWith(origin.replace(/\/$/, ''))
-        );
-      } catch {
-        return url.startsWith(origin);
-      }
-    });
+const CLOUDINARY_SHARED_HOST = /^res(-\d+)?\.cloudinary\.com$/i;
+
+/** The production rule, exported for tests and callers that must always enforce. */
+export function isOurUploadUrlStrict(url: string): boolean {
+  if (typeof url !== 'string' || !url || url.length > 2048) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
   } catch {
     return false;
   }
+  if (parsed.protocol !== 'https:') return false;
+  if (parsed.username || parsed.password) return false;
+  if (parsed.port && parsed.port !== '443') return false;
+  const host = parsed.hostname.toLowerCase();
+
+  const cloud = (process.env.CLOUDINARY_CLOUD_NAME || CLOUD_NAME).trim();
+  if (cloud) {
+    if (
+      CLOUDINARY_SHARED_HOST.test(host) &&
+      parsed.pathname.startsWith(`/${cloud}/`)
+    ) {
+      return true;
+    }
+    if (host === `${cloud.toLowerCase()}-res.cloudinary.com`) return true;
+  }
+  if (/(^|\.)cloudinary\.com$/i.test(host)) return false;
+
+  return getAllowedUploadOrigins().some((origin) => {
+    let allowed: URL;
+    try {
+      allowed = new URL(origin);
+    } catch {
+      return false;
+    }
+    if (allowed.protocol !== 'https:' || parsed.origin !== allowed.origin) {
+      return false;
+    }
+    const base = allowed.pathname.replace(/\/+$/, '');
+    return (
+      !base ||
+      parsed.pathname === base ||
+      parsed.pathname.startsWith(`${base}/`)
+    );
+  });
 }
 
 export function getAllowedUploadOrigins(): string[] {

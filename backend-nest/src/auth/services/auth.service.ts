@@ -34,6 +34,8 @@ import {
   openGracePair,
   sealGracePair,
 } from '../lib/refresh-token-hash';
+import { isOurUploadUrl } from '../../shared/lib/storage';
+import { isAcceptableMediaUrl } from '../../shared/lib/media-url';
 
 type TokenPair = { accessToken: string; refreshToken: string };
 type RefreshSession = NonNullable<
@@ -286,7 +288,7 @@ export class AuthService {
         phone: dto.phone,
         email: dto.email ?? null,
         googleId: dto.googleId ?? null,
-        avatar: dto.avatar ?? null,
+        avatar: signupAvatar(dto.avatar),
         passwordHash,
         // The public verified badge is never granted at signup: `googleId` here is
         // client-supplied (no server-side Google token check on this route).
@@ -1012,4 +1014,14 @@ export class AuthService {
     if (!user) return false;
     return (payload.passwordVersion ?? 0) === user.passwordVersion;
   }
+}
+
+/**
+ * Client-supplied signup avatar: kept only when it is an https URL on our
+ * upload storage (production); anything else is dropped (signup still works,
+ * the user can set a photo later through the checked profile update).
+ */
+export function signupAvatar(avatar: string | null | undefined): string | null {
+  if (typeof avatar !== 'string' || !avatar.trim()) return null;
+  return isAcceptableMediaUrl(avatar) && isOurUploadUrl(avatar) ? avatar : null;
 }

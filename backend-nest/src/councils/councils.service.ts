@@ -42,6 +42,7 @@ import {
   canShowCouncilImages,
 } from '../subscriptions/perks/subscriber-perks';
 import { isOurUploadUrl } from '../shared/lib/storage';
+import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { isListingVideoUrl } from '../shared/lib/media-url';
 import type {
   CouncilImageDto,
@@ -1228,6 +1229,9 @@ export class CouncilsService {
         throwApi(400, 'invalid_image', 'الصورة غير موجودة في إعلانك');
       }
       listingId = listing.id;
+    } else {
+      // Gallery upload: must be the user's own upload, within size/format.
+      await assertUserMediaUrls([url], user.userId);
     }
     const updated = await this.withCouncilLock(id, async (tx, council) => {
       const member = await this.findMember(tx, id, user.userId);

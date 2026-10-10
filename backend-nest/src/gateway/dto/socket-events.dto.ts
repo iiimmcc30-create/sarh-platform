@@ -9,7 +9,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
   Max,
   MaxLength,
@@ -21,12 +20,8 @@ import {
   ValidatorConstraintInterface,
   ValidationArguments,
 } from 'class-validator';
+import { IsMediaUrl } from '../../shared/lib/media-url';
 import { VOICE_MAX_DURATION_MS } from '../../messages/lib/message-payload';
-
-const MEDIA_URL_OPTS = {
-  require_tld: false,
-  protocols: ['http', 'https'] as ('http' | 'https')[],
-};
 
 @ValidatorConstraint({ name: 'textOrMedia', async: false })
 export class TextOrMediaConstraint implements ValidatorConstraintInterface {
@@ -54,11 +49,11 @@ export class ChatSendDto {
   text?: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   imageUrl?: string;
 
   @IsOptional()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   videoUrl?: string;
 
   @IsOptional()
@@ -69,7 +64,7 @@ export class ChatSendDto {
     (o: ChatSendDto) => o.messageType === 'VOICE' || o.audioUrl != null,
   )
   @IsDefined()
-  @IsUrl(MEDIA_URL_OPTS)
+  @IsMediaUrl()
   audioUrl?: string;
 
   @ValidateIf(
