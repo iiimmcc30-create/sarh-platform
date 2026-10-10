@@ -1,12 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { LoggerService } from '../common/services/logger.service';
 import { AiBudgetService } from './ai-budget.service';
 import { aiMaxRetries, aiTimeoutMs, isAiEnabled } from './ai-flags';
+import {
+  AiUsageLogService,
+  type AiUsageOutcome,
+} from './ai-usage-log.service';
 
 export type AiUsage = {
   prompt_tokens?: number | null;
   completion_tokens?: number | null;
   total_tokens?: number | null;
+  prompt_tokens_details?: { cached_tokens?: number | null } | null;
 } | null;
 
 export type AiRequestControls = {
@@ -63,7 +68,38 @@ export class AiCallGuardService {
   constructor(
     private readonly budget: AiBudgetService,
     private readonly logger: LoggerService,
+    @Optional() private readonly usageLog?: AiUsageLogService,
   ) {}
+
+  private async persistUsage(input: {
+    agent: string;
+    model: string;
+    latencyMs: number;
+    outcome: AiUsageOutcome;
+    usage?: AiUsage;
+  }) {
+    const inputTokens = Number(input.usage?.prompt_tokens ?? 0);
+    const outputTokens = Number(input.usage?.completion_tokens ?? 0);
+    const cachedTokens = Number(
+      input.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    );
+    try {
+      await this.usageLog?.record({
+        agent: input.agent,
+        model: input.model,
+        inputTokens: Number.isFinite(inputTokens) ? inputTokens : 0,
+        cachedTokens: Number.isFinite(cachedTokens) ? cachedTokens : 0,
+        outputTokens: Number.isFinite(outputTokens) ? outputTokens : 0,
+        latencyMs: input.latencyMs,
+        outcome: input.outcome,
+      });
+    } catch (err) {
+      this.logger.warn(
+        { errorName: err instanceof Error ? err.name : undefined },
+        'AI usage log write failed',
+      );
+    }
+  }
 
   async run<T>(opts: {
     feature: string;
@@ -89,6 +125,12 @@ export class AiCallGuardService {
         { event: 'AI_BUDGET_BLOCKED', ...base, reason: reservation.reason },
         'AI call skipped — daily budget reached or budget store unavailable',
       );
+      await this.persistUsage({
+        agent: opts.feature,
+        model: opts.model,
+        latencyMs: 0,
+        outcome: 'fallback',
+      });
       return { ok: false, reason: 'budget', latencyMs: 0 };
     }
 
@@ -136,6 +178,13 @@ export class AiCallGuardService {
         },
         'AI call completed',
       );
+      await this.persistUsage({
+        agent: opts.feature,
+        model: opts.model,
+        latencyMs,
+        outcome: 'answered',
+        usage: res.usage,
+      });
       return { ok: true, value: res.value, latencyMs };
     } catch (err) {
       const latencyMs = Date.now() - started;
@@ -159,6 +208,12 @@ export class AiCallGuardService {
         },
         timedOut ? 'AI call timed out' : 'AI call failed',
       );
+      await this.persistUsage({
+        agent: opts.feature,
+        model: opts.model,
+        latencyMs,
+        outcome: 'error',
+      });
       return { ok: false, reason: timedOut ? 'timeout' : 'error', latencyMs };
     } finally {
       if (timer) clearTimeout(timer);

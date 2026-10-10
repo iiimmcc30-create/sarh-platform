@@ -1833,3 +1833,21 @@ model MediaDeletionJob {
   @@index([processedAt, createdAt])
   @@index([userId])
 }
+
+/// Token counts for AI calls. No prompts, replies, or customer text.
+model AiUsageLog {
+  id           String   @id @default(uuid())
+  agent        String
+  model        String
+  inputTokens  Int      @default(0)
+  cachedTokens Int      @default(0)
+  outputTokens Int      @default(0)
+  latencyMs    Int
+  /// answered | fallback | escalated | error
+  outcome      String
+  ticketId     String?
+  createdAt    DateTime @default(now())
+
+  @@index([agent, createdAt])
+  @@index([createdAt])
+}
