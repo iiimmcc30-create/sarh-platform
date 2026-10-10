@@ -34,7 +34,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:status": "prisma migrate status",
     "seed:plans": "ts-node -r tsconfig-paths/register scripts/seed-plans.ts",
-    "geo:backfill": "ts-node -r tsconfig-paths/register scripts/geo-backfill.ts"
+    "geo:backfill": "ts-node -r tsconfig-paths/register scripts/geo-backfill.ts",
+    "eval:sarhan": "ts-node --transpile-only -r tsconfig-paths/register src/support/ai/__eval__/run-golden.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.521.0",
