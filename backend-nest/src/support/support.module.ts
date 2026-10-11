@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { QueueModule } from '../queue/queue.module';
 import { GatewaySharedModule } from '../gateway/gateway-shared.module';
@@ -17,19 +17,6 @@ import { SupportAiContextService } from './ai/support-ai-context.service';
 import { LoggerService } from '../common/services/logger.service';
 import { AiSafetyModule } from '../ai-safety/ai-safety.module';
 import { AiCallGuardService } from '../ai-safety/ai-call-guard.service';
-import { AiAgentsModule } from '../ai-agents/ai-agents.module';
-import { CsAccountReads } from '../ai-agents/cs/cs-account-reads';
-import { CsAgentService } from '../ai-agents/cs/cs-agent.service';
-import { CsWriteBudget } from '../ai-agents/cs/cs-write-budget';
-import { CS_WRITE_API } from '../ai-agents/cs/cs-write-tools';
-import { AiAdminService } from '../ai-agents/admin/ai-admin.service';
-import { TechAgentService } from '../ai-agents/tech/tech-agent.service';
-import { TechDraftStore } from '../ai-agents/tech/tech-draft-store';
-import { TechOpsService } from '../ai-agents/tech/tech-ops.service';
-import { SafeActionService } from '../ai-agents/tech/safe-action.service';
-import { CsQualityService } from '../ai-agents/cs/cs-quality';
-import { AdminAiController } from './admin-ai.controller';
-import { FeesModule } from '../fees/fees.module';
 
 @Module({
   imports: [
@@ -37,10 +24,8 @@ import { FeesModule } from '../fees/fees.module';
     QueueModule,
     GatewaySharedModule,
     AiSafetyModule,
-    AiAgentsModule,
-    FeesModule,
   ],
-  controllers: [SupportController, AdminSupportController, AdminAiController],
+  controllers: [SupportController, AdminSupportController],
   providers: [
     SupportRepository,
     SupportTicketsService,
@@ -50,19 +35,6 @@ import { FeesModule } from '../fees/fees.module';
     SupportSeedService,
     SupportAiContextService,
     SarhanSupportService,
-    CsAccountReads,
-    CsWriteBudget,
-    CsAgentService,
-    TechDraftStore,
-    TechOpsService,
-    TechAgentService,
-    SafeActionService,
-    CsQualityService,
-    AiAdminService,
-    {
-      provide: CS_WRITE_API,
-      useExisting: forwardRef(() => SupportTicketsService),
-    },
     {
       provide: AI_PROVIDER,
       useFactory: (logger: LoggerService, guard: AiCallGuardService) =>

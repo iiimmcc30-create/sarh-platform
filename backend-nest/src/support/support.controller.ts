@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Optional,
   Param,
   Patch,
   Post,
@@ -31,7 +32,7 @@ export class SupportController {
     private readonly tickets: SupportTicketsService,
     private readonly verification: AccountVerificationService,
     private readonly faq: FaqService,
-    private readonly quality: CsQualityService,
+    @Optional() private readonly quality?: CsQualityService,
   ) {}
 
   @Public()
@@ -123,7 +124,7 @@ export class SupportController {
     if (typeof body?.helpful !== 'boolean') {
       return successResponse({ ok: false });
     }
-    this.quality.rate(body.helpful);
+    this.quality?.rate(body.helpful);
     return successResponse({ ok: true });
   }
 

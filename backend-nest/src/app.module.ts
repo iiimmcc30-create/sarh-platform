@@ -26,6 +26,7 @@ import { QueueModule } from './queue/queue.module';
 import { GatewaySharedModule } from './gateway/gateway-shared.module';
 import { ReportsModule } from './reports/reports.module';
 import { OfficialServicesModule } from './official-services/official-services.module';
+import { CsAgentModule } from './ai-agents/cs/cs-agent.module';
 import { SupportModule } from './support/support.module';
 import { ContentModule } from './content/content.module';
 import { EditorialStoriesModule } from './editorial-stories/editorial-stories.module';
@@ -72,6 +73,7 @@ import { PrivacyModule } from './privacy/privacy.module';
     ReportsModule,
     OfficialServicesModule,
     SupportModule,
+    CsAgentModule,
     ContentModule,
     EditorialStoriesModule,
     ExploreSarhBannersModule,
