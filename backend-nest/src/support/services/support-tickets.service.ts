@@ -1,11 +1,15 @@
 import { forwardRef, Inject, Injectable, Optional } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoggerService } from '../../common/services/logger.service';
 import { throwApi } from '../../common/exceptions/api.exception';
 import type { JwtPayload } from '../../common/types/jwt-payload.interface';
-import { SupportRepository } from '../repositories/support.repository';
+import {
+  createdAtAfter,
+  SupportRepository,
+} from '../repositories/support.repository';
 import { SupportNotificationsService } from './support-notifications.service';
 import { SocketEmitService } from '../../gateway/services/socket-emit.service';
 import { SupportSocketBridgeService } from '../../gateway/services/support-socket-bridge.service';
@@ -217,6 +221,7 @@ export class SupportTicketsService {
     private readonly csAgent?: CsAgentService,
     @Optional() private readonly runtimeFlags?: AiRuntimeFlagsService,
     @Optional() private readonly quality?: CsQualityService,
+    @Optional() private readonly moduleRef?: ModuleRef,
   ) {}
 
   private legacyTicketNumber() {
@@ -399,22 +404,23 @@ export class SupportTicketsService {
 
     // With the assistant switched off the ticket is handed straight to the
     // human team (runSarhanIfActive below), so skip the assistant greeting.
-    if (isAssistantEnabled()) {
-      await this.repo.createMessage({
-        ticket: { connect: { id: ticket.id } },
-        authorKind: 'SARHAN',
-        isStaffReply: true,
-        body: sarhanWelcome(firstName, subject),
-      });
-    }
-
-    await this.repo.createMessage({
+    const customerMessage = await this.repo.createMessage({
       ticket: { connect: { id: ticket.id } },
       author: { connect: { id: user.userId } },
       authorKind: 'CUSTOMER',
       isStaffReply: false,
       body: description,
     });
+
+    if (isAssistantEnabled()) {
+      await this.repo.createMessage({
+        ticket: { connect: { id: ticket.id } },
+        authorKind: 'SARHAN',
+        isStaffReply: true,
+        body: sarhanWelcome(firstName, subject),
+        createdAt: createdAtAfter(customerMessage.createdAt),
+      });
+    }
 
     this.logger.info(
       { event: 'TICKET_CREATED', ticketNumber: ticket.ticketNumber },
@@ -506,11 +512,14 @@ export class SupportTicketsService {
     const updated = await this.repo.updateTicket(ticket.id, {
       status: nextStatus,
     });
-    await this.notifications.notifyUserReply({
-      id: updated.id,
-      ticketNumber: updated.ticketNumber,
-      subject: updated.subject,
-    });
+    await this.notifications.notifyUserReply(
+      {
+        id: updated.id,
+        ticketNumber: updated.ticketNumber,
+        subject: updated.subject,
+      },
+      userId,
+    );
     this.emitTicket(ticket.id, 'support:message', {
       ticketId: ticket.id,
       message,
@@ -537,6 +546,9 @@ export class SupportTicketsService {
       authorKind: 'SARHAN',
       isStaffReply: true,
       body,
+      createdAt: createdAtAfter(
+        await this.repo.latestMessageCreatedAt(ticket.id),
+      ),
     });
     await this.repo.updateTicket(ticket.id, {
       metadata: withHandoffAt(asMeta(ticket.metadata)) as Prisma.InputJsonValue,
@@ -594,11 +606,14 @@ export class SupportTicketsService {
       status: nextStatus,
     });
 
-    await this.notifications.notifyUserReply({
-      id: updated.id,
-      ticketNumber: updated.ticketNumber,
-      subject: updated.subject,
-    });
+    await this.notifications.notifyUserReply(
+      {
+        id: updated.id,
+        ticketNumber: updated.ticketNumber,
+        subject: updated.subject,
+      },
+      user.userId,
+    );
 
     this.emitTicket(ticketId, 'support:message', {
       ticketId,
@@ -862,20 +877,54 @@ export class SupportTicketsService {
     );
   }
 
+  /**
+   * SupportModule does not import CsAgentModule (the socket process must not
+   * load it). The API process resolves the agent from the root container.
+   */
+  private resolveCsAgent(): CsAgentService | undefined {
+    if (this.csAgent) return this.csAgent;
+    try {
+      return this.moduleRef?.get(CsAgentService, { strict: false });
+    } catch {
+      return undefined;
+    }
+  }
+
+  private csIncluded(
+    reporterId: string | null | undefined,
+    audience: { role?: string | null; username?: string | null },
+  ): boolean {
+    if (!isCsAgentEnabled() || !reporterId) return false;
+    return csRolloutIncludes(currentCsRollout(), {
+      userId: reporterId,
+      role: audience.role,
+      username: audience.username,
+    });
+  }
+
+  private async saveAssistantMessage(ticketId: string, body: string) {
+    return this.repo.createMessage({
+      ticket: { connect: { id: ticketId } },
+      authorKind: 'SARHAN',
+      isStaffReply: true,
+      body,
+      createdAt: createdAtAfter(await this.repo.latestMessageCreatedAt(ticketId)),
+    });
+  }
+
   private async csTurn(
     reporterId: string | null | undefined,
     text: string,
     ticketId: string,
     audience: { role?: string | null; username?: string | null },
   ): Promise<SarhanTurnResult | null> {
-    if (!isCsAgentEnabled() || !this.csAgent || !reporterId) return null;
-    if (
-      !csRolloutIncludes(currentCsRollout(), {
-        userId: reporterId,
-        role: audience.role,
-        username: audience.username,
-      })
-    ) {
+    if (!this.csIncluded(reporterId, audience) || !reporterId) return null;
+    const agent = this.resolveCsAgent();
+    if (!agent) {
+      this.logger.warn(
+        { event: 'CS_AGENT_UNAVAILABLE' },
+        'Customer-service agent is not loaded in this process',
+      );
       return null;
     }
     if (this.quality?.shouldFallback()) return null;
@@ -884,7 +933,7 @@ export class SupportTicketsService {
       return null;
     }
     try {
-      const reply = await this.csAgent.reply({
+      const reply = await agent.reply({
         userId: reporterId,
         text,
         ticketId,
@@ -924,12 +973,7 @@ export class SupportTicketsService {
       const claimed = await this.repo.claimHumanHandoff(ticket.id);
       if (!claimed) return;
       const body = sarhanHandoff(ticket.ticketNumber);
-      await this.repo.createMessage({
-        ticket: { connect: { id: ticket.id } },
-        authorKind: 'SARHAN',
-        isStaffReply: true,
-        body,
-      });
+      await this.saveAssistantMessage(ticket.id, body);
       this.logger.info(
         {
           event: 'AI_ASSISTANT_DISABLED_HANDOFF',
@@ -957,18 +1001,42 @@ export class SupportTicketsService {
     const reporter = (
       ticket as { reporter?: { role?: string | null; username?: string | null } }
     ).reporter;
-    const agentTurn = await this.csTurn(ticket.reporterId, customerText, ticket.id, {
+    const audience = {
       role: reporter?.role,
       username: reporter?.username,
-    });
-    const turn = agentTurn ?? (await this.sarhan.nextTurn(context, existingMeta));
+    };
+    const included = this.csIncluded(ticket.reporterId, audience);
+    const agentTurn = await this.csTurn(
+      ticket.reporterId,
+      customerText,
+      ticket.id,
+      audience,
+    );
+    let turn = agentTurn ?? (await this.sarhan.nextTurn(context, existingMeta));
+    // The FAQ assistant cannot see the account, so it escalates «ما اشتراكي».
+    // That marks the ticket HUMAN_ACTIVE and blocks every later agent reply.
+    if (
+      !agentTurn &&
+      included &&
+      turn.escalate &&
+      /اشتراك/.test(customerText) &&
+      !this.mustKeepCurrentAssistant(customerText)
+    ) {
+      const handoff = sarhanHandoff(ticket.ticketNumber);
+      const replyAr = turn.replyAr
+        .split(handoff)
+        .join('')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      turn = {
+        ...turn,
+        escalate: false,
+        replyAr:
+          replyAr || 'أقدر أراجع اشتراكك من حسابك. أعد السؤال لو ما ظهر الجواب.',
+      };
+    }
 
-    await this.repo.createMessage({
-      ticket: { connect: { id: ticket.id } },
-      authorKind: 'SARHAN',
-      isStaffReply: true,
-      body: turn.replyAr,
-    });
+    await this.saveAssistantMessage(ticket.id, turn.replyAr);
 
     // The handoff is claimed atomically (AI_ACTIVE → HUMAN_ACTIVE) so a
     // concurrent turn or a retried request cannot alert twice.

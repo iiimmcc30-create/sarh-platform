@@ -15,6 +15,7 @@ import {
 const SYSTEM_TYPE = 'system';
 
 const HANDOFF_ALERT_TTL_SECONDS = 60 * 24 * 60 * 60;
+const STAFF_NOTICE_WINDOW_MS = 5 * 60 * 1000;
 
 export const HANDOFF_REASON_LABEL_AR: Record<SupportEscalationReason, string> =
   {
@@ -207,22 +208,84 @@ export class SupportNotificationsService {
     }
   }
 
-  private async notifyStaff(payload: {
-    titleAr: string;
-    bodyAr: string;
-    data: Record<string, string | number>;
-  }) {
+  private async notifyStaff(
+    payload: {
+      titleAr: string;
+      bodyAr: string;
+      data: Record<string, string | number>;
+    },
+    options?: {
+      excludeUserIds?: string[];
+      /** One in-app row per ticket, updated for 5 minutes. No push. */
+      coalesce?: { ticketId: string; event: string; ticketNumber: string };
+    },
+  ) {
     const staff = await this.repo.findAllStaffUserIds();
-    if (!staff.length) return;
-    await this.notifications.notifyUsers(
-      staff.map((s) => s.id),
-      {
+    const exclude = new Set(options?.excludeUserIds ?? []);
+    const ids = staff.map((s) => s.id).filter((id) => id && !exclude.has(id));
+    if (!ids.length) return;
+    if (!options?.coalesce) {
+      await this.notifications.notifyUsers(ids, {
         type: SYSTEM_TYPE,
         titleAr: payload.titleAr,
         bodyAr: payload.bodyAr,
         data: payload.data,
-      },
+      });
+      return;
+    }
+    const since = new Date(Date.now() - STAFF_NOTICE_WINDOW_MS);
+    await Promise.all(
+      ids.map((userId) =>
+        this.notifyStaffCoalesced(userId, payload, options.coalesce!, since),
+      ),
     );
+  }
+
+  private async notifyStaffCoalesced(
+    userId: string,
+    payload: {
+      titleAr: string;
+      bodyAr: string;
+      data: Record<string, string | number>;
+    },
+    coalesce: { ticketId: string; event: string; ticketNumber: string },
+    since: Date,
+  ) {
+    const existing = await this.repo.findRecentTicketNotice(
+      userId,
+      coalesce.ticketId,
+      coalesce.event,
+      since,
+    );
+    if (existing) {
+      const previous = Number(
+        (existing.data as { count?: string } | null)?.count ?? 1,
+      );
+      const count = Number.isFinite(previous) ? previous + 1 : 2;
+      const data = {
+        ...(typeof existing.data === 'object' && existing.data
+          ? (existing.data as Record<string, string>)
+          : {}),
+        event: coalesce.event,
+        ticketId: coalesce.ticketId,
+        ticketNumber: coalesce.ticketNumber,
+        count: String(count),
+      };
+      await this.repo.updateTicketNotice(
+        existing.id,
+        `${count} ردود جديدة على ${coalesce.ticketNumber}`,
+        data,
+      );
+      return;
+    }
+    await this.notifications.notifyUser({
+      userId,
+      type: SYSTEM_TYPE,
+      titleAr: payload.titleAr,
+      bodyAr: payload.bodyAr,
+      data: { ...payload.data, count: 1 },
+      skipPush: true,
+    });
   }
 
   async notifyTicketCreated(
@@ -241,15 +304,25 @@ export class SupportNotificationsService {
           ticketNumber: ticket.ticketNumber,
         },
       }),
-      this.notifyStaff({
-        titleAr: 'تذكرة دعم جديدة',
-        bodyAr: `${ticket.ticketNumber} — ${ticket.subject}`,
-        data: {
-          event: 'support_ticket_staff_new',
-          ticketId: ticket.id,
-          ticketNumber: ticket.ticketNumber,
+      this.notifyStaff(
+        {
+          titleAr: 'تذكرة دعم جديدة',
+          bodyAr: `${ticket.ticketNumber} — ${ticket.subject}`,
+          data: {
+            event: 'support_ticket_staff_new',
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticketNumber,
+          },
         },
-      }),
+        {
+          excludeUserIds: [userId],
+          coalesce: {
+            ticketId: ticket.id,
+            event: 'support_ticket_staff_new',
+            ticketNumber: ticket.ticketNumber,
+          },
+        },
+      ),
     ]);
   }
 
@@ -270,20 +343,33 @@ export class SupportNotificationsService {
     });
   }
 
-  async notifyUserReply(ticket: {
-    id: string;
-    ticketNumber: string;
-    subject: string;
-  }) {
-    await this.notifyStaff({
-      titleAr: 'رد مستخدم على تذكرة',
-      bodyAr: `${ticket.ticketNumber} — ${ticket.subject}`,
-      data: {
-        event: 'support_ticket_user_reply',
-        ticketId: ticket.id,
-        ticketNumber: ticket.ticketNumber,
+  async notifyUserReply(
+    ticket: {
+      id: string;
+      ticketNumber: string;
+      subject: string;
+    },
+    actorUserId?: string,
+  ) {
+    await this.notifyStaff(
+      {
+        titleAr: 'رد مستخدم على تذكرة',
+        bodyAr: `${ticket.ticketNumber} — ${ticket.subject}`,
+        data: {
+          event: 'support_ticket_user_reply',
+          ticketId: ticket.id,
+          ticketNumber: ticket.ticketNumber,
+        },
       },
-    });
+      {
+        excludeUserIds: actorUserId ? [actorUserId] : [],
+        coalesce: {
+          ticketId: ticket.id,
+          event: 'support_ticket_user_reply',
+          ticketNumber: ticket.ticketNumber,
+        },
+      },
+    );
   }
 
   async notifyTicketStatusChanged(

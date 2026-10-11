@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -20,6 +20,7 @@ import { useSupportTicketSocket } from '@/hooks/useSupportTicketSocket';
 import { useAuth } from '@/contexts/AuthContext';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { messageAuthorLabel } from '@/lib/supportRealtime';
+import { mergeSupportMessages } from '@/lib/supportThread';
 import { SUPPORT_CUSTOMER_SERVICE } from '@/constants/supportIdentity';
 import { userFacingTicketStatus } from '@/lib/supportFlow';
 import {
@@ -55,12 +56,24 @@ export default function SupportTicketDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [pending, setPending] = useState<SupportTicketMessage[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
     const data = await fetchTicket(String(id));
-    if (data) setTicket(data);
+    if (data) {
+      setTicket(data);
+      setPending((current) =>
+        mergeSupportMessages(data.messages ?? [], current).filter((message) =>
+          message.id.startsWith('local-'),
+        ),
+      );
+    }
     setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    setPending([]);
   }, [id]);
 
   useFocusEffect(
@@ -75,14 +88,25 @@ export default function SupportTicketDetailScreen() {
 
   const handleReply = async () => {
     if (!ticket || !reply.trim()) return;
+    const body = reply.trim();
+    const local: SupportTicketMessage = {
+      id: `local-${Date.now()}`,
+      body,
+      isStaffReply: false,
+      authorKind: 'CUSTOMER',
+      createdAt: new Date().toISOString(),
+    };
+    setPending((current) => [...current, local]);
+    setReply('');
     setSending(true);
-    const res = await replyToTicket(ticket.id, reply.trim());
+    const res = await replyToTicket(ticket.id, body);
     setSending(false);
     if (!res.ok) {
+      setPending((current) => current.filter((message) => message.id !== local.id));
+      setReply(body);
       void showToast(res.error ?? 'حاول مرة أخرى', 'error');
       return;
     }
-    setReply('');
     void load();
   };
 
@@ -181,7 +205,7 @@ export default function SupportTicketDetailScreen() {
       <SarhDivider />
 
       <ScreenBody padTop="lg" gap="sm" padBottom="xxxl">
-        {(ticket.messages ?? []).map((msg) => {
+        {mergeSupportMessages(ticket.messages ?? [], pending).map((msg) => {
           const mine = msg.authorKind === 'CUSTOMER' && !msg.isStaffReply;
           const system = isSystemHandoff(msg);
           return (

@@ -4,6 +4,8 @@ export type NotificationJob = {
   titleAr: string;
   bodyAr: string;
   data?: Record<string, string>;
+  /** In-app row only. Staff ticket alerts must not push on every reply. */
+  skipPush?: boolean;
 };
 
 export type EmailJob = {
@@ -44,4 +46,5 @@ export type NotifyUserInput = {
   titleAr: string;
   bodyAr: string;
   data?: Record<string, string | number | boolean | null | undefined>;
+  skipPush?: boolean;
 };

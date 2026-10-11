@@ -2,6 +2,7 @@ import { CsQualityService } from '../../ai-agents/cs/cs-quality';
 import { SupportTicketsService } from './support-tickets.service';
 import { ApiException } from '../../common/exceptions/api.exception';
 import {
+  sarhanHandoff,
   sarhanWelcome,
   SUPPORT_TICKET_CATEGORY_LABEL_AR,
 } from '../constants/support.constants';
@@ -24,6 +25,7 @@ describe('SupportTicketsService', () => {
     createTicket: jest.fn(),
     updateTicket: jest.fn(),
     createMessage: jest.fn(),
+    latestMessageCreatedAt: jest.fn(),
     findUserNames: jest.fn(),
     findLatestSrhTicketNumber: jest.fn(),
     isUniqueConstraint: jest.fn(
@@ -67,7 +69,14 @@ describe('SupportTicketsService', () => {
     repo.findReporterTier.mockResolvedValue({ verifiedTier: null });
     repo.claimHumanHandoff.mockResolvedValue(true);
     notifications.notifyEscalatedToHuman.mockResolvedValue('queued');
-    repo.createMessage.mockResolvedValue({ id: 'm1', body: 'x' });
+    repo.latestMessageCreatedAt.mockResolvedValue(null);
+    repo.createMessage.mockImplementation(
+      async (data: { body?: string; createdAt?: Date }) => ({
+        id: 'm1',
+        body: data.body ?? 'x',
+        createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
+      }),
+    );
     repo.updateTicket.mockImplementation(
       async (id: string, data: Record<string, unknown>) => ({
         id,
@@ -143,7 +152,11 @@ describe('SupportTicketsService', () => {
         status: 'AI_ASSISTING',
       }),
     );
-    expect(repo.createMessage).toHaveBeenCalledWith(
+    const created = repo.createMessage.mock.calls.map((call) => call[0]);
+    expect(created[0]).toEqual(
+      expect.objectContaining({ authorKind: 'CUSTOMER', body: 'ما جاني الكود' }),
+    );
+    expect(created[1]).toEqual(
       expect.objectContaining({
         authorKind: 'SARHAN',
         body: sarhanWelcome(
@@ -151,6 +164,10 @@ describe('SupportTicketsService', () => {
           SUPPORT_TICKET_CATEGORY_LABEL_AR.OTHER_HELP,
         ),
       }),
+    );
+    const customerSaved = await repo.createMessage.mock.results[0].value;
+    expect(created[1].createdAt.getTime()).toBeGreaterThan(
+      customerSaved.createdAt.getTime(),
     );
     expect(sarhan.nextTurn).toHaveBeenCalled();
   });
@@ -855,6 +872,118 @@ describe('SupportTicketsService', () => {
       });
       return { local, csAgent };
     }
+
+    it('staff_only runs the agent for an admin and for @sarh', async () => {
+      process.env.AI_CS_AGENT_ENABLED = 'staff_only';
+      const { local, csAgent } = withCsAgent();
+      csAgent.reply.mockResolvedValue({
+        accepted: true,
+        replyAr: 'اشتراكك مجاني',
+      });
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        reporterId: 'admin-1',
+        reporter: { role: 'ADMIN', username: 'ops' },
+        messages: [{ authorKind: 'CUSTOMER', body: 'ماهو اشتراكي' }],
+      });
+      await local.replyAsUser(user('admin-1', 'ADMIN'), 't1', {
+        body: 'ماهو اشتراكي',
+      });
+      await flushScheduledTurn();
+      expect(csAgent.reply).toHaveBeenCalledWith({
+        userId: 'admin-1',
+        text: 'ماهو اشتراكي',
+        ticketId: 't1',
+      });
+      expect(sarhan.nextTurn).not.toHaveBeenCalled();
+
+      jest.clearAllMocks();
+      repo.latestMessageCreatedAt.mockResolvedValue(null);
+      repo.createMessage.mockImplementation(
+        async (data: { body?: string; createdAt?: Date }) => ({
+          id: 'm1',
+          body: data.body ?? 'x',
+          createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
+        }),
+      );
+      repo.claimHumanHandoff.mockResolvedValue(true);
+      const viaRoot = { reply: jest.fn() };
+      viaRoot.reply.mockResolvedValue({
+        accepted: true,
+        replyAr: 'اشتراكك مجاني',
+      });
+      const rooted = new SupportTicketsService(
+        repo as never,
+        notifications as never,
+        prisma as never,
+        logger as never,
+        sockets as never,
+        sarhan as never,
+        aiContext as never,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { get: () => viaRoot } as never,
+      );
+      repo.findUserTicket.mockResolvedValue({
+        ...aiTicket,
+        subject: 'مشكلة',
+        reporterId: 'founder-1',
+      });
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        reporterId: 'founder-1',
+        reporter: { role: 'USER', username: '@Sarh' },
+        messages: [{ authorKind: 'CUSTOMER', body: 'ماهو اشتراكي' }],
+      });
+      await rooted.replyAsUser(user('founder-1'), 't1', { body: 'ماهو اشتراكي' });
+      await flushScheduledTurn();
+      expect(viaRoot.reply).toHaveBeenCalled();
+      expect(sarhan.nextTurn).not.toHaveBeenCalled();
+    });
+
+    it('staff_only leaves ordinary customers on the FAQ assistant', async () => {
+      process.env.AI_CS_AGENT_ENABLED = 'staff_only';
+      const { local, csAgent } = withCsAgent();
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        reporterId: 'cust-a',
+        reporter: { role: 'USER', username: 'muteb' },
+        messages: [{ authorKind: 'CUSTOMER', body: 'ماهو اشتراكي' }],
+      });
+      await local.replyAsUser(user('cust-a'), 't1', { body: 'ماهو اشتراكي' });
+      await flushScheduledTurn();
+      expect(csAgent.reply).not.toHaveBeenCalled();
+      expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
+    });
+
+    it('a subscription question does not hand the ticket to humans when the agent is eligible', async () => {
+      process.env.AI_CS_AGENT_ENABLED = 'staff_only';
+      const { local, csAgent } = withCsAgent();
+      csAgent.reply.mockResolvedValue({ accepted: false, replyAr: '' });
+      sarhan.nextTurn.mockResolvedValue({
+        replyAr: `باقات عامة\n\n${sarhanHandoff('SRH-2026-000001')}`,
+        escalate: true,
+        escalationReason: 'assistant_decision',
+        metadata: {},
+        missingInformation: [],
+      });
+      repo.findTicketById.mockResolvedValue({
+        ...aiTicket,
+        reporterId: 'admin-1',
+        reporter: { role: 'ADMIN', username: 'sarh' },
+        messages: [{ authorKind: 'CUSTOMER', body: 'ماهو اشتراكي' }],
+      });
+      await local.replyAsUser(user('admin-1', 'ADMIN'), 't1', {
+        body: 'ماهو اشتراكي',
+      });
+      await flushScheduledTurn();
+      expect(repo.claimHumanHandoff).not.toHaveBeenCalled();
+      expect(repo.createMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ authorKind: 'SARHAN', body: 'باقات عامة' }),
+      );
+    });
 
     it('AI_CS_AGENT_ENABLED off keeps the current assistant', async () => {
       delete process.env.AI_CS_AGENT_ENABLED;

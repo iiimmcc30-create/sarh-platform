@@ -5,6 +5,16 @@ import { ADMIN_TICKET_STATUS_GROUPS } from '../constants/support.constants';
 
 const notDeleted = { deletedAt: null };
 
+/** Assistant rows must sort after the customer line they answer, even in the same millisecond. */
+export function createdAtAfter(
+  previous: Date | null | undefined,
+  now = new Date(),
+): Date {
+  if (!(previous instanceof Date) || Number.isNaN(previous.getTime())) return now;
+  const next = new Date(previous.getTime() + 1);
+  return next.getTime() > now.getTime() ? next : now;
+}
+
 /** Open human tickets with no staff message. Clock is metadata.handoffAt. */
 export const AWAITING_STAFF_HANDOFF_WHERE: Prisma.SupportTicketWhereInput = {
   deletedAt: null,
@@ -42,7 +52,7 @@ const TICKET_INCLUDE = {
   assignedTo: { select: AUTHOR_SELECT },
   attachments: true,
   messages: {
-    orderBy: { createdAt: 'asc' as const },
+    orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
     include: {
       author: { select: AUTHOR_SELECT },
       attachments: true,
@@ -310,6 +320,46 @@ export class SupportRepository {
       where: { id },
       data,
       include: TICKET_INCLUDE,
+    });
+  }
+
+  latestMessageCreatedAt(ticketId: string): Promise<Date | null> {
+    return this.prisma.supportTicketMessage
+      .findFirst({
+        where: { ticketId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { createdAt: true },
+      })
+      .then((row) => row?.createdAt ?? null);
+  }
+
+  findRecentTicketNotice(
+    userId: string,
+    ticketId: string,
+    event: string,
+    since: Date,
+  ) {
+    return this.prisma.notification.findFirst({
+      where: {
+        userId,
+        createdAt: { gte: since },
+        AND: [
+          { data: { path: ['ticketId'], equals: ticketId } },
+          { data: { path: ['event'], equals: event } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  updateTicketNotice(
+    id: string,
+    bodyAr: string,
+    data: Prisma.InputJsonValue,
+  ) {
+    return this.prisma.notification.update({
+      where: { id },
+      data: { bodyAr, data },
     });
   }
 

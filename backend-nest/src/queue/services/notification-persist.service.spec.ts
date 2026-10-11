@@ -112,4 +112,18 @@ describe('NotificationPersistService multi-device enqueue', () => {
     );
     expect(notifications.createNotification).toHaveBeenCalledTimes(1);
   });
+
+  it('skipPush stores the in-app row and does not enqueue a push', async () => {
+    notifications.createNotification.mockResolvedValue({ id: 'n' });
+    notifications.findUserPushTargets.mockResolvedValue({
+      fcmToken: 'tok-a',
+      notificationsEnabled: true,
+      deviceTokens: [{ token: 'tok-a' }],
+    });
+
+    await service.persistNotificationAndEnqueuePush({ ...job, skipPush: true });
+
+    expect(notifications.createNotification).toHaveBeenCalledTimes(1);
+    expect(pushQueue.addPush).not.toHaveBeenCalled();
+  });
 });

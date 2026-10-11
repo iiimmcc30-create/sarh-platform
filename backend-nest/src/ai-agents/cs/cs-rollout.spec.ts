@@ -45,6 +45,12 @@ describe('customer-service rollout', () => {
     expect(csRolloutIncludes({ kind: 'staff_only' }, customer)).toBe(false);
     expect(csRolloutIncludes({ kind: 'staff_only' }, admin)).toBe(true);
     expect(csRolloutIncludes({ kind: 'staff_only' }, founder)).toBe(true);
+    expect(
+      csRolloutIncludes({ kind: 'staff_only' }, { userId: 'f2', role: 'USER', username: '@Sarh' }),
+    ).toBe(true);
+    expect(
+      csRolloutIncludes({ kind: 'staff_only' }, { userId: 'f3', role: 'USER', username: '  SARH ' }),
+    ).toBe(true);
     const bucket = stableBucket('user-a');
     expect(csRolloutIncludes({ kind: 'percent', percent: 0 }, customer)).toBe(false);
     expect(csRolloutIncludes({ kind: 'percent', percent: bucket }, customer)).toBe(false);

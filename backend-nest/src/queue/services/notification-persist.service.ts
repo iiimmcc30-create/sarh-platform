@@ -80,7 +80,7 @@ export class NotificationPersistService {
       created = false;
     }
 
-    if (!created) {
+    if (!created || job.skipPush) {
       return notificationId;
     }
 

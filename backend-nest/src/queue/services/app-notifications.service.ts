@@ -32,6 +32,7 @@ export class AppNotificationsService {
         data: input.data
           ? this.stringifyNotificationData(input.data)
           : undefined,
+        skipPush: input.skipPush,
       };
       await this.notifications.addNotification(job);
     } catch (err) {

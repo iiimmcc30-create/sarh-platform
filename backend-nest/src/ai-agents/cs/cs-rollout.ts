@@ -37,11 +37,18 @@ export function stableBucket(userId: string): number {
   return (hash >>> 0) % 100;
 }
 
+/** `@Sarh` and `sarh` are the same founder account. */
+export function normalizeStaffUsername(username: string | null | undefined): string {
+  return (username ?? '').trim().replace(/^@+/, '').toLowerCase();
+}
+
 export function csRolloutIncludes(mode: CsRolloutMode, user: CsAudience): boolean {
   if (mode.kind === 'off') return false;
   if (mode.kind === 'on') return true;
   if (mode.kind === 'staff_only') {
-    return user.role === 'ADMIN' || user.username?.toLowerCase() === 'sarh';
+    return (
+      user.role === 'ADMIN' || normalizeStaffUsername(user.username) === 'sarh'
+    );
   }
   if (mode.percent <= 0) return false;
   return stableBucket(user.userId) < mode.percent;
