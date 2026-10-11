@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { QueueModule } from '../queue/queue.module';
 import { GatewaySharedModule } from '../gateway/gateway-shared.module';
@@ -59,7 +59,10 @@ import { FeesModule } from '../fees/fees.module';
     SafeActionService,
     CsQualityService,
     AiAdminService,
-    { provide: CS_WRITE_API, useExisting: SupportTicketsService },
+    {
+      provide: CS_WRITE_API,
+      useExisting: forwardRef(() => SupportTicketsService),
+    },
     {
       provide: AI_PROVIDER,
       useFactory: (logger: LoggerService, guard: AiCallGuardService) =>

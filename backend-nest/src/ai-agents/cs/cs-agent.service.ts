@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Optional } from '@nestjs/common';
 import { AiCallGuardService } from '../../ai-safety/ai-call-guard.service';
 import { isCsAgentWriteEnabled } from '../../ai-safety/ai-flags';
 import { AGENT_MODEL } from '../ai-agents.module';
@@ -39,7 +39,9 @@ export class CsAgentService {
     private readonly reads: CsAccountReads,
     @Inject(AGENT_MODEL) private readonly model: AgentModel,
     @Optional() private readonly writeBudget?: CsWriteBudget,
-    @Optional() @Inject(CS_WRITE_API) private readonly writes?: CsWriteApi,
+    @Optional()
+    @Inject(forwardRef(() => CS_WRITE_API))
+    private readonly writes?: CsWriteApi,
   ) {}
 
   async reply(input: {

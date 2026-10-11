@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { withBootDeadline } from '../common/utils/boot-deadline';
 import { logger } from '../shared/lib/logger';
 
 /**
@@ -39,7 +40,7 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    await this.$connect();
+    await withBootDeadline(this.$connect(), 'database');
   }
 
   async onModuleDestroy() {

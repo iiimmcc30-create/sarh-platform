@@ -84,6 +84,7 @@ export function getSharedRedisClient(
       ? {
           maxRetriesPerRequest: null,
           enableReadyCheck: false,
+          connectTimeout: 10_000,
           lazyConnect: kind === 'bullmq' ? false : true,
         }
       : {

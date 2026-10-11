@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -212,7 +212,9 @@ export class SupportTicketsService {
     private readonly sarhan: SarhanSupportService,
     private readonly aiContext: SupportAiContextService,
     @Optional() private readonly supportBridge?: SupportSocketBridgeService,
-    @Optional() private readonly csAgent?: CsAgentService,
+    @Optional()
+    @Inject(forwardRef(() => CsAgentService))
+    private readonly csAgent?: CsAgentService,
     @Optional() private readonly runtimeFlags?: AiRuntimeFlagsService,
     @Optional() private readonly quality?: CsQualityService,
   ) {}
