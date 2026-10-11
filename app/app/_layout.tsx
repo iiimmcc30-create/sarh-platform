@@ -133,6 +133,7 @@ function RootNavigator() {
         <Stack.Screen name="favorites" />
         <Stack.Screen name="bookmarks" />
         <Stack.Screen name="collections/index" />
+        <Stack.Screen name="collections/suggested" />
         <Stack.Screen name="collections/create" />
         <Stack.Screen name="collections/[id]/index" />
         <Stack.Screen name="collections/[id]/members" />

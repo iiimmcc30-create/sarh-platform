@@ -6,6 +6,8 @@ import {
   VIEWS_BARS_ICON,
   resolveLucideIcon,
 } from '@/lib/lucideIconMap';
+import { LISTS_ICON_NAME } from '@/lib/listsGlyph';
+import { ListsGlyphIcon } from '@/components/ui/ListsGlyphIcon';
 import { ViewsBarsIcon } from '@/components/ui/ViewsBarsIcon';
 
 export { DEFAULT_ICON_SIZE };
@@ -36,6 +38,10 @@ function LucideAppIcon({
 
   if (name === VIEWS_BARS_ICON) {
     return <ViewsBarsIcon size={size} color={color} strokeWidth={strokeWidth} style={style} />;
+  }
+
+  if (name === LISTS_ICON_NAME) {
+    return <ListsGlyphIcon size={size} color={color} strokeWidth={strokeWidth} style={style} />;
   }
 
   return (

@@ -18,7 +18,7 @@ describe('Collections: naming & navigation', () => {
   it('sidebar label is القوائم under bookmarks', () => {
     const panel = src('components/feature/AppSidebar.tsx');
     expect(panel).toContain(
-      "{ key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },",
+      "{ key: 'collections', icon: 'lists-outline', label: 'القوائم', route: '/collections' },",
     );
     // Directly UNDER bookmarks, as its own row.
     expect(panel.indexOf("key: 'collections'")).toBeGreaterThan(panel.indexOf("key: 'bookmarks'"));
@@ -39,6 +39,7 @@ describe('Collections: naming & navigation', () => {
     const files = [
       'services/collections.ts',
       'app/collections/index.tsx',
+      'app/collections/suggested.tsx',
       'app/collections/create.tsx',
       'app/collections/[id]/index.tsx',
       'app/collections/[id]/members.tsx',
@@ -139,8 +140,8 @@ describe('Collections: screens & empty states', () => {
   it('list + FAB stay on the Sarh DS (no Reanimated, fixed FAB pattern)', () => {
     const index = src('app/collections/index.tsx');
     const fab = src('components/feature/collections/CollectionCreateFab.tsx');
-    expect(index).toContain('اكتشف القوائم الجديدة');
-    expect(index).toContain('قوائمي');
+    expect(index).toContain('اكتشاف قوائم جديدة');
+    expect(index).toContain('قوائمك');
     expect(index).toContain('CollectionCreateFab');
     expect(fab).toContain('CreatePostFab');
     expect(fab).toContain("from 'react-native'");

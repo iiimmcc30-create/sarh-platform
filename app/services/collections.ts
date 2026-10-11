@@ -33,6 +33,16 @@ export type Collection = {
   followersCount: number;
   isFollowing: boolean;
   isOwner: boolean;
+  /** Up to three members, for the overlapping avatars. Omitted on detail/create. */
+  previewMembers?: CollectionPreviewUser[];
+  /** Someone the viewer follows who also follows this list. */
+  mutualFollower?: { username: string } | null;
+};
+
+export type CollectionPreviewUser = {
+  id: string;
+  username: string;
+  avatar?: string | null;
 };
 
 export type CollectionsPage = {
@@ -92,6 +102,18 @@ export function formatCollectionCount(n: number): string {
 
 export function collectionMembersLabel(n: number): string {
   return `${formatCollectionCount(n)} عضو`;
+}
+
+/** X-style meta on a list row: «· N من الأعضاء». */
+export function collectionMembersMeta(n: number): string {
+  return `· ${formatCollectionCount(n)} من الأعضاء`;
+}
+
+/** «X من المتابعين» and, when known, «بما في ذلك @user». */
+export function collectionFollowersIncluding(n: number, username?: string | null): string {
+  const count = `${formatCollectionCount(n)} من المتابعين`;
+  const handle = username?.replace(/^@/, '').trim();
+  return handle ? `${count} بما في ذلك @${handle}` : count;
 }
 
 export function collectionFollowersLabel(n: number): string {

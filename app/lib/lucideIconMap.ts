@@ -318,6 +318,7 @@ const MAP: Record<string, LucideIcon> = {
   dashboard: LayoutGrid,
   list: List,
   'view-list': List,
+  'lists-outline': List,
   heart: Heart,
   'heart-outline': Heart,
   share: Share,

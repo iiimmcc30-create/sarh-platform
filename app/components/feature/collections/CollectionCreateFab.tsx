@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { Animated, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { ListsGlyphIcon } from '@/components/ui/ListsGlyphIcon';
 import { ds } from '@/constants/designSystem';
 import { spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -23,18 +23,15 @@ type Props = {
  */
 export function CollectionCreateFab({
   onPress,
-  accessibilityLabel = 'أنشئ قائمتك',
+  accessibilityLabel = 'قائمة جديدة',
   bottomOffset = TAB_BAR_CLEARANCE,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const fabColors = useMemo(
-    () => ({
-      backgroundColor: colors.electric,
-      shadowColor: colors.electricBright,
-    }),
-    [colors.electric, colors.electricBright],
+    () => ({ backgroundColor: colors.electric }),
+    [colors.electric],
   );
 
   return (
@@ -58,7 +55,7 @@ export function CollectionCreateFab({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
       >
-        <AppIcon name="plus" size={24} color={colors.onElectric} style={styles.icon} />
+        <ListsGlyphIcon size={22} color={colors.onElectric} />
       </Pressable>
     </Animated.View>
   );
@@ -75,10 +72,5 @@ const styles = StyleSheet.create({
     borderRadius: FAB_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
   },
-  icon: { marginTop: 1 },
 });

@@ -12,6 +12,7 @@ import type {
   CreateCollectionDto,
   UpdateCollectionDto,
 } from './dto/collections.dto';
+import { groupCollectionSocialProof } from './collection-social-proof';
 
 export const COLLECTIONS_PAGE_SIZE = 20;
 export const COLLECTION_USERS_LIMIT = 20;
@@ -128,11 +129,80 @@ export class CollectionsService {
     });
     const hasMore = rows.length > COLLECTIONS_PAGE_SIZE;
     const items = hasMore ? rows.slice(0, COLLECTIONS_PAGE_SIZE) : rows;
+    const collections = items.map((row) => this.present(row, viewerId));
     return {
-      collections: items.map((row) => this.present(row, viewerId)),
+      collections: await this.withSocialProof(collections, viewerId),
       nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
       hasMore,
     };
+  }
+
+  /**
+   * Avatars + one mutual follower for the X-style row.
+   * Existing tables only (members, followers, follows). No migration.
+   */
+  private async withSocialProof<T extends { id: string }>(
+    collections: T[],
+    viewerId: string | undefined,
+  ): Promise<
+    (T & {
+      previewMembers: { id: string; username: string; avatar: string | null }[];
+      mutualFollower: { username: string } | null;
+    })[]
+  > {
+    if (collections.length === 0) return [];
+    const ids = collections.map((row) => row.id);
+    const [members, mutualRows] = await Promise.all([
+      this.prisma.collectionMember.findMany({
+        where: { collectionId: { in: ids }, user: ACTIVE_USER },
+        orderBy: [{ addedAt: 'desc' }],
+        select: {
+          collectionId: true,
+          user: { select: { id: true, username: true, avatar: true } },
+        },
+      }),
+      viewerId
+        ? this.prisma.collectionFollower.findMany({
+            where: {
+              collectionId: { in: ids },
+              userId: { not: viewerId },
+              user: {
+                isActive: true,
+                deletedAt: null,
+                followers: { some: { followerId: viewerId } },
+              },
+            },
+            orderBy: [{ createdAt: 'desc' }],
+            select: {
+              collectionId: true,
+              user: { select: { username: true } },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+    const proof = groupCollectionSocialProof(
+      ids,
+      members.map((row) => ({
+        collectionId: row.collectionId,
+        user: {
+          id: row.user.id,
+          username: row.user.username,
+          avatar: row.user.avatar,
+        },
+      })),
+      mutualRows.map((row) => ({
+        collectionId: row.collectionId,
+        username: row.user.username,
+      })),
+    );
+    return collections.map((row) => {
+      const slot = proof.get(row.id);
+      return {
+        ...row,
+        previewMembers: slot?.previewMembers ?? [],
+        mutualFollower: slot?.mutualFollower ?? null,
+      };
+    });
   }
 
   private async findVisible(id: string, viewerId?: string) {

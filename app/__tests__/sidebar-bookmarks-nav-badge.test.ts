@@ -171,7 +171,7 @@ describe('sidebar - المحفوظات is a plain menu row', () => {
     expect(panel.indexOf(row)).toBe(panel.indexOf('{', afterCouncils));
     const afterBookmarks = panel.indexOf('\n', panel.indexOf(row)) + 1;
     // القوائم is its own row directly UNDER bookmarks (not inside the bookmarks section).
-    const collectionsRow = "{ key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },";
+    const collectionsRow = "{ key: 'collections', icon: 'lists-outline', label: 'القوائم', route: '/collections' },";
     expect(panel).toContain(collectionsRow);
     expect(panel.indexOf(collectionsRow)).toBe(panel.indexOf('{', afterBookmarks));
     expect(panel.indexOf(collectionsRow)).toBeLessThan(panel.indexOf("key: 'promote'"));

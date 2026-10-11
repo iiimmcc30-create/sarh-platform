@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Pressable,
   StyleSheet,
@@ -8,19 +9,23 @@ import {
   type ListRenderItemInfo,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CollectionCreateFab } from '@/components/feature/collections/CollectionCreateFab';
 import { CollectionRow } from '@/components/feature/collections/CollectionRow';
+import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppFlatList } from '@/components/ui/AppFlatList';
 import { SkeletonBox, SkeletonRegion } from '@/components/ui/skeleton';
+import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppUser } from '@/hooks/useApp';
-import { AppText, SarhDivider, SarhInput } from '@/design-system/components';
-import { Screen, ScreenBody, Stack } from '@/design-system/layout';
+import { AppText, SarhBackButton, SarhDivider, SarhInput } from '@/design-system/components';
+import { Screen, ScreenBody } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { applyCollectionFollow, sortPinnedFirst } from '@/lib/collectionLists';
+import { loadPinnedCollectionIds, setCollectionPinned } from '@/lib/collectionPins';
 import { requireAuth } from '@/lib/postInteractions';
+import { getRtlRow } from '@/lib/rtl';
 import { safePush } from '@/lib/safeNavigate';
 import { showToast } from '@/lib/toast';
 import {
@@ -35,7 +40,6 @@ import {
   setFollowCollection,
   type Collection,
 } from '@/services/collections';
-import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
 
 type Section = 'discover' | 'mine' | 'memberOf';
 
@@ -43,22 +47,24 @@ type Section = 'discover' | 'mine' | 'memberOf';
 const COLLECTIONS_MEMBER_OF_SECTION = 'member-of';
 
 const MEMBER_OF_HEADER_ID = 'h-member-of';
+const DISCOVER_PREVIEW = 3;
 
 type ListRow =
   | { kind: 'header'; id: string; title: string }
   | { kind: 'collection'; id: string; section: Section; collection: Collection }
+  | { kind: 'more'; id: string }
   | { kind: 'empty'; id: string; text: string };
 
 function RowSkeleton() {
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   return (
     <View style={styles.skelRow}>
-      <SkeletonBox width={52} height={52} radius={radius.md} />
+      <SkeletonBox width={48} height={48} radius={radius.md} />
       <View style={styles.skelMeta}>
         <SkeletonBox width="70%" height={14} radius={4} />
-        <SkeletonBox width="40%" height={12} radius={4} />
+        <SkeletonBox width="46%" height={12} radius={4} />
       </View>
-      <SkeletonBox width={72} height={32} radius={999} />
+      <SkeletonBox width={32} height={32} radius={16} />
     </View>
   );
 }
@@ -70,7 +76,6 @@ export default function CollectionsScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors: c }) => createStyles(c));
   const params = useLocalSearchParams<{ section?: string; userId?: string }>();
-  // «المضاف إليها»: collections where this user is a MEMBER (a visited profile, or me).
   const memberUserId =
     (typeof params.userId === 'string' && params.userId) || (isAuthenticated ? me.id : '');
   const scrollToMemberOf = params.section === COLLECTIONS_MEMBER_OF_SECTION;
@@ -93,16 +98,40 @@ export default function CollectionsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<Set<string>>(new Set());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const menuY = useRef(new Animated.Value(-8)).current;
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(true);
 
   useEffect(() => {
     mounted.current = true;
+    void loadPinnedCollectionIds()
+      .then((ids) => {
+        if (mounted.current) setPinned(new Set(ids));
+      })
+      .catch(() => undefined);
     return () => {
       mounted.current = false;
       if (debounce.current) clearTimeout(debounce.current);
     };
   }, []);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(menuOpacity, {
+        toValue: menuOpen ? 1 : 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuY, {
+        toValue: menuOpen ? 0 : -8,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [menuOpen, menuOpacity, menuY]);
 
   const load = useCallback(
     async (opts?: { soft?: boolean; q?: string }) => {
@@ -172,7 +201,6 @@ export default function CollectionsScreen() {
   }, [query]);
 
   useEffect(() => {
-    // Defer so we don't setState synchronously inside the effect body.
     const t = setTimeout(() => {
       void load();
     }, 0);
@@ -187,16 +215,14 @@ export default function CollectionsScreen() {
   const loadMore = useCallback(async () => {
     if (loadingMore || loading) return;
     const searching = Boolean(applied.trim());
-    const canDiscover = discoverMore && discoverCursor;
+    const canDiscover = searching && discoverMore && discoverCursor;
     const canMine = !searching && mineMore && mineCursor;
     const canMember = !searching && memberOfMore && memberOfCursor && memberUserId;
     if (!canDiscover && !canMine && !canMember) return;
     setLoadingMore(true);
     try {
       if (canDiscover) {
-        const page = searching
-          ? await searchCollections(applied, discoverCursor)
-          : await fetchSuggestedCollections(discoverCursor);
+        const page = await searchCollections(applied, discoverCursor);
         if (!mounted.current) return;
         setDiscover((prev) => mergeById(prev, page.collections));
         setDiscoverCursor(page.nextCursor);
@@ -235,46 +261,66 @@ export default function CollectionsScreen() {
   const toggleFollow = useCallback(
     async (collection: Collection) => {
       if (!requireAuth(isAuthenticated, 'إضافة القوائم')) return;
+      if (collection.isFollowing || followBusy) return;
+      const optimistic = applyCollectionFollow(collection, true);
+      setDiscover((prev) => prev.filter((c) => c.id !== collection.id));
+      setMine((prev) =>
+        prev.some((c) => c.id === collection.id) ? prev : [optimistic, ...prev],
+      );
+      setMemberOf((prev) => prev.map((c) => (c.id === collection.id ? optimistic : c)));
       setFollowBusy(collection.id);
       try {
-        const next = !collection.isFollowing;
-        const res = await setFollowCollection(collection.id, next);
-        const patch = (c: Collection): Collection =>
+        const res = await setFollowCollection(collection.id, true);
+        const confirm = (c: Collection): Collection =>
           c.id === collection.id
-            ? {
-                ...c,
-                isFollowing: res.following,
-                followersCount: res.followersCount,
-              }
+            ? { ...c, isFollowing: res.following, followersCount: res.followersCount }
             : c;
-        setDiscover((prev) => prev.map(patch));
-        setMemberOf((prev) => prev.map(patch));
-        if (res.following) {
-          setMine((prev) =>
-            prev.some((c) => c.id === collection.id)
-              ? prev.map(patch)
-              : [{ ...collection, isFollowing: true, followersCount: res.followersCount }, ...prev],
-          );
-        } else {
-          setMine((prev) => prev.filter((c) => c.id !== collection.id || c.isOwner));
-          setDiscover((prev) => {
-            if (prev.some((c) => c.id === collection.id)) return prev.map(patch);
-            return [
-              { ...collection, isFollowing: false, followersCount: res.followersCount },
-              ...prev,
-            ];
-          });
-        }
+        if (!mounted.current) return;
+        setMine((prev) => prev.map(confirm));
+        setMemberOf((prev) => prev.map(confirm));
       } catch (err) {
+        if (!mounted.current) return;
+        setDiscover((prev) => [collection, ...prev.filter((c) => c.id !== collection.id)]);
+        setMine((prev) => prev.filter((c) => c.id !== collection.id));
+        setMemberOf((prev) => prev.map((c) => (c.id === collection.id ? collection : c)));
         void showToast(err instanceof Error ? err.message : 'تعذّر تحديث المتابعة', 'error');
       } finally {
         if (mounted.current) setFollowBusy(null);
       }
     },
-    [isAuthenticated],
+    [followBusy, isAuthenticated],
+  );
+
+  const togglePin = useCallback(
+    async (collection: Collection) => {
+      const next = !pinned.has(collection.id);
+      setPinned((prev) => {
+        const copy = new Set(prev);
+        if (next) copy.add(collection.id);
+        else copy.delete(collection.id);
+        return copy;
+      });
+      try {
+        const ids = await setCollectionPinned(collection.id, next);
+        if (mounted.current) setPinned(new Set(ids));
+      } catch {
+        if (!mounted.current) return;
+        setPinned((prev) => {
+          const copy = new Set(prev);
+          if (next) copy.delete(collection.id);
+          else copy.add(collection.id);
+          return copy;
+        });
+        void showToast('تعذّر تثبيت القائمة', 'error');
+      }
+    },
+    [pinned],
   );
 
   const searching = Boolean(applied.trim());
+  const discoverShown = searching ? discover : discover.slice(0, DISCOVER_PREVIEW);
+  const showDiscoverMore = !searching && (discover.length > DISCOVER_PREVIEW || discoverMore);
+  const mineShown = sortPinnedFirst(mine, pinned);
   const rows: ListRow[] = [];
   if (searching) {
     rows.push({ kind: 'header', id: 'h-search', title: 'نتائج البحث' });
@@ -286,20 +332,21 @@ export default function CollectionsScreen() {
       }
     }
   } else {
-    rows.push({ kind: 'header', id: 'h-discover', title: 'اكتشف القوائم الجديدة' });
+    rows.push({ kind: 'header', id: 'h-discover', title: 'اكتشاف قوائم جديدة' });
     if (!loading && discover.length === 0) {
       rows.push({ kind: 'empty', id: 'e-discover', text: COLLECTIONS_EMPTY_TEXT });
     } else {
-      for (const c of discover) {
+      for (const c of discoverShown) {
         rows.push({ kind: 'collection', id: `d-${c.id}`, section: 'discover', collection: c });
       }
     }
+    if (showDiscoverMore) rows.push({ kind: 'more', id: 'discover-more' });
     if (isAuthenticated) {
-      rows.push({ kind: 'header', id: 'h-mine', title: 'قوائمي' });
+      rows.push({ kind: 'header', id: 'h-mine', title: 'قوائمك' });
       if (!loading && mine.length === 0) {
         rows.push({ kind: 'empty', id: 'e-mine', text: COLLECTIONS_EMPTY_TEXT });
       } else {
-        for (const c of mine) {
+        for (const c of mineShown) {
           rows.push({ kind: 'collection', id: `m-${c.id}`, section: 'mine', collection: c });
         }
       }
@@ -323,6 +370,13 @@ export default function CollectionsScreen() {
     return () => clearTimeout(t);
   }, [loading, memberOfHeaderIndex, scrollToMemberOf]);
 
+  const openCollection = useCallback(
+    (collection: Collection) => {
+      safePush({ pathname: '/collections/[id]', params: { id: collection.id } }, undefined, router);
+    },
+    [router],
+  );
+
   const renderItem = useCallback(
     ({ item, index }: ListRenderItemInfo<ListRow>) => {
       if (item.kind === 'header') {
@@ -336,6 +390,23 @@ export default function CollectionsScreen() {
           </AppText>
         );
       }
+      if (item.kind === 'more') {
+        return (
+          <View>
+            <Pressable
+              onPress={() => safePush('/collections/suggested', undefined, router)}
+              style={styles.moreHit}
+              accessibilityRole="link"
+              accessibilityLabel="عرض المزيد"
+            >
+              <AppText variant="label" color="primary">
+                عرض المزيد
+              </AppText>
+            </Pressable>
+            <SarhDivider />
+          </View>
+        );
+      }
       if (item.kind === 'empty') {
         return (
           <AppText variant="body" color="textMuted" align="center" style={styles.emptyText}>
@@ -345,29 +416,23 @@ export default function CollectionsScreen() {
       }
       const next = rows[index + 1];
       const showDivider = next?.kind === 'collection' && next.section === item.section;
+      const mineRow = item.section === 'mine';
       return (
         <View>
           <CollectionRow
             collection={item.collection}
-            addBusy={followBusy === item.collection.id}
-            onAdd={
-              item.section !== 'mine' || !item.collection.isOwner
-                ? () => void toggleFollow(item.collection)
-                : undefined
-            }
-            onPress={() =>
-              safePush(
-                { pathname: '/collections/[id]', params: { id: item.collection.id } },
-                undefined,
-                router,
-              )
-            }
+            mode={mineRow ? 'mine' : 'discover'}
+            pinned={pinned.has(item.collection.id)}
+            busy={followBusy === item.collection.id}
+            onFollow={mineRow ? undefined : () => void toggleFollow(item.collection)}
+            onPin={mineRow ? () => void togglePin(item.collection) : undefined}
+            onPress={() => openCollection(item.collection)}
           />
-          {showDivider ? <SarhDivider style={styles.divider} /> : null}
+          {showDivider ? <SarhDivider /> : null}
         </View>
       );
     },
-    [followBusy, router, rows, styles, toggleFollow],
+    [followBusy, openCollection, pinned, router, rows, styles, toggleFollow, togglePin],
   );
 
   const openCreate = useCallback(() => {
@@ -375,15 +440,34 @@ export default function CollectionsScreen() {
     safePush('/collections/create', undefined, router);
   }, [isAuthenticated, router]);
 
+  const openListedIn = useCallback(() => {
+    setMenuOpen(false);
+    if (memberOfHeaderIndex >= 0) {
+      listRef.current?.scrollToIndex({
+        index: memberOfHeaderIndex,
+        animated: true,
+        viewPosition: 0,
+      });
+      return;
+    }
+    if (memberUserId) {
+      safePush(
+        { pathname: '/collections', params: { section: 'member-of', userId: memberUserId } },
+        undefined,
+        router,
+      );
+    }
+  }, [memberOfHeaderIndex, memberUserId, router]);
+
   return (
     <Screen edges={['top', 'bottom']}>
-      <ScreenHeader variant="screen" title="القوائم" showBack />
-      <ScreenBody scroll={false} gutter={false}>
-        <View style={styles.searchWrap}>
+      <View style={[styles.header, getRtlRow()]}>
+        <SarhBackButton onPress={() => router.back()} />
+        <View style={styles.search}>
           <SarhInput
             value={query}
             onChangeText={setQuery}
-            placeholder="ابحث عن قائمة"
+            placeholder="بحث عن القوائم"
             leadingIcon="search"
             size="compact"
             shape="pill"
@@ -393,10 +477,41 @@ export default function CollectionsScreen() {
             trailingIcon={query ? 'close-circle' : undefined}
             onTrailingPress={query ? () => setQuery('') : undefined}
             accessibilityRole="search"
-            accessibilityLabel="بحث في القوائم"
+            accessibilityLabel="بحث عن القوائم"
           />
         </View>
+        <Pressable
+          onPress={() => setMenuOpen((open) => !open)}
+          style={styles.overflow}
+          accessibilityRole="button"
+          accessibilityLabel="المزيد"
+        >
+          <AppIcon name="ellipsis-vertical" size={20} color={colors.textPrimary} />
+        </Pressable>
+      </View>
+      {menuOpen ? (
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
+          <Animated.View
+            style={[
+              styles.menu,
+              { opacity: menuOpacity, transform: [{ translateY: menuY }] },
+            ]}
+          >
+            <Pressable
+              onPress={openListedIn}
+              style={styles.menuItem}
+              accessibilityRole="button"
+              accessibilityLabel="القوائم التي أنت مدرج بها"
+            >
+              <AppText variant="body" color="textPrimary">
+                القوائم التي أنت مدرج بها
+              </AppText>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      ) : null}
 
+      <ScreenBody scroll={false} gutter={false}>
         {loading && discover.length === 0 && mine.length === 0 ? (
           <SkeletonRegion style={styles.skelList}>
             {[0, 1, 2, 3, 4].map((i) => (
@@ -404,7 +519,7 @@ export default function CollectionsScreen() {
             ))}
           </SkeletonRegion>
         ) : error && discover.length === 0 && mine.length === 0 ? (
-          <Stack gap="md" align="center" style={styles.errorBox}>
+          <View style={styles.errorBox}>
             <AppText variant="body" color="textMuted" align="center">
               {error}
             </AppText>
@@ -413,7 +528,7 @@ export default function CollectionsScreen() {
                 إعادة المحاولة
               </AppText>
             </Pressable>
-          </Stack>
+          </View>
         ) : (
           <AppFlatList
             ref={listRef}
@@ -426,32 +541,53 @@ export default function CollectionsScreen() {
             contentContainerStyle={styles.listContent}
             onEndReachedThreshold={0.4}
             onEndReached={() => void loadMore()}
-            refreshControl={
-              <AppRefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-              />
-            }
+            refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListFooterComponent={
               <View style={styles.footer}>
-                {loadingMore ? <ActivityIndicator color={colors.electric} /> : null}
+                {loadingMore ? <ActivityIndicator color={colors.textMuted} /> : null}
               </View>
             }
           />
         )}
       </ScreenBody>
-      <CollectionCreateFab onPress={openCreate} />
+      <CollectionCreateFab onPress={openCreate} bottomOffset={spacing.lg} />
     </Screen>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    searchWrap: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
+    header: {
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
       paddingBottom: spacing.sm,
       backgroundColor: colors.screenRoot,
+    },
+    search: { flex: 1, minWidth: 0 },
+    overflow: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    menuBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 30,
+    },
+    menu: {
+      position: 'absolute',
+      top: 52,
+      end: spacing.md,
+      minWidth: 220,
+      backgroundColor: colors.bgElevated,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSoft,
+    },
+    menuItem: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
     },
     sectionTitle: {
       paddingHorizontal: spacing.lg,
@@ -459,11 +595,15 @@ function createStyles(colors: ThemeColors) {
       paddingBottom: spacing.sm,
     },
     sectionFirst: { paddingTop: spacing.sm },
+    moreHit: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.md,
+    },
     emptyText: {
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.xl,
     },
-    divider: { marginHorizontal: spacing.lg },
     listContent: { flexGrow: 1, paddingBottom: 120 },
     footer: {
       alignItems: 'center',
@@ -482,6 +622,8 @@ function createStyles(colors: ThemeColors) {
     errorBox: {
       flex: 1,
       justifyContent: 'center',
+      alignItems: 'center',
+      gap: spacing.md,
       padding: spacing.xl,
     },
   });

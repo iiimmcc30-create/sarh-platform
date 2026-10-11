@@ -8,7 +8,7 @@ import { PROFILE_VIEWS_TITLE } from '@/services/profileViews';
 export const MEMBER_OF_MENU_ITEM: ActionSheetItem = {
   key: 'member-of',
   label: MEMBER_OF_TITLE,
-  icon: 'people-outline',
+  icon: 'lists-outline',
 };
 
 /** Own-profile ••• menu: «من شاهد ملفك» (count is optional secondary text). */

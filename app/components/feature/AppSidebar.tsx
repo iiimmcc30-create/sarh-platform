@@ -32,7 +32,7 @@ const ALL_PRIMARY_ITEMS: NavItem[] = [
   { key: 'verification', icon: 'verified', label: 'التوثيق', route: '/verification' },
   { key: 'councils', icon: 'mic', label: 'المجالس', route: '/councils' },
   { key: 'bookmarks', icon: 'bookmark-outline', label: 'المحفوظات', route: '/bookmarks' },
-  { key: 'collections', icon: 'people-outline', label: 'القوائم', route: '/collections' },
+  { key: 'collections', icon: 'lists-outline', label: 'القوائم', route: '/collections' },
   { key: 'promote', icon: 'megaphone-outline', label: 'التعزيز', route: '/promote' },
 ];
 
