@@ -7,6 +7,11 @@ import {
   toNotificationApiError,
   type AppNotification,
 } from '@/services/notifications';
+import {
+  decrementUnreadNotificationCount,
+  refreshUnreadNotificationCount,
+  setUnreadNotificationCount,
+} from '@/hooks/useUnreadNotificationCount';
 
 function errorMessage(err: unknown): string {
   const api = toNotificationApiError(err);
@@ -32,6 +37,7 @@ export function useNotificationsList() {
       append ? [...prev, ...page.notifications] : page.notifications,
     );
     setUnreadCount(page.unreadCount);
+    setUnreadNotificationCount(page.unreadCount);
     setNextCursor(page.nextCursor);
     setHasMore(page.hasMore);
   }, []);
@@ -92,6 +98,7 @@ export function useNotificationsList() {
     );
     if (wasUnread) {
       setUnreadCount((c) => Math.max(0, c - 1));
+      decrementUnreadNotificationCount();
     }
     try {
       await markNotificationsRead([id]);
@@ -105,8 +112,10 @@ export function useNotificationsList() {
       prev.map((n) => ({ ...n, isRead: true, readAt: n.readAt ?? new Date().toISOString() })),
     );
     setUnreadCount(0);
+    setUnreadNotificationCount(0);
     try {
       await markNotificationsRead();
+      void refreshUnreadNotificationCount({ force: true });
     } catch (err) {
       setError(errorMessage(err));
       await refresh();
