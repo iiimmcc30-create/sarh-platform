@@ -8,6 +8,11 @@
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-permission android:name="com.android.vending.BILLING"/>
+  <!-- Removed: legacy broad storage — expo-image-picker/expo-file-system add these but
+       Android 10+ (scoped storage) and 13+ do not need them. No runtime dialog lost.
+       Bluetooth is kept: react-native-agora uses it for headset audio routing in councils. -->
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
