@@ -55,8 +55,9 @@ export const INTERACTION_BOOKMARK_BLUE = '#1D9BF0';
  * identity): black in Light, white in Dark — still distinct from the grey idle
  * glyph + solid when active. Dark media overlays keep the green constant.
  */
-export function interactionRepostColor(scheme: 'light' | 'dark'): string {
-  return scheme === 'light' ? sarh.color.lightAction : sarh.color.action;
+export function interactionRepostColor(_scheme: 'light' | 'dark'): string {
+  // X parity: an active repost is green on every surface.
+  return INTERACTION_REPOST_GREEN;
 }
 
 /** The app-wide share glyph (Ionicons "share-social-outline" -> Lucide Share2). */

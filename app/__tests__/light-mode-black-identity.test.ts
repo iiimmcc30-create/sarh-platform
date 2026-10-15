@@ -38,8 +38,8 @@ describe('Light mode black identity', () => {
   });
 
   it('reposted state is black on Light theme surfaces, white in Dark', () => {
-    expect(interactionRepostColor('light')).toBe('#020202');
-    expect(interactionRepostColor('dark')).toBe(sarh.color.action);
+    expect(interactionRepostColor('light')).toBe('#00BA7C');
+    expect(interactionRepostColor('dark')).toBe('#00BA7C');
     expect(src('components/feature/PostItem.tsx')).toContain(
       'post.reposted ? interactionRepostColor(scheme) : colors.textSecondary',
     );

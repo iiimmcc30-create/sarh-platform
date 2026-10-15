@@ -58,7 +58,7 @@ describe('Dark mode white accent', () => {
     expect(resolveSarhChipColors(true).textOverride).toBe(BLACK);
     expect(resolveSarhIconButtonColors('selected').contentColor).toBe(BLACK);
     // Reposted glyph on theme surfaces.
-    expect(interactionRepostColor('dark')).toBe(WHITE);
+    expect(interactionRepostColor('dark')).toBe('#00BA7C');
   });
 
   it('Light keeps white-on-black for the same tokens', () => {
