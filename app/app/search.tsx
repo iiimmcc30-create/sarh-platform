@@ -1535,19 +1535,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
                 {!loading && !error && canSearch && totalResults === 0 ? (
                   <Stack gap="sm" align="center" style={[styles.noResults, { paddingHorizontal: gutter }]}>
                     <AppText variant="heading3" align="center">
-                      لا توجد نتائج لـ "{debouncedQuery}"
-                    </AppText>
-                    <AppText variant="body" color="textMuted" align="center">
-                      جرّب:
-                    </AppText>
-                    <AppText variant="caption" color="textMuted" align="center">
-                      • كلمة أقصر
-                    </AppText>
-                    <AppText variant="caption" color="textMuted" align="center">
-                      • كتابة مختلفة
-                    </AppText>
-                    <AppText variant="caption" color="textMuted" align="center">
-                      • إزالة بعض الكلمات
+                      لا توجد نتائج لـ «{debouncedQuery}»
                     </AppText>
                   </Stack>
                 ) : null}
