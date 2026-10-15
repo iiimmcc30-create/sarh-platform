@@ -59,6 +59,23 @@ export function useNotificationsList() {
     loadInitial();
   }, [loadInitial]);
 
+  // New pushes while the list is open show up right away (no manual pull).
+  useEffect(() => {
+    let sub: { remove: () => void } | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Notifications = require('expo-notifications');
+      sub = Notifications.addNotificationReceivedListener(() => {
+        void fetchNotifications()
+          .then((page) => applyPage(page, false))
+          .catch(() => {});
+      });
+    } catch {
+      sub = null;
+    }
+    return () => sub?.remove();
+  }, [applyPage]);
+
   const refresh = useCallback(async () => {
     setRefreshing(true);
     setError(null);
