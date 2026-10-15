@@ -147,6 +147,7 @@
     "plugins": [
       "expo-dev-client",
       "expo-router",
+      "./plugins/withNavigationBarNoScrim",
       "expo-iap",
       [
         "expo-splash-screen",

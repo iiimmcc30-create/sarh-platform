@@ -150,7 +150,8 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const router = useRouter();
   const navigation = useNavigation();
   const { q: qParam } = useLocalSearchParams<{ q?: string }>();
-  const { setTabBarForceHidden, onChromeScroll, setChromeVisible } = useAppChromeScroll();
+  const { setTabBarForceHidden, onChromeScroll, setChromeVisible, chromeProgress } =
+    useAppChromeScroll();
   const { me } = useAppUser();
   const { likedPosts, bookmarkedPosts, repostedPosts, toggleLike, toggleRepost, toggleBookmark, deletePost } = useApp();
   const { isAuthenticated } = useAuth();
@@ -163,10 +164,12 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const scrollingRef = useRef(false);
   const {
     scrollY,
-    translateY,
-    identityOpacity,
-    resetCollapse,
+    resetCollapse: resetScrollY,
   } = useCollapsibleSearchHeader(SHELL_IDENTITY_COLLAPSE_H);
+  const resetCollapse = useCallback(() => {
+    resetScrollY();
+    setChromeVisible(true);
+  }, [resetScrollY, setChromeVisible]);
   const [section, setSection] = useState<ExploreSection>('explore');
   const exploreIndex = Math.max(0, EXPLORE_SECTIONS.findIndex((item) => item.id === section));
   const { layouts: exploreLayouts, onTabLayout: onExploreTabLayout } = useTabLayouts(EXPLORE_SECTIONS.length);
@@ -1352,8 +1355,36 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
   const resultItems =
     filter === 'all' ? latestItems : visibleGroups.flatMap((group) => group.items);
 
-  const collapseTransform = useMemo(() => ({ transform: [{ translateY }] }), [translateY]);
-  const identityStyle = useMemo(() => ({ opacity: identityOpacity }), [identityOpacity]);
+  /**
+   * Header collapse follows the shared app chrome (same hysteresis + timed easing as the
+   * tab bar). It used to be a raw `diffClamp` of the scroll offset, which tracked every
+   * 1–2px reversal (Android fling settle, content resizing on load) and made the header
+   * flicker out of sync with the tab bar.
+   */
+  const collapseTransform = useMemo(
+    () => ({
+      transform: [
+        {
+          translateY: chromeProgress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-SHELL_IDENTITY_COLLAPSE_H, 0],
+            extrapolate: 'clamp',
+          }),
+        },
+      ],
+    }),
+    [chromeProgress],
+  );
+  const identityStyle = useMemo(
+    () => ({
+      opacity: chromeProgress.interpolate({
+        inputRange: [0, 0.45, 1],
+        outputRange: [0, 0.45, 1],
+        extrapolate: 'clamp',
+      }),
+    }),
+    [chromeProgress],
+  );
 
   const sessionBack = (
     <SarhBackButton
