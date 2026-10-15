@@ -62,7 +62,7 @@
       }
     },
     "android": {
-      "versionCode": 11,
+      "versionCode": 12,
       "package": "com.sarh.app",
       "googleServicesFile": "./google-services.json",
       "usesCleartextTraffic": false,
