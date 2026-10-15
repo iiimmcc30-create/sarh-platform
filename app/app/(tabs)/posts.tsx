@@ -24,6 +24,8 @@ import { space } from '@/design-system/tokens';
 import { AppText, SarhButton } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { useTheme } from '@/hooks/useTheme';
+import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { useSwipeTabPager } from '@/hooks/useSwipeTabPager';
 import { useApp } from '@/hooks/useApp';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +47,7 @@ const FOLLOWING_AUTH_ACTION = 'عرض منشورات المتابَعين';
 
 export default function PostsScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(({ colors: c }) => createPostsStyles(c));
   const { postId, openComments } = useLocalSearchParams<{
@@ -200,6 +203,17 @@ export default function PostsScreen() {
           avatarUri={me.avatar}
           onAvatarPress={openSidebar}
           flushBottom
+          trailing={
+            <Pressable
+              onPress={() => router.push('/users/suggested' as never)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="حسابات مقترحة"
+              testID="community-add-user"
+            >
+              <AppIcon name="person-add-outline" size={22} color={colors.textPrimary} />
+            </Pressable>
+          }
         >
           <Row gap="sm">
             {FEED_TABS.map((tab) => {
