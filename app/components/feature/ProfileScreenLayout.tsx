@@ -123,6 +123,9 @@ type ProfileScreenLayoutProps = {
   isFollowing?: boolean;
   /** True only when the API says this profile follows the viewer. */
   followsYou?: boolean;
+  /** Visitor view of an account the viewer blocked: no follow / follow-back, show the blocked state. */
+  blocked?: boolean;
+  onUnblock?: () => void;
   initialTab?: ProfileTabKey;
   onAdsNearEnd?: () => void;
   /**
@@ -172,16 +175,22 @@ export function ProfileScreenLayout({
   hasStoryRing = false,
   onFollowersPress,
   onFollowingPress,
-  onFollow,
-  onMessage,
+  onFollow: onFollowProp,
+  onMessage: onMessageProp,
   onRatePress,
   followLoading = false,
   isFollowing = false,
-  followsYou = false,
+  followsYou: followsYouProp = false,
+  blocked = false,
+  onUnblock,
   initialTab = 'posts',
   onAdsNearEnd,
   loading = false,
 }: ProfileScreenLayoutProps) {
+  // Blocked account: no Follow / follow-back / Message, only the blocked state.
+  const onFollow = blocked ? undefined : onFollowProp;
+  const onMessage = blocked ? undefined : onMessageProp;
+  const followsYou = blocked ? false : followsYouProp;
   const { colors: themeColors, isDark } = useTheme();
   const { gutter } = useLayout();
   const insets = useSafeAreaInsets();
@@ -602,6 +611,27 @@ export function ProfileScreenLayout({
 
           {/* Other user's profile: the original Follow + Message actions only (share stays in the ⋯ menu). */}
           {loading && mode === 'visitor' ? <ProfileActionsSkeleton style={inset} /> : null}
+
+          {mode === 'visitor' && blocked ? (
+            <View style={[styles.actionsRow, inset]} testID="profile-blocked-state">
+              <AppText variant="body" color="textSecondary" style={{ marginBottom: 10 }}>
+                لقد حظرت هذا الحساب. لن ترى منشوراته ولا يستطيع التواصل معك.
+              </AppText>
+              {onUnblock ? (
+                <Row gap="sm" align="center">
+                  <SarhButton
+                    title="إلغاء الحظر"
+                    variant="secondary"
+                    shape="pill"
+                    emphasis="strong"
+                    onPress={onUnblock}
+                    style={[styles.pillBorder, styles.pill]}
+                    testID="profile-unblock"
+                  />
+                </Row>
+              ) : null}
+            </View>
+          ) : null}
 
           {mode === 'visitor' && (onFollow || onMessage) ? (
             // X capsules: two equal full-row pills, bold text only. Row order follows the

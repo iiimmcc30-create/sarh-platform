@@ -448,8 +448,10 @@ export default function UserProfileScreen() {
       return;
     }
     const confirmed = await confirmDestructive(
-      'حظر الحساب',
-      `لن ترى منشورات وإعلانات ${profile.arabicName || profile.displayName}، ولا يمكنه التواصل معك.`,
+      profile.isBlocked ? 'إلغاء الحظر' : 'حظر الحساب',
+      profile.isBlocked
+        ? `سيتمكن ${profile.arabicName || profile.displayName} من رؤية محتواك والتواصل معك.`
+        : `لن ترى منشورات وإعلانات ${profile.arabicName || profile.displayName}، ولا يمكنه التواصل معك.`,
       profile.isBlocked ? 'إلغاء الحظر' : 'حظر',
     );
     if (!confirmed) return;
@@ -465,8 +467,8 @@ export default function UserProfileScreen() {
     }
     setProfile((prev) => (prev ? { ...prev, isBlocked: result.blocked, isFollowing: false, followsYou: false } : prev));
     if (result.blocked) {
+      // Stay on the profile and show the blocked state (no follow / follow-back).
       void showToast('تم حظر الحساب', 'success');
-      router.back();
       return;
     }
     void showToast('تم إلغاء الحظر', 'info');
@@ -554,10 +556,12 @@ export default function UserProfileScreen() {
         followLoading={followLoading}
         isFollowing={profile.isFollowing}
         followsYou={profile.followsYou === true}
-        postsContent={renderPosts()}
-        adsContent={renderAds()}
-        repliesContent={renderReplies()}
-        repostsContent={renderReposts()}
+        blocked={profile.isBlocked === true}
+        onUnblock={() => void handleBlock()}
+        postsContent={profile.isBlocked ? null : renderPosts()}
+        adsContent={profile.isBlocked ? null : renderAds()}
+        repliesContent={profile.isBlocked ? null : renderReplies()}
+        repostsContent={profile.isBlocked ? null : renderReposts()}
         onTabChange={onTabChange}
         onAdsNearEnd={() => void loadNextPage()}
       />
