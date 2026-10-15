@@ -4,6 +4,8 @@ import { Share } from 'react-native';
 import { Router } from 'expo-router';
 import { Post, User } from '@/services/types';
 import { promptReport } from '@/services/reports';
+import { copyToClipboard } from '@/lib/clipboard';
+import { showToast } from '@/lib/toast';
 import { SARH_OFFICIAL_SITE } from '@/constants/sarhOfficial';
 import {
   alertMessage,
@@ -44,15 +46,24 @@ export async function showPostMenu(
   isAuthenticated = true,
 ) {
   const isOwner = !!me.id && post.author?.id === me.id;
+  const text = (post.arabicContent || post.content || '').trim();
+  // Shared by the ⋯ button and long-press on a post / reply (iOS-style context menu).
+  const common = [
+    ...(text ? [{ key: 'copy', label: 'نسخ النص' }] : []),
+    { key: 'copy-link', label: 'نسخ الرابط' },
+    { key: 'share', label: 'مشاركة' },
+  ];
 
   if (!isOwner) {
     const key = await presentActionSheet({
       title: 'المنشور',
       items: [
+        ...common,
         { key: 'report', label: 'إبلاغ', destructive: true },
         { key: 'cancel', label: 'إغلاق', cancel: true },
       ],
     });
+    if (await handleCommonPostAction(key, post, text)) return;
     if (key === 'report') {
       await promptReport('post', post.id, isAuthenticated);
     }
@@ -62,11 +73,13 @@ export async function showPostMenu(
   const key = await presentActionSheet({
     title: 'إدارة المنشور',
     items: [
+      ...common,
       { key: 'edit', label: 'تعديل' },
       { key: 'delete', label: 'حذف', destructive: true },
       { key: 'cancel', label: 'إلغاء', cancel: true },
     ],
   });
+  if (await handleCommonPostAction(key, post, text)) return;
 
   if (key === 'edit') {
     router.push({ pathname: '/create/post', params: { editId: post.id } });
@@ -86,4 +99,26 @@ export async function showPostMenu(
       await alertMessage('خطأ', error || 'فشل حذف المنشور');
     }
   }
+}
+
+async function handleCommonPostAction(
+  key: string | null | undefined,
+  post: Post,
+  text: string,
+): Promise<boolean> {
+  if (key === 'copy') {
+    copyToClipboard(text);
+    void showToast('تم نسخ النص', 'success');
+    return true;
+  }
+  if (key === 'copy-link') {
+    copyToClipboard(postShareUrl(post.id));
+    void showToast('تم نسخ الرابط', 'success');
+    return true;
+  }
+  if (key === 'share') {
+    await sharePost(post);
+    return true;
+  }
+  return false;
 }

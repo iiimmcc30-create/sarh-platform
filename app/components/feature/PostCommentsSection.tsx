@@ -39,7 +39,9 @@ import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { formatRelativeTimeAr } from '@/lib/formatRelativeTime';
 import { deletePostComment } from '@/services/comments';
-import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
+import { alertMessage, confirmDestructive, presentActionSheet } from '@/lib/actionSheet';
+import { copyToClipboard } from '@/lib/clipboard';
+import { promptReport } from '@/services/reports';
 import { canDeleteComment } from '@/lib/currentUser';
 import { showToast } from '@/lib/toast';
 import { useAppUser } from '@/hooks/useApp';
@@ -316,6 +318,32 @@ export function PostCommentsList() {
     return [focused, ...comments.filter((c) => c.id !== highlightCommentId)];
   }, [comments, highlightCommentId]);
 
+  // Long-press (or ⋮) on a reply: iOS-style action menu.
+  const openReplyMenu = async (c: (typeof comments)[number]) => {
+    const canDelete = canDeleteComment(c.author.id, postOwnerId, user, me);
+    const isMine = !!me?.id && me.id === c.author.id;
+    const key = await presentActionSheet({
+      title: 'الرد',
+      items: [
+        ...(c.content ? [{ key: 'copy', label: 'نسخ النص' }] : []),
+        { key: 'reply', label: 'رد' },
+        ...(canDelete ? [{ key: 'delete', label: 'حذف', destructive: true }] : []),
+        ...(!isMine ? [{ key: 'report', label: 'إبلاغ عن الحساب', destructive: true }] : []),
+        { key: 'cancel', label: 'إغلاق', cancel: true },
+      ],
+    });
+    if (key === 'copy') {
+      copyToClipboard(c.content);
+      void showToast('تم نسخ النص', 'success');
+    } else if (key === 'reply') {
+      startReply(c.author.username);
+    } else if (key === 'delete') {
+      void handleDelete(c.id);
+    } else if (key === 'report') {
+      await promptReport('user', c.author.id, Boolean(user));
+    }
+  };
+
   if (loading && comments.length === 0) {
     return <CommentsSkeleton />;
   }
@@ -370,9 +398,9 @@ export function PostCommentsList() {
                     </AppText>
                   </View>
                 </UserProfileLink>
-                {canDeleteComment(c.author.id, postOwnerId, user, me) ? (
+                {c.id ? (
                   <Pressable
-                    onPress={() => void handleDelete(c.id)}
+                    onPress={() => void openReplyMenu(c)}
                     disabled={deletingId === c.id}
                     hitSlop={12}
                     accessibilityRole="button"
@@ -387,7 +415,13 @@ export function PostCommentsList() {
                   </Pressable>
                 ) : null}
               </View>
-              <AppText style={styles.commentText}>{c.content}</AppText>
+              <Pressable
+                onLongPress={() => void openReplyMenu(c)}
+                delayLongPress={350}
+                accessibilityHint="اضغط مطولاً لخيارات الرد"
+              >
+                <AppText style={styles.commentText}>{c.content}</AppText>
+              </Pressable>
               {/* Feed-size reply action (comments have no likes/reposts/bookmarks). */}
               <View style={[styles.commentActions, getRtlRow()]}>
                 <View style={[styles.commentActionSlot, getRtlRow()]}>

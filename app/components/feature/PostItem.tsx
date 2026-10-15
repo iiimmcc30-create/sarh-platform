@@ -523,7 +523,9 @@ function PostItemComponent({
             {authorMeta}
             <Pressable
               onPress={onPress}
-              disabled={!onPress}
+              onLongPress={onMenu}
+              delayLongPress={350}
+              disabled={!onPress && !onMenu}
               style={({ pressed }) => [pressed && onPress ? styles.bodyPressed : null]}
             >
               {caption}
@@ -553,7 +555,9 @@ function PostItemComponent({
           <Animated.View style={{ opacity: chromeOpacity }} pointerEvents={chromeInteractive ? 'box-none' : 'none'}>
             <Pressable
               onPress={onPress}
-              disabled={!onPress}
+              onLongPress={onMenu}
+              delayLongPress={350}
+              disabled={!onPress && !onMenu}
               style={({ pressed }) => [pressed && onPress ? styles.bodyPressed : null]}
             >
               {caption}
