@@ -136,6 +136,84 @@ describe('SocketGatewayService chat authorization', () => {
     expect(err?.code).toBe('unauthorized');
   });
 
+  it('rejects live:join when viewer and host are blocked', async () => {
+    repo.findLiveStream = jest.fn().mockResolvedValue({
+      id: 'stream-1',
+      hostId: 'host',
+      viewers: 3,
+      likes: 1,
+      _count: { comments: 0 },
+    });
+    repo.incrementStreamViewers = jest.fn();
+    messagingPolicy.assertNotBlocked.mockRejectedValue(
+      new ApiException(403, 'blocked', 'لا يمكنك مراسلة هذا المستخدم'),
+    );
+
+    const err = await service.handleLiveJoin(
+      'stream-1',
+      user('viewer'),
+      jest.fn(),
+    );
+    expect(err).toEqual({
+      code: 'blocked',
+      message: 'لا يمكنك مشاهدة بث هذا المستخدم',
+    });
+    expect(repo.incrementStreamViewers).not.toHaveBeenCalled();
+  });
+
+  it('allows live:join when not blocked and increments viewers', async () => {
+    repo.findLiveStream = jest.fn().mockResolvedValue({
+      id: 'stream-1',
+      hostId: 'host',
+      viewers: 3,
+      likes: 1,
+      _count: { comments: 0 },
+    });
+    repo.incrementStreamViewers = jest.fn().mockResolvedValue({
+      viewers: 4,
+      peakViewers: 4,
+    });
+    repo.updatePeakViewers = jest.fn().mockResolvedValue({});
+    messagingPolicy.assertNotBlocked.mockResolvedValue(undefined);
+    emitService.emitToStream = jest.fn();
+    const clientEmit = jest.fn();
+
+    const result = await service.handleLiveJoin(
+      'stream-1',
+      user('viewer'),
+      clientEmit,
+    );
+    expect(result).toEqual({
+      stats: { viewers: 4, likes: 1, commentsCount: 0 },
+    });
+    expect(messagingPolicy.assertNotBlocked).toHaveBeenCalledWith(
+      'viewer',
+      'host',
+    );
+    expect(repo.incrementStreamViewers).toHaveBeenCalledWith('stream-1');
+  });
+
+  it('skips block check when the host joins their own stream', async () => {
+    repo.findLiveStream = jest.fn().mockResolvedValue({
+      id: 'stream-1',
+      hostId: 'host',
+      viewers: 2,
+      likes: 0,
+      _count: { comments: 1 },
+    });
+    repo.incrementStreamViewers = jest.fn();
+    emitService.emitToStream = jest.fn();
+
+    const result = await service.handleLiveJoin(
+      'stream-1',
+      user('host'),
+      jest.fn(),
+    );
+    expect(result).toMatchObject({ stats: { viewers: 2 } });
+    expect(messagingPolicy.assertNotBlocked).not.toHaveBeenCalled();
+    expect(repo.incrementStreamViewers).not.toHaveBeenCalled();
+  });
+
   it('rejects support:join when the customer does not own the ticket', async () => {
     supportTickets.getTicketForSocket.mockResolvedValue(null);
     const err = await service.handleSupportJoin(

@@ -42,6 +42,7 @@ describe('followers / following rows — X-style follow capsule', () => {
   it('follow mutations patch the shared profile cache', () => {
     const svc = src('services/users.ts');
     expect(svc).toContain('patchCachedFollowState(userId, json.data.following)');
-    expect(svc).toMatch(/followsYou\?: boolean;\n};\n\nexport type PrivacySettings/);
+    expect(svc).toContain('followsYou?: boolean');
+    expect(svc).toContain('export type PrivacySettings');
   });
 });

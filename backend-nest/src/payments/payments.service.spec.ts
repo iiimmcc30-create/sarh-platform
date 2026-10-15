@@ -303,6 +303,29 @@ describe('PaymentsService', () => {
     expect(result).toEqual({
       status: 500,
       body: { error: 'webhook_processing_failed' },
+      terminal: false,
+      outcome: 'failed',
+    });
+  });
+
+  it('returns 503 and non-terminal when payment is not found (allows NI retry)', async () => {
+    repo.findPaymentForWebhook.mockResolvedValue(null);
+
+    const result = await service.processWebhook(
+      JSON.stringify({
+        eventName: 'ORDER.PAID',
+        order: {
+          reference: 'a13f81f3-27b4-48b6-88de-22b9ddc1e1dc',
+          merchantAttributes: { merchantOrderReference: 'ORD-missing' },
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      status: 503,
+      terminal: false,
+      outcome: 'payment_not_found',
+      body: { error: 'payment_not_found' },
     });
   });
 

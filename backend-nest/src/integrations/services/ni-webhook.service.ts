@@ -103,6 +103,27 @@ export class NiWebhookService {
 
     try {
       const result = await this.payments.processWebhook(rawBody);
+      // Only mark processed for terminal outcomes. payment_not_found / failed
+      // stay unprocessed so NI (or a later duplicate delivery) can retry.
+      if (!result.terminal) {
+        await Promise.resolve(
+          this.repo.markWebhookError(
+            eventId!,
+            String(result.outcome ?? result.body?.error ?? 'retry'),
+          ),
+        ).catch(() => undefined);
+        this.logger.warn(
+          {
+            eventName,
+            eventId,
+            outcome: result.outcome,
+            status: result.status,
+          },
+          'NI webhook not marked processed — retryable',
+        );
+        return { ...result, duplicate: isDuplicateAck };
+      }
+
       const order = (event.order ?? event) as Record<string, unknown>;
       const niUuid =
         typeof order.reference === 'string' && isNiOrderUuid(order.reference)

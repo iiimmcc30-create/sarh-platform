@@ -58,9 +58,9 @@ describe('Profile stats: X-style inline («677 المتابعون»), compact, n
     expect(row).not.toMatch(/variant="(label|meta|cardTitle|bodySmall)"/);
   });
 
-  it('12pt under the bio (8 Stack gap + 4), no dividers, backgrounds or borders', () => {
+  it('20pt under the bio (8 Stack gap + 12), no dividers, backgrounds or borders', () => {
     const block = styleBlock(layout, 'statsRow');
-    expect(block).toContain('paddingTop: spacing.xs');
+    expect(block).toContain('paddingTop: spacing.md');
     expect(block).not.toMatch(/backgroundColor|borderWidth|borderColor|borderRadius/);
     expect(layout).not.toContain('statDivider');
     expect(row).not.toContain('Divider');

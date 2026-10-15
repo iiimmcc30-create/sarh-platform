@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { isAllowedCorsOrigin, resolveCorsOrigins } from './cors-origins';
 
 describe('cors origins', () => {
@@ -61,5 +63,16 @@ describe('cors origins', () => {
     process.env.ALLOWED_ORIGINS = '';
     process.env.FRONTEND_URL = '';
     expect(isAllowedCorsOrigin('https://any-preview.vercel.app')).toBe(false);
+  });
+});
+
+describe('HTTP fingerprinting', () => {
+  it('disables Express X-Powered-By on the API and socket processes', () => {
+    expect(readFileSync(join(__dirname, '../main.ts'), 'utf8')).toContain(
+      "disable('x-powered-by')",
+    );
+    expect(
+      readFileSync(join(__dirname, '../gateway/socket.main.ts'), 'utf8'),
+    ).toContain("disable('x-powered-by')");
   });
 });

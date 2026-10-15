@@ -845,16 +845,46 @@ export class PaymentsService
     return { ok: true };
   }
 
-  async processWebhook(rawBody: string) {
+  /**
+   * Process a verified NI webhook payload.
+   * `terminal: true` → IntegrationWebhookEvent may be marked processed (no retry).
+   * `terminal: false` → leave unprocessed / error so the gateway can retry.
+   */
+  async processWebhook(rawBody: string): Promise<{
+    status: number;
+    body: Record<string, unknown>;
+    terminal: boolean;
+    outcome: string;
+  }> {
     let event: Record<string, unknown>;
     try {
       event = JSON.parse(rawBody);
     } catch {
-      return { status: 400, body: { error: 'invalid_json' } };
+      return {
+        status: 400,
+        body: { error: 'invalid_json' },
+        terminal: true,
+        outcome: 'invalid_json',
+      };
     }
 
     try {
-      await this.handleNIWebhook(event);
+      const outcome = await this.handleNIWebhook(event);
+      if (outcome === 'payment_not_found') {
+        // Race or out-of-order delivery: do not mark processed — NI should retry.
+        return {
+          status: 503,
+          body: { error: 'payment_not_found', received: false },
+          terminal: false,
+          outcome,
+        };
+      }
+      return {
+        status: 200,
+        body: { received: true, outcome },
+        terminal: true,
+        outcome,
+      };
     } catch (err) {
       this.logger.error(
         {
@@ -865,13 +895,18 @@ export class PaymentsService
         'NI Webhook processing error',
       );
       Sentry.captureException(err);
-      return { status: 500, body: { error: 'webhook_processing_failed' } };
+      return {
+        status: 500,
+        body: { error: 'webhook_processing_failed' },
+        terminal: false,
+        outcome: 'failed',
+      };
     }
-
-    return { status: 200, body: { received: true } };
   }
 
-  private async handleNIWebhook(event: Record<string, unknown>) {
+  private async handleNIWebhook(
+    event: Record<string, unknown>,
+  ): Promise<'processed' | 'acknowledged' | 'payment_not_found'> {
     const order = (event.order ?? event) as Record<string, unknown>;
     const eventType = String(event.eventName ?? event.type ?? '');
 
@@ -902,7 +937,7 @@ export class PaymentsService
         { merchantOrderRef, internalPaymentId },
         'NI Webhook: payment not found',
       );
-      return;
+      return 'payment_not_found';
     }
 
     const storedMeta = (payment.metadata ?? {}) as Record<string, unknown>;
@@ -942,7 +977,7 @@ export class PaymentsService
         { paymentId: payment.id, status: payment.status },
         'NI Webhook already processed',
       );
-      return;
+      return 'acknowledged';
     }
 
     if (payment.status === 'paid' && isRefundEvent) {
@@ -956,7 +991,7 @@ export class PaymentsService
           { paymentId: payment.id, status: payment.status },
           'NI refund webhook already applied',
         );
-        return;
+        return 'acknowledged';
       }
       if (
         type === 'subscription' &&
@@ -984,7 +1019,7 @@ export class PaymentsService
         bodyAr: `تم استرداد ${payment.amount} ${payment.currency}.`,
         data: { paymentId: payment.id, transactionId: niTransactionId },
       });
-      return;
+      return 'processed';
     }
 
     const isSuccess =
@@ -1014,7 +1049,7 @@ export class PaymentsService
         { paymentId: payment.id, status: payment.status },
         'NI Webhook already processed',
       );
-      return;
+      return 'acknowledged';
     }
 
     if (isSuccess) {
@@ -1025,7 +1060,7 @@ export class PaymentsService
         'webhook',
         { payloadOrderRef: niTransactionId },
       );
-      if (!verdict.ok) return;
+      if (!verdict.ok) return 'acknowledged';
       const verifiedTxId = String(
         verdict.order.reference ??
           verdict.order.transactionId ??
@@ -1108,7 +1143,9 @@ export class PaymentsService
           { paymentId: payment.id, type, referenceId, amount: payment.amount },
           'NI Payment confirmed',
         );
+        return 'processed';
       }
+      return 'acknowledged';
     } else if (isFailure) {
       const failed = await this.repo.markPaymentFailedById(payment.id);
       if (!failed.count) {
@@ -1116,7 +1153,7 @@ export class PaymentsService
           { paymentId: payment.id, eventType },
           'Skipped NI failure transition — payment is not pending',
         );
-        return;
+        return 'acknowledged';
       }
 
       if (type === 'subscription' && targetPlanId) {
@@ -1138,7 +1175,12 @@ export class PaymentsService
         { paymentId: payment.id, eventType },
         'NI Payment failed',
       );
+      return 'processed';
     }
+
+    // Unknown / unhandled event type for this payment — acknowledge so NI
+    // does not retry forever; fulfillment only happens on success/failure paths.
+    return 'acknowledged';
   }
 
   // ── Fulfilment guard (webhook + sync) ─────────────────────────────────────

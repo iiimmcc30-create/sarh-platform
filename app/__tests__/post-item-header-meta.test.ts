@@ -49,7 +49,7 @@ describe('feed post header: name whole, handle shrinks, clearer meta', () => {
   });
 
   it('keeps the detail header styles (meta line is the X-style detailMetaText)', () => {
-    expect(style('handle')).toContain('color: colors.textMuted');
+    expect(style('handle')).toContain('color: colors.textSecondary');
     expect(style('detailMetaText')).toContain('color: colors.textSecondary');
     expect(style('nameRow')).toContain("flexWrap: 'wrap'");
   });

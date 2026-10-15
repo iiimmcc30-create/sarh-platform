@@ -12,6 +12,7 @@ const adminBasePath = (process.env.NEXT_PUBLIC_ADMIN_BASE_PATH || '').replace(
 
 const nextConfig = {
   output: 'standalone',
+  poweredByHeader: false,
   // Keep false: nginx must NOT redirect /admin → /admin/ or Next's 308 /admin/ → /admin loops.
   trailingSlash: false,
   ...(adminBasePath ? { basePath: adminBasePath } : {}),

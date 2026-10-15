@@ -597,8 +597,8 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
     const layout = src('components/feature/ProfileScreenLayout.tsx');
     expect(layout).toContain('SarhBackButton');
     expect(layout).toContain('accessibilityLabel="المزيد"');
-    expect(layout).toContain('مراسلة');
-    expect(layout).toContain('متابعة');
+    expect(layout).toContain('title="رسالة"');
+    expect(layout).toContain('تابِع');
     expect(layout).toContain('RefreshControl');
 
     const connections = src('app/profile/connections.tsx');
@@ -612,7 +612,9 @@ describe('Architecture V2 — Wave 2 profile screens', () => {
     expect(deletion).toContain('deleteAccount');
     expect(deletion).toContain('presentConfirm');
 
-    expect(src('components/settings/SettingsHomeScreen.tsx')).toContain('updatePrivacySettings');
+    expect(src('components/settings/useSettingsGroups.ts')).toContain(
+      'updatePrivacySettings',
+    );
     expect(src('app/profile/settings/change-phone.tsx')).toContain('changeAccountPhone');
     expect(src('app/profile/edit/index.tsx')).toContain('updateMe');
   });

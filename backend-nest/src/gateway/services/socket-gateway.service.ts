@@ -377,6 +377,22 @@ export class SocketGatewayService {
     let viewers = stream.viewers;
 
     if (user.userId !== stream.hostId) {
+      // Same block relationship as messaging: either direction blocks join.
+      try {
+        await this.messagingPolicy.assertNotBlocked(
+          user.userId,
+          stream.hostId,
+        );
+      } catch (err) {
+        if (err instanceof ApiException && err.error === 'blocked') {
+          return {
+            code: 'blocked',
+            message: 'لا يمكنك مشاهدة بث هذا المستخدم',
+          };
+        }
+        return this.policyError(err);
+      }
+
       const updated = await this.repo.incrementStreamViewers(streamId);
       viewers = updated.viewers;
 

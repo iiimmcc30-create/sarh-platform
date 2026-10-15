@@ -31,6 +31,7 @@ async function bootstrap() {
   }
   initialiseSentry();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const url = req.url ?? '';
@@ -115,6 +116,8 @@ async function bootstrap() {
       { path: 'payment/result', method: RequestMethod.GET },
       { path: 'payment/cancel', method: RequestMethod.GET },
       { path: 'privacy', method: RequestMethod.GET },
+      { path: 'delete-account', method: RequestMethod.GET },
+      { path: 'delete-account', method: RequestMethod.POST },
       { path: 'join', method: RequestMethod.GET },
       { path: 'join/success', method: RequestMethod.GET },
     ],

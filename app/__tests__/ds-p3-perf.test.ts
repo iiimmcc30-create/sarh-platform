@@ -150,7 +150,9 @@ describe('Wave 5B loading and skeleton consistency', () => {
     expect(src('app/support/faq.tsx')).not.toContain('setLoading(true)');
     expect(src('app/support/tickets/index.tsx')).toContain('loading && items.length === 0');
     expect(src('app/support/tickets/index.tsx')).toContain('if (data) setItems(data.items)');
-    expect(src('app/support/tickets/[id].tsx')).toContain('if (data) setTicket(data)');
+    expect(src('app/support/tickets/[id].tsx')).toMatch(
+      /if \(data\) \{\s*setTicket\(data\)/,
+    );
     expect(src('app/support/tickets/[id].tsx')).toContain('loading && !ticket');
   });
 

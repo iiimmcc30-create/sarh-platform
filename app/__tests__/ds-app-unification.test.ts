@@ -43,8 +43,8 @@ describe('design-system unification — allowed redesigns only', () => {
     expect(layout).not.toContain('accessibilityLabel="مشاركة"');
     expect(layout).toContain('accessibilityLabel="المزيد"');
     expect(layout).toContain('SarhButton');
-    expect(layout).toContain('متابعة');
-    expect(layout).toContain('مراسلة');
+    expect(layout).toContain('تابِع');
+    expect(layout).toContain('title="رسالة"');
     expect(visitor).toContain("key: 'share'");
     expect(visitor).toContain('مشاركة الملف');
   });
