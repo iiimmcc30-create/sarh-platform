@@ -28,11 +28,16 @@ export const SARH_LOGO_MARK_PATHS = [WAVE_BOTTOM, WAVE_TOP] as const;
 export const SARH_LOGO_INK = '#020202';
 /** Mark ink on dark surfaces: the app-icon wave white. */
 export const SARH_LOGO_INK_DARK = '#FBFBFB';
+/**
+ * In-app headers on dark: X-style flat, slightly dimmed white (X uses #E7E9EA),
+ * so the mark doesn't glare on black. Splash keeps the full icon white.
+ */
+export const SARH_LOGO_INK_DARK_UI = '#E7E9EA';
 
 /** App-icon colours for the in-app mark: black waves on light, white waves on dark. */
 export function sarhLogoColors(isDark: boolean): { color: string } {
   return {
-    color: isDark ? SARH_LOGO_INK_DARK : SARH_LOGO_INK,
+    color: isDark ? SARH_LOGO_INK_DARK_UI : SARH_LOGO_INK,
   };
 }
 

@@ -140,7 +140,8 @@ describe('in-app Sarh mark colours match the icon', () => {
   it('exports the icon colours and draws the two waves only (no diamond)', () => {
     expect(mark).toContain(`export const SARH_LOGO_INK = '${REFERENCE_BLACK}'`);
     expect(mark).toContain("export const SARH_LOGO_INK_DARK = '#FBFBFB'");
-    expect(mark).toContain('isDark ? SARH_LOGO_INK_DARK : SARH_LOGO_INK');
+    expect(mark).toContain('isDark ? SARH_LOGO_INK_DARK_UI : SARH_LOGO_INK');
+    expect(mark).toContain("export const SARH_LOGO_INK_DARK_UI = '#E7E9EA'");
     expect(mark).toContain('export const SARH_LOGO_MARK_PATHS = [WAVE_BOTTOM, WAVE_TOP] as const;');
     expect(mark).not.toMatch(/DIAMOND|accentColor/);
   });
