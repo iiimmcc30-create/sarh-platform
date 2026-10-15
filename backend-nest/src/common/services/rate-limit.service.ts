@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible';
+import * as jwt from 'jsonwebtoken';
 import { LoggerService } from './logger.service';
 import { getSharedRedisClient } from '../../redis/redis-connection';
 
@@ -120,6 +121,54 @@ export class RateLimitService {
     return this.limiterInstance;
   }
 
+  private userLimiterInstance: RateLimiterRedis | RateLimiterMemory | null =
+    null;
+
+  /**
+   * Signed-in app traffic is limited per account, not per IP: mobile carriers
+   * put many users behind one IP (CGNAT), and fast normal navigation fires
+   * dozens of reads per screen. Abuse protection stays (per-account budget +
+   * the per-IP bucket for anonymous traffic, auth and payments unchanged).
+   */
+  private getUserLimiter() {
+    if (!this.userLimiterInstance) {
+      this.userLimiterInstance = this.getLimiter(
+        this.userMax(),
+        this.userWindowSec(),
+        'rl:user',
+        30,
+      );
+    }
+    return this.userLimiterInstance;
+  }
+
+  private userMax() {
+    const n = parseInt(process.env.RATE_LIMIT_USER_MAX || '900', 10);
+    return Number.isFinite(n) && n > 0 ? n : 900;
+  }
+
+  private userWindowSec() {
+    const n = parseInt(process.env.RATE_LIMIT_USER_WINDOW_SEC || '60', 10);
+    return Number.isFinite(n) && n > 0 ? n : 60;
+  }
+
+  /** Verified access-token subject, or null (anonymous / invalid / expired). */
+  verifiedUserId(req: Request): string | null {
+    const header = req.headers?.authorization;
+    const raw = Array.isArray(header) ? header[0] : header;
+    if (typeof raw !== 'string' || !raw.startsWith('Bearer ')) return null;
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return null;
+    try {
+      const payload = jwt.verify(raw.slice(7), secret) as { userId?: unknown };
+      return typeof payload.userId === 'string' && payload.userId
+        ? payload.userId
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
   private getAuthLimiter() {
     if (!this.authLimiterInstance) {
       this.authLimiterInstance = this.getLimiter(
@@ -184,6 +233,10 @@ export class RateLimitService {
     }
 
     const ip = this.getClientIp(req);
+    const userId = type === 'api' ? this.verifiedUserId(req) : null;
+    if (userId) {
+      return this.consumeUser(req, res, userId);
+    }
     const limits = {
       api: this.apiMax(),
       auth: this.authMax(),
@@ -241,6 +294,43 @@ export class RateLimitService {
       this.logger.warn({ ip, type }, 'Rate limit exceeded');
       res.setHeader('Retry-After', retryAfterSec);
       // Response body is sent once by GlobalExceptionFilter (RateLimitGuard throws).
+      return false;
+    }
+  }
+
+  private async consumeUser(
+    req: Request,
+    res: Response,
+    userId: string,
+  ): Promise<boolean> {
+    const isRedisReady =
+      this.isRedisEnabled() && this.getRedisClient().status === 'ready';
+    try {
+      const limiter = isRedisReady
+        ? this.getUserLimiter()
+        : this.getMemoryLimiter(
+            this.userMax(),
+            this.userWindowSec(),
+            'rl:mem:user',
+          );
+      const result = await limiter.consume(`u:${userId}`);
+      res.setHeader('X-RateLimit-Limit', this.userMax());
+      res.setHeader('X-RateLimit-Remaining', result.remainingPoints);
+      return true;
+    } catch (rejRes: unknown) {
+      if (rejRes instanceof Error) {
+        this.logger.error(
+          { err: rejRes.message, userId },
+          'User rate limiter error, failing open',
+        );
+        return !this.shouldFailClosedOnRedisError(req, 'api');
+      }
+      const rateRes = rejRes as { msBeforeNext: number };
+      this.logger.warn({ userId }, 'User rate limit exceeded');
+      res.setHeader(
+        'Retry-After',
+        Math.max(1, Math.round(rateRes.msBeforeNext / 1000)),
+      );
       return false;
     }
   }
