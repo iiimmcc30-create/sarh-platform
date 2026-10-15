@@ -40,7 +40,42 @@ type InboxCacheEntry = {
 };
 
 let inboxOwnerToken: string | null = null;
-const inboxCache = new Map<string, InboxCacheEntry>();
+const inboxListeners = new Set<() => void>();
+
+/** Inbox cache that notifies subscribers (tab-bar unread badge) on every write. */
+class InboxCache extends Map<string, InboxCacheEntry> {
+  override set(key: string, value: InboxCacheEntry): this {
+    super.set(key, value);
+    inboxListeners.forEach((l) => l());
+    return this;
+  }
+  override delete(key: string): boolean {
+    const out = super.delete(key);
+    inboxListeners.forEach((l) => l());
+    return out;
+  }
+  override clear(): void {
+    super.clear();
+    inboxListeners.forEach((l) => l());
+  }
+}
+
+const inboxCache = new InboxCache();
+
+export function subscribeMessageInbox(listener: () => void): () => void {
+  inboxListeners.add(listener);
+  return () => {
+    inboxListeners.delete(listener);
+  };
+}
+
+/** Unread incoming messages across non-muted conversations (cached inbox). */
+export function cachedInboxUnreadTotal(): number {
+  const threads = inboxCache.get('ALL')?.threads ?? [...inboxCache.values()][0]?.threads ?? [];
+  let n = 0;
+  for (const t of threads) if (!t.isMuted) n += Math.max(0, t.unread || 0);
+  return n;
+}
 
 function sortThreads(threads: MessageThreadItem[]): MessageThreadItem[] {
   return [...threads].sort((a, b) => {

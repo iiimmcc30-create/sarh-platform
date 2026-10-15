@@ -4,6 +4,8 @@ import { spacing } from '@/constants/theme';
 import { motion as dsMotion } from '@/design-system/tokens/motion';
 import { useAppChromeScroll } from '@/hooks/useAppChrome';
 import { useTheme } from '@/hooks/useTheme';
+import { useUnreadChatCount } from '@/hooks/useUnreadChatCount';
+import { CountBadge } from '@/components/ui/CountBadge';
 import { getRtlRow } from '@/lib/rtl';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
@@ -55,6 +57,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const inactiveTint = scheme === 'light' ? '#000000' : '#FFFFFF';
   const hideDistance = ds.tabBar.height + bottomPad + spacing.md;
 
+  const unreadChats = useUnreadChatCount();
   const activeRoute = state.routes[state.index]?.name;
   const lastRouteRef = useRef(activeRoute);
 
@@ -153,6 +156,9 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                     color={tint}
                     variant={focused ? 'sr' : 'rr'}
                   />
+                  {tab.route === 'messages' ? (
+                    <CountBadge count={unreadChats} testID="tab-messages-badge" />
+                  ) : null}
                 </View>
               </TabPressable>
             );

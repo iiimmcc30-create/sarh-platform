@@ -2,11 +2,12 @@
 
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { inlineStart } from '@/lib/rtl';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useUnreadNotificationCount } from '@/hooks/useUnreadNotificationCount';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 type NotificationBellButtonProps = {
   size?: number;
@@ -47,13 +48,11 @@ export function NotificationBellButton({
       accessibilityRole="button"
     >
       <AppIcon name="bell" size={iconSize} color={iconColor ?? colors.textPrimary} />
-      {unreadCount > 0 ? (
-        <View style={[styles.badge, badgeBorderColor ? { borderColor: badgeBorderColor } : null]}>
-          <Text style={styles.badgeText}>
-            {unreadCount > 99 ? '٩٩+' : unreadCount}
-          </Text>
-        </View>
-      ) : null}
+      <CountBadge
+        count={unreadCount}
+        style={badgeBorderColor ? { borderColor: badgeBorderColor } : null}
+        testID="bell-unread-badge"
+      />
     </Pressable>
   );
 }
