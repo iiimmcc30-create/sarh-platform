@@ -9,6 +9,8 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { CouncilArrivalChip } from '@/components/councils/CouncilArrivalChip';
+import { CouncilHostFollowButton } from '@/components/councils/CouncilHostFollowButton';
+import { CouncilPeopleSheet } from '@/components/councils/CouncilPeopleSheet';
 import { CouncilImageCard } from '@/components/councils/CouncilImageCard';
 import { CouncilImagePickerSheet, type CouncilImagePick } from '@/components/councils/CouncilImagePickerSheet';
 import { CouncilInviteSheet } from '@/components/councils/CouncilInviteSheet';
@@ -84,6 +86,7 @@ export default function CouncilRoomScreen() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rulesReadOnly, setRulesReadOnly] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [bannedOpen, setBannedOpen] = useState(false);
   const [banned, setBanned] = useState<CouncilUser[]>([]);
@@ -476,6 +479,9 @@ export default function CouncilRoomScreen() {
                 {shouldShowVerifiedBadge(council.owner.verified) ? (
                   <VerificationBadge size={13} tier={council.owner.verifiedTier} />
                 ) : null}
+                {!perms.isOwner && council.owner.id ? (
+                  <CouncilHostFollowButton hostId={council.owner.id} />
+                ) : null}
               </Row>
             </Stack>
 
@@ -557,7 +563,16 @@ export default function CouncilRoomScreen() {
           )}
         </View>
 
-        <View style={styles.barSide}>
+        <View style={[styles.barSide, { flexDirection: 'row', gap: 4 }]}>
+          <Pressable
+            onPress={() => setPeopleOpen(true)}
+            style={styles.barIcon}
+            accessibilityRole="button"
+            accessibilityLabel="الحضور"
+            testID="council-people-open"
+          >
+            <AppIcon name="people-outline" size={20} color={colors.textPrimary} />
+          </Pressable>
           {me.canShowImage ? (
             <Pressable
               onPress={() => setImagePickerOpen(true)}
@@ -571,6 +586,17 @@ export default function CouncilRoomScreen() {
           ) : null}
         </View>
       </View>
+
+      <CouncilPeopleSheet
+        visible={peopleOpen}
+        people={session.participants}
+        total={state.speakersCount + state.listenerCount}
+        onPress={(p) => {
+          setPeopleOpen(false);
+          onParticipantPress(p);
+        }}
+        onClose={() => setPeopleOpen(false)}
+      />
 
       <CouncilImagePickerSheet
         visible={imagePickerOpen}
