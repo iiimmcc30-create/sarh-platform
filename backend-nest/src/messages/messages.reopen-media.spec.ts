@@ -168,6 +168,7 @@ function makeRepo() {
       return { ...row, sender };
     }),
     clearHiddenForThread: jest.fn(async () => ({ count: 0 })),
+    findThreadState: jest.fn(async () => null),
     findMessages: jest.fn(async (threadId: string, take: number) =>
       messages
         .filter((m) => m.threadId === threadId)

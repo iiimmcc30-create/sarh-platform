@@ -33,6 +33,8 @@ describe('MessagesService.sendMessage block enforcement', () => {
     touchThread: jest.fn(),
     createMessage: jest.fn(),
     clearHiddenForThread: jest.fn(),
+    markThreadRead: jest.fn(async () => ({ count: 0 })),
+    findThreadState: jest.fn(async () => null),
     findThreadsForUser: jest.fn(),
     findParticipants: jest.fn(),
     countUnreadByThread: jest.fn(),
@@ -103,7 +105,7 @@ describe('MessagesService.sendMessage block enforcement', () => {
       { receiverId: 'bob', text: 'hi' },
     );
 
-    expect(repo.clearHiddenForThread).toHaveBeenCalledWith('t1');
+    expect(repo.clearHiddenForThread).not.toHaveBeenCalled();
     expect(sockets.emitToThread).toHaveBeenCalledWith(
       't1',
       'chat:message',
@@ -127,6 +129,8 @@ describe('MessagesService inbox pin and hide', () => {
     upsertThread: jest.fn(),
     createMessage: jest.fn(),
     clearHiddenForThread: jest.fn(),
+    markThreadRead: jest.fn(async () => ({ count: 0 })),
+    findThreadState: jest.fn(async () => null),
   };
   const policy = {
     assertCanSendMessage: jest.fn(),

@@ -20,6 +20,7 @@ describe('MessagesService general 1:1 conversations', () => {
     upsertThread: jest.fn(),
     createMessage: jest.fn(),
     clearHiddenForThread: jest.fn(),
+    findThreadState: jest.fn(async () => null),
     findThreadForUser: jest.fn(),
     findMessages: jest.fn(),
     markThreadRead: jest.fn(),

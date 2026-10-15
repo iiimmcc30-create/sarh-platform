@@ -45,7 +45,11 @@ export class MessagesService {
 
   async getThreads(user: JwtPayload, query: ListThreadsQueryDto = {}) {
     const { userId } = user;
-    const threads = await this.repo.findThreadsForUser(userId, query.type);
+    const threads = (
+      await this.repo.findThreadsForUser(userId, query.type)
+    )
+      .filter((t) => !isDeletedForUser(t.states[0]?.hiddenAt, t.lastMessageAt))
+      .slice(0, 50);
 
     const otherIds = threads.map((t) =>
       t.participant1 === userId ? t.participant2 : t.participant1,
@@ -131,7 +135,8 @@ export class MessagesService {
     });
     const message = this.media.presentMessage(created);
 
-    await this.repo.clearHiddenForThread(thread.id);
+    // hiddenAt is kept as the per-user "deleted up to" cutoff: a new message
+    // brings the thread back for that user, but without the deleted history.
 
     const senderName =
       message.sender.arabicName ||
@@ -237,9 +242,10 @@ export class MessagesService {
       blocked.add(b.blockerId === userId ? b.blockedId : b.blockerId);
     }
 
-    const recentIds = recentThreads.map((t) =>
-      t.participant1 === userId ? t.participant2 : t.participant1,
-    );
+    // Conversations the user deleted are no longer "recent" partners.
+    const recentIds = recentThreads
+      .filter((t) => !isDeletedForUser(t.states?.[0]?.hiddenAt, t.lastMessageAt))
+      .map((t) => (t.participant1 === userId ? t.participant2 : t.participant1));
     const recentUsers = recentIds.length
       ? await this.repo.findParticipants([...new Set(recentIds)])
       : [];
@@ -282,11 +288,14 @@ export class MessagesService {
     const { cursor } = query;
 
     const thread = await this.requireThreadForUser(userId, threadId);
+    const state = await this.repo.findThreadState(threadId, userId);
 
+    // Messages up to the moment the user deleted the conversation stay gone.
     const messages = await this.repo.findMessages(
       threadId,
       PAGE_SIZE + 1,
       cursor,
+      state?.hiddenAt ?? null,
     );
 
     const hasMore = messages.length > PAGE_SIZE;
@@ -310,6 +319,8 @@ export class MessagesService {
     await this.repo.upsertThreadState(threadId, user.userId, {
       hiddenAt: new Date(),
     });
+    // Nothing deleted should keep counting as unread.
+    await this.repo.markThreadRead(threadId, user.userId);
     return { hidden: true };
   }
 
@@ -391,4 +402,14 @@ export class MessagesService {
     if (!thread) throwApi(404, 'not_found', 'المحادثة غير موجودة');
     return thread;
   }
+}
+
+/** A thread is deleted for a user while nothing newer than their cutoff exists. */
+export function isDeletedForUser(
+  hiddenAt: Date | null | undefined,
+  lastMessageAt: Date | null | undefined,
+): boolean {
+  if (!hiddenAt) return false;
+  if (!lastMessageAt) return true;
+  return new Date(lastMessageAt).getTime() <= new Date(hiddenAt).getTime();
 }

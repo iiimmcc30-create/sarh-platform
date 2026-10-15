@@ -31,12 +31,11 @@ export class MessagesRepository {
       where: {
         OR: [{ participant1: userId }, { participant2: userId }],
         ...(type ? { type } : {}),
-        states: {
-          none: { userId, hiddenAt: { not: null } },
-        },
       },
       orderBy: { lastMessageAt: 'desc' },
-      take: 50,
+      // Deleted (hidden) threads are filtered in the service by comparing
+      // hiddenAt with lastMessageAt, so read a little past the 50 shown.
+      take: 80,
       include: {
         states: {
           where: { userId },
@@ -172,9 +171,14 @@ export class MessagesRepository {
     });
   }
 
-  findMessages(threadId: string, take: number, cursor?: string) {
+  findMessages(
+    threadId: string,
+    take: number,
+    cursor?: string,
+    after?: Date | null,
+  ) {
     return this.prisma.message.findMany({
-      where: { threadId },
+      where: { threadId, ...(after ? { createdAt: { gt: after } } : {}) },
       take,
       cursor: cursor ? { id: cursor } : undefined,
       skip: cursor ? 1 : 0,
@@ -217,7 +221,7 @@ export class MessagesRepository {
   findThreadState(threadId: string, userId: string) {
     return this.prisma.messageThreadState.findUnique({
       where: { threadId_userId: { threadId, userId } },
-      select: { mutedAt: true },
+      select: { mutedAt: true, hiddenAt: true },
     });
   }
 
@@ -270,7 +274,12 @@ export class MessagesRepository {
       where: { OR: [{ participant1: userId }, { participant2: userId }] },
       orderBy: { lastMessageAt: 'desc' },
       take,
-      select: { participant1: true, participant2: true },
+      select: {
+        participant1: true,
+        participant2: true,
+        lastMessageAt: true,
+        states: { where: { userId }, select: { hiddenAt: true } },
+      },
     });
   }
 

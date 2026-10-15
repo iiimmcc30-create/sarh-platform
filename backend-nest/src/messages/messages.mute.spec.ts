@@ -40,6 +40,7 @@ describe('MessagesService thread mute', () => {
     upsertThread: jest.fn(),
     createMessage: jest.fn(),
     clearHiddenForThread: jest.fn(),
+    findThreadState: jest.fn(async () => null),
     findThreadsForUser: jest.fn(),
     findParticipants: jest.fn(),
     countUnreadByThread: jest.fn(),

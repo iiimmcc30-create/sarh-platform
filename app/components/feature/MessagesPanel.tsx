@@ -189,7 +189,7 @@ export function MessagesPanel({
       setMenu(null);
       const confirmed = await confirmDestructive(
         'حذف المحادثة؟',
-        'هل أنت متأكد من حذف هذه المحادثة؟',
+        'ستُحذف الرسائل من عندك نهائياً، ولن تظهر مرة ثانية حتى لو راسلتم بعض من جديد.',
       );
       if (!confirmed) {
         setOpenSwipeId(null);
