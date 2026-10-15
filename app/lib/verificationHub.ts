@@ -361,7 +361,7 @@ export function buildVerificationHub(input: HubInput): HubModel {
       key: 'hide-badge',
       icon: 'badge-check',
       title: 'إخفاء الشارة',
-      description: 'لا تظهر شارة التوثيق للآخرين في ملفك وإعلاناتك ومنشوراتك. تبقى أولوية الظهور وكل المزايا.',
+      description: 'تختفي شارة التوثيق (الزرقاء أو الذهبية) عند الآخرين في ملفك وإعلاناتك ومنشوراتك والمجالس والمحادثات. تبقى ظاهرة لك أنت فقط، وتبقى أولوية الظهور وكل المزايا.',
       switchValue: prefs.hideVerifiedBadge,
       action: 'toggle-hide-badge',
     },

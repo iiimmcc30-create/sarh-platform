@@ -296,6 +296,8 @@ export class MessagesRepository {
       where: {
         id: { not: excludeUserId },
         isActive: true,
+        // «الظهور في نتائج البحث» off: not findable by name here either.
+        showInSearch: true,
         deletedAt: null,
         OR: [
           { username: { contains: q, mode: 'insensitive' } },

@@ -1,9 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { BadgeVisibilityPrefs, HiddenBadgeMap } from './badge-visibility';
+import {
+  maskHiddenBadges,
+  type BadgeVisibilityPrefs,
+  type HiddenBadgeMap,
+} from './badge-visibility';
 
 /** Short TTL: another API instance picks up a toggle within this window. */
 const CACHE_TTL_MS = 30_000;
+
+let activeService: BadgeVisibilityService | null = null;
+
+/**
+ * Realtime (socket) payloads skip the HTTP interceptor, so hidden badges leaked
+ * through chat / council events. Emitters call this before sending.
+ */
+export function maskBadgesForRealtime<T>(data: T, viewerId?: string | null): T {
+  if (!activeService) return data;
+  return maskHiddenBadges(data, activeService.peekHiddenMap(), viewerId ?? null);
+}
 
 @Injectable()
 export class BadgeVisibilityService {
@@ -11,7 +26,17 @@ export class BadgeVisibilityService {
     null;
   private inflight: Promise<Map<string, BadgeVisibilityPrefs>> | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    activeService = this;
+  }
+
+  /** Last known map without waiting (refreshes in the background). For socket emits. */
+  peekHiddenMap(): HiddenBadgeMap {
+    if (!this.cache || Date.now() - this.cache.at >= CACHE_TTL_MS) {
+      void this.hiddenMap();
+    }
+    return this.cache?.map ?? new Map<string, BadgeVisibilityPrefs>();
+  }
 
   /** Users that hide their badge or gold label (a small set: subscribers only). */
   async hiddenMap(now = Date.now()): Promise<HiddenBadgeMap> {

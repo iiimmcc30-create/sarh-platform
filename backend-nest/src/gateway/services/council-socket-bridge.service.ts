@@ -1,3 +1,4 @@
+import { maskBadgesForRealtime } from '../../subscriptions/visibility/badge-visibility.service';
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import IORedis from 'ioredis';
 import { LoggerService } from '../../common/services/logger.service';
@@ -69,6 +70,8 @@ export class CouncilSocketBridgeService
 
   private emit(msg: CouncilEmitMessage): void {
     if (!isValidCouncilEmit(msg)) return;
+    const viewer = msg.room.startsWith('user:') ? msg.room.slice(5) : null;
+    msg = { ...msg, data: maskBadgesForRealtime(msg.data, viewer) };
     // Inside the socket process: emit directly (Redis adapter fans out).
     const server = this.emitService.getServer();
     if (server) {
