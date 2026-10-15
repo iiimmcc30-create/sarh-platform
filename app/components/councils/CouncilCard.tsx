@@ -27,16 +27,27 @@ export function CouncilCard({ council, onPress }: Props) {
   const hostTier = subscriberTierOf(council.owner);
   return (
     <Pressable
-      testID={hostTier === 'gold' ? 'council-card-gold' : undefined}
+      testID={
+        hostTier === 'gold'
+          ? 'council-card-gold'
+          : hostTier === 'blue' || hostTier === 'blue_plus'
+            ? 'council-card-blue'
+            : undefined
+      }
       onPress={() => onPress(council)}
       style={({ pressed }) => [
         styles.card,
+        // Gold host: solid gold hairline + faint gold wash + gold top rule (flat, no gradient).
         hostTier === 'gold' && { borderColor: colors.tierGold },
+        hostTier === 'gold' && styles.goldCard,
+        // Blue / Blue+ host: a subtle blue hairline and the faintest blue wash.
+        (hostTier === 'blue' || hostTier === 'blue_plus') && styles.blueCard,
         pressed && styles.pressed,
       ]}
       accessibilityRole="button"
       accessibilityLabel={`مجلس ${council.name}`}
     >
+      {hostTier === 'gold' ? <View style={styles.goldRule} testID="council-card-gold-rule" /> : null}
       <Row gap="sm" align="center">
         <View style={styles.liveDot} />
         <AppText variant="caption" color="success">
@@ -99,6 +110,25 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.borderSoft,
     },
     pressed: { opacity: 0.85 },
+    goldCard: {
+      borderWidth: 1,
+      backgroundColor: 'rgba(201, 162, 39, 0.07)',
+      overflow: 'hidden',
+    },
+    goldRule: {
+      position: 'absolute',
+      top: 0,
+      left: spacing.lg,
+      right: spacing.lg,
+      height: 2,
+      borderBottomLeftRadius: 2,
+      borderBottomRightRadius: 2,
+      backgroundColor: colors.tierGold,
+    },
+    blueCard: {
+      borderColor: 'rgba(29, 155, 240, 0.45)',
+      backgroundColor: 'rgba(29, 155, 240, 0.05)',
+    },
     liveDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.success },
     /**
      * Overlap is symmetric (−AVATAR_OVERLAP/2 on both sides, padded back on the stack) so the
