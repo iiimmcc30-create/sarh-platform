@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 // «التوثيق» — X Premium-style settings hub for the verification subscription.
 // Flat settings rows (outline icon · title · grey description, switches
 // inline), the same header as every settings page (title + @username). The
@@ -84,6 +85,8 @@ export default function VerificationHubScreen() {
 
   const go = (href: string) => safePush(href, undefined, router);
 
+  const { refreshSession } = useAuth();
+
   const setPref = async (key: keyof BadgePreferences, next: boolean) => {
     if (!status) return;
     const previous = status.preferences ?? { hideVerifiedBadge: false, hideGoldSellerLabel: false };
@@ -95,6 +98,8 @@ export default function VerificationHubScreen() {
       return;
     }
     setStatus((s) => (s ? { ...s, preferences: saved } : s));
+    // The owner's own badge follows the switch too: reload the signed-in profile.
+    if (key === 'hideVerifiedBadge') void refreshSession().catch(() => false);
   };
 
   const manageInStore = async () => {

@@ -15,9 +15,10 @@ let activeService: BadgeVisibilityService | null = null;
  * Realtime (socket) payloads skip the HTTP interceptor, so hidden badges leaked
  * through chat / council events. Emitters call this before sending.
  */
-export function maskBadgesForRealtime<T>(data: T, viewerId?: string | null): T {
+export function maskBadgesForRealtime<T>(data: T, _viewerId?: string | null): T {
   if (!activeService) return data;
-  return maskHiddenBadges(data, activeService.peekHiddenMap(), viewerId ?? null);
+  // Owner included: a hidden badge is hidden from everyone, the owner too.
+  return maskHiddenBadges(data, activeService.peekHiddenMap(), null);
 }
 
 @Injectable()

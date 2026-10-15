@@ -7,7 +7,8 @@
  *
  * Applied to outgoing API payloads only. The database keeps the real values,
  * so ranking (visibility level, Gold-first in a region), limits and every
- * other perk are unchanged, and the owner always sees their own badge.
+ * other perk are unchanged. The owner sees it hidden too, except in the
+ * subscription / verification hub (see the interceptor).
  */
 export type BadgeVisibilityPrefs = {
   hideVerifiedBadge: boolean;
