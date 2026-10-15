@@ -58,19 +58,23 @@ function clampOffset(x: number, y: number, bottomOffset: number, insets: { top: 
 export function CreatePostFab({ onPress, bottomOffset = TAB_BAR_CLEARANCE, mode = 'draggable' }: CreatePostFabProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  useTheme();
+  const { scheme } = useTheme();
   // Lift above the «المجالس» mini player docked on the tab bar.
   const councilInset = useOptionalCouncilSession()?.miniPlayerVisible
     ? COUNCIL_MINI_PLAYER_HEIGHT + COUNCIL_MINI_PLAYER_GAP
     : 0;
   const scale = useRef(new Animated.Value(1)).current;
+  // Black & white identity: solid ink circle (white on dark, black on light), soft neutral
+  // shadow, contrasting glyph. No blue, no gradient.
   const fabColors = useMemo(
     () => ({
-      backgroundColor: '#60A5FA',
-      shadowColor: '#2563EB',
+      backgroundColor: scheme === 'light' ? '#020202' : '#FFFFFF',
+      shadowColor: '#000000',
+      borderColor: scheme === 'light' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
     }),
-    [],
+    [scheme],
   );
+  const glyphColor = scheme === 'light' ? '#FFFFFF' : '#020202';
   const dragMoved = useRef(false);
   const dragStart = useRef<Offset>({ x: 0, y: 0 });
   const onPressRef = useRef(onPress);
@@ -136,9 +140,9 @@ export function CreatePostFab({ onPress, bottomOffset = TAB_BAR_CLEARANCE, mode 
           onPress={handleFixedPress}
           accessibilityRole="button"
           accessibilityLabel="إنشاء منشور"
-          android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: true, radius: FAB_SIZE / 2 }}
+          android_ripple={{ color: 'rgba(127,127,127,0.25)', borderless: true, radius: FAB_SIZE / 2 }}
         >
-          <AppIcon name="plus" size={24} color="#fff" style={styles.icon} />
+          <AppIcon name="create-outline" size={23} color={glyphColor} />
         </Pressable>
       </Animated.View>
     );
@@ -208,7 +212,7 @@ export function CreatePostFab({ onPress, bottomOffset = TAB_BAR_CLEARANCE, mode 
       {...panResponder.panHandlers}
     >
       <View style={styles.iconSlot} pointerEvents="none">
-        <AppIcon name="plus" size={24} color="#fff" style={styles.icon} />
+        <AppIcon name="create-outline" size={23} color={glyphColor} />
       </View>
     </Animated.View>
   );
@@ -223,17 +227,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 50,
-    elevation: 12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
   },
   iconSlot: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    transform: [{ translateX: 1 }, { translateY: 1 }],
   },
 });
