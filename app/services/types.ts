@@ -19,6 +19,8 @@ export function getCountryInfo(code?: string | null) {
 }
 
 export interface User {
+  /** API flag: Gold seller hid «بائع ذهبي» (badge-visibility mask). */
+  hideGoldSellerLabel?: boolean | null;
   id: string;
   username: string;
   displayName: string;

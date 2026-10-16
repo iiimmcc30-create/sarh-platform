@@ -1,11 +1,12 @@
 import { StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 import { AppText } from '@/design-system/components';
 import { useTheme } from '@/hooks/useTheme';
+import { useMyBadgePrefs } from '@/hooks/useMyBadgePrefs';
 import { GOLD_SELLER_LABEL, showsGoldSellerLabel } from '@/lib/goldSeller';
 
 type Props = {
   user:
-    | { verified?: boolean | null; verifiedTier?: string | null; hideGoldSellerLabel?: boolean | null }
+    | { id?: string | null; verified?: boolean | null; verifiedTier?: string | null; hideGoldSellerLabel?: boolean | null }
     | null
     | undefined;
   style?: StyleProp<TextStyle>;
@@ -15,7 +16,8 @@ type Props = {
 /** Quiet «بائع ذهبي» (X-style): small gold caption, no chip, renders nothing for others. */
 export function GoldSellerLabel({ user, style, testID = 'gold-seller-label' }: Props) {
   const { colors } = useTheme();
-  if (!showsGoldSellerLabel(user)) return null;
+  const own = useMyBadgePrefs();
+  if (!showsGoldSellerLabel(user, own)) return null;
   return (
     <AppText
       variant="caption"

@@ -127,6 +127,7 @@ export function mapListing(l: BackendListing): Listing {
       avatar: l.seller!.avatar,
       verified: l.seller!.verified ?? false,
       verifiedTier: l.seller!.verifiedTier ?? null,
+      hideGoldSellerLabel: (l.seller as { hideGoldSellerLabel?: boolean | null }).hideGoldSellerLabel === true,
       followers: 0,
       following: 0,
       rating: null,

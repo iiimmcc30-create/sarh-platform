@@ -206,6 +206,7 @@ export default function ListingDetailScreen() {
           avatar: raw.seller?.avatar,
           verified: raw.seller?.verified ?? false,
           verifiedTier: raw.seller?.verifiedTier ?? null,
+          hideGoldSellerLabel: (raw.seller as { hideGoldSellerLabel?: boolean | null } | undefined)?.hideGoldSellerLabel === true,
           followers: raw.seller?.followersCount ?? raw.seller?.followers ?? 0,
           following: raw.seller?.followingCount ?? 0,
           rating: typeof raw.seller?.rating === 'number' ? raw.seller.rating : null,

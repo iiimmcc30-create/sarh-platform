@@ -6,8 +6,15 @@ import { isListingPinnedActive, type ListingBoostFields } from '@/lib/listingBoo
 
 export const GOLD_SELLER_LABEL = 'بائع ذهبي';
 
+export type OwnBadgePrefs = {
+  userId: string;
+  hideVerifiedBadge: boolean;
+  hideGoldSellerLabel: boolean;
+};
+
 type SellerFields =
   | {
+      id?: string | null;
       verified?: boolean | null;
       verifiedTier?: string | null;
       /** Set by the API when a Gold seller hid «بائع ذهبي» («التوثيق» hub). */
@@ -21,8 +28,13 @@ export function isGoldSeller(user: SellerFields): boolean {
 }
 
 /** «بائع ذهبي» label: a Gold seller who did not hide it (ranking ignores this). */
-export function showsGoldSellerLabel(user: SellerFields): boolean {
-  return isGoldSeller(user) && user?.hideGoldSellerLabel !== true;
+export function showsGoldSellerLabel(user: SellerFields, own?: OwnBadgePrefs | null): boolean {
+  if (!isGoldSeller(user) || user?.hideGoldSellerLabel === true) return false;
+  // The owner's own switches win over any unmasked payload / cached profile.
+  if (own && user?.id && user.id === own.userId && (own.hideVerifiedBadge || own.hideGoldSellerLabel)) {
+    return false;
+  }
+  return true;
 }
 
 /**

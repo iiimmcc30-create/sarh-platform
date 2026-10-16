@@ -163,6 +163,7 @@ export default function ProfileScreen() {
       coverImage: me.coverImage,
       verified: me.verified,
       verifiedTier: me.verifiedTier ?? null,
+      hideGoldSellerLabel: me.hideGoldSellerLabel === true,
       verifiedSince: me.verifiedSince ?? null,
       createdAt: me.createdAt ?? null,
       bio: me.bio,

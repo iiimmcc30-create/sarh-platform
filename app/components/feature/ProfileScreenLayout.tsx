@@ -79,6 +79,8 @@ export type ProfileDisplayUser = {
   coverImage?: string;
   verified: boolean;
   verifiedTier?: string | null;
+  /** API flag: Gold seller hid «بائع ذهبي». */
+  hideGoldSellerLabel?: boolean | null;
   /** ISO approval date of the verification (API `verifiedSince`); null/absent hides the date. */
   verifiedSince?: string | null;
   isAI?: boolean;

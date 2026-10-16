@@ -14,6 +14,8 @@ import { AppText, SarhButton, SarhSettingsRow, SarhSettingsSection } from '@/des
 import { duration } from '@/design-system/tokens';
 import { spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppUser } from '@/hooks/useApp';
+import { setMyBadgePrefs } from '@/hooks/useMyBadgePrefs';
 import { useStorePrices } from '@/hooks/useStorePrices';
 import { invalidateFreeTrialEligibility } from '@/hooks/useFreeTrialEligibility';
 import { alertMessage, confirmDestructive } from '@/lib/actionSheet';
@@ -51,6 +53,8 @@ export default function VerificationHubScreen() {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [busy, setBusy] = useState(false);
   const [fade] = useState(() => new Animated.Value(0));
+  const { me } = useAppUser();
+  const myId = me?.id;
 
   const load = useCallback(async () => {
     const next = await fetchVerificationStatus();
@@ -59,9 +63,10 @@ export default function VerificationHubScreen() {
       return;
     }
     setStatus(next);
+    if (myId && next.preferences) setMyBadgePrefs({ userId: myId, ...next.preferences });
     setState('ready');
     Animated.timing(fade, { toValue: 1, duration: duration.ui, useNativeDriver: true }).start();
-  }, [fade]);
+  }, [fade, myId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,16 +95,20 @@ export default function VerificationHubScreen() {
   const setPref = async (key: keyof BadgePreferences, next: boolean) => {
     if (!status) return;
     const previous = status.preferences ?? { hideVerifiedBadge: false, hideGoldSellerLabel: false };
-    setStatus({ ...status, preferences: { ...previous, [key]: next } });
+    const optimistic = { ...previous, [key]: next };
+    setStatus({ ...status, preferences: optimistic });
+    if (myId) setMyBadgePrefs({ userId: myId, ...optimistic });
     const saved = await updateBadgePreferences({ [key]: next });
     if (!saved) {
       setStatus((s) => (s ? { ...s, preferences: previous } : s));
+      if (myId) setMyBadgePrefs({ userId: myId, ...previous });
       await alertMessage('تعذّر الحفظ', 'تحقق من الاتصال وحاول مجدداً');
       return;
     }
     setStatus((s) => (s ? { ...s, preferences: saved } : s));
+    if (myId) setMyBadgePrefs({ userId: myId, ...saved });
     // The owner's own badge follows the switch too: reload the signed-in profile.
-    if (key === 'hideVerifiedBadge') void refreshSession().catch(() => false);
+    void refreshSession().catch(() => false);
   };
 
   const manageInStore = async () => {

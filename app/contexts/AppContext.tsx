@@ -250,6 +250,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       coverImage: u.coverImage || undefined,
       verified: u.verified ?? false,
       verifiedTier: typeof u.verifiedTier === 'string' ? u.verifiedTier : null,
+      hideGoldSellerLabel: (u as { hideGoldSellerLabel?: unknown }).hideGoldSellerLabel === true,
       verifiedSince: typeof u.verifiedSince === 'string' ? u.verifiedSince : null,
       createdAt: typeof u.createdAt === 'string' ? u.createdAt : null,
       isAI: u.isAI ?? false,
@@ -466,6 +467,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       avatar: user.avatar ?? prev.avatar,
       verified: user.verified ?? prev.verified,
       verifiedTier: user.verifiedTier !== undefined ? user.verifiedTier : prev.verifiedTier,
+      hideGoldSellerLabel:
+        (user as { hideGoldSellerLabel?: boolean }).hideGoldSellerLabel ?? prev.hideGoldSellerLabel,
       country: (user.country as User['country']) || prev.country || 'SA',
     }));
   }, [user]);

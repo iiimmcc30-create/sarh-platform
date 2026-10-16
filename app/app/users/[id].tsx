@@ -415,6 +415,7 @@ export default function UserProfileScreen() {
     coverImage: profile.coverImage,
     verified: profile.verified,
     verifiedTier: profile.verifiedTier ?? null,
+    hideGoldSellerLabel: (profile as { hideGoldSellerLabel?: boolean | null }).hideGoldSellerLabel === true,
     verifiedSince: profile.verifiedSince ?? null,
     createdAt: profile.createdAt ?? null,
     isAI: profile.isAI,
