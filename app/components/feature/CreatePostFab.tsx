@@ -1,7 +1,6 @@
 // SAFAT — Floating Action Button for creating posts.
 // mode="fixed"     → X/Threads-style: anchored bottom-right, press-scale animation.
 // mode="draggable" → draggable anywhere on screen, position persisted (default).
-import { AppIcon } from '@/components/ui/FlaticonIcon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -142,7 +141,7 @@ export function CreatePostFab({ onPress, bottomOffset = TAB_BAR_CLEARANCE, mode 
           accessibilityLabel="إنشاء منشور"
           android_ripple={{ color: 'rgba(127,127,127,0.25)', borderless: true, radius: FAB_SIZE / 2 }}
         >
-          <AppIcon name="create-outline" size={23} color={glyphColor} />
+          <PlusGlyph color={glyphColor} />
         </Pressable>
       </Animated.View>
     );
@@ -212,13 +211,27 @@ export function CreatePostFab({ onPress, bottomOffset = TAB_BAR_CLEARANCE, mode 
       {...panResponder.panHandlers}
     >
       <View style={styles.iconSlot} pointerEvents="none">
-        <AppIcon name="create-outline" size={23} color={glyphColor} />
+        <PlusGlyph color={glyphColor} />
       </View>
     </Animated.View>
   );
 }
 
+/** Plain «+» drawn with two bars (crisp, centred, icon-set independent). */
+function PlusGlyph({ color }: { color: string }) {
+  return (
+    <View style={styles.plus}>
+      <View style={[styles.plusBar, styles.plusH, { backgroundColor: color }]} />
+      <View style={[styles.plusBar, styles.plusV, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  plus: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  plusBar: { position: 'absolute', borderRadius: 1.5 },
+  plusH: { width: 22, height: 2.5 },
+  plusV: { width: 2.5, height: 22 },
   fab: {
     position: 'absolute',
     width: FAB_SIZE,
