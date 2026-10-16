@@ -2,7 +2,7 @@
 
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { spacing, typography, type ThemeColors } from '@/constants/theme';
 import { inlineStart } from '@/lib/rtl';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -47,12 +47,16 @@ export function NotificationBellButton({
       accessibilityLabel="الإشعارات"
       accessibilityRole="button"
     >
-      <AppIcon name="bell" size={iconSize} color={iconColor ?? colors.textPrimary} />
-      <CountBadge
-        count={unreadCount}
-        style={badgeBorderColor ? { borderColor: badgeBorderColor } : null}
-        testID="bell-unread-badge"
-      />
+      {/* Badge anchors to the glyph box (not the 48pt hit area) so it sits on the
+          bell's top corner like X; `right` mirrors to the left under forced RTL. */}
+      <View style={{ width: iconSize, height: iconSize }}>
+        <AppIcon name="bell" size={iconSize} color={iconColor ?? colors.textPrimary} />
+        <CountBadge
+          count={unreadCount}
+          style={[styles.bellBadge, badgeBorderColor ? { borderColor: badgeBorderColor } : null]}
+          testID="bell-unread-badge"
+        />
+      </View>
     </Pressable>
   );
 }
@@ -66,6 +70,7 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'center',
       borderWidth: 0,
     },
+    bellBadge: { top: -6, right: -8 },
     iconBtnBare: {
       borderRadius: 0,
       backgroundColor: 'transparent',
