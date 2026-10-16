@@ -158,8 +158,14 @@ export function useChromeContentShift(headerHeight: number) {
   const { chromeProgress } = useAppChromeScroll();
   const insets = useSafeAreaInsets();
   const shift = Math.max(0, headerHeight - insets.top);
+  // The list slides up by `shift` when the chrome hides. Without extra height its
+  // bottom edge rose with it and left a bare page-colour band of `shift` px at the
+  // bottom of the screen — the "barrier" behind the tab bar on Home / Posts /
+  // Messages. Extending the view past the bottom by `shift` keeps content flowing
+  // to the screen edge, under the tab bar, in both states.
   return useMemo(
     () => ({
+      marginBottom: -shift,
       transform: [
         {
           translateY: chromeProgress.interpolate({
