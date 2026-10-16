@@ -9,6 +9,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { cloudinaryFitUrl } from '@/lib/listingMedia';
 import { StoryGroup } from '@/services/stories';
 import { StoryViewer } from '@/components/feature/StoryViewer';
+import { useSeenStoryIds } from '@/hooks/useSeenStories';
+import { groupHasUnseen } from '@/lib/storySeen';
 
 /** Default ring diameter (unchanged); callers may pass a smaller `size`. */
 const DEFAULT_CIRCLE = 64;
@@ -95,6 +97,7 @@ export function StoriesBar({
     null,
   );
 
+  const seenIds = useSeenStoryIds();
   const hasMyStories = (myStories?.stories.length ?? 0) > 0;
 
   const openMyStories = () => {
@@ -122,7 +125,7 @@ export function StoriesBar({
           {showAddSlot ? (
           <Pressable onPress={openMyStories} style={styles.itemWrap}>
             <StoryRing
-              unseen={!!myStories?.hasUnseen}
+              unseen={groupHasUnseen(myStories, seenIds)}
               empty={!hasMyStories}
               scheme={scheme}
               size={size}
@@ -162,7 +165,7 @@ export function StoriesBar({
                     onPress={() => openGroup(group)}
                     style={styles.itemWrap}
                   >
-                    <StoryRing unseen={group.hasUnseen} scheme={scheme} size={size}>
+                    <StoryRing unseen={groupHasUnseen(group, seenIds)} scheme={scheme} size={size}>
                       <Image
                         source={uriSource(cloudinaryFitUrl(
                           group.latestThumbnail || group.user.avatar,
@@ -180,7 +183,7 @@ export function StoriesBar({
                     <Text
                       style={[
                         styles.label,
-                        group.hasUnseen && styles.labelUnseen,
+                        groupHasUnseen(group, seenIds) && styles.labelUnseen,
                       ]}
                       numberOfLines={1}
                     >

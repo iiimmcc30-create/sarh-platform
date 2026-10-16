@@ -29,6 +29,7 @@ import { storyPlaybackVideoUrl } from '@/constants/stories';
 import { resolveMediaUrl } from '@/services/media';
 import { StoryVideoPlayer } from '@/components/feature/StoryVideoPlayer';
 import { promptReport } from '@/services/reports';
+import { markStorySeenLocally } from '@/hooks/useSeenStories';
 import {
   REACTION_META,
   StoryGroup,
@@ -170,6 +171,7 @@ export function StoryViewer({
   }, [story?.id, dismissY]);
 
   useEffect(() => {
+    if (story?.id) markStorySeenLocally(story.id);
     if (!story || !accessToken || isOwn) return;
     void recordStoryView(accessToken, story.id);
   }, [story?.id, accessToken, isOwn]);
