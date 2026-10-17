@@ -12,6 +12,7 @@ import { IntegrationStatus } from '@prisma/client';
 import { Roles } from '../../common/decorators/auth.decorators';
 import { successResponse } from '../../common/utils/response.util';
 import { throwApi } from '../../common/exceptions/api.exception';
+import { moneyToNumber } from '../../common/money';
 import { IntegrationOrdersRepository } from '../repositories/integration-orders.repository';
 import { IntegrationCheckoutService } from '../services/integration-checkout.service';
 
@@ -79,7 +80,7 @@ export class AdminIntegrationsController {
     const payment = row.payment;
     const appUrl = process.env.APP_URL ?? 'https://getsarh.com';
     const result = await this.checkout.retryFailedCheckout(id, {
-      amount: payment.amount,
+      amount: moneyToNumber(payment.amount),
       currency: payment.currency,
       description: 'سرح Payment retry',
       redirectUrl: `${appUrl}/payment/result?paymentId=${payment.id}`,

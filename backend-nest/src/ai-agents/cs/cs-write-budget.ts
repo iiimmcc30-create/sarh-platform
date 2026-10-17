@@ -8,10 +8,7 @@ export const DAILY_WRITE_LIMIT = 3;
 const TTL_SECONDS = 2 * 24 * 60 * 60;
 
 export type WriteGate =
-  | 'ok'
-  | 'conversation_limit'
-  | 'daily_limit'
-  | 'unavailable';
+  'ok' | 'conversation_limit' | 'daily_limit' | 'unavailable';
 
 /**
  * Caps agent writes: two per ticket conversation, three per user per Riyadh day.

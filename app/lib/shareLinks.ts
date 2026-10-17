@@ -1,4 +1,4 @@
-// Public share links (sarhsa.online/l/<id>, /u/<username>, /post/<id>) → in-app routes.
+// Public share links (getsarh.com/l/<id>, /u/<username>, /post/<id>) → in-app routes.
 
 /** Listing / post id from a shared link segment; null when it cannot be an id. */
 export function shareLinkId(raw: unknown): string | null {

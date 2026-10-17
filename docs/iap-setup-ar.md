@@ -6,7 +6,7 @@
 
 ## 0) ما الذي تغيّر وما الذي لم يتغيّر
 
-| الخدمة | في تطبيق iOS / Android | في الموقع (sarhsa.online) |
+| الخدمة | في تطبيق iOS / Android | في الموقع (getsarh.com) |
 |---|---|---|
 | اشتراكات التوثيق (أزرق، أزرق+، ذهبي) | Apple IAP / Google Play (اشتراك يتجدد تلقائياً) | N-Genius (تجديد يدوي، بدون تغيير) |
 | تمييز / تثبيت / تمييز+تثبيت / ترويج الإعلان | Apple IAP / Google Play (شراء لمرة واحدة) | N-Genius (بدون تغيير) |
@@ -70,7 +70,8 @@
    **Key ID** و**Issuer ID** الظاهر أعلى الصفحة.
 7. **Apple ID للتطبيق**: App Information → General → **Apple ID** (رقم) — اختياري لكن مستحسن.
 8. **إشعارات الخادم V2**: App Information → **App Store Server Notifications**:
-   - Production Server URL: `https://sarhsa.online/api/store-purchases/apple/notifications`
+   - Production Server URL: `https://getsarh.com/api/store-purchases/apple/notifications`
+     (`https://sarhsa.online/api/...` ما زال يصل لنفس الواجهة إن كان مسجّلًا من قبل.)
    - Sandbox Server URL: نفس الرابط.
    - Version: **Version 2**.
    ثم اضغط «Request a Test Notification» بعد النشر للتأكد (يُسجَّل كـ TEST).
@@ -103,7 +104,8 @@
    - في Permissions للموضوع أضف `google-play-developer-notifications@system.gserviceaccount.com`
      بدور **Pub/Sub Publisher**.
    - Create subscription → النوع **Push** → Endpoint:
-     `https://sarhsa.online/api/store-purchases/google/rtdn`
+     `https://getsarh.com/api/store-purchases/google/rtdn`
+     (النطاق القديم `https://sarhsa.online/api/...` يبقى صالحًا لنفس المسار.)
      → فعّل **Enable authentication**، اختر حساب خدمة (يمكن نفس حساب الخدمة أعلاه)،
      وفي **Audience** اكتب قيمة ثابتة (مثلاً الرابط نفسه). هذه القيمة هي `GOOGLE_PLAY_RTDN_AUDIENCE`.
    - Play Console → Monetize → **Monetization setup** → Real-time developer notifications →

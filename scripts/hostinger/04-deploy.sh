@@ -18,6 +18,21 @@ fi
 echo "Validating production env..."
 "$ROOT/scripts/hostinger/validate-env.sh"
 
+echo "Rendering App Links / Universal Links (placeholders stay if ids are unset)..."
+export ENV_FILE
+set +e
+"$ROOT/scripts/app-server/render-well-known.sh" "$ROOT/nginx/well-known"
+well_known_rc=$?
+set -e
+if [[ "$well_known_rc" -eq 1 ]]; then
+  echo "ERROR: APPLE_TEAM_ID or ANDROID_SHA256_CERT_FINGERPRINTS is set but invalid."
+  exit 1
+fi
+if [[ "$well_known_rc" -eq 2 ]]; then
+  echo "WARN: deep-link files still contain placeholders."
+  echo "      Set APPLE_TEAM_ID (10 chars) and ANDROID_SHA256_CERT_FINGERPRINTS, then redeploy."
+fi
+
 echo "Building API image (single build, reused by worker/socket)..."
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" build api
 

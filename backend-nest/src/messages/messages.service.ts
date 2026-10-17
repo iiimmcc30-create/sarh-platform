@@ -45,9 +45,7 @@ export class MessagesService {
 
   async getThreads(user: JwtPayload, query: ListThreadsQueryDto = {}) {
     const { userId } = user;
-    const threads = (
-      await this.repo.findThreadsForUser(userId, query.type)
-    )
+    const threads = (await this.repo.findThreadsForUser(userId, query.type))
       .filter((t) => !isDeletedForUser(t.states[0]?.hiddenAt, t.lastMessageAt))
       .slice(0, 50);
 
@@ -244,8 +242,12 @@ export class MessagesService {
 
     // Conversations the user deleted are no longer "recent" partners.
     const recentIds = recentThreads
-      .filter((t) => !isDeletedForUser(t.states?.[0]?.hiddenAt, t.lastMessageAt))
-      .map((t) => (t.participant1 === userId ? t.participant2 : t.participant1));
+      .filter(
+        (t) => !isDeletedForUser(t.states?.[0]?.hiddenAt, t.lastMessageAt),
+      )
+      .map((t) =>
+        t.participant1 === userId ? t.participant2 : t.participant1,
+      );
     const recentUsers = recentIds.length
       ? await this.repo.findParticipants([...new Set(recentIds)])
       : [];

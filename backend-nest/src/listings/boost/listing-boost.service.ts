@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { BoostType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { throwApi } from '../../common/exceptions/api.exception';
+import { toMoneyDecimal } from '../../common/money';
 import { LoggerService } from '../../common/services/logger.service';
 import { AppNotificationsService } from '../../queue/services/app-notifications.service';
 import { RedisCacheService } from '../../redis/services/redis-cache.service';
@@ -153,7 +154,7 @@ export class ListingBoostService {
           userId: user.userId,
           boostType,
           durationDays,
-          amount,
+          amount: toMoneyDecimal(amount),
           currency,
           status: 'pending',
         },
@@ -163,7 +164,7 @@ export class ListingBoostService {
         data: {
           userId: user.userId,
           orderId: orderRef,
-          amount,
+          amount: toMoneyDecimal(amount),
           currency,
           method: prismaMethod,
           status: 'pending',

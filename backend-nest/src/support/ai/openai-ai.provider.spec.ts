@@ -138,9 +138,9 @@ describe('OpenAiAiProvider (guarded «مساعد سرح» model calls)', () => {
     expect(params.store).toBe(false);
     expect(params.response_format).toEqual(SUPPORT_TURN_RESPONSE_FORMAT);
     expect(params.response_format.json_schema.strict).toBe(true);
-    expect(
-      params.response_format.json_schema.schema.additionalProperties,
-    ).toBe(false);
+    expect(params.response_format.json_schema.schema.additionalProperties).toBe(
+      false,
+    );
     expect(options.signal).toBeInstanceOf(AbortSignal);
     expect(options.timeout).toBe(15000);
     expect(options.maxRetries).toBe(1);

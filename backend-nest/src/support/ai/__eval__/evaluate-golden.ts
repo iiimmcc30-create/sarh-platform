@@ -10,8 +10,7 @@ import { HeuristicAiProvider } from '../heuristic-ai.provider';
 import type { SupportAiContext } from '../ai-provider';
 
 export type GoldenExpect =
-  | { outcome: 'faq'; faqKey: string }
-  | { outcome: 'escalate'; reason: string };
+  { outcome: 'faq'; faqKey: string } | { outcome: 'escalate'; reason: string };
 
 export type GoldenCase = {
   id: string;
@@ -104,7 +103,10 @@ export async function evaluateHeuristic(
       ok: actual === expected,
       expected,
       actual,
-      score: top && top.score >= FAQ_ANSWER_MIN_SCORE ? top.score : (top?.score ?? null),
+      score:
+        top && top.score >= FAQ_ANSWER_MIN_SCORE
+          ? top.score
+          : (top?.score ?? null),
     });
   }
   return rows;

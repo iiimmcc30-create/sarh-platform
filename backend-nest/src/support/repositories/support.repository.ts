@@ -10,7 +10,8 @@ export function createdAtAfter(
   previous: Date | null | undefined,
   now = new Date(),
 ): Date {
-  if (!(previous instanceof Date) || Number.isNaN(previous.getTime())) return now;
+  if (!(previous instanceof Date) || Number.isNaN(previous.getTime()))
+    return now;
   const next = new Date(previous.getTime() + 1);
   return next.getTime() > now.getTime() ? next : now;
 }
@@ -352,11 +353,7 @@ export class SupportRepository {
     });
   }
 
-  updateTicketNotice(
-    id: string,
-    bodyAr: string,
-    data: Prisma.InputJsonValue,
-  ) {
+  updateTicketNotice(id: string, bodyAr: string, data: Prisma.InputJsonValue) {
     return this.prisma.notification.update({
       where: { id },
       data: { bodyAr, data },

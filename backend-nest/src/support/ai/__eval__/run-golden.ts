@@ -25,7 +25,11 @@ function printRows(rows: GoldenRow[]) {
 }
 
 async function runLive(rowsOut: GoldenRow[]) {
-  const key = (process.env.OPENAI_API_KEY || process.env.AI_API_KEY || '').trim();
+  const key = (
+    process.env.OPENAI_API_KEY ||
+    process.env.AI_API_KEY ||
+    ''
+  ).trim();
   if (!key) {
     process.stderr.write('Set OPENAI_API_KEY to run the live model.\n');
     process.exitCode = 2;

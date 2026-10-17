@@ -379,10 +379,7 @@ export class SocketGatewayService {
     if (user.userId !== stream.hostId) {
       // Same block relationship as messaging: either direction blocks join.
       try {
-        await this.messagingPolicy.assertNotBlocked(
-          user.userId,
-          stream.hostId,
-        );
+        await this.messagingPolicy.assertNotBlocked(user.userId, stream.hostId);
       } catch (err) {
         if (err instanceof ApiException && err.error === 'blocked') {
           return {

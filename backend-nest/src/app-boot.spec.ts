@@ -17,16 +17,15 @@ describe('AppModule boot', () => {
     process.env.JWT_REFRESH_SECRET =
       process.env.JWT_REFRESH_SECRET || 'local-boot-test-refresh-secret-32';
     process.env.DATABASE_URL =
-      previousDb ||
-      'postgresql://boot:boot@127.0.0.1:1/boot?connect_timeout=1';
+      previousDb || 'postgresql://boot:boot@127.0.0.1:1/boot?connect_timeout=1';
     try {
       await jest.isolateModulesAsync(async () => {
         const { Test } = await import('@nestjs/testing');
         const { AppModule } = await import('./app.module');
-        const { CsAgentService } = await import('./ai-agents/cs/cs-agent.service');
-        const { SupportTicketsService } = await import(
-          './support/services/support-tickets.service'
-        );
+        const { CsAgentService } =
+          await import('./ai-agents/cs/cs-agent.service');
+        const { SupportTicketsService } =
+          await import('./support/services/support-tickets.service');
         const started = Date.now();
         const compiled = await Promise.race([
           Test.createTestingModule({ imports: [AppModule] }).compile(),

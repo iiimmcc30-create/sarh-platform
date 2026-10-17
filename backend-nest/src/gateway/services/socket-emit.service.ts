@@ -15,15 +15,21 @@ export class SocketEmitService {
   }
 
   emitToUser(userId: string, event: string, data: unknown): void {
-    this.server?.to(`user:${userId}`).emit(event, maskBadgesForRealtime(data, userId));
+    this.server
+      ?.to(`user:${userId}`)
+      .emit(event, maskBadgesForRealtime(data, userId));
   }
 
   emitToThread(threadId: string, event: string, data: unknown): void {
-    this.server?.to(`thread:${threadId}`).emit(event, maskBadgesForRealtime(data));
+    this.server
+      ?.to(`thread:${threadId}`)
+      .emit(event, maskBadgesForRealtime(data));
   }
 
   emitToStream(streamId: string, event: string, data: unknown): void {
-    this.server?.to(`stream:${streamId}`).emit(event, maskBadgesForRealtime(data));
+    this.server
+      ?.to(`stream:${streamId}`)
+      .emit(event, maskBadgesForRealtime(data));
   }
 
   emitToTicket(ticketId: string, event: string, data: unknown): void {
@@ -31,7 +37,9 @@ export class SocketEmitService {
   }
 
   emitToCouncil(councilId: string, event: string, data: unknown): void {
-    this.server?.to(`council:${councilId}`).emit(event, maskBadgesForRealtime(data));
+    this.server
+      ?.to(`council:${councilId}`)
+      .emit(event, maskBadgesForRealtime(data));
   }
 
   async disconnectUserSockets(userId: string): Promise<void> {

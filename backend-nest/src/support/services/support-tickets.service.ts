@@ -34,7 +34,10 @@ import { isAssistantEnabled, isCsAgentEnabled } from '../../ai-safety/ai-flags';
 import { AiRuntimeFlagsService } from '../../ai-safety/ai-runtime-flags.service';
 import { CsAgentService } from '../../ai-agents/cs/cs-agent.service';
 import { CsQualityService } from '../../ai-agents/cs/cs-quality';
-import { csRolloutIncludes, currentCsRollout } from '../../ai-agents/cs/cs-rollout';
+import {
+  csRolloutIncludes,
+  currentCsRollout,
+} from '../../ai-agents/cs/cs-rollout';
 import {
   FRAUD_RE,
   HUMAN_REQUEST_RE,
@@ -532,7 +535,11 @@ export class SupportTicketsService {
     userId: string,
     ticketNumber: string,
     reason: SupportEscalationReason,
-  ): Promise<{ ok: boolean; reason?: 'not_owner' | 'closed'; already?: boolean }> {
+  ): Promise<{
+    ok: boolean;
+    reason?: 'not_owner' | 'closed';
+    already?: boolean;
+  }> {
     const ticket = await this.repo.findOwnedByNumber(userId, ticketNumber);
     if (!ticket) return { ok: false, reason: 'not_owner' };
     if (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') {
@@ -908,7 +915,9 @@ export class SupportTicketsService {
       authorKind: 'SARHAN',
       isStaffReply: true,
       body,
-      createdAt: createdAtAfter(await this.repo.latestMessageCreatedAt(ticketId)),
+      createdAt: createdAtAfter(
+        await this.repo.latestMessageCreatedAt(ticketId),
+      ),
     });
   }
 
@@ -999,7 +1008,9 @@ export class SupportTicketsService {
     const existingMeta = asMeta(ticket.metadata);
     const customerText = lastCustomerBody(ticket);
     const reporter = (
-      ticket as { reporter?: { role?: string | null; username?: string | null } }
+      ticket as {
+        reporter?: { role?: string | null; username?: string | null };
+      }
     ).reporter;
     const audience = {
       role: reporter?.role,
@@ -1032,7 +1043,8 @@ export class SupportTicketsService {
         ...turn,
         escalate: false,
         replyAr:
-          replyAr || 'أقدر أراجع اشتراكك من حسابك. أعد السؤال لو ما ظهر الجواب.',
+          replyAr ||
+          'أقدر أراجع اشتراكك من حسابك. أعد السؤال لو ما ظهر الجواب.',
       };
     }
 

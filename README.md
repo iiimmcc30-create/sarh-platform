@@ -12,7 +12,8 @@
 | `backend-nest/` | HTTP API + worker + Socket.IO | NestJS **12.0.4** · Prisma **5.22.0** |
 | `admin-panel/` | لوحة الإدارة | Next.js **16.3.6** |
 
-إنتاج التطبيق الموثَّق في المستودع: **Hostinger VPS** على **https://sarhsa.online**.  
+إنتاج التطبيق الموثَّق في المستودع: **Hostinger VPS** على **https://getsarh.com** (النطاق الرسمي منذ 2026-10-17).  
+`sarhsa.online` يبقى للنطاق القديم: واجهة API والمقابس والرفع وصفحات الدفع تعمل عليه، وصفحات الويب تُحوَّل 301 إلى `getsarh.com`.  
 `render.yaml` و`railway.json` ملفات تاريخية — README يمنع معاملتها كإنتاج حالي.
 
 ## البنية
@@ -67,7 +68,7 @@ Compose المحلي (`docker-compose.yml`) مخصّص للتطوير فقط. ا
 
 تفاصيل الاختبارات: [`docs/TESTING.md`](docs/TESTING.md).
 
-**لم تُشغَّل في Phase 1:** e2e للـ backend، Playwright، EAS/Android، Docker الإنتاج، Socket.IO الحي، N-Genius الحي، `GET https://sarhsa.online/api/health`، backup/restore، أو تطبيق migrations على قاعدة.
+**لم تُشغَّل في Phase 1:** e2e للـ backend، Playwright، EAS/Android، Docker الإنتاج، Socket.IO الحي، N-Genius الحي، `GET https://getsarh.com/api/health` (وما زال `https://sarhsa.online/api/health` يصل لنفس الواجهة)، backup/restore، أو تطبيق migrations على قاعدة.
 
 ## التوثيق
 
@@ -93,5 +94,6 @@ Compose المحلي (`docker-compose.yml`) مخصّص للتطوير فقط. ا
 
 ## الترخيص / التشغيل
 
-النطاق الإنتاجي الموثَّق في المستودع: **https://sarhsa.online**  
+النطاق الإنتاجي الرسمي: **https://getsarh.com**  
+`sarhsa.online` نطاق قديم مُبقى عمدًا (CORS، روابط التطبيق المثبّتة، وإعادة التوجيه).  
 الاستضافة الموثَّقة: Hostinger VPS + EAS (للبناء المحمول، غير مُشغَّل هنا) + Cloudinary + Twilio + Network International.
