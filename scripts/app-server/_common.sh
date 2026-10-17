@@ -2,7 +2,7 @@
 # Shared helpers for scripts/app-server/*.sh (sourced). Never prints secrets.
 ROOT="${SARH_ROOT:-/opt/sarh}"
 ENV_FILE="${ENV_FILE:-$ROOT/.env.app}"
-DOMAIN="${DOMAIN:-sarhsa.online}"
+DOMAIN="${DOMAIN:-getsarh.com}"
 
 APP_COMPOSE=(docker compose -f "$ROOT/docker-compose.app.yml")
 if [[ "${NO_SSL:-0}" != 1 && -f "$ROOT/docker-compose.prod.ssl.yml" && -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]]; then

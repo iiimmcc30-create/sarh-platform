@@ -190,8 +190,8 @@ services:
       context: ./admin-panel
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://sarhsa.online
-        NEXT_PUBLIC_SOCKET_URL: https://sarhsa.online
+        NEXT_PUBLIC_API_URL: https://getsarh.com
+        NEXT_PUBLIC_SOCKET_URL: https://getsarh.com
         NEXT_PUBLIC_ADMIN_BASE_PATH: /admin
     image: sarh-admin:latest
     restart: unless-stopped
@@ -229,7 +229,7 @@ services:
       args:
         EXPO_PUBLIC_WEB_SAME_ORIGIN: 'true'
         EXPO_PUBLIC_API_URL: ''
-        EXPO_PUBLIC_SOCKET_URL: https://sarhsa.online
+        EXPO_PUBLIC_SOCKET_URL: https://getsarh.com
         EXPO_PUBLIC_AGORA_ENABLED: 'false'
     image: sarh-web:latest
     restart: unless-stopped
