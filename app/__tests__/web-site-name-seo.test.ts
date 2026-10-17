@@ -20,14 +20,14 @@ describe('official web site name (SEO)', () => {
   it('is «سرح» with the brand alternate name and canonical home URL', () => {
     expect(SITE_NAME).toBe('سرح');
     expect(SITE_ALTERNATE_NAME).toBe('Sarh');
-    expect(SITE_URL).toBe('https://sarhsa.online/');
+    expect(SITE_URL).toBe('https://getsarh.com/');
   });
 
   it('emits WebSite JSON-LD with name «سرح»', () => {
     const ld = websiteJsonLd();
     expect(ld['@type']).toBe('WebSite');
     expect(ld.name).toBe('سرح');
-    expect(ld.url).toBe('https://sarhsa.online/');
+    expect(ld.url).toBe('https://getsarh.com/');
     expect(ld.alternateName).toEqual(['Sarh']);
     expect(JSON.parse(websiteJsonLdScript())).toEqual(ld);
     expect(websiteJsonLdScript()).not.toContain('<');

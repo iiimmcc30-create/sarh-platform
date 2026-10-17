@@ -11,7 +11,7 @@ COPY . .
 # Production web uses same-origin /api via the outer Hostinger nginx.
 ARG EXPO_PUBLIC_WEB_SAME_ORIGIN=true
 ARG EXPO_PUBLIC_API_URL=
-ARG EXPO_PUBLIC_SOCKET_URL=https://sarhsa.online
+ARG EXPO_PUBLIC_SOCKET_URL=https://getsarh.com
 ARG EXPO_PUBLIC_AGORA_ENABLED=false
 
 ENV EXPO_PUBLIC_WEB_SAME_ORIGIN=$EXPO_PUBLIC_WEB_SAME_ORIGIN

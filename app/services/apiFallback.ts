@@ -7,7 +7,10 @@
  */
 
 /** Live production API (Hostinger). The only remote fallback. */
-export const PRODUCTION_API_BASE = 'https://sarhsa.online';
+export const PRODUCTION_API_BASE = 'https://getsarh.com';
+
+/** Previous domain. Still serves /api and /socket.io directly (older builds use it). */
+export const LEGACY_API_BASE = 'https://sarhsa.online';
 
 /** Local dev backend health probe — short so a missing backend never stalls boot. */
 export const LOCAL_API_PROBE_TIMEOUT_MS = 1500;

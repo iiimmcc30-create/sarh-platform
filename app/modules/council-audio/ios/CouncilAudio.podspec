@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.summary        = 'Sarh council background audio helpers'
   s.description    = 'Keeps «المجالس» audio healthy in the background (audio interruptions).'
   s.author         = 'Sarh'
-  s.homepage       = 'https://sarhsa.online'
+  s.homepage       = 'https://getsarh.com'
   s.license        = { :type => 'Proprietary' }
   s.platforms      = { :ios => '15.1' }
   s.source         = { git: '' }

@@ -1,7 +1,7 @@
 const API_PORT = 3001;
 const SOCKET_PORT = 3002;
-const PRODUCTION_API = 'https://sarhsa.online';
-const PRODUCTION_SOCKET = 'https://sarhsa.online';
+const PRODUCTION_API = 'https://getsarh.com';
+const PRODUCTION_SOCKET = 'https://getsarh.com';
 // Back-compat alias — Railway is decommissioned.
 const RAILWAY_API = PRODUCTION_API;
 
@@ -87,7 +87,7 @@ async function resolveDevApiUrlsAsync(lanIp) {
 
   if (loopbackOk && lanIp) {
     console.warn(
-      '[dev-api] Backend on localhost only — phone cannot reach it. Using production (Hostinger https://sarhsa.online).',
+      '[dev-api] Backend on localhost only — phone cannot reach it. Using production (Hostinger https://getsarh.com).',
     );
     return {
       apiUrl: PRODUCTION_API,
@@ -104,7 +104,7 @@ async function resolveDevApiUrlsAsync(lanIp) {
     };
   }
 
-  console.warn('[dev-api] No local backend — using production (Hostinger https://sarhsa.online).');
+  console.warn('[dev-api] No local backend — using production (Hostinger https://getsarh.com).');
   return {
     apiUrl: PRODUCTION_API,
     socketUrl: PRODUCTION_SOCKET,

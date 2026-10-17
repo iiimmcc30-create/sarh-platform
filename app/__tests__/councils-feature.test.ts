@@ -105,7 +105,7 @@ describe('Councils: pure helpers', () => {
     expect(normalizeCouncilRules(['  ', ' الاحترام ', ...Array(12).fill('قاعدة')])).toHaveLength(10);
     expect(normalizeCouncilRules([' الاحترام '])[0]).toBe('الاحترام');
     expect(councilListenersLabel(1250)).toBe('1,250 مستمع');
-    expect(councilInviteUrl('AbC123xyz')).toBe('https://sarhsa.online/councils/join/AbC123xyz');
+    expect(councilInviteUrl('AbC123xyz')).toBe('https://getsarh.com/councils/join/AbC123xyz');
   });
 
   it('maps API error codes to calm Arabic messages', () => {

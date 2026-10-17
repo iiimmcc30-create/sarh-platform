@@ -148,7 +148,7 @@ describe('listing video press path (API listing shape)', () => {
 
 describe('post share url', () => {
   it('shares the real public post path', () => {
-    expect(postShareUrl('abc-1')).toBe('https://sarhsa.online/post/abc-1');
+    expect(postShareUrl('abc-1')).toBe('https://getsarh.com/post/abc-1');
   });
 });
 

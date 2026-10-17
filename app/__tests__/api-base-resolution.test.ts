@@ -20,7 +20,7 @@ describe('API base resolution (Hostinger only)', () => {
   afterEach(() => resetApiFallbackState());
 
   it('production fallback is the Hostinger API', () => {
-    expect(PRODUCTION_API_BASE).toBe('https://sarhsa.online');
+    expect(PRODUCTION_API_BASE).toBe('https://getsarh.com');
     const eas = JSON.parse(src('eas.json'));
     for (const profile of ['development', 'preview', 'production']) {
       expect(eas.build[profile].env.EXPO_PUBLIC_API_URL).toBe(PRODUCTION_API_BASE);
@@ -31,13 +31,13 @@ describe('API base resolution (Hostinger only)', () => {
   it('never probes in production builds or on https bases', async () => {
     const probe = jest.fn(async () => false);
     expect(shouldProbeLocalApi('http://192.168.1.5:3001', false)).toBe(false);
-    expect(shouldProbeLocalApi('https://sarhsa.online', true)).toBe(false);
+    expect(shouldProbeLocalApi('https://getsarh.com', true)).toBe(false);
     expect(shouldProbeLocalApi('', true)).toBe(false);
     await expect(resolveReachableApiBase('http://192.168.1.5:3001', false, probe)).resolves.toEqual({
       base: 'http://192.168.1.5:3001',
       switched: false,
     });
-    await resolveReachableApiBase('https://sarhsa.online', true, probe);
+    await resolveReachableApiBase('https://getsarh.com', true, probe);
     expect(probe).not.toHaveBeenCalled();
   });
 
@@ -53,7 +53,7 @@ describe('API base resolution (Hostinger only)', () => {
   it('dev falls back straight to Hostinger with one short local probe (no second probe)', async () => {
     const probe = jest.fn(async () => false);
     await expect(resolveReachableApiBase('http://192.168.1.5:3001', true, probe)).resolves.toEqual({
-      base: 'https://sarhsa.online',
+      base: 'https://getsarh.com',
       switched: true,
     });
     expect(probe).toHaveBeenCalledTimes(1);
@@ -64,7 +64,7 @@ describe('API base resolution (Hostinger only)', () => {
   it('logs the Hostinger fallback, not Render', () => {
     const msg = apiFallbackMessage();
     expect(msg).toContain('Hostinger');
-    expect(msg).toContain('https://sarhsa.online');
+    expect(msg).toContain('https://getsarh.com');
     expect(msg).not.toMatch(/render/i);
   });
 
@@ -75,9 +75,9 @@ describe('API base resolution (Hostinger only)', () => {
     });
     setPendingApiProbe('http://192.168.1.5:3001', probe);
     const pending = resolveRequestUrl('http://192.168.1.5:3001/api/posts?page=1');
-    setApiRebase('http://192.168.1.5:3001', 'https://sarhsa.online');
+    setApiRebase('http://192.168.1.5:3001', 'https://getsarh.com');
     finish();
-    await expect(pending).resolves.toBe('https://sarhsa.online/api/posts?page=1');
+    await expect(pending).resolves.toBe('https://getsarh.com/api/posts?page=1');
     expect(rebaseApiUrl('https://cdn.example.com/a.jpg')).toBe('https://cdn.example.com/a.jpg');
     expect(rebaseApiUrl('http://192.168.1.5:30010/x')).toBe('http://192.168.1.5:30010/x');
   });

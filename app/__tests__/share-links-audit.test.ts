@@ -123,9 +123,11 @@ describe('deep links config', () => {
   it('app.json declares App Links + Universal Links for share paths', () => {
     const app = JSON.parse(src('app.json')).expo;
     expect(app.ios.associatedDomains).toContain('applinks:sarhsa.online');
+    expect(app.ios.associatedDomains).toContain('applinks:getsarh.com');
     const filter = app.android.intentFilters[0];
     expect(filter.autoVerify).toBe(true);
     expect(filter.data).toEqual(expect.arrayContaining([{ scheme: 'https', host: 'sarhsa.online', pathPrefix: '/l/' }]));
+    expect(filter.data).toEqual(expect.arrayContaining([{ scheme: 'https', host: 'getsarh.com', pathPrefix: '/l/' }]));
     expect(src('android/app/src/main/AndroidManifest.xml')).toContain('android:pathPrefix="/post/"');
   });
 });

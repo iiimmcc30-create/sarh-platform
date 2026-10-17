@@ -12,10 +12,10 @@ const path = require('path');
 const { URL } = require('url');
 
 const PRODUCTION_API = (
-  process.env.RAILWAY_API_URL || 'https://sarhsa.online'
+  process.env.RAILWAY_API_URL || 'https://getsarh.com'
 ).replace(/\/$/, '');
 const PRODUCTION_SOCKET = (
-  process.env.EXPO_PUBLIC_SOCKET_URL || 'https://sarhsa.online'
+  process.env.EXPO_PUBLIC_SOCKET_URL || 'https://getsarh.com'
 ).replace(/\/$/, '');
 const LOCAL_API = (process.env.LOCAL_API_URL || 'http://127.0.0.1:3001').replace(
   /\/$/,

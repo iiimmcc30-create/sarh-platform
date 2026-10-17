@@ -44,6 +44,14 @@
       <!-- Shared links (App Links, mirrors app.json android.intentFilters): /l, /post, /u, /councils/join. -->
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
+        <data android:scheme="https" android:host="getsarh.com" android:pathPrefix="/l/"/>
+        <data android:scheme="https" android:host="getsarh.com" android:pathPrefix="/post/"/>
+        <data android:scheme="https" android:host="getsarh.com" android:pathPrefix="/u/"/>
+        <data android:scheme="https" android:host="getsarh.com" android:pathPrefix="/councils/join/"/>
+        <data android:scheme="https" android:host="www.getsarh.com" android:pathPrefix="/l/"/>
+        <data android:scheme="https" android:host="www.getsarh.com" android:pathPrefix="/post/"/>
+        <data android:scheme="https" android:host="www.getsarh.com" android:pathPrefix="/u/"/>
+        <data android:scheme="https" android:host="www.getsarh.com" android:pathPrefix="/councils/join/"/>
         <data android:scheme="https" android:host="sarhsa.online" android:pathPrefix="/l/"/>
         <data android:scheme="https" android:host="sarhsa.online" android:pathPrefix="/post/"/>
         <data android:scheme="https" android:host="sarhsa.online" android:pathPrefix="/u/"/>

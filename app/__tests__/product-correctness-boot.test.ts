@@ -218,11 +218,11 @@ describe('M3 register OTP existing phone', () => {
 
 describe('M4 share domain', () => {
   it('builds listing share URLs on the canonical origin', () => {
-    expect(listingShareUrl('abc-123')).toBe('https://sarhsa.online/l/abc-123');
+    expect(listingShareUrl('abc-123')).toBe('https://getsarh.com/l/abc-123');
   });
 
   it('builds user share URLs on the same origin', () => {
-    expect(userShareUrl('salem')).toBe('https://sarhsa.online/u/salem');
+    expect(userShareUrl('salem')).toBe('https://getsarh.com/u/salem');
   });
 });
 

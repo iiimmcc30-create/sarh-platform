@@ -2,8 +2,8 @@
  * Dev against the production API (no local backend required).
  * Usage: npm run start:railway
  */
-const PRODUCTION_API = 'https://sarhsa.online';
-const PRODUCTION_SOCKET = 'https://sarhsa.online';
+const PRODUCTION_API = 'https://getsarh.com';
+const PRODUCTION_SOCKET = 'https://getsarh.com';
 
 process.env.EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || PRODUCTION_API;
 process.env.EXPO_PUBLIC_SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || PRODUCTION_SOCKET;
