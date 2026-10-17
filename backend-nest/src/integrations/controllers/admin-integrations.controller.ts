@@ -77,7 +77,7 @@ export class AdminIntegrationsController {
     const row = await this.repo.findById(id);
     if (!row) throwApi(404, 'not_found', 'سجل التكامل غير موجود');
     const payment = row.payment;
-    const appUrl = process.env.APP_URL ?? 'https://sarhsa.online';
+    const appUrl = process.env.APP_URL ?? 'https://getsarh.com';
     const result = await this.checkout.retryFailedCheckout(id, {
       amount: payment.amount,
       currency: payment.currency,

@@ -204,7 +204,7 @@ export class WorkerCronService implements OnModuleDestroy {
     if (fromEnv.length) return fromEnv;
     if (process.env.NODE_ENV !== 'production') return [];
     // Hostinger production defaults (never Render cold-start keep-alive).
-    const appUrl = (process.env.APP_URL || 'https://sarhsa.online').replace(
+    const appUrl = (process.env.APP_URL || 'https://getsarh.com').replace(
       /\/$/,
       '',
     );

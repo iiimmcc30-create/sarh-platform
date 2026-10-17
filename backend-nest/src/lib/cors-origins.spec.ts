@@ -32,6 +32,8 @@ describe('cors origins', () => {
     const origins = resolveCorsOrigins();
     expect(origins).toContain('https://sarhsa.online');
     expect(origins).toContain('https://www.sarhsa.online');
+    expect(origins).toContain('https://getsarh.com');
+    expect(origins).toContain('https://www.getsarh.com');
     expect(origins.some((origin) => origin.includes('railway'))).toBe(false);
     expect(origins.some((origin) => origin.includes('localhost'))).toBe(false);
     expect(isAllowedCorsOrigin('https://sarhsa.online')).toBe(true);

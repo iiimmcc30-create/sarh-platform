@@ -90,7 +90,7 @@ export class PrivacyPageController {
 <body>
   <main>
     <h1>${escapeHtml(title)}</h1>
-    <p class="meta">منصة سرح · <a href="https://sarhsa.online">sarhsa.online</a> · للتواصل: sarh@sarhsa.online</p>
+    <p class="meta">منصة سرح · <a href="https://getsarh.com">getsarh.com</a> · للتواصل: sarh@sarhsa.online</p>
     ${markdownLiteToHtml(bodyAr)}
   </main>
 </body>

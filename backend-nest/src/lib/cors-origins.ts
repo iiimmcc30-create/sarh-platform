@@ -1,4 +1,7 @@
 const PRODUCTION_ORIGINS = [
+  'https://getsarh.com',
+  'https://www.getsarh.com',
+  // Legacy domain: kept so installed builds and old links keep working.
   'https://sarhsa.online',
   'https://www.sarhsa.online',
 ];

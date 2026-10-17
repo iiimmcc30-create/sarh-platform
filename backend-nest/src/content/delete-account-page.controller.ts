@@ -73,7 +73,7 @@ function shell(title: string, body: string): string {
 <body>
   <main>
     <h1>${escapeHtml(title)}</h1>
-    <p class="meta">منصة سرح · <a href="https://sarhsa.online">sarhsa.online</a> · <a href="/privacy">سياسة الخصوصية</a></p>
+    <p class="meta">منصة سرح · <a href="https://getsarh.com">getsarh.com</a> · <a href="/privacy">سياسة الخصوصية</a></p>
     ${body}
   </main>
 </body>
@@ -172,7 +172,7 @@ export class DeleteAccountPageController {
           handlerMode: 'HUMAN_ACTIVE',
           subject: 'طلب حذف حساب من الويب',
           description: [
-            'طلب حذف حساب أُرسل من صفحة sarhsa.online/delete-account.',
+            'طلب حذف حساب أُرسل من صفحة getsarh.com/delete-account.',
             `الجوال: ${phone}`,
             note ? `ملاحظة: ${note}` : 'بدون ملاحظة.',
             'لا يُنفَّذ الحذف تلقائياً — راجع الهوية ثم نفّذ الحذف من لوحة الإدارة.',

@@ -1,7 +1,7 @@
 // Open Graph HTML for link-preview crawlers (WhatsApp, X, Telegram, iMessage…).
 // Pure helpers: no DB, no I/O — the controller feeds them.
 
-export const SHARE_SITE = 'https://sarhsa.online';
+export const SHARE_SITE = 'https://getsarh.com';
 export const SHARE_SITE_NAME = 'سرح';
 export const SHARE_DEFAULT_IMAGE = `${SHARE_SITE}/icon-512.png`;
 export const SHARE_DEFAULT_DESCRIPTION =

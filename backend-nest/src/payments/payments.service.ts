@@ -474,7 +474,7 @@ export class PaymentsService
 
     const isDev = isNiSandboxMockMode();
     let checkoutUrl: string;
-    const appUrl = process.env.APP_URL ?? 'https://sarhsa.online';
+    const appUrl = process.env.APP_URL ?? 'https://getsarh.com';
     const context = type;
     const cancelUrl = `${appUrl}/payment/cancel`;
     const redirectUrl = `${appUrl}/payment/result?paymentId=${encodeURIComponent(payment.id)}&context=${encodeURIComponent(context)}`;

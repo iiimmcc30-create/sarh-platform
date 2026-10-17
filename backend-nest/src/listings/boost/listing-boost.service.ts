@@ -198,7 +198,7 @@ export class ListingBoostService {
       where: { id: user.userId },
       select: { email: true, displayName: true, arabicName: true },
     });
-    const appUrl = process.env.APP_URL ?? 'https://sarhsa.online';
+    const appUrl = process.env.APP_URL ?? 'https://getsarh.com';
 
     let checkoutUrl: string;
 

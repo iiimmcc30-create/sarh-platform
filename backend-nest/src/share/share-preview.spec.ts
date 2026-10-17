@@ -43,7 +43,7 @@ describe('share preview html', () => {
   it('image + price fallbacks', () => {
     expect(previewImageUrl(null)).toBe(SHARE_DEFAULT_IMAGE);
     expect(previewImageUrl('/uploads/a.jpg')).toBe(
-      'https://sarhsa.online/uploads/a.jpg',
+      'https://getsarh.com/uploads/a.jpg',
     );
     expect(
       previewImageUrl('https://res.cloudinary.com/d/video/upload/v1/a.mp4'),

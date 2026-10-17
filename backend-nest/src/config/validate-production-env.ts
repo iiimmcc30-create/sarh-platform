@@ -59,7 +59,7 @@ export function validateProductionEnv(): void {
     }
     if (/railway\.app|onrender\.com/i.test(appUrl)) {
       problems.push(
-        'APP_URL must not point at Railway/Render — use https://sarhsa.online',
+        'APP_URL must not point at Railway/Render — use https://getsarh.com',
       );
     }
   }

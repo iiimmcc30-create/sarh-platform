@@ -51,7 +51,7 @@ export function supportAlertRecipients(): string[] {
 export function adminTicketUrl(ticketId: string): string {
   const base = (
     process.env.ADMIN_PANEL_URL?.trim() ||
-    `${(process.env.APP_URL?.trim() || 'https://sarhsa.online').replace(/\/$/, '')}/admin`
+    `${(process.env.APP_URL?.trim() || 'https://getsarh.com').replace(/\/$/, '')}/admin`
   ).replace(/\/$/, '');
   return `${base}/support/tickets/${encodeURIComponent(ticketId)}`;
 }
