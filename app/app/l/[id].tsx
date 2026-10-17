@@ -1,4 +1,4 @@
-// Shared listing link: sarhsa.online/l/<id> (sarhListingShareUrl) → the listing screen.
+// Shared listing link: getsarh.com/l/<id> (sarhListingShareUrl) → the listing screen.
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { shareLinkId } from '@/lib/shareLinks';
 

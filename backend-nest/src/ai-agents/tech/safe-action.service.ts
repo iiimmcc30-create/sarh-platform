@@ -32,14 +32,19 @@ export class SafeActionService {
   ) {}
 
   list(): SafeProposal[] {
-    return [...this.proposals.values()].sort((a, b) => b.createdAt - a.createdAt);
+    return [...this.proposals.values()].sort(
+      (a, b) => b.createdAt - a.createdAt,
+    );
   }
 
   async propose(
     actorId: string,
     input: { action?: string; queue?: string; cacheKey?: string; max?: number },
     now = Date.now(),
-  ): Promise<{ ok: true; proposal: SafeProposal } | { ok: false; reason: 'not_whitelisted' }> {
+  ): Promise<
+    | { ok: true; proposal: SafeProposal }
+    | { ok: false; reason: 'not_whitelisted' }
+  > {
     const action = parseSafeAction(input);
     if (!action) {
       await this.audit.append({

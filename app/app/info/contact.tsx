@@ -13,20 +13,25 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { contactMessageError, contactTicketPayload } from '@/lib/helpCenter';
+import {
+  SARH_OFFICIAL_EMAIL,
+  SARH_OFFICIAL_SITE,
+  SARH_OFFICIAL_SITE_HOST,
+} from '@/constants/sarhOfficial';
 import { createTicket } from '@/services/support';
 
 const CHANNELS = [
   {
     icon: 'mail',
     label: 'البريد الإلكتروني',
-    value: 'sarh@sarhsa.online',
-    href: 'mailto:sarh@sarhsa.online',
+    value: SARH_OFFICIAL_EMAIL,
+    href: `mailto:${SARH_OFFICIAL_EMAIL}`,
   },
   {
     icon: 'globe-outline',
     label: 'الموقع الإلكتروني',
-    value: 'sarhsa.online',
-    href: 'https://sarhsa.online',
+    value: SARH_OFFICIAL_SITE_HOST,
+    href: SARH_OFFICIAL_SITE,
   },
 ];
 

@@ -60,13 +60,16 @@ function explicitOn(name: string): boolean {
 /** What the environment allows. A runtime switch cannot widen this. */
 export function envAllowsFlag(name: AiControlFlag): boolean {
   if (name === 'SARH_AI_ENABLED') return envFlag('SARH_AI_ENABLED');
-  if (name === 'SARH_ASSISTANT_ENABLED') return envFlag('SARH_ASSISTANT_ENABLED');
+  if (name === 'SARH_ASSISTANT_ENABLED')
+    return envFlag('SARH_ASSISTANT_ENABLED');
   if (name === 'AI_CS_AGENT_ENABLED') return currentCsRollout().kind !== 'off';
   return explicitOn(name);
 }
 
 export function isAiEnabled(): boolean {
-  return envAllowsFlag('SARH_AI_ENABLED') && !isRuntimeFlagOff('SARH_AI_ENABLED');
+  return (
+    envAllowsFlag('SARH_AI_ENABLED') && !isRuntimeFlagOff('SARH_AI_ENABLED')
+  );
 }
 
 /**

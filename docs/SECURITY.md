@@ -20,7 +20,7 @@
 ### CORS
 
 - `isAllowedCorsOrigin` / `resolveCorsOrigins` في `backend-nest/src/lib/cors-origins.ts`.
-- في production تُضاف `https://sarhsa.online` و`https://www.sarhsa.online`، وتُستبعد أصول localhost و`railway.app`.
+- في production تُضاف `https://getsarh.com` و`https://www.getsarh.com` و`https://sarhsa.online` و`https://www.sarhsa.online` (النطاق القديم يبقى مسموحًا)، وتُستبعد أصول localhost و`railway.app`.
 - العملاء الأصليون بلا رأس `Origin` يُسمح لهم (`!origin`).
 
 ### Rate limiting

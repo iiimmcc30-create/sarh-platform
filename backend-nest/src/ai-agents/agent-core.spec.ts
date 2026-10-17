@@ -48,7 +48,11 @@ function runnerFor(
   return new AgentRunner(guard, audit, registry, model);
 }
 
-function pingTool(execute: AgentTool['execute'], side: AgentTool['sideEffect'] = 'none', scope: AgentTool['scope'] = 'public'): AgentTool {
+function pingTool(
+  execute: AgentTool['execute'],
+  side: AgentTool['sideEffect'] = 'none',
+  scope: AgentTool['scope'] = 'public',
+): AgentTool {
   return {
     name: 'ping',
     description: 'ping',
@@ -190,7 +194,10 @@ describe('agent core (phase 1)', () => {
     await runnerFor(model, registry, audit).run(baseRun);
     expect(execute).not.toHaveBeenCalled();
     expect(rows[0]).toEqual(
-      expect.objectContaining({ status: 'denied', resultSummary: 'side_effect' }),
+      expect.objectContaining({
+        status: 'denied',
+        resultSummary: 'side_effect',
+      }),
     );
   });
 
@@ -254,10 +261,9 @@ describe('agent core (phase 1)', () => {
       rounds: 2,
       deniedCount: 0,
     });
-    expect(execute.mock.calls.map((call) => (call[0] as { n: string }).n)).toEqual([
-      'a',
-      'b',
-    ]);
+    expect(
+      execute.mock.calls.map((call) => (call[0] as { n: string }).n),
+    ).toEqual(['a', 'b']);
     const firstActor = (execute.mock.calls as unknown[][])[0]?.[1];
     expect(firstActor).toEqual(
       expect.objectContaining({ actorId: 'server-user', actorKind: 'user' }),
@@ -271,11 +277,9 @@ describe('agent core (phase 1)', () => {
     process.env.SARH_AI_DAILY_TOKEN_BUDGET = '0';
     const { audit } = memoryAudit();
     const complete = jest.fn();
-    const result = await runnerFor(
-      { complete },
-      new ToolRegistry(),
-      audit,
-    ).run(baseRun);
+    const result = await runnerFor({ complete }, new ToolRegistry(), audit).run(
+      baseRun,
+    );
     expect(complete).not.toHaveBeenCalled();
     expect(result.stopped).toBe('budget');
   });
@@ -310,9 +314,7 @@ describe('agent core (phase 1)', () => {
     expect(
       (missing as unknown as { update?: unknown; delete?: unknown }).update,
     ).toBeUndefined();
-    expect(
-      (missing as unknown as { delete?: unknown }).delete,
-    ).toBeUndefined();
+    expect((missing as unknown as { delete?: unknown }).delete).toBeUndefined();
   });
 
   it('asks the provider for sequential tool calls and does not store the transcript', async () => {

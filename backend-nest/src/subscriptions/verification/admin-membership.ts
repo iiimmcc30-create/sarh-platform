@@ -13,6 +13,7 @@ import {
   type ReviewTier,
   type VerificationTier,
 } from './verification-tiers';
+import { moneyToNumber, type MoneyInput } from '../../common/money';
 import {
   mapSubscriptionState,
   mapVerificationState,
@@ -58,7 +59,7 @@ type MembershipSource = {
         trialEndsAt?: Date | null;
         plan?: {
           name: string;
-          monthlyPrice: number;
+          monthlyPrice: MoneyInput;
           currency: string;
         } | null;
       })
@@ -161,7 +162,10 @@ export function buildAdminMembership(
     subscription: {
       planId: sub?.planId ?? 'free',
       planName: sub?.plan?.name ?? null,
-      monthlyPrice: sub?.plan?.monthlyPrice ?? null,
+      monthlyPrice:
+        sub?.plan?.monthlyPrice == null
+          ? null
+          : moneyToNumber(sub.plan.monthlyPrice),
       currency: sub?.plan?.currency ?? null,
       state: mapped.state,
       lifecycle: sub && paid ? getSubscriptionStatus(sub, now) : 'free',

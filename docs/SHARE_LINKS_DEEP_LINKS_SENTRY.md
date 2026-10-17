@@ -1,8 +1,9 @@
 # Share links, link previews, deep links and Sentry
 
 ## Share links (`/l/:id`, `/u/:username`, `/post/:id`)
-- The app shares `https://sarhsa.online/l/<listingId>`, `/u/<username>` and `/post/<postId>`
+- The app shares `https://getsarh.com/l/<listingId>`, `/u/<username>` and `/post/<postId>`
   (`app/constants/sarhOfficial.ts`, `app/lib/postInteractions.ts`).
+  `sarhsa.online` stays in associated domains and intent filters so already-installed builds and old links still open.
 - Expo routes `app/app/l/[id].tsx` (→ `/listing/[id]`) and `app/app/u/[username].tsx`
   (→ `/users/[id]` via `GET /api/users/by-username/:username`, falling back to the public
   user search on older API builds) resolve them on web and inside the app.
@@ -16,8 +17,9 @@
   bind-mounted `web-location.conf` is picked up (`nginx -t` first).
 
 ## App Links / Universal Links
-- `app/app.json`: `android.intentFilters` (autoVerify, https sarhsa.online + www, paths
-  `/l/ /post/ /u/ /councils/join/`) and `ios.associatedDomains`. The committed
+- `app/app.json`: `android.intentFilters` (autoVerify, https getsarh.com + www and
+  the legacy sarhsa.online + www, paths `/l/ /post/ /u/ /councils/join/`) and
+  `ios.associatedDomains`. The committed
   `app/android/app/src/main/AndroidManifest.xml` carries the same intent-filter.
   **Needs a new native build** (EAS) — OTA cannot add these.
 - Verification files are served by the web image from `app/public/.well-known/`

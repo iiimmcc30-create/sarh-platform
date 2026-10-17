@@ -122,7 +122,7 @@ for k in "${critical_keys[@]}"; do
 done
 app_url="$(get APP_URL)"
 if [[ -n "$app_url" ]] && echo "$app_url" | grep -qiE 'railway\.app|onrender\.com'; then
-  echo "APP_URL=STALE_HOST (must be https://sarhsa.online)"
+  echo "APP_URL=STALE_HOST (must be https://getsarh.com)"
   missing+=("APP_URL_HOSTINGER")
 fi
 
@@ -160,6 +160,8 @@ else
   for k in REDIS_ENABLED REDIS_HOST REDIS_PORT; do
     check_required "$k" 1
   done
+  # docker-compose.prod.yml refuses to start Redis without this.
+  check_required REDIS_PASSWORD 16
 fi
 
 echo ""

@@ -74,7 +74,9 @@ export function buildTechTools(ops: TechOps): AgentTool[] {
     readOnly(
       'get_error_stats',
       '5xx counts by route for a recent window.',
-      z.object({ minutes: z.number().int().min(1).max(1440).optional() }).strict(),
+      z
+        .object({ minutes: z.number().int().min(1).max(1440).optional() })
+        .strict(),
       objectJsonSchema({ minutes: { type: 'number' } }, []),
       async (args, actor) => {
         if (!adminActor(actor)) return { error: 'no_actor' };

@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PlanAudience } from '@prisma/client';
 import { throwApi } from '../common/exceptions/api.exception';
+import { toMoneyDecimal } from '../common/money';
 import { DEFAULT_FREE_PLANS } from './default-free-plans';
 import { PlanPermissionService } from './plan-permission.service';
 import { PlanResolverService } from './plan-resolver.service';
@@ -32,10 +33,10 @@ export class PlansService implements OnModuleInit {
         name: def.name,
         description: def.description,
         audience: def.audience,
-        monthlyPrice: def.monthlyPrice,
-        yearlyPrice: def.yearlyPrice,
+        monthlyPrice: toMoneyDecimal(def.monthlyPrice),
+        yearlyPrice: toMoneyDecimal(def.yearlyPrice),
         currency: def.currency,
-        yearlyDiscount: def.yearlyDiscount,
+        yearlyDiscount: toMoneyDecimal(def.yearlyDiscount),
         isActive: true,
         sortOrder: def.sortOrder,
         features: {
@@ -112,10 +113,10 @@ export class PlansService implements OnModuleInit {
       name: data.name,
       description: data.description ?? '',
       audience: data.audience,
-      monthlyPrice: data.monthlyPrice,
-      yearlyPrice: data.yearlyPrice,
+      monthlyPrice: toMoneyDecimal(data.monthlyPrice),
+      yearlyPrice: toMoneyDecimal(data.yearlyPrice),
       currency: data.currency ?? 'SAR',
-      yearlyDiscount: data.yearlyDiscount ?? 0,
+      yearlyDiscount: toMoneyDecimal(data.yearlyDiscount ?? 0),
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
       features: data.features?.length
@@ -161,7 +162,21 @@ export class PlansService implements OnModuleInit {
       planData.yearlyPrice = 0;
       planData.isActive = true;
     }
-    await this.repo.update(id, planData);
+    await this.repo.update(id, {
+      ...planData,
+      monthlyPrice:
+        planData.monthlyPrice != null
+          ? toMoneyDecimal(planData.monthlyPrice)
+          : undefined,
+      yearlyPrice:
+        planData.yearlyPrice != null
+          ? toMoneyDecimal(planData.yearlyPrice)
+          : undefined,
+      yearlyDiscount:
+        planData.yearlyDiscount != null
+          ? toMoneyDecimal(planData.yearlyDiscount)
+          : undefined,
+    });
     if (features) {
       await this.repo.replaceFeatures(id, features);
     }
@@ -185,10 +200,10 @@ export class PlansService implements OnModuleInit {
       name: `${source.name} (Copy)`,
       description: source.description,
       audience: source.audience,
-      monthlyPrice: source.monthlyPrice,
-      yearlyPrice: source.yearlyPrice,
+      monthlyPrice: toMoneyDecimal(source.monthlyPrice),
+      yearlyPrice: toMoneyDecimal(source.yearlyPrice),
       currency: source.currency,
-      yearlyDiscount: source.yearlyDiscount,
+      yearlyDiscount: toMoneyDecimal(source.yearlyDiscount),
       isActive: false,
       sortOrder: source.sortOrder + 1,
       features: {

@@ -5,6 +5,7 @@ import {
   type StorePurchaseStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { toMoneyDecimal } from '../common/money';
 import type { VerifiedStorePurchase } from './store-purchases.types';
 
 const STALE_PROCESSING_MS = 2 * 60 * 1000;
@@ -317,7 +318,7 @@ export class StorePurchasesRepository {
         referenceId: params.subscriptionId,
         referenceType: 'subscription',
         orderId: params.orderId,
-        amount: params.amount,
+        amount: toMoneyDecimal(params.amount),
         currency: params.currency,
         method: params.method,
         status: 'paid',
@@ -391,7 +392,7 @@ export class StorePurchasesRepository {
             userId: params.userId,
             boostType,
             durationDays: params.durationDays,
-            amount: params.amount,
+            amount: toMoneyDecimal(params.amount),
             currency: params.currency,
             status: 'pending',
           },
@@ -409,7 +410,7 @@ export class StorePurchasesRepository {
             tier: params.tier.key,
             weight: params.tier.weight,
             durationDays: params.durationDays,
-            amount: params.amount,
+            amount: toMoneyDecimal(params.amount),
             currency: params.currency,
             status: 'pending',
             baselineViews: params.baselineViews,
@@ -426,7 +427,7 @@ export class StorePurchasesRepository {
         data: {
           userId: params.userId,
           orderId: params.orderId,
-          amount: params.amount,
+          amount: toMoneyDecimal(params.amount),
           currency: params.currency,
           method: params.method,
           status: 'pending',

@@ -50,7 +50,8 @@ export class WorkerCronService implements OnModuleDestroy {
   onModuleDestroy() {
     if (this.interval) clearInterval(this.interval);
     if (this.keepAliveInterval) clearInterval(this.keepAliveInterval);
-    if (this.handoffReminderInterval) clearInterval(this.handoffReminderInterval);
+    if (this.handoffReminderInterval)
+      clearInterval(this.handoffReminderInterval);
     if (this.handoffReminderKick) clearTimeout(this.handoffReminderKick);
   }
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentReferenceType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { toMoneyDecimal } from '../../common/money';
 import { ensurePayableListingFee } from '../../listings/listing-fee-ensure';
 import { buildPermissions, normalizePlanSlug } from '../../plans/plan.types';
 import {
@@ -75,9 +76,9 @@ export class PaymentsRepository {
         status: { in: ['pending', 'overdue'] },
       },
       data: {
-        saleAmount,
+        saleAmount: toMoneyDecimal(saleAmount),
         saleDeclaredAt: new Date(),
-        commission,
+        commission: toMoneyDecimal(commission),
       },
     });
   }
@@ -153,7 +154,7 @@ export class PaymentsRepository {
       data: {
         userId: params.userId,
         orderId: params.orderId,
-        amount: params.amount,
+        amount: toMoneyDecimal(params.amount),
         currency: params.currency,
         method: params.method as Prisma.PaymentCreateInput['method'],
         status: 'pending',
@@ -249,7 +250,7 @@ export class PaymentsRepository {
           data: {
             userId: params.userId,
             orderId: params.orderId,
-            amount: params.amount,
+            amount: toMoneyDecimal(params.amount),
             currency: params.currency,
             method: params.method as Prisma.PaymentCreateInput['method'],
             status: 'pending',

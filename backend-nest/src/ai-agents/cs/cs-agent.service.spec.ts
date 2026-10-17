@@ -45,7 +45,8 @@ function store() {
     ]),
     tickets: jest.fn(async (userId: string) => [
       {
-        ticketNumber: userId === 'user-a' ? 'SRH-2026-000001' : 'SRH-2026-000002',
+        ticketNumber:
+          userId === 'user-a' ? 'SRH-2026-000001' : 'SRH-2026-000002',
         subject: 'سؤال',
         state: 'OPEN',
         updatedAt: rows[userId].renew,
@@ -88,15 +89,23 @@ describe('customer-service agent', () => {
   it('reads only the server user, even if the arguments name someone else', async () => {
     const { reads } = store();
     const tools = buildCsTools(reads);
-    expect(tools.every((tool) => tool.scope === 'self' && tool.sideEffect === 'none')).toBe(
-      true,
-    );
-    const subscription = tools.find((tool) => tool.name === 'get_my_subscription')!;
+    expect(
+      tools.every(
+        (tool) => tool.scope === 'self' && tool.sideEffect === 'none',
+      ),
+    ).toBe(true);
+    const subscription = tools.find(
+      (tool) => tool.name === 'get_my_subscription',
+    )!;
     const payments = tools.find((tool) => tool.name === 'get_my_payments')!;
-    await expect(subscription.execute({}, actor('user-a'))).resolves.toMatchObject({
+    await expect(
+      subscription.execute({}, actor('user-a')),
+    ).resolves.toMatchObject({
       planName: 'blue',
     });
-    await expect(subscription.execute({}, actor('user-b'))).resolves.toMatchObject({
+    await expect(
+      subscription.execute({}, actor('user-b')),
+    ).resolves.toMatchObject({
       planName: 'gold',
     });
     await payments.execute({ userId: 'user-b', limit: 5 }, actor('user-a'));
@@ -157,7 +166,9 @@ describe('customer-service agent', () => {
     let step = 0;
     const model: AgentModel = {
       complete: async (request) => {
-        const user = request.messages.find((message) => message.role === 'user');
+        const user = request.messages.find(
+          (message) => message.role === 'user',
+        );
         expect(user?.content).toContain('<<<UNTRUSTED_DATA>>>');
         expect(request.messages[0]?.content).not.toContain('user-b');
         expect(request.parallelToolCalls).toBe(false);

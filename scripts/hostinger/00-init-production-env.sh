@@ -118,6 +118,11 @@ write_kv() {
   )
   for k in "${secret_keys[@]}"; do
     v="$(get_existing "$k")"
+    # Single-node Redis refuses to start without a password. Generate one
+    # only when the file does not already have a value (never printed).
+    if [[ "$k" == "REDIS_PASSWORD" && -z "$v" ]]; then
+      v="$(openssl rand -hex 32)"
+    fi
     write_kv "$k" "$v"
   done
 } > "$OUT.new"

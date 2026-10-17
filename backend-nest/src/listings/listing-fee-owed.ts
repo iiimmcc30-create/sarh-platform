@@ -12,7 +12,10 @@ export const UNPAID_LISTING_FEE_STATUSES = ['pending', 'overdue'] as const;
 
 export const OWED_LISTING_FEE_WHERE: Prisma.ListingFeeWhereInput = {
   status: { in: [...UNPAID_LISTING_FEE_STATUSES] },
-  OR: [{ saleAmount: { not: null } }, { listing: { sellerDeclaredSold: true } }],
+  OR: [
+    { saleAmount: { not: null } },
+    { listing: { sellerDeclaredSold: true } },
+  ],
 };
 
 /** Pure check used by tests and in-memory callers. */

@@ -26,7 +26,12 @@ export class TechDraftStore {
     try {
       const client = this.cache.getClient();
       if (client.status !== 'ready') return;
-      await client.set(KEY, JSON.stringify(this.memory), 'EX', 7 * 24 * 60 * 60);
+      await client.set(
+        KEY,
+        JSON.stringify(this.memory),
+        'EX',
+        7 * 24 * 60 * 60,
+      );
     } catch {
       // The in-process draft remains for this replica.
     }

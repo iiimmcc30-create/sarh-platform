@@ -15,7 +15,11 @@ import { CsAccountReads } from './cs-account-reads';
 import { buildCsTools } from './cs-tools';
 import { replyGroundedInTools } from './money-guard';
 import { CsWriteBudget } from './cs-write-budget';
-import { buildCsWriteTools, CS_WRITE_API, type CsWriteApi } from './cs-write-tools';
+import {
+  buildCsWriteTools,
+  CS_WRITE_API,
+  type CsWriteApi,
+} from './cs-write-tools';
 
 export const CS_WRITE_CONFIRM_HINT = [
   'إذا تبي أفتح تذكرة اكتب حرفيًا: نعم افتح تذكرة',
@@ -24,8 +28,7 @@ export const CS_WRITE_CONFIRM_HINT = [
 ].join('\n');
 
 export type CsReply =
-  | { accepted: true; replyAr: string }
-  | { accepted: false; replyAr: '' };
+  { accepted: true; replyAr: string } | { accepted: false; replyAr: '' };
 
 /**
  * One customer-service turn. The actor id is the server user id.

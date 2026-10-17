@@ -117,10 +117,7 @@ describe('NiWebhookService', () => {
     expect(result.status).toBe(503);
     expect(result.outcome).toBe('payment_not_found');
     expect(markWebhookProcessed).not.toHaveBeenCalled();
-    expect(markWebhookError).toHaveBeenCalledWith(
-      'evt-1',
-      'payment_not_found',
-    );
+    expect(markWebhookError).toHaveBeenCalledWith('evt-1', 'payment_not_found');
   });
 
   it('does not mark processed when processing fails (retryable)', async () => {

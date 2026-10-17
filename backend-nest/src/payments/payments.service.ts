@@ -53,10 +53,11 @@ import {
   sameMoneyAmount,
 } from './ni-fulfilment-guard';
 import { assertDevPaymentShortcutAllowed } from '../common/decorators/dev-only-route.decorator';
+import { moneyToNumber, type MoneyInput } from '../common/money';
 
 type NiVerifiablePayment = {
   id: string;
-  amount: number;
+  amount: MoneyInput;
   currency?: string | null;
   orderId?: string | null;
   transactionId?: string | null;
@@ -1016,7 +1017,7 @@ export class PaymentsService
         userId,
         type: 'system',
         titleAr: 'تم استرداد الدفع',
-        bodyAr: `تم استرداد ${payment.amount} ${payment.currency}.`,
+        bodyAr: `تم استرداد ${moneyToNumber(payment.amount)} ${payment.currency}.`,
         data: { paymentId: payment.id, transactionId: niTransactionId },
       });
       return 'processed';
@@ -1092,7 +1093,7 @@ export class PaymentsService
           await this.subscriptionLifecycle.notifyRenewalSuccess(
             userId,
             fulfillment.subscription.targetPlanId,
-            payment.amount,
+            moneyToNumber(payment.amount),
             payment.currency,
           );
         } else if (fulfillment.boost) {
@@ -1122,7 +1123,7 @@ export class PaymentsService
             userId,
             type: 'system',
             titleAr: '✅ شكراً على دعمك لسرح',
-            bodyAr: `تم استلام عمولتك بمبلغ ${payment.amount} ${payment.currency}. رقم العملية: ${niTransactionId}`,
+            bodyAr: `تم استلام عمولتك بمبلغ ${moneyToNumber(payment.amount)} ${payment.currency}. رقم العملية: ${niTransactionId}`,
             data: {
               paymentId: payment.id,
               transactionId: niTransactionId,
@@ -1134,7 +1135,7 @@ export class PaymentsService
             userId,
             type: 'system',
             titleAr: '✅ تم الدفع بنجاح',
-            bodyAr: `تم سداد ${payment.amount} ${payment.currency}. رقم العملية: ${niTransactionId}`,
+            bodyAr: `تم سداد ${moneyToNumber(payment.amount)} ${payment.currency}. رقم العملية: ${niTransactionId}`,
             data: { paymentId: payment.id, transactionId: niTransactionId },
           });
         }

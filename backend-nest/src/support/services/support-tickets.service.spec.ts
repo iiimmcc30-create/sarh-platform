@@ -154,7 +154,10 @@ describe('SupportTicketsService', () => {
     );
     const created = repo.createMessage.mock.calls.map((call) => call[0]);
     expect(created[0]).toEqual(
-      expect.objectContaining({ authorKind: 'CUSTOMER', body: 'ما جاني الكود' }),
+      expect.objectContaining({
+        authorKind: 'CUSTOMER',
+        body: 'ما جاني الكود',
+      }),
     );
     expect(created[1]).toEqual(
       expect.objectContaining({
@@ -575,8 +578,12 @@ describe('SupportTicketsService', () => {
         }),
       );
       await expect(
-        local.replyAsUser(user('cust-a'), ticketId, { body: 'ابي اميز اعلاني' }),
-      ).resolves.toEqual(expect.objectContaining({ message: expect.anything() }));
+        local.replyAsUser(user('cust-a'), ticketId, {
+          body: 'ابي اميز اعلاني',
+        }),
+      ).resolves.toEqual(
+        expect.objectContaining({ message: expect.anything() }),
+      );
       expect(sarhan.nextTurn).not.toHaveBeenCalled();
 
       await flushScheduledTurn();
@@ -657,10 +664,7 @@ describe('SupportTicketsService', () => {
         async (id: string, data: Record<string, unknown>) => {
           // A staff reply between the claim and this write sets IN_PROGRESS.
           // Copying status/handlerMode here would undo that reply.
-          if (
-            staffReplyLanded &&
-            ('status' in data || 'handlerMode' in data)
-          ) {
+          if (staffReplyLanded && ('status' in data || 'handlerMode' in data)) {
             return {
               id,
               ticketNumber: 'SRH-2026-000001',
@@ -903,7 +907,8 @@ describe('SupportTicketsService', () => {
         async (data: { body?: string; createdAt?: Date }) => ({
           id: 'm1',
           body: data.body ?? 'x',
-          createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
+          createdAt:
+            data.createdAt instanceof Date ? data.createdAt : new Date(),
         }),
       );
       repo.claimHumanHandoff.mockResolvedValue(true);
@@ -937,7 +942,9 @@ describe('SupportTicketsService', () => {
         reporter: { role: 'USER', username: '@Sarh' },
         messages: [{ authorKind: 'CUSTOMER', body: 'ماهو اشتراكي' }],
       });
-      await rooted.replyAsUser(user('founder-1'), 't1', { body: 'ماهو اشتراكي' });
+      await rooted.replyAsUser(user('founder-1'), 't1', {
+        body: 'ماهو اشتراكي',
+      });
       await flushScheduledTurn();
       expect(viaRoot.reply).toHaveBeenCalled();
       expect(sarhan.nextTurn).not.toHaveBeenCalled();
@@ -988,7 +995,9 @@ describe('SupportTicketsService', () => {
     it('AI_CS_AGENT_ENABLED off keeps the current assistant', async () => {
       delete process.env.AI_CS_AGENT_ENABLED;
       const { local, csAgent } = withCsAgent();
-      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await local.replyAsUser(user('cust-a'), 't1', {
+        body: 'وش حالة اشتراكي',
+      });
       await flushScheduledTurn();
       expect(csAgent.reply).not.toHaveBeenCalled();
       expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
@@ -1001,7 +1010,9 @@ describe('SupportTicketsService', () => {
         accepted: true,
         replyAr: 'اشتراكك مجاني',
       });
-      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await local.replyAsUser(user('cust-a'), 't1', {
+        body: 'وش حالة اشتراكي',
+      });
       await flushScheduledTurn();
       expect(csAgent.reply).toHaveBeenCalledWith({
         userId: 'cust-a',
@@ -1021,7 +1032,9 @@ describe('SupportTicketsService', () => {
       process.env.AI_CS_AGENT_ENABLED = 'on';
       const { local, csAgent } = withCsAgent();
       csAgent.reply.mockResolvedValue({ accepted: false, replyAr: '' });
-      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await local.replyAsUser(user('cust-a'), 't1', {
+        body: 'وش حالة اشتراكي',
+      });
       await flushScheduledTurn();
       expect(csAgent.reply).toHaveBeenCalled();
       expect(sarhan.nextTurn).toHaveBeenCalledTimes(1);
@@ -1042,7 +1055,9 @@ describe('SupportTicketsService', () => {
         metadata: {},
         missingInformation: [],
       });
-      await local.replyAsUser(user('cust-a'), 't1', { body: 'ابي استرجع فلوسي' });
+      await local.replyAsUser(user('cust-a'), 't1', {
+        body: 'ابي استرجع فلوسي',
+      });
       await flushScheduledTurn();
       expect(csAgent.reply).not.toHaveBeenCalled();
       expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
@@ -1072,7 +1087,9 @@ describe('SupportTicketsService', () => {
         reporterId: 'cust-a',
         messages: [{ authorKind: 'CUSTOMER', body: 'وش حالة اشتراكي' }],
       });
-      await local.replyAsUser(user('cust-a'), 't1', { body: 'وش حالة اشتراكي' });
+      await local.replyAsUser(user('cust-a'), 't1', {
+        body: 'وش حالة اشتراكي',
+      });
       await flushScheduledTurn();
       expect(csAgent.reply).not.toHaveBeenCalled();
       expect(sarhan.nextTurn).toHaveBeenCalled();
@@ -1112,7 +1129,11 @@ describe('SupportTicketsService', () => {
         subject: 'مساعدة',
       });
       await expect(
-        service.handoffOwnedTicket('cust-a', 'SRH-2026-000001', 'human_requested'),
+        service.handoffOwnedTicket(
+          'cust-a',
+          'SRH-2026-000001',
+          'human_requested',
+        ),
       ).resolves.toEqual({ ok: true, already: false });
       expect(repo.claimHumanHandoff).toHaveBeenCalledWith('t1');
       expect(notifications.notifyEscalatedToHuman).toHaveBeenCalledWith(

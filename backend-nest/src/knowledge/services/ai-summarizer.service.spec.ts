@@ -112,14 +112,16 @@ describe('AISummarizerService', () => {
       ],
       usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
     });
-    guard.run.mockImplementationOnce(async (opts: { call: (c: unknown) => Promise<{ value: string }> }) => {
-      const res = await opts.call({
-        signal: new AbortController().signal,
-        timeout: 1000,
-        maxRetries: 0,
-      });
-      return { ok: true, value: res.value, latencyMs: 4 };
-    });
+    guard.run.mockImplementationOnce(
+      async (opts: { call: (c: unknown) => Promise<{ value: string }> }) => {
+        const res = await opts.call({
+          signal: new AbortController().signal,
+          timeout: 1000,
+          maxRetries: 0,
+        });
+        return { ok: true, value: res.value, latencyMs: 4 };
+      },
+    );
     const ok = await service.summarize(input);
     expect(ok.summary).toContain('ملخص');
     expect(create.mock.calls[0][0].response_format).toEqual(
@@ -137,7 +139,7 @@ describe('AISummarizerService', () => {
     const broken = await service.summarize(input);
     expect(broken.summary).toContain(input.sourceUrl);
     expect(broken.summary).toContain('محتوى الخبر');
-    const errorLog = logger.error as unknown as jest.Mock;
+    const errorLog = (logger as unknown as { error: jest.Mock }).error;
     expect(JSON.stringify(errorLog.mock.calls)).not.toContain('{not json');
   });
 });

@@ -19,11 +19,7 @@ function fakeRedis(): AiBudgetRedis & { store: Map<string, number> } {
   return {
     store,
     status: 'ready',
-    eval: ((
-      _script: string,
-      nKeys: number,
-      ...rest: string[]
-    ) => {
+    eval: ((_script: string, nKeys: number, ...rest: string[]) => {
       const run = async () => {
         await new Promise((r) => setImmediate(r));
         const keys = rest.slice(0, nKeys);

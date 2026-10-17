@@ -3,7 +3,10 @@ import { csRolloutIncludes, parseCsRollout, stableBucket } from './cs-rollout';
 import { SafeActionService } from '../tech/safe-action.service';
 import { parseSafeAction } from '../tech/safe-actions';
 import { AiAuditService } from '../core/audit.service';
-import { evaluateHeuristic, loadGolden } from '../../support/ai/__eval__/evaluate-golden';
+import {
+  evaluateHeuristic,
+  loadGolden,
+} from '../../support/ai/__eval__/evaluate-golden';
 
 const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() } as never;
 
@@ -31,7 +34,10 @@ describe('customer-service rollout', () => {
     expect(parseCsRollout('true')).toEqual({ kind: 'off' });
     expect(parseCsRollout('nope')).toEqual({ kind: 'off' });
     expect(parseCsRollout('percent:101')).toEqual({ kind: 'off' });
-    expect(parseCsRollout('percent:5')).toEqual({ kind: 'percent', percent: 5 });
+    expect(parseCsRollout('percent:5')).toEqual({
+      kind: 'percent',
+      percent: 5,
+    });
     expect(parseCsRollout('staff_only')).toEqual({ kind: 'staff_only' });
     expect(parseCsRollout('on')).toEqual({ kind: 'on' });
   });
@@ -46,15 +52,27 @@ describe('customer-service rollout', () => {
     expect(csRolloutIncludes({ kind: 'staff_only' }, admin)).toBe(true);
     expect(csRolloutIncludes({ kind: 'staff_only' }, founder)).toBe(true);
     expect(
-      csRolloutIncludes({ kind: 'staff_only' }, { userId: 'f2', role: 'USER', username: '@Sarh' }),
+      csRolloutIncludes(
+        { kind: 'staff_only' },
+        { userId: 'f2', role: 'USER', username: '@Sarh' },
+      ),
     ).toBe(true);
     expect(
-      csRolloutIncludes({ kind: 'staff_only' }, { userId: 'f3', role: 'USER', username: '  SARH ' }),
+      csRolloutIncludes(
+        { kind: 'staff_only' },
+        { userId: 'f3', role: 'USER', username: '  SARH ' },
+      ),
     ).toBe(true);
     const bucket = stableBucket('user-a');
-    expect(csRolloutIncludes({ kind: 'percent', percent: 0 }, customer)).toBe(false);
-    expect(csRolloutIncludes({ kind: 'percent', percent: bucket }, customer)).toBe(false);
-    expect(csRolloutIncludes({ kind: 'percent', percent: bucket + 1 }, customer)).toBe(true);
+    expect(csRolloutIncludes({ kind: 'percent', percent: 0 }, customer)).toBe(
+      false,
+    );
+    expect(
+      csRolloutIncludes({ kind: 'percent', percent: bucket }, customer),
+    ).toBe(false);
+    expect(
+      csRolloutIncludes({ kind: 'percent', percent: bucket + 1 }, customer),
+    ).toBe(true);
     expect(stableBucket('user-a')).toBe(stableBucket('user-a'));
   });
 
@@ -88,9 +106,19 @@ describe('safe tech actions', () => {
 
   it('rejects actions outside the whitelist', () => {
     expect(parseSafeAction({ action: 'restart_worker' })).toBeNull();
-    expect(parseSafeAction({ action: 'retry_failed_jobs', queue: 'subscriptions' })).toBeNull();
-    expect(parseSafeAction({ action: 'clear_known_cache', cacheKey: 'user:1' })).toBeNull();
-    expect(parseSafeAction({ action: 'retry_failed_jobs', queue: 'notifications', max: 3 })).toEqual({
+    expect(
+      parseSafeAction({ action: 'retry_failed_jobs', queue: 'subscriptions' }),
+    ).toBeNull();
+    expect(
+      parseSafeAction({ action: 'clear_known_cache', cacheKey: 'user:1' }),
+    ).toBeNull();
+    expect(
+      parseSafeAction({
+        action: 'retry_failed_jobs',
+        queue: 'notifications',
+        max: 3,
+      }),
+    ).toEqual({
       action: 'retry_failed_jobs',
       queue: 'notifications',
       max: 3,
@@ -148,7 +176,9 @@ describe('safe tech actions', () => {
       ),
     ).resolves.toEqual({ ok: true });
     expect(retried).toEqual(['notifications:2']);
-    expect(rows.map((row) => `${row.tool}:${row.status}`)).toEqual([
+    expect(
+      rows.map((row) => `${String(row.tool)}:${String(row.status)}`),
+    ).toEqual([
       'propose_safe_action:ok',
       'approve_safe_action:denied',
       'approve_safe_action:denied',

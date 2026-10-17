@@ -8,6 +8,8 @@
 > - **لا migrations تلقائية** على خادم التطبيق (`SKIP_MIGRATIONS=true`)؛ تشغيل يدوي صريح عبر `scripts/app-server/migrate.sh` بعد نسخة احتياطية مُتحقَّق منها.
 > - الخطة الأساسية: تحويل الخادم الحالي **في مكانه** (إيقاف خدمات التطبيق فقط دون حذف أي volume)، والتراجع = تشغيل الـ stack القديم على نفس الـ volumes.
 
+النطاق الرسمي الحالي هو **https://getsarh.com**. `sarhsa.online` يبقى لواجهة الـ API والمقابس وإعادة توجيه الصفحات، ويجب أن تشير سجلات DNS لكلا النطاقين إلى خادم التطبيق. خطوات التحويل أدناه كُتبت عندما كان `sarhsa.online` هو العنوان العام الوحيد.
+
 No real IPs, hostnames or credentials belong in this repository. Every value below is a
 placeholder: `APP_SERVER_PUBLIC_IP`, `DATA_SERVER_PUBLIC_IP`, `APP_SERVER_PRIVATE_IP`,
 `DATA_SERVER_PRIVATE_IP`, `ADMIN_SSH_IP`, `POSTGRES_USER`, `POSTGRES_PASSWORD`,
@@ -285,9 +287,9 @@ Copy that dump off the server as well (it is the rollback of last resort).
 1. App server: `docker compose -f docker-compose.app.yml -f docker-compose.prod.ssl.yml --env-file .env.app stop`
 2. DNS back to `DATA_SERVER_PUBLIC_IP` (if already switched).
 3. Data server: `./scripts/data-server/rollback-to-single-server.sh` (type `ROLLBACK`): recreates
-   postgres/redis with the original definitions (unpublished, no password — `.env.production`
-   is unchanged) and starts all app services on the **same volumes**, so every write made via the
-   app server is kept. Then `./scripts/hostinger/05-verify.sh`.
+   postgres/redis from `docker-compose.prod.yml` and starts all app services on the **same volumes**,
+   so every write made via the app server is kept. Redis on that file requires `REDIS_PASSWORD`
+   in `.env.production` (no default). Then `./scripts/hostinger/05-verify.sh`.
 4. ufw/DOCKER-USER rules can stay (they only concern 5432/6379 on the private IP; nginx's
    published 80/443 are not filtered by ufw).
 

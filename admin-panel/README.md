@@ -1,6 +1,6 @@
 # سرح — لوحة الإدارة (Admin Panel)
 
-منصة إدارة ويب مستقلة عن تطبيق الموبايل. تُنشر على **https://sarhsa.online/admin** وترتبط بـ Backend API.
+منصة إدارة ويب مستقلة عن تطبيق الموبايل. العنوان الرسمي **https://getsarh.com/admin** (و`https://sarhsa.online/admin` يُحوَّل إليه). ترتبط بـ Backend API.
 
 ## التقنيات
 
@@ -94,7 +94,7 @@ npm.cmd run dev            # http://localhost:3000
    DATABASE_URL=postgresql://...
    JWT_SECRET=<32+ chars>
    JWT_REFRESH_SECRET=<32+ chars>
-   ALLOWED_ORIGINS=https://sarhsa.online,https://www.sarhsa.online
+   ALLOWED_ORIGINS=https://getsarh.com,https://www.getsarh.com,https://sarhsa.online,https://www.sarhsa.online
    NODE_ENV=production
    ASSISTANT_ENABLED=true
    REDIS_ENABLED=true
@@ -110,24 +110,25 @@ npm.cmd run dev            # http://localhost:3000
 2. Root Directory: `admin-panel`
 3. **Variables:**
    ```
-   NEXT_PUBLIC_API_URL=https://sarhsa.online
+   NEXT_PUBLIC_API_URL=https://getsarh.com
    ```
 4. **Build Command:** `npm run build`
 5. **Start Command:** `npm run start`
-6. **Domain:** `sarhsa.online/admin` على المضيف الحالي (Hostinger)
+6. **Domain:** `getsarh.com/admin` على المضيف الحالي (Hostinger). `sarhsa.online/admin` يُحوَّل 301 إلى نفس المسار.
 
-### C) ربط sarhsa.online
+### C) ربط النطاق
 
 1. في DNS:
-   - `sarhsa.online` → الخادم الإنتاجي
-   - لوحة الإدارة: `https://sarhsa.online/admin`
+   - `getsarh.com` و`www` → الخادم الإنتاجي (النطاق الرسمي)
+   - `sarhsa.online` و`www` → نفس الخادم (نطاق قديم: API وإعادة توجيه الصفحات)
+   - لوحة الإدارة: `https://getsarh.com/admin`
 2. في Backend `.env`:
    ```
-   ALLOWED_ORIGINS=https://sarhsa.online,https://www.sarhsa.online
+   ALLOWED_ORIGINS=https://getsarh.com,https://www.getsarh.com,https://sarhsa.online,https://www.sarhsa.online
    ```
 3. تأكد أن Admin Panel يستخدم:
    ```
-   NEXT_PUBLIC_API_URL=https://sarhsa.online
+   NEXT_PUBLIC_API_URL=https://getsarh.com
    ```
 
 ### D) إنشاء أول Admin
@@ -142,7 +143,7 @@ npm run create-admin
 
 ## الأمان (Production)
 
-- HTTPS إلزامي على sarhsa.online
+- HTTPS إلزامي على getsarh.com (وعلى sarhsa.online للنطاق القديم)
 - JWT قصير (15m) + Refresh Token
 - Rate limiting على `/api/admin/auth/login`
 - Cookie `admin_token` + localStorage للـ Bearer

@@ -49,9 +49,8 @@ export class AiAuditService {
   ) {}
 
   private delegate(): AuditDelegate | null {
-    const row = (
-      this.prisma as unknown as { aiAuditLog?: AuditDelegate }
-    ).aiAuditLog;
+    const row = (this.prisma as unknown as { aiAuditLog?: AuditDelegate })
+      .aiAuditLog;
     return row ?? null;
   }
 

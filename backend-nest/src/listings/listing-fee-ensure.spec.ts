@@ -1,4 +1,5 @@
 import { ensurePayableListingFee } from './listing-fee-ensure';
+import { toMoneyDecimal } from '../common/money';
 
 type FeeRow = { id: string; listingId: string; userId: string; status: string };
 type ListingRow = {
@@ -93,8 +94,8 @@ describe('ensurePayableListingFee', () => {
         userId: 'owner',
         category: 'camels',
         quantity: 2,
-        price: 5000,
-        commission: 50,
+        price: toMoneyDecimal(5000),
+        commission: toMoneyDecimal(50),
         dueDate: null,
         status: 'pending',
       },

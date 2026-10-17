@@ -1,5 +1,6 @@
 import type { PrismaService } from '../prisma/prisma.service';
 import { throwApi } from '../common/exceptions/api.exception';
+import { toMoneyDecimal } from '../common/money';
 import { calculateListingFeeAmount } from './listing-fee';
 
 /** Only the delegates the helper needs — keeps it testable with a plain fake. */
@@ -105,8 +106,8 @@ export async function ensurePayableListingFee(
         userId,
         category: listing.category,
         quantity: listing.quantity,
-        price: listing.price,
-        commission: calculateListingFeeAmount(listing.price),
+        price: toMoneyDecimal(listing.price),
+        commission: toMoneyDecimal(calculateListingFeeAmount(listing.price)),
         dueDate: null,
         status: 'pending',
       },
