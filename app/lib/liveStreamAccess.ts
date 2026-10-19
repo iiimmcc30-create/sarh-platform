@@ -2,6 +2,7 @@ import type { Router } from 'expo-router';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { API_BASE } from '@/services/api';
 import { showAlert } from '@/lib/confirmDialog';
+import { isLiveBroadcastEnabled } from '@/lib/rtcProvider';
 
 export type LiveStreamEligibility = {
   canStream: boolean;
@@ -95,10 +96,14 @@ export function showLiveBroadcastComingSoonAlert() {
 }
 
 export async function openLiveCreateIfAllowed(
-  _router: Router,
+  router: Router,
   _accessToken: string | null,
   _params?: Record<string, string>,
 ): Promise<boolean> {
-  showLiveBroadcastComingSoonAlert();
-  return false;
+  if (!isLiveBroadcastEnabled()) {
+    showLiveBroadcastComingSoonAlert();
+    return false;
+  }
+  router.push('/live/create' as never);
+  return true;
 }

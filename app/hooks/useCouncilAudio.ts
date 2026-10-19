@@ -6,6 +6,12 @@
 // which calls POST /councils/:id/token — the server re-reads my role from the DB, so a
 // demoted/muted/banned speaker cannot keep publishing by renewing.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  DisconnectReason,
+  Room,
+  RoomEvent,
+  ConnectionState,
+} from 'livekit-client';
 import { getCouncilAgoraModule } from '@/lib/councilsAgora';
 import {
   COUNCIL_SPEAKING_HOLD_MS,
@@ -20,7 +26,7 @@ import {
   isEngineBusyElsewhere,
   releaseRtcEngine,
 } from '@/lib/rtcEngineGuard';
-import type { CouncilAgoraCredentials, CouncilTokenResult } from '@/services/councils';
+import type { CouncilMediaCredentials, CouncilTokenResult } from '@/services/councils';
 
 export type CouncilAudioStatus =
   | 'idle'
@@ -55,8 +61,10 @@ const REASON_TOKEN_EXPIRED = 9;
 export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied }: Options) {
   const [status, setStatus] = useState<CouncilAudioStatus>('idle');
   const [speakingUids, setSpeakingUids] = useState<number[]>([]);
+  const [speakingIdentities, setSpeakingIdentities] = useState<string[]>([]);
 
   const engineRef = useRef<Engine | null>(null);
+  const roomRef = useRef<Room | null>(null);
   const handlerRef = useRef<Handler | null>(null);
   const publisherRef = useRef(false);
   const mutedRef = useRef(true);
@@ -102,7 +110,23 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
 
   /** Applies a (possibly changed) role to the running engine. */
   const applyCredentials = useCallback(
-    async (creds: Pick<CouncilAgoraCredentials, 'token' | 'role' | 'expiresIn' | 'publishExpiresIn'>, micMuted: boolean) => {
+    async (creds: Pick<CouncilMediaCredentials, 'token' | 'role' | 'expiresIn' | 'publishExpiresIn' | 'url' | 'provider'>, micMuted: boolean) => {
+      const room = roomRef.current;
+      if (room) {
+        let publisher = creds.role === 'publisher';
+        if (publisher && !publisherRef.current && !(await ensureMicPermission())) {
+          optsRef.current.onMicDenied?.();
+          publisher = false;
+        }
+        publisherRef.current = publisher;
+        mutedRef.current = !publisher || micMuted;
+        await room.localParticipant.setMicrophoneEnabled(publisher && !mutedRef.current);
+        if (creds.token && creds.url && room.state === ConnectionState.Disconnected) {
+          await room.connect(creds.url, creds.token);
+        }
+        scheduleRenew(creds);
+        return;
+      }
       const agora = getCouncilAgoraModule();
       const engine = engineRef.current;
       if (!agora || !engine) return;
@@ -152,7 +176,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
     return renewing.current;
   }, [applyCredentials]);
 
-  function scheduleRenew(creds: Pick<CouncilAgoraCredentials, 'expiresIn' | 'publishExpiresIn'>) {
+  function scheduleRenew(creds: Pick<CouncilMediaCredentials, 'expiresIn' | 'publishExpiresIn'>) {
     clearRenew();
     const ttl = Math.min(creds.expiresIn, creds.publishExpiresIn ?? creds.expiresIn);
     const delay = Math.max(15, ttl - RENEW_MARGIN_S) * 1000;
@@ -162,12 +186,19 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   const teardown = useCallback(() => {
     clearRenew();
     clearDecay();
+    const room = roomRef.current;
+    roomRef.current = null;
+    if (room) {
+      room.removeAllListeners();
+      void room.disconnect();
+    }
     const engine = engineRef.current;
     engineRef.current = null;
     publisherRef.current = false;
     speakingKey.current = '';
     lastLoud.current = {};
     setSpeakingUids([]);
+    setSpeakingIdentities([]);
     if (engine) {
       try {
         engine.leaveChannel();
@@ -182,7 +213,75 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   }, [councilId]);
 
   const start = useCallback(
-    async (creds: CouncilAgoraCredentials, micMuted: boolean): Promise<CouncilAudioStatus> => {
+    async (creds: CouncilMediaCredentials, micMuted: boolean): Promise<CouncilAudioStatus> => {
+      const livekit = creds.provider === 'livekit' || Boolean(creds.url);
+      if (livekit) {
+        if (!creds.url || !creds.token || !councilId) {
+          setStatus('unavailable');
+          return 'unavailable';
+        }
+        if (roomRef.current) {
+          await applyCredentials(creds, micMuted);
+          return 'connected';
+        }
+        let publisher = creds.role === 'publisher';
+        if (publisher && !(await ensureMicPermission())) {
+          optsRef.current.onMicDenied?.();
+          publisher = false;
+        }
+        if (!claimRtcEngine('council', councilId)) {
+          setStatus('busy');
+          return 'busy';
+        }
+        setStatus('connecting');
+        const room = new Room({
+          adaptiveStream: false,
+          dynacast: false,
+          audioCaptureDefaults: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        roomRef.current = room;
+        room.on(RoomEvent.Connected, () => setStatus('connected'));
+        room.on(RoomEvent.Reconnecting, () => setStatus('reconnecting'));
+        room.on(RoomEvent.Reconnected, () => setStatus('connected'));
+        room.on(RoomEvent.Disconnected, (reason) => {
+          if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
+            optsRef.current.onFatal?.('banned');
+            return;
+          }
+          if (reason === DisconnectReason.CLIENT_INITIATED) return;
+          setStatus('failed');
+        });
+        room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+          setSpeakingIdentities(speakers.map((s) => s.identity));
+        });
+        room.on(RoomEvent.ParticipantPermissionsChanged, (_prev, participant) => {
+          if (!participant.isLocal) return;
+          if (!participant.permissions?.canPublish) {
+            publisherRef.current = false;
+            mutedRef.current = true;
+            void room.localParticipant.setMicrophoneEnabled(false);
+          }
+        });
+        try {
+          await room.connect(creds.url, creds.token);
+          await room.startAudio().catch(() => undefined);
+          publisherRef.current = publisher;
+          mutedRef.current = !publisher || micMuted;
+          if (publisher) {
+            await room.localParticipant.setMicrophoneEnabled(!mutedRef.current);
+          }
+          scheduleRenew(creds);
+          return 'connecting';
+        } catch {
+          teardown();
+          setStatus('failed');
+          return 'failed';
+        }
+      }
       const agora = getCouncilAgoraModule();
       if (!agora || !councilId) {
         setStatus('unavailable');
@@ -276,7 +375,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
         engine.setClientRole(role);
         publisherRef.current = publisher;
         mutedRef.current = !publisher || micMuted;
-        const code = engine.joinChannel(creds.token, creds.channel, creds.uid, {
+        const code = engine.joinChannel(creds.token, creds.channel ?? '', creds.uid ?? 0, {
           clientRoleType: role,
           channelProfile: agora.ChannelProfileType.ChannelProfileLiveBroadcasting,
           publishMicrophoneTrack: publisher,
@@ -317,7 +416,10 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
 
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;
-    if (publisherRef.current) engineRef.current?.muteLocalAudioStream(muted);
+    if (publisherRef.current) {
+      engineRef.current?.muteLocalAudioStream(muted);
+      void roomRef.current?.localParticipant.setMicrophoneEnabled(!muted);
+    }
     if (muted && lastLoud.current[0] !== undefined) {
       // Stop my own indicator right away instead of waiting for the hold to run out.
       const rest: Record<number, number> = { ...lastLoud.current };
@@ -338,6 +440,13 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
    * resumeAudio), re-apply my mic state and refresh the token/role.
    */
   const recover = useCallback(() => {
+    const room = roomRef.current;
+    if (room) {
+      void room.localParticipant.setMicrophoneEnabled(
+        publisherRef.current && !mutedRef.current,
+      );
+      void renew();
+    }
     const engine = engineRef.current;
     if (!engine) return;
     try {
@@ -354,6 +463,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   return {
     status,
     speakingUids,
+    speakingIdentities,
     start,
     stop,
     setMuted,

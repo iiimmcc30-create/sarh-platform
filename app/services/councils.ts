@@ -185,18 +185,50 @@ export type CouncilAgoraCredentials = {
   publishExpiresIn: number | null;
 };
 
-export type CouncilJoinResult = {
-  state: CouncilState;
-  agora: CouncilAgoraCredentials | null;
-  agoraError: string | null;
+export type CouncilLiveKitCredentials = {
+  url: string;
+  token: string;
+  room: string;
+  role: 'publisher' | 'subscriber';
+  expiresIn: number;
+  publishExpiresIn: number | null;
 };
 
-export type CouncilTokenResult = CouncilAgoraCredentials & {
+/** Either provider. Agora fields are set for Agora; url/room for LiveKit. */
+export type CouncilMediaCredentials = {
+  provider?: 'livekit' | 'agora';
+  token: string;
+  role: 'publisher' | 'subscriber';
+  expiresIn: number;
+  publishExpiresIn: number | null;
+  appId?: string;
+  channel?: string;
+  uid?: number;
+  url?: string;
+  room?: string;
+};
+
+export type CouncilJoinResult = {
+  state: CouncilState;
+  provider?: 'livekit' | 'agora';
+  agora: CouncilAgoraCredentials | null;
+  agoraError: string | null;
+  livekit?: CouncilLiveKitCredentials | null;
+  livekitError?: string | null;
+};
+
+export type CouncilTokenResult = CouncilMediaCredentials & {
   seatIndex: number | null;
   micMuted: boolean;
   mutedByModerator: boolean;
   memberRole: CouncilMemberRole;
 };
+
+export function councilMediaFromJoin(res: CouncilJoinResult): CouncilMediaCredentials | null {
+  if (res.livekit) return { provider: 'livekit', ...res.livekit };
+  if (res.agora) return { provider: res.provider ?? 'agora', ...res.agora };
+  return null;
+}
 
 export type CouncilCard = {
   id: string;

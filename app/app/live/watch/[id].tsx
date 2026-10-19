@@ -1,5 +1,5 @@
 // app/live/watch/[id].tsx
-// Viewer screen: fetch Agora token → join channel → watch host stream
+// Viewer screen: fetch media token (LiveKit or Agora) → join → watch host stream
 // Navigation: router.push({ pathname: '/live/watch/[id]', params: { id: streamId } })
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 
@@ -19,7 +19,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AgoraVideoView } from '@/components/live/AgoraVideoView';
+import { LiveKitVideoView } from '@/components/live/LiveKitVideoView';
 import { isAgoraAvailable, VideoSourceType } from '@/lib/agora';
+import { rtcProvider } from '@/lib/rtcProvider';
 import { useYieldCouncilForLive } from '@/contexts/CouncilSessionContext';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useLiveSocket } from '@/hooks/useLiveSocket';
@@ -84,16 +86,16 @@ export default function WatchScreen() {
   const flatRef = useRef<FlatList>(null);
 
   // One native audio engine: an active «المجالس» session is left before the stream starts.
-  useYieldCouncilForLive(isAgoraAvailable());
-  const { isJoined, remoteUsers, error, join, leave } = useLiveStream({
+  const liveKit = rtcProvider() === 'livekit';
+  useYieldCouncilForLive(liveKit || isAgoraAvailable());
+  const { isJoined, remoteUsers, remoteVideoTrack, error, join, leave } = useLiveStream({
     role: 'viewer',
     onTokenWillExpire: async () => {
-      // Fetch a fresh viewer token
       const resp = await fetch(`${API_BASE}/api/livestreams/${id}?action=token`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const { data } = await resp.json();
-      return data.agoraToken;
+      return data.livekitToken || data.agoraToken;
     },
   });
 
@@ -127,12 +129,15 @@ export default function WatchScreen() {
         setLikes(s.likes);
         setComments((streamData.data.comments ?? []).reverse());
 
-        // Join Agora channel as viewer
         await join({
+          provider:     tokenData.data.provider,
           agoraAppId:   tokenData.data.agoraAppId,
           agoraChannel: tokenData.data.agoraChannel,
           agoraToken:   tokenData.data.agoraToken,
           agoraUid:     tokenData.data.agoraUid,
+          livekitUrl:   tokenData.data.livekitUrl,
+          livekitToken: tokenData.data.livekitToken,
+          livekitRoom:  tokenData.data.livekitRoom,
           expiresIn:    tokenData.data.expiresIn,
         });
 
@@ -150,7 +155,7 @@ export default function WatchScreen() {
 
   // ── Remote host video — first remote user is the host ──────────────────────
   useEffect(() => {
-    if (remoteUsers.length > 0) {
+    if (remoteUsers.length > 0 && remoteUsers[0].uid) {
       setHostUid(remoteUsers[0].uid);
     }
   }, [remoteUsers]);
@@ -176,6 +181,10 @@ export default function WatchScreen() {
     },
     onViewers: (count) => setViewers(count),
     onLike: () => setLikes((v) => v + 1),
+    onEnded: () => {
+      leave().catch(() => {});
+      router.back();
+    },
   });
 
   const sendComment = useCallback(() => {
@@ -203,7 +212,9 @@ export default function WatchScreen() {
     <View style={styles.container}>
 
       {/* Remote host video */}
-      {hostUid !== null ? (
+      {remoteVideoTrack ? (
+        <LiveKitVideoView track={remoteVideoTrack} style={StyleSheet.absoluteFill} />
+      ) : hostUid !== null ? (
         <AgoraVideoView
           canvas={{ uid: hostUid, sourceType: VideoSourceType.VideoSourceRemote }}
           style={StyleSheet.absoluteFill}

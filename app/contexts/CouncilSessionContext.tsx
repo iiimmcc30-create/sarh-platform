@@ -275,12 +275,17 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
         if (idRef.current !== id) return 'error';
         applyState(res.state);
         setJoined(true);
-        if (!res.agora) {
-          setAgoraError(res.agoraError ?? 'agora_unavailable');
+        const media = res.livekit
+          ? { provider: 'livekit' as const, ...res.livekit }
+          : res.agora
+            ? { provider: (res.provider ?? 'agora') as 'agora', ...res.agora }
+            : null;
+        if (!media) {
+          setAgoraError(res.livekitError ?? res.agoraError ?? 'livekit_unavailable');
           return 'joined';
         }
         setAgoraError(null);
-        await audioRef.current.start(res.agora, res.state.me.micMuted);
+        await audioRef.current.start(media, res.state.me.micMuted);
         return 'joined';
       } catch (err) {
         if (err instanceof CouncilApiError) {
@@ -625,10 +630,19 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       setLoadingMoreListeners(false);
     }
   }, []);
-  const speakingUserIds = useMemo(
-    () => (state ? speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me) : new Set<string>()),
-    [audio.speakingUids, stageSpeakers, state],
-  );
+  const speakingUserIds = useMemo(() => {
+    if (!state) return new Set<string>();
+    const ids = speakingUserIdsFor(audio.speakingUids, stageSpeakers, state.me);
+    for (const id of audio.speakingIdentities) {
+      if (id === state.me.userId) {
+        if (state.me.onStage && !state.me.micMuted && !state.me.mutedByModerator) ids.add(id);
+        continue;
+      }
+      const speaker = stageSpeakers.find((s) => s.userId === id);
+      if (speaker && !speaker.micMuted && !speaker.mutedByModerator) ids.add(id);
+    }
+    return ids;
+  }, [audio.speakingUids, audio.speakingIdentities, stageSpeakers, state]);
   const miniPlayerVisible = isMiniPlayerVisible({ councilId, joined, blocked, roomFocused, hasState: Boolean(state) });
 
   const value = useMemo<CouncilSessionValue>(
