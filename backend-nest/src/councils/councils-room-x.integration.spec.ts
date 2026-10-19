@@ -90,6 +90,7 @@ suite('Council room X Spaces grid + «عرض صورة» (real Postgres)', () => 
 
   beforeAll(async () => {
     process.env.REDIS_ENABLED = 'false';
+    process.env.RTC_PROVIDER = 'agora';
     delete process.env.AGORA_APP_ID;
     prisma = new PrismaClient({ datasources: { db: { url: DB_URL } } });
     const db = prisma as unknown as PrismaService;

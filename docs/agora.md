@@ -1,4 +1,7 @@
-# Agora RTC Tokens
+# Agora RTC Tokens (fallback provider)
+
+> Sarh's default RTC provider is now self-hosted LiveKit (`docs/livekit.md`). Agora stays available
+> as a fallback with `RTC_PROVIDER=agora`; everything below applies to that mode only.
 
 ## 1. Business Purpose
 

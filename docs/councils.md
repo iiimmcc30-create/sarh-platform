@@ -13,7 +13,7 @@ the web build shows an "available in the app" placeholder.
 | Realtime | `gateway/app.gateway.ts` (`council:join` / `council:leave` / `council:heartbeat`), `councils/services/council-realtime.service.ts`, Redis bridge `gateway/services/council-socket-bridge*.ts` |
 | Tokens | `backend-nest/src/shared/lib/agora.ts` → `generateCouncilToken` (live helpers unchanged) |
 | Optional Agora REST | `councils/services/council-agora-moderation.service.ts` |
-| App | `app/app/councils/*`, `app/components/councils/*`, `app/hooks/useCouncilAudio.ts`, `app/hooks/useCouncilSocket.ts`, `app/services/councils.ts`, `app/lib/councilsAgora.ts`, `app/lib/rtcEngineGuard.ts` |
+| App | `app/app/councils/*`, `app/components/councils/*`, `app/hooks/useCouncilAudio.ts`, `app/hooks/useCouncilSocket.ts`, `app/services/councils.ts`, `app/lib/councilsAgora.ts`, `app/lib/rtcProvider.ts`, `app/lib/rtcEngineGuard.ts` |
 
 ## Seats & the 12-speaker cap
 
@@ -70,10 +70,20 @@ budget of 20 messages / 10s), not `@SubscribeMessage`: in the socket process the
 guards/interceptors (`JwtAuthGuard`, `RateLimitGuard`, `RequestIdInterceptor`) throw on the ws
 context.
 
-> Notes (pre-existing, not changed here): (1) chat messages are sent via REST from the API
-> process, where `SocketEmitService` has no server — those emits are no-ops there. (2) The same
-> global HTTP guards/interceptors make every existing `@SubscribeMessage` handler (`chat:*`,
-> `live:*`, `presence:ping`, …) fail in the socket process. Councils avoid both.
+> Notes: (1) chat messages are sent via REST from the API process, where `SocketEmitService`
+> has no server — those emits are no-ops there. (2) The global HTTP guards/interceptors now
+> return early for non-HTTP contexts (`context.getType() !== 'http'`), so `@SubscribeMessage`
+> handlers (`chat:*`, `live:*`, `presence:ping`, …) work in the socket process; socket auth stays
+> in `handleConnection` (handlers wait for `client.data.user` via `socketUser()`).
+
+## Media (LiveKit by default)
+
+`RTC_PROVIDER=livekit|agora` (default `livekit`). Room = `council_<hex id>`, identity = userId.
+Listeners get a subscribe-only token; speakers get a microphone-only publish token (never camera,
+no data). Moderation applies instantly through the LiveKit server API (`updateParticipant`
+permission, `mutePublishedTrack`, `removeParticipant` with token revocation) on seat accept,
+role change, mute, kick and ban. With `agora` the previous behaviour (token renewal + kicking
+rule) is kept. See `docs/livekit.md`.
 
 ## Rules & edge cases
 
@@ -88,7 +98,7 @@ context.
 - App: one engine at a time (`rtcEngineGuard`) — a council will not start while a live stream is
   connected. Audio runs only while the room screen is focused. v1 background policy: auto-mute
   speakers when the app goes to the background; resync on foreground (no `UIBackgroundModes`).
-- The app loads Agora for councils via `EXPO_PUBLIC_COUNCILS_ENABLED` (true in `eas.json`
+- With `RTC_PROVIDER=agora` the app loads Agora for councils via `EXPO_PUBLIC_COUNCILS_ENABLED` (true in `eas.json`
   profiles). Live streaming keeps its own `EXPO_PUBLIC_AGORA_ENABLED` gating, unchanged.
 
 ## Deploy checklist

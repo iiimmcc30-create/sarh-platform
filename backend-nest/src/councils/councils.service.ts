@@ -13,6 +13,17 @@ import {
   generateCouncilToken,
   isAgoraConfigured,
 } from '../shared/lib/agora';
+import { getRtcProvider } from '../shared/rtc/rtc-provider';
+import {
+  LIVEKIT_COUNCIL_TTL_SEC,
+  councilRoomName,
+  createLivekitToken,
+  deleteLivekitRoom,
+  isLivekitConfigured,
+  removeLivekitParticipant,
+  requireLivekitConfig,
+  setLivekitPublish,
+} from '../shared/rtc/livekit';
 import {
   COUNCIL_HOST_ABSENT_END_MS,
   COUNCIL_KICK_MINUTES,
@@ -362,27 +373,72 @@ export class CouncilsService {
     };
   }
 
-  /** Role-based Agora credentials; `agora: null` when Agora is not configured. */
-  private credentials(
+  /**
+   * Role-based RTC credentials. LiveKit is the default; Agora stays available
+   * when `RTC_PROVIDER=agora`. The unused side is null.
+   */
+  private async credentials(
     councilId: string,
     userId: string,
     member: CouncilMember,
   ) {
-    if (!isAgoraConfigured()) {
-      return { agora: null, agoraError: 'agora_unavailable' as const };
+    const role = rtcRoleFor(member);
+    if (getRtcProvider() === 'agora') {
+      if (!isAgoraConfigured()) {
+        return {
+          provider: 'agora' as const,
+          agora: null,
+          agoraError: 'agora_unavailable' as const,
+          livekit: null,
+          livekitError: null,
+        };
+      }
+      const t = generateCouncilToken(councilId, userId, role);
+      return {
+        provider: 'agora' as const,
+        agora: {
+          appId: process.env.AGORA_APP_ID as string,
+          channel: t.channel,
+          token: t.token,
+          uid: t.uid,
+          role: t.role,
+          expiresIn: t.expiresIn,
+          publishExpiresIn: t.publishExpiresIn,
+        },
+        agoraError: null,
+        livekit: null,
+        livekitError: null,
+      };
     }
-    const t = generateCouncilToken(councilId, userId, rtcRoleFor(member));
+    if (!isLivekitConfigured()) {
+      return {
+        provider: 'livekit' as const,
+        agora: null,
+        agoraError: null,
+        livekit: null,
+        livekitError: 'livekit_unavailable' as const,
+      };
+    }
+    const room = councilRoomName(councilId);
+    const token = await createLivekitToken({
+      identity: userId,
+      room,
+      ttlSeconds: LIVEKIT_COUNCIL_TTL_SEC,
+      publish: role === 'publisher' ? 'audio' : 'none',
+    });
     return {
-      agora: {
-        appId: process.env.AGORA_APP_ID as string,
-        channel: t.channel,
-        token: t.token,
-        uid: t.uid,
-        role: t.role,
-        expiresIn: t.expiresIn,
-        publishExpiresIn: t.publishExpiresIn,
-      },
+      provider: 'livekit' as const,
+      agora: null,
       agoraError: null,
+      livekit: {
+        url: requireLivekitConfig().url,
+        token,
+        room,
+        role,
+        expiresIn: LIVEKIT_COUNCIL_TTL_SEC,
+        publishExpiresIn: null as number | null,
+      },
+      livekitError: null,
     };
   }
 
@@ -488,13 +544,16 @@ export class CouncilsService {
     if (scheduledFor) {
       return {
         state: await this.buildState(council, user.userId, member),
+        provider: getRtcProvider(),
         agora: null,
         agoraError: 'council_scheduled' as const,
+        livekit: null,
+        livekitError: 'council_scheduled' as const,
       };
     }
     return {
       state: await this.buildState(council, user.userId, member),
-      ...this.credentials(id, user.userId, member!),
+      ...(await this.credentials(id, user.userId, member!)),
     };
   }
 
@@ -567,7 +626,7 @@ export class CouncilsService {
     }
     return {
       state: await this.buildState(council, user.userId, joined),
-      ...this.credentials(id, user.userId, joined),
+      ...(await this.credentials(id, user.userId, joined)),
     };
   }
 
@@ -576,15 +635,23 @@ export class CouncilsService {
     const { council, member } = await this.loadForViewer(id, user.userId);
     this.assertLive(council);
     this.assertActiveMember(member);
-    const creds = this.credentials(id, user.userId, member);
-    if (!creds.agora) {
-      throwApi(503, 'agora_unavailable', 'الصوت غير متاح حالياً');
+    const creds = await this.credentials(id, user.userId, member);
+    const flat = creds.provider === 'livekit' ? creds.livekit : creds.agora;
+    if (!flat) {
+      throwApi(
+        503,
+        creds.provider === 'livekit'
+          ? 'livekit_unavailable'
+          : 'agora_unavailable',
+        'الصوت غير متاح حالياً',
+      );
     }
     if (council.ownerId === user.userId) {
       await this.realtime.touchHost(id, user.userId);
     }
     return {
-      ...creds.agora,
+      provider: creds.provider,
+      ...flat,
       seatIndex: member.seatIndex,
       micMuted: member.micMuted,
       mutedByModerator: member.mutedByModerator,
@@ -803,7 +870,7 @@ export class CouncilsService {
       const member = await this.findMember(this.prisma, id, user.userId);
       return {
         state: await this.buildState(council, user.userId, member),
-        ...this.credentials(id, user.userId, member!),
+        ...(await this.credentials(id, user.userId, member!)),
       };
     }
     if (council.status !== 'SCHEDULED') this.assertLive(council);
@@ -822,7 +889,7 @@ export class CouncilsService {
     const fresh = await this.loadForViewer(id, user.userId);
     return {
       state: await this.buildState(fresh.council, user.userId, fresh.member),
-      ...this.credentials(id, user.userId, fresh.member!),
+      ...(await this.credentials(id, user.userId, fresh.member!)),
     };
   }
 
@@ -1030,6 +1097,9 @@ export class CouncilsService {
     if (endedAt) {
       this.realtime.emitToCouncil(id, 'council:ended', { endedAt });
       await this.presence.clear(id);
+      if (getRtcProvider() === 'livekit') {
+        void deleteLivekitRoom(councilRoomName(id));
+      }
       this.logger.info({ councilId: id }, 'Council ended');
     }
     return endedAt;
@@ -1535,7 +1605,15 @@ export class CouncilsService {
         mutedByModerator: false,
       });
       await this.realtime.emitSpeakers(id);
-      void this.agoraModeration.lift(id, out.userId);
+      if (getRtcProvider() === 'agora') {
+        void this.agoraModeration.lift(id, out.userId);
+      } else {
+        void setLivekitPublish({
+          room: councilRoomName(id),
+          identity: out.userId,
+          publish: 'audio',
+        });
+      }
     }
     await this.realtime.emitRequests(id);
     return { requestId, status: out.status, seatIndex: out.seatIndex };
@@ -1724,11 +1802,15 @@ export class CouncilsService {
         reason: action === 'ban' ? 'banned' : 'removed',
       });
       await this.presence.remove(id, targetUserId);
-      void this.agoraModeration.blockJoin(
-        id,
-        targetUserId,
-        action === 'ban' ? BAN_AGORA_SECONDS : COUNCIL_KICK_MINUTES * 60,
-      );
+      if (getRtcProvider() === 'agora') {
+        void this.agoraModeration.blockJoin(
+          id,
+          targetUserId,
+          action === 'ban' ? BAN_AGORA_SECONDS : COUNCIL_KICK_MINUTES * 60,
+        );
+      } else {
+        void removeLivekitParticipant(councilRoomName(id), targetUserId);
+      }
     } else if (action !== 'unban') {
       this.realtime.emitToUser(targetUserId, id, 'council:role', {
         role: after.role,
@@ -1738,18 +1820,28 @@ export class CouncilsService {
       });
     }
 
-    if (action === 'demote' || action === 'mute') {
-      void this.agoraModeration.blockPublish(
-        id,
-        targetUserId,
-        COUNCIL_SPEAKER_PUBLISH_EXPIRE,
-      );
-    } else if (
-      action === 'promote' ||
-      action === 'unmute' ||
-      action === 'unban'
-    ) {
-      void this.agoraModeration.lift(id, targetUserId);
+    if (getRtcProvider() === 'agora') {
+      if (action === 'demote' || action === 'mute') {
+        void this.agoraModeration.blockPublish(
+          id,
+          targetUserId,
+          COUNCIL_SPEAKER_PUBLISH_EXPIRE,
+        );
+      } else if (
+        action === 'promote' ||
+        action === 'unmute' ||
+        action === 'unban'
+      ) {
+        void this.agoraModeration.lift(id, targetUserId);
+      }
+    } else if (action !== 'kick' && action !== 'ban') {
+      const publish = rtcRoleFor(after) === 'publisher';
+      void setLivekitPublish({
+        room: councilRoomName(id),
+        identity: targetUserId,
+        publish: publish ? 'audio' : 'none',
+        muteAudio: !publish,
+      });
     }
 
     const stageTouched =

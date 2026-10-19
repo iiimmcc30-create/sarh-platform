@@ -198,3 +198,15 @@ Live minute billing updates `Subscription` directly in `endStream` (usage tied t
 **83%**
 
 Full create/start/end API, Agora tokens, socket realtime, entitlement gating, and follower notifications are implemented. Needs production Agora credentials, dev-build distribution, and viewer-count hardening.
+
+
+## RTC provider (LiveKit / Agora)
+
+Create-stream and `?action=token` responses keep the Agora fields and add `provider`,
+`livekitUrl`, `livekitToken`, `livekitRoom` (unused side is `null`). Room = stream id without
+hyphens; host token publishes camera + mic, viewers are subscribe-only. With LiveKit the
+`POST /api/livekit/webhook` endpoint (signature verified) keeps `viewers` / `peakViewers`
+accurate from participant joined/left events and ends the stream on `room_finished`; the socket
+`live:join` / `live:leave` no longer change the count. Ending a stream deletes the LiveKit room and
+emits `live:ended` to the `stream:<id>` room (through the Redis bridge from the API process).
+See `docs/livekit.md`.

@@ -150,6 +150,20 @@ export class LivestreamsRepository {
     });
   }
 
+  setStreamViewers(id: string, viewers: number) {
+    return this.prisma.liveStream.updateMany({
+      where: { id, isLive: true },
+      data: { viewers },
+    });
+  }
+
+  raisePeakViewers(id: string, viewers: number) {
+    return this.prisma.liveStream.updateMany({
+      where: { id, isLive: true, peakViewers: { lt: viewers } },
+      data: { peakViewers: viewers },
+    });
+  }
+
   endStream(id: string, endedAt: Date) {
     return this.prisma.liveStream.update({
       where: { id },

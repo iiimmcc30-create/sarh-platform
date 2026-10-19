@@ -124,6 +124,25 @@ export function validateProductionEnv(): void {
     );
   }
 
+  const rtcProvider = (process.env.RTC_PROVIDER ?? 'livekit')
+    .trim()
+    .toLowerCase();
+  if (rtcProvider === 'agora') {
+    missing.push(...collectMissing(['AGORA_APP_ID', 'AGORA_APP_CERTIFICATE']));
+  } else {
+    missing.push(
+      ...collectMissing([
+        'LIVEKIT_URL',
+        'LIVEKIT_API_KEY',
+        'LIVEKIT_API_SECRET',
+      ]),
+    );
+    const livekitUrl = process.env.LIVEKIT_URL?.trim() ?? '';
+    if (livekitUrl && !/^wss:\/\//i.test(livekitUrl)) {
+      problems.push('LIVEKIT_URL must be a wss:// URL in production');
+    }
+  }
+
   const uniqueMissing = [...new Set(missing)].filter(Boolean);
   if (uniqueMissing.length || problems.length) {
     const lines = [

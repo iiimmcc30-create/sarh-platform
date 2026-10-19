@@ -4,6 +4,7 @@ import { SocketDisconnectService } from './services/socket-disconnect.service';
 import { SocketEmitService } from './services/socket-emit.service';
 import { CouncilSocketBridgeService } from './services/council-socket-bridge.service';
 import { SupportSocketBridgeService } from './services/support-socket-bridge.service';
+import { LiveSocketBridgeService } from './services/live-socket-bridge.service';
 
 @Module({
   imports: [CommonModule],
@@ -12,12 +13,14 @@ import { SupportSocketBridgeService } from './services/support-socket-bridge.ser
     SocketEmitService,
     CouncilSocketBridgeService,
     SupportSocketBridgeService,
+    LiveSocketBridgeService,
   ],
   exports: [
     SocketDisconnectService,
     SocketEmitService,
     CouncilSocketBridgeService,
     SupportSocketBridgeService,
+    LiveSocketBridgeService,
   ],
 })
 export class GatewaySharedModule {}
