@@ -1,0 +1,48 @@
+# Dedicated media server (LiveKit + Caddy). Run on its own VPS — NOT on the DB server.
+#   cp .env.media.example .env.media   # then fill the secret
+#   docker compose -f docker-compose.media.yml --env-file .env.media up -d
+# Host networking is required: WebRTC needs the real UDP port range and public IP.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./infra/media/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  livekit:
+    image: livekit/livekit-server:v1.9
+    restart: unless-stopped
+    network_mode: host
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+      - turn_certs:/certs:ro
+    depends_on:
+      turn-certs:
+        condition: service_completed_successfully
+
+  # Copies the TURN certificate Caddy obtained into a volume LiveKit can read.
+  # Re-run (and restart livekit) after renewals: see docs/livekit.md.
+  turn-certs:
+    image: alpine:3
+    network_mode: none
+    restart: "no"
+    volumes:
+      - caddy_data:/caddy:ro
+      - turn_certs:/certs
+    command: >
+      sh -c "d=/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/turn.getsarh.com;
+      until [ -f $$d/turn.getsarh.com.crt ]; do sleep 2; done;
+      cp $$d/turn.getsarh.com.crt $$d/turn.getsarh.com.key /certs/"
+    depends_on:
+      - caddy
+
+volumes:
+  caddy_data:
+  caddy_config:
+  turn_certs:

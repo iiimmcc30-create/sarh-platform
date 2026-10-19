@@ -1,0 +1,9 @@
+# TLS for LiveKit signalling (wss://rtc.getsarh.com) and the TURN certificate.
+rtc.getsarh.com {
+	reverse_proxy 127.0.0.1:7880
+}
+
+# Caddy only obtains/renews this certificate; LiveKit's TURN/TLS reads it from the shared volume.
+turn.getsarh.com {
+	respond "ok" 200
+}
