@@ -35,7 +35,6 @@ import {
   parseCouncilSchedule,
   COUNCIL_MAX_SPEAKERS,
   COUNCIL_REQUEST_COOLDOWN_MS,
-  COUNCIL_JOIN_CODE_RE,
   councilPublishFor,
   generateJoinCode,
   isVerifiedSeller,
@@ -1289,6 +1288,54 @@ export class CouncilsService {
       this.logger.info({ councilId: id }, 'Council ended');
     }
     return endedAt;
+  }
+
+  /** Admin force-close: ends the council like the host would (idempotent). */
+  async forceEnd(id: string): Promise<Date | null> {
+    return this.endCouncil(id);
+  }
+
+  /**
+   * Re-applies publish permissions to everyone on stage (after the golden flag changes).
+   * Revoking golden also drops camera approvals and the stage gallery.
+   */
+  async refreshPublishGrants(id: string): Promise<void> {
+    const council = await this.prisma.council.findUnique({ where: { id } });
+    if (!council || council.status !== 'LIVE') return;
+    if (!council.golden) {
+      await this.prisma.councilMember.updateMany({
+        where: { councilId: id, cameraAllowed: true },
+        data: { cameraAllowed: false },
+      });
+      if (council.imageUrl || council.stageImages.length > 0) {
+        await this.prisma.council.update({
+          where: { id },
+          data: {
+            imageUrl: null,
+            imageListingId: null,
+            imageById: null,
+            imageAt: null,
+            stageImages: [],
+            stageIndex: 0,
+          },
+        });
+        await this.realtime.emitImage(id, null);
+      }
+    }
+    if (getRtcProvider() === 'livekit') {
+      const staged = await this.prisma.councilMember.findMany({
+        where: { councilId: id, seatIndex: { not: null } },
+      });
+      for (const m of staged) {
+        void setLivekitPublish({
+          room: councilRoomName(id),
+          identity: m.userId,
+          publish: await this.publishFor(council, m),
+        });
+      }
+    }
+    this.realtime.emitToCouncil(id, 'council:updated', {});
+    await this.realtime.emitSpeakers(id);
   }
 
   /** Owner gone (no heartbeat / API call) for 30 min → the council ends by itself. */
