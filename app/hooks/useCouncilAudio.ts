@@ -6,6 +6,16 @@
 // which calls POST /councils/:id/token — the server re-reads my role from the DB, so a
 // demoted/muted/banned speaker cannot keep publishing by renewing.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  DisconnectReason,
+  Room,
+  RoomEvent,
+  ConnectionState,
+  Track,
+  VideoPreset,
+  type RemoteTrackPublication,
+  type VideoTrack,
+} from 'livekit-client';
 import { getCouncilAgoraModule } from '@/lib/councilsAgora';
 import {
   COUNCIL_SPEAKING_HOLD_MS,
@@ -14,13 +24,36 @@ import {
   updateSpeaking,
   type LastLoudMap,
 } from '@/lib/councilSpeaking';
-import { ensureMicPermission } from '@/lib/livePermissions';
+import { ensureCameraPermission, ensureMicPermission } from '@/lib/livePermissions';
 import {
   claimRtcEngine,
   isEngineBusyElsewhere,
   releaseRtcEngine,
 } from '@/lib/rtcEngineGuard';
-import type { CouncilAgoraCredentials, CouncilTokenResult } from '@/services/councils';
+import {
+  councilCameraOptions,
+  type CouncilMediaCredentials,
+  type CouncilTokenResult,
+  type CouncilVideoProfile,
+} from '@/services/councils';
+
+/** A camera track on the council stage (golden councils only). */
+export type CouncilVideoTrack = { identity: string; isLocal: boolean; track: VideoTrack };
+
+function collectVideoTracks(room: Room): CouncilVideoTrack[] {
+  const out: CouncilVideoTrack[] = [];
+  const local = room.localParticipant.getTrackPublication(Track.Source.Camera);
+  if (local?.track && !local.isMuted) {
+    out.push({ identity: room.localParticipant.identity, isLocal: true, track: local.track as VideoTrack });
+  }
+  room.remoteParticipants.forEach((p) => {
+    const pub = p.getTrackPublication(Track.Source.Camera);
+    if (pub?.track && pub.isSubscribed && !pub.isMuted) {
+      out.push({ identity: p.identity, isLocal: false, track: pub.track as VideoTrack });
+    }
+  });
+  return out;
+}
 
 export type CouncilAudioStatus =
   | 'idle'
@@ -55,11 +88,18 @@ const REASON_TOKEN_EXPIRED = 9;
 export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied }: Options) {
   const [status, setStatus] = useState<CouncilAudioStatus>('idle');
   const [speakingUids, setSpeakingUids] = useState<number[]>([]);
+  const [speakingIdentities, setSpeakingIdentities] = useState<string[]>([]);
+  const [videoTracks, setVideoTracks] = useState<CouncilVideoTrack[]>([]);
+  const [cameraOn, setCameraOn] = useState(false);
 
   const engineRef = useRef<Engine | null>(null);
+  const roomRef = useRef<Room | null>(null);
   const handlerRef = useRef<Handler | null>(null);
   const publisherRef = useRef(false);
   const mutedRef = useRef(true);
+  const canCameraRef = useRef(false);
+  const videoProfileRef = useRef<CouncilVideoProfile | null>(null);
+  const watchVideoRef = useRef(false);
   const renewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const renewing = useRef<Promise<void> | null>(null);
   const restarting = useRef(false);
@@ -102,7 +142,28 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
 
   /** Applies a (possibly changed) role to the running engine. */
   const applyCredentials = useCallback(
-    async (creds: Pick<CouncilAgoraCredentials, 'token' | 'role' | 'expiresIn' | 'publishExpiresIn'>, micMuted: boolean) => {
+    async (creds: Pick<CouncilMediaCredentials, 'token' | 'role' | 'expiresIn' | 'publishExpiresIn' | 'url' | 'provider' | 'canCamera' | 'videoProfile'>, micMuted: boolean) => {
+      const room = roomRef.current;
+      if (room) {
+        canCameraRef.current = Boolean(creds.canCamera) && creds.role === 'publisher';
+        videoProfileRef.current = creds.videoProfile ?? null;
+        if (!canCameraRef.current && room.localParticipant.isCameraEnabled) {
+          await room.localParticipant.setCameraEnabled(false);
+        }
+        let publisher = creds.role === 'publisher';
+        if (publisher && !publisherRef.current && !(await ensureMicPermission())) {
+          optsRef.current.onMicDenied?.();
+          publisher = false;
+        }
+        publisherRef.current = publisher;
+        mutedRef.current = !publisher || micMuted;
+        await room.localParticipant.setMicrophoneEnabled(publisher && !mutedRef.current);
+        if (creds.token && creds.url && room.state === ConnectionState.Disconnected) {
+          await room.connect(creds.url, creds.token);
+        }
+        scheduleRenew(creds);
+        return;
+      }
       const agora = getCouncilAgoraModule();
       const engine = engineRef.current;
       if (!agora || !engine) return;
@@ -152,7 +213,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
     return renewing.current;
   }, [applyCredentials]);
 
-  function scheduleRenew(creds: Pick<CouncilAgoraCredentials, 'expiresIn' | 'publishExpiresIn'>) {
+  function scheduleRenew(creds: Pick<CouncilMediaCredentials, 'expiresIn' | 'publishExpiresIn'>) {
     clearRenew();
     const ttl = Math.min(creds.expiresIn, creds.publishExpiresIn ?? creds.expiresIn);
     const delay = Math.max(15, ttl - RENEW_MARGIN_S) * 1000;
@@ -162,12 +223,23 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   const teardown = useCallback(() => {
     clearRenew();
     clearDecay();
+    const room = roomRef.current;
+    roomRef.current = null;
+    canCameraRef.current = false;
+    videoProfileRef.current = null;
+    setVideoTracks([]);
+    setCameraOn(false);
+    if (room) {
+      room.removeAllListeners();
+      void room.disconnect();
+    }
     const engine = engineRef.current;
     engineRef.current = null;
     publisherRef.current = false;
     speakingKey.current = '';
     lastLoud.current = {};
     setSpeakingUids([]);
+    setSpeakingIdentities([]);
     if (engine) {
       try {
         engine.leaveChannel();
@@ -182,7 +254,102 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   }, [councilId]);
 
   const start = useCallback(
-    async (creds: CouncilAgoraCredentials, micMuted: boolean): Promise<CouncilAudioStatus> => {
+    async (creds: CouncilMediaCredentials, micMuted: boolean): Promise<CouncilAudioStatus> => {
+      const livekit = creds.provider === 'livekit' || Boolean(creds.url);
+      if (livekit) {
+        if (!creds.url || !creds.token || !councilId) {
+          setStatus('unavailable');
+          return 'unavailable';
+        }
+        if (roomRef.current) {
+          await applyCredentials(creds, micMuted);
+          return 'connected';
+        }
+        let publisher = creds.role === 'publisher';
+        if (publisher && !(await ensureMicPermission())) {
+          optsRef.current.onMicDenied?.();
+          publisher = false;
+        }
+        if (!claimRtcEngine('council', councilId)) {
+          setStatus('busy');
+          return 'busy';
+        }
+        setStatus('connecting');
+        canCameraRef.current = Boolean(creds.canCamera) && creds.role === 'publisher';
+        videoProfileRef.current = creds.videoProfile ?? null;
+        // adaptiveStream + dynacast: video that is not rendered / has no viewer costs no
+        // bandwidth; audio-only councils are unaffected.
+        const room = new Room({
+          adaptiveStream: true,
+          dynacast: true,
+          audioCaptureDefaults: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        roomRef.current = room;
+        room.on(RoomEvent.Connected, () => setStatus('connected'));
+        room.on(RoomEvent.Reconnecting, () => setStatus('reconnecting'));
+        room.on(RoomEvent.Reconnected, () => setStatus('connected'));
+        room.on(RoomEvent.Disconnected, (reason) => {
+          if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
+            optsRef.current.onFatal?.('banned');
+            return;
+          }
+          if (reason === DisconnectReason.CLIENT_INITIATED) return;
+          setStatus('failed');
+        });
+        room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+          setSpeakingIdentities(speakers.map((s) => s.identity));
+        });
+        room.on(RoomEvent.ParticipantPermissionsChanged, (_prev, participant) => {
+          if (!participant.isLocal) return;
+          if (!participant.permissions?.canPublish) {
+            publisherRef.current = false;
+            mutedRef.current = true;
+            canCameraRef.current = false;
+            void room.localParticipant.setMicrophoneEnabled(false);
+            void room.localParticipant.setCameraEnabled(false);
+          }
+        });
+        const syncVideo = () => {
+          setVideoTracks(collectVideoTracks(room));
+          setCameraOn(room.localParticipant.isCameraEnabled);
+        };
+        // Listeners subscribe to a camera only while the stage is being watched.
+        const applyWatch = (pub: RemoteTrackPublication) => {
+          if (pub.kind === Track.Kind.Video && pub.isSubscribed !== watchVideoRef.current) {
+            pub.setSubscribed(watchVideoRef.current);
+          }
+        };
+        room.on(RoomEvent.TrackPublished, (pub) => applyWatch(pub));
+        room.on(RoomEvent.TrackSubscribed, syncVideo);
+        room.on(RoomEvent.TrackUnsubscribed, syncVideo);
+        room.on(RoomEvent.TrackMuted, syncVideo);
+        room.on(RoomEvent.TrackUnmuted, syncVideo);
+        room.on(RoomEvent.LocalTrackPublished, syncVideo);
+        room.on(RoomEvent.LocalTrackUnpublished, syncVideo);
+        room.on(RoomEvent.ParticipantDisconnected, syncVideo);
+        try {
+          await room.connect(creds.url, creds.token);
+          room.remoteParticipants.forEach((p) =>
+            p.trackPublications.forEach((pub) => applyWatch(pub as RemoteTrackPublication)),
+          );
+          await room.startAudio().catch(() => undefined);
+          publisherRef.current = publisher;
+          mutedRef.current = !publisher || micMuted;
+          if (publisher) {
+            await room.localParticipant.setMicrophoneEnabled(!mutedRef.current);
+          }
+          scheduleRenew(creds);
+          return 'connecting';
+        } catch {
+          teardown();
+          setStatus('failed');
+          return 'failed';
+        }
+      }
       const agora = getCouncilAgoraModule();
       if (!agora || !councilId) {
         setStatus('unavailable');
@@ -276,7 +443,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
         engine.setClientRole(role);
         publisherRef.current = publisher;
         mutedRef.current = !publisher || micMuted;
-        const code = engine.joinChannel(creds.token, creds.channel, creds.uid, {
+        const code = engine.joinChannel(creds.token, creds.channel ?? '', creds.uid ?? 0, {
           clientRoleType: role,
           channelProfile: agora.ChannelProfileType.ChannelProfileLiveBroadcasting,
           publishMicrophoneTrack: publisher,
@@ -317,7 +484,10 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
 
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;
-    if (publisherRef.current) engineRef.current?.muteLocalAudioStream(muted);
+    if (publisherRef.current) {
+      engineRef.current?.muteLocalAudioStream(muted);
+      void roomRef.current?.localParticipant.setMicrophoneEnabled(!muted);
+    }
     if (muted && lastLoud.current[0] !== undefined) {
       // Stop my own indicator right away instead of waiting for the hold to run out.
       const rest: Record<number, number> = { ...lastLoud.current };
@@ -332,12 +502,60 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
     setStatus('idle');
   }, [teardown]);
 
+  /** Golden council: start / stop my camera (only with a server `av` grant). */
+  const setCamera = useCallback(async (on: boolean): Promise<boolean> => {
+    const room = roomRef.current;
+    if (!room) return false;
+    if (!on) {
+      await room.localParticipant.setCameraEnabled(false);
+      setCameraOn(false);
+      return true;
+    }
+    const profile = videoProfileRef.current;
+    if (!canCameraRef.current || !profile) return false;
+    if (!(await ensureCameraPermission())) return false;
+    const opts = councilCameraOptions(profile);
+    try {
+      await room.localParticipant.setCameraEnabled(true, opts.resolution, {
+        simulcast: opts.publish.simulcast,
+        videoEncoding: opts.publish.videoEncoding,
+        videoSimulcastLayers: opts.publish.videoSimulcastLayers.map(
+          (l) => new VideoPreset(l.width, l.height, l.encoding.maxBitrate, l.encoding.maxFramerate),
+        ),
+      });
+      setCameraOn(room.localParticipant.isCameraEnabled);
+      return room.localParticipant.isCameraEnabled;
+    } catch {
+      setCameraOn(false);
+      return false;
+    }
+  }, []);
+
+  /** Subscribe to stage cameras only while the room is on screen. */
+  const setWatchVideo = useCallback((watch: boolean) => {
+    watchVideoRef.current = watch;
+    const room = roomRef.current;
+    if (!room) return;
+    room.remoteParticipants.forEach((p) =>
+      p.trackPublications.forEach((pub) => {
+        if (pub.kind === Track.Kind.Video) (pub as RemoteTrackPublication).setSubscribed(watch);
+      }),
+    );
+  }, []);
+
   /**
    * After an audio interruption (iOS call/Siri/alarm) the session is re-activated
    * natively; restart the engine's audio module (enableAudio replaces the deprecated
    * resumeAudio), re-apply my mic state and refresh the token/role.
    */
   const recover = useCallback(() => {
+    const room = roomRef.current;
+    if (room) {
+      void room.localParticipant.setMicrophoneEnabled(
+        publisherRef.current && !mutedRef.current,
+      );
+      void renew();
+    }
     const engine = engineRef.current;
     if (!engine) return;
     try {
@@ -354,6 +572,11 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   return {
     status,
     speakingUids,
+    speakingIdentities,
+    videoTracks,
+    cameraOn,
+    setCamera,
+    setWatchVideo,
     start,
     stop,
     setMuted,

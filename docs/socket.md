@@ -153,3 +153,12 @@ Not used by the gateway directly.
 Core chat/live/order realtime is production-grade with Redis adapter. Gaps: live like spam, no socket rate limits.
 
 **Main files:** `backend-nest/src/gateway/`
+
+
+## Guards on ws contexts
+
+`JwtAuthGuard`, `RolesGuard`, `RateLimitGuard` and `RequestIdInterceptor` are global and also run
+for `@SubscribeMessage` handlers. They return early when `context.getType() !== 'http'` (auth is
+done once in `handleConnection`). Without this every `chat:*`, `live:*` and `presence:ping` handler
+threw before reaching the service. API-process → socket emits for live streams go through
+`LiveSocketBridgeService` (Redis channel `socket:live-emit`, db 3), like the council bridge.

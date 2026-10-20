@@ -1,5 +1,16 @@
 require('react-native-gesture-handler');
 
+// LiveKit React Native needs WebRTC globals before any livekit-client import.
+// Web uses livekit-client directly and has no native module.
+try {
+  const { Platform } = require('react-native');
+  if (Platform.OS !== 'web') {
+    require('@livekit/react-native').registerGlobals();
+  }
+} catch {
+  // Expo Go has no WebRTC native module; live screens show the unavailable state.
+}
+
 // Custom entry — patches dev-runtime issues before expo-router loads.
 if (__DEV__) {
   const { LogBox } = require('react-native');

@@ -83,6 +83,10 @@ describe('validateProductionEnv', () => {
     process.env.APP_URL = 'https://sarhsa.online';
     process.env.CRON_SECRET = 'cron-secret-value';
     delete process.env.DEV_OTP;
+    process.env.RTC_PROVIDER = 'livekit';
+    process.env.LIVEKIT_URL = 'wss://rtc.getsarh.com';
+    process.env.LIVEKIT_API_KEY = 'devkey';
+    process.env.LIVEKIT_API_SECRET = 'secretsecretsecretsecretsecretsecret';
 
     expect(() => validateProductionEnv()).not.toThrow();
   });
@@ -108,6 +112,10 @@ describe('validateProductionEnv', () => {
     delete process.env.REDIS_HOST;
     process.env.REDIS_URL = 'redis://red-xxxx:6379';
     delete process.env.DEV_OTP;
+    process.env.RTC_PROVIDER = 'livekit';
+    process.env.LIVEKIT_URL = 'wss://rtc.getsarh.com';
+    process.env.LIVEKIT_API_KEY = 'devkey';
+    process.env.LIVEKIT_API_SECRET = 'secretsecretsecretsecretsecretsecret';
 
     expect(() => validateProductionEnv()).not.toThrow();
   });
@@ -133,6 +141,9 @@ describe('validateProductionEnv', () => {
     process.env.APP_URL = 'https://sarhsa.online';
     process.env.CRON_SECRET = 'cron-secret-value';
     delete process.env.DEV_OTP;
+    process.env.RTC_PROVIDER = 'agora';
+    process.env.AGORA_APP_ID = '0123456789abcdef0123456789abcdef';
+    process.env.AGORA_APP_CERTIFICATE = 'fedcba9876543210fedcba9876543210';
 
     expect(() => validateProductionEnv()).not.toThrow();
   });

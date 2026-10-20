@@ -17,8 +17,9 @@ export function getAgoraModule(): AgoraModule | null {
     return null;
   }
 
-  // Native Agora is opt-in (development build). Avoid loading the package in Expo Go.
-  if (process.env.EXPO_PUBLIC_AGORA_ENABLED !== 'true') {
+  // Agora is the fallback RTC provider and ships in the same build as LiveKit, so switching
+  // RTC_PROVIDER on the server needs no app update. Opt out with EXPO_PUBLIC_AGORA_ENABLED=false.
+  if (process.env.EXPO_PUBLIC_AGORA_ENABLED === 'false') {
     return null;
   }
 

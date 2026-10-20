@@ -12,6 +12,7 @@ import { getAccessToken } from '@/services/authFetch';
 import { uploadImageFromUri } from '@/services/upload';
 import {
   COUNCIL_SHOW_IMAGE_LABEL,
+  COUNCIL_STAGE_IMAGES_MAX,
   councilErrorMessage,
   fetchCouncilImageSources,
   type CouncilImageSources,
@@ -24,17 +25,31 @@ type Props = {
   visible: boolean;
   busy: boolean;
   onPick: (pick: CouncilImagePick) => void;
+  /** Golden stage: pick several images (shown as a gallery the host steps through). */
+  multi?: boolean;
+  onPickMany?: (picks: CouncilImagePick[]) => void;
   onClose: () => void;
 };
 
 const THUMB = 76;
 
 /** «عرض صورة» picker: a photo from one of my listings, or one from the gallery. */
-export function CouncilImagePickerSheet({ visible, busy, onPick, onClose }: Props) {
+export function CouncilImagePickerSheet({ visible, busy, onPick, multi, onPickMany, onClose }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
   const [sources, setSources] = useState<CouncilImageSources | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [selected, setSelected] = useState<CouncilImagePick[]>([]);
+
+  const toggle = (pick: CouncilImagePick) =>
+    setSelected((list) =>
+      list.some((p) => p.imageUrl === pick.imageUrl)
+        ? list.filter((p) => p.imageUrl !== pick.imageUrl)
+        : list.length >= COUNCIL_STAGE_IMAGES_MAX
+          ? list
+          : [...list, pick],
+    );
+  const choose = (pick: CouncilImagePick) => (multi ? toggle(pick) : onPick(pick));
   // First open shows a spinner; later opens show the cached photos while refreshing.
   const loading = visible && sources === null;
 
@@ -62,13 +77,26 @@ export function CouncilImagePickerSheet({ visible, busy, onPick, onClose }: Prop
         void showToast('يرجى السماح للتطبيق بالوصول إلى الصور', 'error');
         return;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.85,
+        allowsMultipleSelection: Boolean(multi),
+        selectionLimit: multi ? COUNCIL_STAGE_IMAGES_MAX - selected.length : 1,
+      });
       if (result.canceled || !result.assets[0]) return;
       const token = getAccessToken();
       if (!token) return;
       setUploading(true);
       const url = await uploadImageFromUri(token, result.assets[0].uri, 'posts');
-      onPick({ imageUrl: url, listingId: null });
+      if (!multi) {
+        onPick({ imageUrl: url, listingId: null });
+        return;
+      }
+      const uploaded: CouncilImagePick[] = [{ imageUrl: url, listingId: null }];
+      for (const asset of result.assets.slice(1)) {
+        uploaded.push({ imageUrl: await uploadImageFromUri(token, asset.uri, 'posts'), listingId: null });
+      }
+      setSelected((list) => [...list, ...uploaded].slice(0, COUNCIL_STAGE_IMAGES_MAX));
     } catch (err) {
       void showToast(err instanceof Error && err.message ? err.message : 'تعذّر رفع الصورة', 'error');
     } finally {
@@ -77,36 +105,83 @@ export function CouncilImagePickerSheet({ visible, busy, onPick, onClose }: Prop
   };
 
   const listings = sources?.listings ?? [];
+  const selectedIndex = (url: string) => selected.findIndex((p) => p.imageUrl === url);
+  const uploadedPicks = selected.filter((p) => !p.listingId);
   return (
     <CouncilSheet
       visible={visible}
       title={COUNCIL_SHOW_IMAGE_LABEL}
-      subtitle="تظهر الصورة لجميع الحاضرين أعلى المجلس"
-      onClose={onClose}
+      subtitle={
+        multi
+          ? `اختر حتى ${COUNCIL_STAGE_IMAGES_MAX} صور وتتحكم أنت بالتنقل بينها`
+          : 'تظهر الصورة لجميع الحاضرين أعلى المجلس'
+      }
+      onClose={() => {
+        setSelected([]);
+        onClose();
+      }}
       footer={
-        <SarhButton
-          title="اختيار من المعرض"
-          leftIcon="image-outline"
-          variant="secondary"
-          shape="pill"
-          fullWidth
-          loading={uploading || busy}
-          disabled={uploading || busy}
-          onPress={() => void fromGallery()}
-        />
+        <Stack gap="sm">
+          {multi ? (
+            <SarhButton
+              title={selected.length > 0 ? `عرض المحدد (${selected.length})` : 'اختر صوراً للعرض'}
+              shape="pill"
+              fullWidth
+              loading={busy}
+              disabled={selected.length === 0 || uploading || busy}
+              onPress={() => {
+                onPickMany?.(selected);
+                setSelected([]);
+              }}
+            />
+          ) : null}
+          <SarhButton
+            title="اختيار من المعرض"
+            leftIcon="image-outline"
+            variant="secondary"
+            shape="pill"
+            fullWidth
+            loading={uploading || (!multi && busy)}
+            disabled={uploading || busy || (multi && selected.length >= COUNCIL_STAGE_IMAGES_MAX)}
+            onPress={() => void fromGallery()}
+          />
+        </Stack>
       }
     >
       {loading ? (
         <ActivityIndicator color={colors.textMuted} style={styles.loading} />
-      ) : listings.length === 0 ? (
+      ) : listings.length === 0 && selected.length === 0 ? (
         <AppText variant="bodySmall" color="textMuted" align="center" style={styles.empty}>
           لا توجد صور في إعلاناتك النشطة
         </AppText>
       ) : (
         <Stack gap="lg">
+          {multi && uploadedPicks.length > 0 ? (
+            <Stack gap="sm">
+              <AppText variant="label" color="textSecondary">
+                من المعرض
+              </AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbs}>
+                {uploadedPicks.map((p) => (
+                  <Pressable key={p.imageUrl} onPress={() => toggle(p)} accessibilityRole="imagebutton">
+                    <View style={[styles.thumb, styles.thumbOn]}>
+                      <Image source={uriSource(p.imageUrl)} style={styles.thumbImg} contentFit="cover" />
+                      <View style={styles.order}>
+                        <AppText variant="micro" color="textPrimary">
+                          {selectedIndex(p.imageUrl) + 1}
+                        </AppText>
+                      </View>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Stack>
+          ) : null}
+          {listings.length > 0 ? (
           <AppText variant="label" color="textSecondary">
             من إعلاناتي
           </AppText>
+          ) : null}
           {listings.map((l) => (
             <Stack key={l.id} gap="sm">
               <AppText variant="caption" color="textMuted" numberOfLines={1}>
@@ -117,12 +192,19 @@ export function CouncilImagePickerSheet({ visible, busy, onPick, onClose }: Prop
                   <Pressable
                     key={url}
                     disabled={busy || uploading}
-                    onPress={() => onPick({ imageUrl: url, listingId: l.id })}
+                    onPress={() => choose({ imageUrl: url, listingId: l.id })}
                     accessibilityRole="imagebutton"
                     accessibilityLabel={`صورة من ${l.title}`}
                   >
-                    <View style={styles.thumb}>
+                    <View style={[styles.thumb, selectedIndex(url) >= 0 && styles.thumbOn]}>
                       <Image source={uriSource(url)} style={styles.thumbImg} contentFit="cover" />
+                      {selectedIndex(url) >= 0 ? (
+                        <View style={styles.order}>
+                          <AppText variant="micro" color="textPrimary">
+                            {selectedIndex(url) + 1}
+                          </AppText>
+                        </View>
+                      ) : null}
                     </View>
                   </Pressable>
                 ))}
@@ -150,5 +232,18 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.borderSoft,
     },
     thumbImg: { width: THUMB, height: THUMB },
+    thumbOn: { borderWidth: 2, borderColor: colors.electric },
+    order: {
+      position: 'absolute',
+      top: 4,
+      start: 4,
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 4,
+      borderRadius: radius.pill,
+      backgroundColor: colors.bgElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
   });
 }

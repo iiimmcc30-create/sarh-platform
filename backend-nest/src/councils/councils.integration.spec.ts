@@ -102,6 +102,7 @@ suite('CouncilsService (real Postgres)', () => {
 
   beforeAll(async () => {
     process.env.REDIS_ENABLED = 'false';
+    process.env.RTC_PROVIDER = 'agora';
     process.env.AGORA_APP_ID = '0123456789abcdef0123456789abcdef';
     process.env.AGORA_APP_CERTIFICATE = 'fedcba9876543210fedcba9876543210';
     delete process.env.AGORA_CUSTOMER_ID;
@@ -658,7 +659,7 @@ suite('CouncilsService (real Postgres)', () => {
   });
 
   // 3 + 20
-  it('private councils never leak: 404 for outsiders, access via invite or invite code', async () => {
+  it('private councils are listed (locked) but joining needs the host code; invite and link still work', async () => {
     const created = await service
       .create(as('owner'), {
         name: `${tag} مجلس خاص`,
@@ -675,25 +676,46 @@ suite('CouncilsService (real Postgres)', () => {
       });
     const id = created.state.council.id;
     const code = created.state.council.inviteCode!;
+    const joinCode = created.state.council.joinCode!;
     expect(code).toMatch(/^[A-Za-z0-9]{12}$/);
+    expect(joinCode).toMatch(/^[A-Z2-9]{6}$/);
 
-    const pub = await service.list(as('outsider'));
-    expect(pub.councils.map((c) => c.id)).not.toContain(id);
-    expect((await service.accessible(as('outsider'))).private).toHaveLength(0);
+    // Listed publicly with a lock badge, but no room data without access.
+    const card = (await service.list(as('outsider'))).councils.find(
+      (c) => c.id === id,
+    );
+    expect(card).toMatchObject({ locked: true, visibility: 'PRIVATE' });
+    const locked = await service.getState(as('outsider'), id);
+    expect(locked).toMatchObject({ locked: true });
+    expect(locked.speakers).toEqual([]);
+    expect(locked.listeners).toEqual([]);
+    expect(locked.council).not.toHaveProperty('inviteCode');
+
+    // No code / wrong code: no credentials, no membership row.
+    expect(
+      await apiError(() => service.join(as('outsider'), id, {})),
+    ).toMatchObject({
+      status: 403,
+      error: 'council_code_required',
+    });
+    expect(
+      await apiError(() =>
+        service.join(as('outsider'), id, { code: 'WRONG1' }),
+      ),
+    ).toMatchObject({ status: 403, error: 'council_code_invalid' });
+    expect(
+      await prisma.councilMember.count({
+        where: { councilId: id, userId: users.outsider },
+      }),
+    ).toBe(0);
     for (const fn of [
-      () => service.getState(as('outsider'), id),
-      () => service.join(as('outsider'), id, {}),
       () => service.token(as('outsider'), id),
       () => service.requestToSpeak(as('outsider'), id),
-      () => service.getState(as('outsider'), id, 'WRONGCODE123'),
     ]) {
-      expect(await apiError(fn)).toMatchObject({
-        status: 404,
-        error: 'not_found',
-      });
+      expect(await apiError(fn)).toMatchObject({ status: 404 });
     }
 
-    // Invited user
+    // Invited user (host-issued) needs no code.
     expect(
       await service.invite(as('owner'), id, [users.invited, users.owner]),
     ).toEqual({ invited: 1 });
@@ -704,30 +726,42 @@ suite('CouncilsService (real Postgres)', () => {
         data: { kind: 'council_invite', councilId: id },
       }),
     );
-    expect(
-      (await service.accessible(as('invited'))).private.map((c) => c.id),
-    ).toContain(id);
     const invitedView = await service.getState(as('invited'), id);
     expect(invitedView.council).not.toHaveProperty('inviteCode');
     await service.join(as('invited'), id, {});
 
-    // Invite link code
-    expect(await service.resolveInvite(as('coder'), code)).toEqual({
-      councilId: id,
-      code,
+    // Join code is case-insensitive; the link token also works.
+    const viaCode = await service.join(as('coder'), id, {
+      code: joinCode.toLowerCase(),
     });
-    const viaCode = await service.join(as('coder'), id, { code });
     expect(viaCode.state.me.role).toBe('LISTENER');
+    const viaLink = await service.join(as('l0'), id, { code });
+    expect(viaLink.state.me.role).toBe('LISTENER');
     // Membership persists access without the code.
     expect((await service.getState(as('coder'), id)).council.id).toBe(id);
 
-    // Rotating the code invalidates the old link for new users.
-    await service.rotateInvite(as('owner'), id);
+    // Host regenerates: old code and old link die for new users; members stay.
+    const rotated = await service.rotateInvite(as('owner'), id);
+    expect(rotated.joinCode).not.toBe(joinCode);
+    expect(
+      await apiError(() =>
+        service.join(as('outsider'), id, { code: joinCode }),
+      ),
+    ).toMatchObject({ status: 403, error: 'council_code_invalid' });
     expect(
       await apiError(() => service.join(as('outsider'), id, { code })),
-    ).toMatchObject({
-      status: 404,
-    });
+    ).toMatchObject({ status: 403, error: 'council_code_invalid' });
+    // Host sets a custom code.
+    await service.update(as('owner'), id, { joinCode: 'Sheep2026' });
+    expect(
+      (await service.join(as('l1'), id, { code: 'SHEEP2026' })).state.me.role,
+    ).toBe('LISTENER');
+    // Host can still kick and ban.
+    await service.memberAction(as('owner'), id, users.l1, 'kick');
+    await service.memberAction(as('owner'), id, users.l0, 'ban');
+    expect(
+      await apiError(() => service.join(as('l0'), id, { code: 'SHEEP2026' })),
+    ).toMatchObject({ status: 403, error: 'council_banned' });
     await service.end(as('owner'), id);
   });
 });

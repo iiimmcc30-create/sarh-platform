@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CouncilsController } from './councils.controller';
+import { AdminCouncilsController } from './admin-councils.controller';
+import { AdminCouncilsService } from './admin-councils.service';
 import { CouncilsService } from './councils.service';
 import { CouncilsCoreModule } from './councils-core.module';
 import { CouncilAgoraModerationService } from './services/council-agora-moderation.service';
@@ -8,9 +10,10 @@ import { CouncilScheduleService } from './services/council-schedule.service';
 /** «المجالس» REST API (runs in the API process). */
 @Module({
   imports: [CouncilsCoreModule],
-  controllers: [CouncilsController],
+  controllers: [CouncilsController, AdminCouncilsController],
   providers: [
     CouncilsService,
+    AdminCouncilsService,
     CouncilAgoraModerationService,
     CouncilScheduleService,
   ],

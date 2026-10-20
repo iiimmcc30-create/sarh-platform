@@ -1,0 +1,17 @@
+# WireGuard hub = the node that runs Redis (example: Contabo). /etc/wireguard/wg0.conf
+# Generate keys:  umask 077; wg genkey | tee hub.key | wg pubkey > hub.pub
+[Interface]
+Address = 10.8.0.1/24
+ListenPort = 51820
+PrivateKey = <hub private key>
+
+# One [Peer] per extra node (example: Hetzner). AllowedIPs is the node's tunnel address ONLY.
+[Peer]
+# node-2
+PublicKey = <node-2 public key>
+AllowedIPs = 10.8.0.2/32
+
+[Peer]
+# egress-1
+PublicKey = <egress-1 public key>
+AllowedIPs = 10.8.0.3/32

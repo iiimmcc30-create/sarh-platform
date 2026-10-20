@@ -62,6 +62,7 @@ suite('Council subscriber perks (real Postgres)', () => {
 
   beforeAll(async () => {
     process.env.REDIS_ENABLED = 'false';
+    process.env.RTC_PROVIDER = 'agora';
     process.env.AGORA_APP_ID = '0123456789abcdef0123456789abcdef';
     process.env.AGORA_APP_CERTIFICATE = 'fedcba9876543210fedcba9876543210';
     prisma = new PrismaClient({ datasources: { db: { url: DB_URL } } });

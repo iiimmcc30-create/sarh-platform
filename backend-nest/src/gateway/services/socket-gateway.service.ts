@@ -23,6 +23,7 @@ import { MessageMediaService } from '../../messages/services/message-media.servi
 import { publicMediaForPush } from '../../messages/lib/message-media';
 import { SupportTicketsService } from '../../support/services/support-tickets.service';
 import { ApiException } from '../../common/exceptions/api.exception';
+import { getRtcProvider } from '../../shared/rtc/rtc-provider';
 import { isAllowedCorsOrigin } from '../../lib/cors-origins';
 import {
   ADMIN_ACCESS_COOKIE,
@@ -376,13 +377,15 @@ export class SocketGatewayService {
 
     let viewers = stream.viewers;
 
+    // LiveKit webhooks set the absolute viewer count. Incrementing here as well
+    // would double-count. Agora has no join webhook, so the socket stays the
+    // source of truth for that provider.
+    const countOnSocket = getRtcProvider() !== 'livekit';
+
     if (user.userId !== stream.hostId) {
       // Same block relationship as messaging: either direction blocks join.
       try {
-        await this.messagingPolicy.assertNotBlocked(
-          user.userId,
-          stream.hostId,
-        );
+        await this.messagingPolicy.assertNotBlocked(user.userId, stream.hostId);
       } catch (err) {
         if (err instanceof ApiException && err.error === 'blocked') {
           return {
@@ -393,16 +396,18 @@ export class SocketGatewayService {
         return this.policyError(err);
       }
 
-      const updated = await this.repo.incrementStreamViewers(streamId);
-      viewers = updated.viewers;
+      if (countOnSocket) {
+        const updated = await this.repo.incrementStreamViewers(streamId);
+        viewers = updated.viewers;
 
-      if (updated.viewers > updated.peakViewers) {
-        await this.repo
-          .updatePeakViewers(streamId, updated.viewers)
-          .catch(() => {});
+        if (updated.viewers > updated.peakViewers) {
+          await this.repo
+            .updatePeakViewers(streamId, updated.viewers)
+            .catch(() => {});
+        }
+
+        this.emitService.emitToStream(streamId, 'live:viewers', viewers);
       }
-
-      this.emitService.emitToStream(streamId, 'live:viewers', viewers);
     }
 
     const stats = {
@@ -417,6 +422,7 @@ export class SocketGatewayService {
   }
 
   async handleLiveLeave(streamId: string): Promise<void> {
+    if (getRtcProvider() === 'livekit') return;
     const updated = await this.repo
       .decrementStreamViewers(streamId)
       .catch(() => ({ viewers: 0 }));
