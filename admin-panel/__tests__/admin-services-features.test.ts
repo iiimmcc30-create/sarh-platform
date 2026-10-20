@@ -118,6 +118,26 @@ describe("admin feature API wiring — login to every section", () => {
     expect(apiClient.get).toHaveBeenCalledWith("/admin/reports/r1");
   });
 
+  it("account reviews (hide only)", async () => {
+    (apiClient.get as jest.Mock)
+      .mockResolvedValueOnce(
+        ok({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }),
+      )
+      .mockResolvedValueOnce(ok({ review: { id: "rv1" }, reports: [] }));
+    await admin.fetchUserReviews({ visibility: "visible", recommend: "yes" });
+    await admin.fetchUserReview("rv1");
+    await admin.hideUserReview("rv1", "إساءة");
+    expect(apiClient.get).toHaveBeenCalledWith(
+      "/admin/reviews",
+      expect.any(Object),
+    );
+    expect(apiClient.get).toHaveBeenCalledWith("/admin/reviews/rv1");
+    expect(apiClient.post).toHaveBeenCalledWith("/admin/reviews/rv1/hide", {
+      reason: "إساءة",
+    });
+    expect(apiClient.delete).not.toHaveBeenCalled();
+  });
+
   it("live streams", async () => {
     (apiClient.get as jest.Mock).mockResolvedValueOnce(
       ok({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }),

@@ -26,9 +26,6 @@ import { normalizeProfileLinks, readProfileLinks } from '../lib/profile-links';
 import { ProfileViewsService } from './profile-views.service';
 import { assertUserMediaUrls } from '../../shared/lib/media-ownership';
 
-const MIN_RATING = 1;
-const MAX_RATING = 5;
-
 const PAGE_SIZE = 50;
 const PROFILE_CACHE_TTL = 300;
 
@@ -732,47 +729,6 @@ export class UsersService {
       followingCount: user._count.following,
       listingsCount: user._count.listings,
       postsCount: user._count.posts,
-    };
-  }
-
-  /** Rate another user's account (1–5). One review per reviewer, editable. */
-  async rateUser(targetId: string, reviewerId: string, rating: number) {
-    if (targetId === reviewerId) {
-      throwApi(400, 'invalid_action', 'لا يمكنك تقييم حسابك الخاص');
-    }
-    if (
-      !Number.isInteger(rating) ||
-      rating < MIN_RATING ||
-      rating > MAX_RATING
-    ) {
-      throwApi(400, 'invalid_rating', 'التقييم يجب أن يكون بين 1 و 5');
-    }
-
-    const target = await this.repo.findActiveUserId(targetId);
-    if (!target) throwApi(404, 'not_found', 'المستخدم غير موجود');
-
-    const [blockedByMe, blockedMe] = await Promise.all([
-      this.repo.findBlock(reviewerId, targetId),
-      this.repo.findBlock(targetId, reviewerId),
-    ]);
-    if (blockedByMe || blockedMe) {
-      throwApi(403, 'blocked', 'لا يمكنك التفاعل مع هذا المستخدم');
-    }
-
-    await this.repo.upsertUserRating(targetId, reviewerId, rating);
-
-    const agg = await this.repo.aggregateUserRating(targetId);
-    const avg = agg._avg.rating ?? 0;
-    const count = agg._count.rating;
-    await this.repo.updateUserRatingCache(targetId, avg, count);
-    await this.redis.cacheDel(`user:${targetId}`, `user:${targetId}:base`);
-
-    this.logger.info({ targetId, reviewerId, rating }, 'User account rated');
-
-    return {
-      rating: count > 0 ? avg : null,
-      reviewCount: count,
-      myRating: rating,
     };
   }
 }

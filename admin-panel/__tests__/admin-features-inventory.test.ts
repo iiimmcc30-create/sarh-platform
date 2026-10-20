@@ -34,6 +34,7 @@ describe('admin navigation & feature routes inventory', () => {
       '/listings',
       '/categories',
       '/reports',
+      '/reviews',
       '/support',
       '/live',
       '/explore-sarh-banners',

@@ -156,21 +156,47 @@ describe('§6–§16 Social: profile, follow, posts, notifications, ratings, blo
     expect([403, 404]).toContain(res.status);
   });
 
-  // ── Ratings (§13) ───────────────────────────────────────────
-  t('rate another user with a valid rating', async () => {
+  // ── Reviews (immutable; one per reviewer) ───────────────────
+  t('create a review for another user', async () => {
     const res = await request(API)
-      .post(`/api/users/${b.id}/rate`)
+      .post(`/api/users/${b.id}/reviews`)
       .set(authHeader(a.accessToken))
-      .send({ rating: 5 });
+      .send({
+        rating: 5,
+        purchased: true,
+        recommend: true,
+        comment: 'تعامل ممتاز',
+        oathAccepted: true,
+      });
     expect([200, 201]).toContain(res.status);
   });
 
   t('rating out of range → 400', async () => {
     const res = await request(API)
-      .post(`/api/users/${b.id}/rate`)
+      .post(`/api/users/${b.id}/reviews`)
       .set(authHeader(a.accessToken))
-      .send({ rating: 99 });
+      .send({
+        rating: 99,
+        purchased: true,
+        recommend: true,
+        comment: 'تعليق',
+        oathAccepted: true,
+      });
     expect(res.status).toBe(400);
+  });
+
+  t('a second review from the same person is rejected', async () => {
+    const res = await request(API)
+      .post(`/api/users/${b.id}/reviews`)
+      .set(authHeader(a.accessToken))
+      .send({
+        rating: 4,
+        purchased: false,
+        recommend: false,
+        comment: 'محاولة تعديل',
+        oathAccepted: true,
+      });
+    expect(res.status).toBe(409);
   });
 
   // ── Report (§16) ────────────────────────────────────────────

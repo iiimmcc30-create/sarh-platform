@@ -38,6 +38,7 @@ export const REPORT_TARGET_LABEL_AR: Record<string, string> = {
   story: 'قصة',
   collection: 'مجموعة',
   council_image: 'صورة في مجلس',
+  review: 'تقييم',
 };
 
 /** Row subtitle: «بلاغ على إعلان» / «بلاغ احتيال» / «بلاغ». */

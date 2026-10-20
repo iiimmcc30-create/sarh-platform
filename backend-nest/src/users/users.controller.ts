@@ -25,7 +25,6 @@ import {
   ChangePhoneDto,
   ConnectionsQueryDto,
   ListUsersQueryDto,
-  RateUserDto,
   SetBlockDto,
   SetFollowDto,
   UpdateAccountSettingsDto,
@@ -173,19 +172,6 @@ export class UsersController {
   ) {
     return successResponse(
       await this.users.setBlock(id, user.userId, dto.blocked),
-    );
-  }
-
-  @RateLimit('api')
-  @Post(':id/rate')
-  @HttpCode(HttpStatus.OK)
-  async rate(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: RateUserDto,
-  ) {
-    return successResponse(
-      await this.users.rateUser(id, user.userId, dto.rating),
     );
   }
 

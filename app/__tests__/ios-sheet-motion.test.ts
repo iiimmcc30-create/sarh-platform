@@ -50,7 +50,6 @@ describe('iOS-style bottom sheet motion', () => {
       'components/councils/CouncilSheet.tsx',
       'components/listing/ListingContactSheet.tsx',
       'components/listing/PromotionStatsSheet.tsx',
-      'components/feature/RatingModal.tsx',
       'components/ui/sheets/GroupedPickerSheet.tsx',
       'components/live/LiveBroadcastPledgeModal.tsx',
       'components/support/SupportFlowSheet.tsx',

@@ -26,6 +26,7 @@ import {
   Percent,
   Wheat,
   ShieldCheck,
+  Star,
 } from 'lucide-react';
 import { adminLogout, getStoredUser, startSessionKeepAlive } from '@/services/auth.service';
 import { BRAND_ADMIN_SUBTITLE_AR, BRAND_NAME_AR, BRAND_NAME_EN } from '@/constants/brandCopy';
@@ -46,6 +47,7 @@ const NAV_ICONS = {
   '/listings': Tag,
   '/categories': FolderTree,
   '/reports': Flag,
+  '/reviews': Star,
   '/support': LifeBuoy,
   '/live': Radio,
   '/explore-sarh-banners': Images,

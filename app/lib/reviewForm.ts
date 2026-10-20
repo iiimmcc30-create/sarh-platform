@@ -1,0 +1,42 @@
+export const REVIEW_COMMENT_MAX = 1000;
+
+export function reviewOathText(name: string): string {
+  return `أتعهد وأقسم بالله أنني قمت بشراء سلعة من العضو ${name} وأن المعلومات التي أقدمها في التقييم هي معلومات صحيحة ودقيقة وأتحمل مسؤولية صحة هذه المعلومات`;
+}
+
+export function reviewPurchaseQuestion(name: string): string {
+  return `هل قمت بشراء سلعة من ${name}؟`;
+}
+
+export function reviewRecommendQuestion(name: string): string {
+  return `هل تنصح بالتعامل مع البائع ${name}؟`;
+}
+
+export function positiveReviewsLabel(count: number): string {
+  return `${count} تعليق ايجابي`;
+}
+
+export function negativeReviewsLabel(count: number): string {
+  return `${count} تعليق سلبي`;
+}
+
+/** Send stays disabled until the oath, both answers, a star, and a comment are set. */
+export function canSubmitReview(input: {
+  oath: boolean;
+  purchased: boolean | null;
+  recommend: boolean | null;
+  rating: number;
+  comment: string;
+}): boolean {
+  const comment = input.comment.trim();
+  return (
+    input.oath === true &&
+    (input.purchased === true || input.purchased === false) &&
+    (input.recommend === true || input.recommend === false) &&
+    Number.isInteger(input.rating) &&
+    input.rating >= 1 &&
+    input.rating <= 5 &&
+    comment.length > 0 &&
+    comment.length <= REVIEW_COMMENT_MAX
+  );
+}

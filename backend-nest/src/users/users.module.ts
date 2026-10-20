@@ -8,13 +8,20 @@ import { UserSettingsController } from './user-settings.controller';
 import { UserSettingsService } from './services/user-settings.service';
 import { RedisModule } from '../redis/redis.module';
 import { GatewaySharedModule } from '../gateway/gateway-shared.module';
+import { ReportsModule } from '../reports/reports.module';
+import { UserReviewsController } from './reviews/user-reviews.controller';
+import { AdminUserReviewsController } from './reviews/admin-user-reviews.controller';
+import { UserReviewsService } from './reviews/user-reviews.service';
+import { UserReviewsRepository } from './reviews/user-reviews.repository';
 
 @Module({
-  imports: [RedisModule, GatewaySharedModule],
+  imports: [RedisModule, GatewaySharedModule, ReportsModule],
   // UserSettingsController first: its `me/...` routes must win over `:id`.
   controllers: [
     ProfileViewsController,
     UserSettingsController,
+    UserReviewsController,
+    AdminUserReviewsController,
     UsersController,
   ],
   providers: [
@@ -22,6 +29,8 @@ import { GatewaySharedModule } from '../gateway/gateway-shared.module';
     UsersRepository,
     ProfileViewsService,
     UserSettingsService,
+    UserReviewsService,
+    UserReviewsRepository,
   ],
   exports: [UsersRepository],
 })

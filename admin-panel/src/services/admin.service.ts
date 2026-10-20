@@ -174,6 +174,28 @@ export async function deleteReport(id: string) {
   return unwrap(res);
 }
 
+export async function fetchUserReviews(
+  params: ListParams & { visibility?: string; recommend?: string } = {},
+) {
+  const res = await apiClient.get("/admin/reviews", {
+    params: cleanListParams(params),
+  });
+  return unwrap<Paginated<Record<string, unknown>>>(res);
+}
+
+export async function fetchUserReview(id: string) {
+  const res = await apiClient.get(`/admin/reviews/${id}`);
+  return unwrap<{
+    review: Record<string, unknown>;
+    reports: Record<string, unknown>[];
+  }>(res);
+}
+
+export async function hideUserReview(id: string, reason: string) {
+  const res = await apiClient.post(`/admin/reviews/${id}/hide`, { reason });
+  return unwrap(res);
+}
+
 export async function fetchLiveStreams(
   params: ListParams & { live?: string } = {},
 ) {

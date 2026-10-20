@@ -11,6 +11,7 @@ const TARGET_LABEL_AR: Record<CreateReportDto['targetType'], string> = {
   story: 'قصة',
   collection: 'مجموعة',
   council_image: 'صورة في مجلس',
+  review: 'تقييم',
 };
 
 @Injectable()
@@ -33,6 +34,43 @@ export class ReportsService {
     // «عرض صورة»: capture the exact image (it can be replaced or removed later).
     let imageLines: string[] = [];
     let imageMeta: Record<string, string | null> = {};
+    if (dto.targetType === 'review') {
+      const review = await this.prisma.userReview.findUnique({
+        where: { id: dto.targetId },
+        select: { id: true, reviewerId: true, hiddenAt: true },
+      });
+      if (!review || review.hiddenAt) {
+        throwApi(404, 'not_found', 'التقييم غير موجود');
+      }
+      if (review.reviewerId === user.userId) {
+        throwApi(400, 'invalid_action', 'لا يمكنك الإبلاغ عن تقييمك');
+      }
+      const existing = await this.prisma.supportTicket.findFirst({
+        where: {
+          reporterId: user.userId,
+          type: 'REPORT',
+          deletedAt: null,
+          metadata: { path: ['targetId'], equals: dto.targetId },
+        },
+        select: {
+          id: true,
+          ticketNumber: true,
+          status: true,
+          createdAt: true,
+          metadata: true,
+        },
+      });
+      const meta = existing?.metadata as { targetType?: string } | null;
+      if (existing && meta?.targetType === 'review') {
+        return {
+          id: existing.id,
+          ticketNumber: existing.ticketNumber,
+          status: existing.status,
+          createdAt: existing.createdAt,
+        };
+      }
+    }
+
     if (dto.targetType === 'council_image') {
       const council = await this.prisma.council.findUnique({
         where: { id: dto.targetId },

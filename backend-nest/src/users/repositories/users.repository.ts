@@ -348,30 +348,6 @@ export class UsersRepository {
     });
   }
 
-  upsertUserRating(targetId: string, reviewerId: string, rating: number) {
-    return this.prisma.userReview.upsert({
-      where: { targetId_reviewerId: { targetId, reviewerId } },
-      update: { rating },
-      create: { targetId, reviewerId, rating },
-    });
-  }
-
-  aggregateUserRating(targetId: string) {
-    return this.prisma.userReview.aggregate({
-      where: { targetId },
-      _avg: { rating: true },
-      _count: { rating: true },
-    });
-  }
-
-  updateUserRatingCache(targetId: string, rating: number, reviewCount: number) {
-    return this.prisma.user.update({
-      where: { id: targetId },
-      data: { rating, reviewCount },
-      select: { id: true },
-    });
-  }
-
   findBlock(blockerId: string, blockedId: string) {
     return this.prisma.userBlock.findUnique({
       where: { blockerId_blockedId: { blockerId, blockedId } },

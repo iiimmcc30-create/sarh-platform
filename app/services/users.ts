@@ -519,25 +519,6 @@ export async function setFollowUser(
   return json.data as { following: boolean };
 }
 
-export type RateUserResult = {
-  rating: number | null;
-  reviewCount: number;
-  myRating: number;
-};
-
-/** Rate another user's account (1–5 stars). One rating per reviewer — calling again edits it. */
-export async function rateUser(userId: string, rating: number): Promise<RateUserResult | null> {
-  const res = await authFetch(`${API_BASE}/api/users/${userId}/rate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rating }),
-  });
-  if (!res.ok) return null;
-  const json = await res.json();
-  if (!json.success) return null;
-  return json.data as RateUserResult;
-}
-
 export type BlockedUser = {
   id: string;
   username: string;

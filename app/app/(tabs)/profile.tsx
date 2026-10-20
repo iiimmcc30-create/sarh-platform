@@ -381,6 +381,10 @@ export default function ProfileScreen() {
           );
         }
       }}
+      onRatePress={() => {
+        if (!me.id) return;
+        safePush({ pathname: '/reviews/[userId]', params: { userId: me.id } }, undefined, router);
+      }}
       onFollowersPress={() => openConnections('followers')}
       onFollowingPress={() => openConnections('following')}
       postsContent={renderPosts()}

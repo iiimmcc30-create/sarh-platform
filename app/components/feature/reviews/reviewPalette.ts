@@ -1,0 +1,21 @@
+/** Light marketplace palette from the reviews reference screens. */
+export const reviewPalette = {
+  header: '#1565C0',
+  onHeader: '#FFFFFF',
+  page: '#F3F5F8',
+  card: '#FFFFFF',
+  text: '#1C1C1E',
+  muted: '#8B919A',
+  name: '#1565C0',
+  star: '#F5B400',
+  starEmpty: '#D5DAE1',
+  positive: '#2EAD4B',
+  positiveSoft: '#E7F6EC',
+  negative: '#E53935',
+  negativeSoft: '#FDECEC',
+  line: '#ECEFF3',
+  field: '#F7F8FA',
+  disabled: '#E4E7EC',
+  disabledText: '#9AA1AB',
+  overlay: 'rgba(15, 23, 42, 0.45)',
+} as const;

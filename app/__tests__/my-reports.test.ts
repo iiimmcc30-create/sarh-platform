@@ -27,6 +27,7 @@ describe('«بلاغاتي» (my reports)', () => {
     expect(reportKindLabelAr('FRAUD', null)).toBe('بلاغ احتيال');
     expect(reportKindLabelAr('REPORT', 'listing')).toBe('بلاغ على إعلان');
     expect(reportKindLabelAr('REPORT', 'user')).toBe('بلاغ على حساب');
+    expect(reportKindLabelAr('REPORT', 'review')).toBe('بلاغ على تقييم');
     expect(reportKindLabelAr('REPORT', null)).toBe('بلاغ');
   });
 
