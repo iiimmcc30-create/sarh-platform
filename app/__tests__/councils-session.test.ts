@@ -106,7 +106,7 @@ describe('Councils session wiring', () => {
     expect(provider).toContain("onEnded: () => setBlocked('ended')");
     expect(provider).toContain('if (!isAuthenticated && idRef.current) reset();');
     expect(provider).toContain('registerCouncilReleaser(');
-    expect(src('app/live/watch/[id].tsx')).toContain('useYieldCouncilForLive(isAgoraAvailable());');
+    expect(src('app/live/watch/[id].tsx')).toContain('useYieldCouncilForLive(liveKit || isAgoraAvailable());');
     expect(src('app/live/create.tsx')).toContain('useYieldCouncilForLive(LIVE_BROADCAST_ENABLED);');
   });
 

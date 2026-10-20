@@ -1,5 +1,7 @@
 import {
   ArrayMaxSize,
+  ArrayMinSize,
+  ValidateNested,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -12,7 +14,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsMediaUrl } from '../../shared/lib/media-url';
 
 export const COUNCIL_VISIBILITIES = ['PUBLIC', 'PRIVATE'] as const;
@@ -35,6 +37,8 @@ export const COUNCIL_MEMBER_ACTIONS = [
   'unban',
   'make_moderator',
   'remove_moderator',
+  'allow_camera',
+  'revoke_camera',
 ] as const;
 export type CouncilMemberAction = (typeof COUNCIL_MEMBER_ACTIONS)[number];
 
@@ -64,6 +68,13 @@ export class CreateCouncilDto {
 
   @IsEnum(COUNCIL_VISIBILITIES)
   visibility!: CouncilVisibilityValue;
+
+  /** Private councils: host-chosen join code (4-16 letters/digits). Generated when absent. */
+  @IsOptional()
+  @IsString()
+  @Transform(trim)
+  @Matches(/^[A-Za-z0-9]{4,16}$/)
+  joinCode?: string;
 
   @IsOptional()
   @IsArray()
@@ -119,6 +130,13 @@ export class UpdateCouncilDto {
   @IsEnum(COUNCIL_VISIBILITIES)
   visibility?: CouncilVisibilityValue;
 
+  /** Change the join code of a private council (4-16 letters/digits). */
+  @IsOptional()
+  @IsString()
+  @Transform(trim)
+  @Matches(/^[A-Za-z0-9]{4,16}$/)
+  joinCode?: string;
+
   @IsOptional()
   @IsArray()
   @Transform(cleanRules)
@@ -148,7 +166,7 @@ export class CouncilAccessQueryDto {
   /** Private council invite code (from an invite link). */
   @IsOptional()
   @IsString()
-  @Matches(/^[A-Za-z0-9]{6,32}$/)
+  @Matches(/^[A-Za-z0-9]{4,32}$/)
   code?: string;
 }
 
@@ -162,7 +180,7 @@ export class CouncilsPageQueryDto {
 export class JoinCouncilDto {
   @IsOptional()
   @IsString()
-  @Matches(/^[A-Za-z0-9]{6,32}$/)
+  @Matches(/^[A-Za-z0-9]{4,32}$/)
   code?: string;
 
   /** Explicit «قواعد المجلس» acceptance (required on first join when rules exist). */
@@ -222,4 +240,31 @@ export class CouncilImageDto {
   @IsOptional()
   @IsUUID()
   listingId?: string;
+}
+
+export const COUNCIL_STAGE_IMAGES_MAX = 10;
+
+export class CouncilStageImagesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(COUNCIL_STAGE_IMAGES_MAX)
+  @ValidateNested({ each: true })
+  @Type(() => CouncilImageDto)
+  images!: CouncilImageDto[];
+}
+
+export class CouncilStageStepDto {
+  @IsIn(['next', 'prev'])
+  dir!: 'next' | 'prev';
+}
+
+export const COUNCIL_CODE_REQUEST_ACTIONS = [
+  'invite',
+  'send_code',
+  'ignore',
+] as const;
+
+export class CouncilCodeRequestResponseDto {
+  @IsIn(COUNCIL_CODE_REQUEST_ACTIONS)
+  action!: (typeof COUNCIL_CODE_REQUEST_ACTIONS)[number];
 }

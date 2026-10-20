@@ -181,7 +181,8 @@ describe('Councils: gating, wiring and design constraints', () => {
     expect(lib).not.toContain("process.env.EXPO_PUBLIC_COUNCILS_ENABLED === 'true'");
     expect(lib).not.toContain('process.env.EXPO_PUBLIC_AGORA_ENABLED');
     expect(src('lib/councilsAgora.web.ts')).toContain('return null');
-    expect(src('lib/agora.ts')).toContain("process.env.EXPO_PUBLIC_AGORA_ENABLED !== 'true'");
+    // Agora stays loadable by default (fallback provider); only an explicit =false opts out.
+    expect(src('lib/agora.ts')).toContain("process.env.EXPO_PUBLIC_AGORA_ENABLED === 'false'");
     expect(src('hooks/useLiveStream.ts')).not.toContain('council');
     expect(src('hooks/useLiveStream.ts')).toContain("from '@/lib/agora'");
   });

@@ -183,6 +183,8 @@ services:
         EXPO_PUBLIC_API_URL: ''
         EXPO_PUBLIC_SOCKET_URL: https://getsarh.com
         EXPO_PUBLIC_AGORA_ENABLED: 'false'
+        EXPO_PUBLIC_LIVE_ENABLED: 'true'
+        EXPO_PUBLIC_RTC_PROVIDER: livekit
     image: sarh-web:latest
     restart: unless-stopped
     mem_limit: 256m

@@ -240,7 +240,16 @@
         {
           "microphonePermission": "يستخدم سرح الميكروفون لتسجيل الرسائل الصوتية في المحادثات، وللتحدث في المجالس والبث المباشر، ولتسجيل صوت مقاطع الفيديو."
         }
-      ]
+      ],
+      [
+        "@livekit/react-native-expo-plugin",
+        {
+          "android": {
+            "audioType": "media"
+          }
+        }
+      ],
+      "@config-plugins/react-native-webrtc"
     ],
     "experiments": {
       "typedRoutes": true

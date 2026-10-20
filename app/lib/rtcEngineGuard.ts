@@ -4,9 +4,16 @@
 // useLiveStream is intentionally untouched: live usage is detected from the engine's
 // own connection state instead.
 
-export type RtcEngineOwner = 'council';
+export type RtcEngineOwner = 'council' | 'live';
 
 let owner: { kind: RtcEngineOwner; id: string } | null = null;
+let liveActive = false;
+
+/** Live video holds the single RTC session (LiveKit room or Agora engine). */
+export function markLiveSession(active: boolean): void {
+  liveActive = active;
+  if (!active && owner?.kind === 'live') owner = null;
+}
 
 export function getRtcEngineOwner() {
   return owner;
@@ -33,7 +40,8 @@ export const AGORA_CONNECTION_FAILED = 5;
  * (i.e. a live stream is playing/broadcasting).
  */
 export function isEngineBusyElsewhere(connectionState: number | null | undefined): boolean {
-  if (owner) return false;
+  if (owner?.kind === 'council') return false;
+  if (owner || liveActive) return true;
   if (typeof connectionState !== 'number' || connectionState < 0) return false;
   return (
     connectionState !== AGORA_CONNECTION_DISCONNECTED &&

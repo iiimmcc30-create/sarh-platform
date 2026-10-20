@@ -45,6 +45,8 @@ export type CouncilImage = {
   listing: { id: string; title: string } | null;
   by: CouncilSpeakerRow['user'] | null;
   at: Date | null;
+  /** Golden stage gallery position (null for a single pinned image). */
+  gallery: { count: number; index: number } | null;
 };
 
 type CouncilImageRow = {
@@ -52,6 +54,8 @@ type CouncilImageRow = {
   imageListingId: string | null;
   imageById: string | null;
   imageAt: Date | null;
+  stageImages?: string[];
+  stageIndex?: number;
 };
 
 export type CouncilSpeaker = {
@@ -60,6 +64,8 @@ export type CouncilSpeaker = {
   role: string;
   micMuted: boolean;
   mutedByModerator: boolean;
+  /** Owner allowed this speaker's camera (only effective in a golden council + verified seller). */
+  cameraAllowed: boolean;
   online: boolean;
   agoraUid: number;
   user: CouncilSpeakerRow['user'];
@@ -100,6 +106,7 @@ export class CouncilRealtimeService {
       role: r.role,
       micMuted: r.micMuted,
       mutedByModerator: r.mutedByModerator,
+      cameraAllowed: r.cameraAllowed,
       online: present.has(r.userId),
       agoraUid: uidFromUserId(r.userId),
       user: r.user,
@@ -180,6 +187,10 @@ export class CouncilRealtimeService {
       listing: listing ?? null,
       by: by ?? null,
       at: row.imageAt,
+      gallery:
+        row.stageImages && row.stageImages.length > 0
+          ? { count: row.stageImages.length, index: row.stageIndex ?? 0 }
+          : null,
     };
   }
 

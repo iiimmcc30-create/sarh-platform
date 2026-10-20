@@ -22,6 +22,7 @@ interface UseLiveSocketOptions {
   onLike?: () => void;
   onLikes?: (count: number) => void;
   onStats?: (stats: { viewers: number; likes: number; commentsCount: number }) => void;
+  onEnded?: () => void;
 }
 
 export function useLiveSocket({
@@ -33,6 +34,7 @@ export function useLiveSocket({
   onLike,
   onLikes,
   onStats,
+  onEnded,
 }: UseLiveSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
   const onCommentRef = useRef(onComment);
@@ -40,12 +42,14 @@ export function useLiveSocket({
   const onLikeRef = useRef(onLike);
   const onLikesRef = useRef(onLikes);
   const onStatsRef = useRef(onStats);
+  const onEndedRef = useRef(onEnded);
 
   onCommentRef.current = onComment;
   onViewersRef.current = onViewers;
   onLikeRef.current = onLike;
   onLikesRef.current = onLikes;
   onStatsRef.current = onStats;
+  onEndedRef.current = onEnded;
 
   useEffect(() => {
     if (!enabled || !streamId || !accessToken) return;
@@ -81,6 +85,10 @@ export function useLiveSocket({
       onStatsRef.current?.(stats);
       onViewersRef.current?.(stats.viewers);
       onLikesRef.current?.(stats.likes);
+    });
+
+    socket.on('live:ended', () => {
+      onEndedRef.current?.();
     });
 
     return () => {

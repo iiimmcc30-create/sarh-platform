@@ -221,6 +221,49 @@ export async function deleteLiveStream(id: string) {
   return unwrap(res);
 }
 
+export type AdminCouncil = {
+  id: string;
+  name: string;
+  description: string | null;
+  visibility: "PUBLIC" | "PRIVATE";
+  status: "LIVE" | "ENDED" | "SCHEDULED";
+  golden: boolean;
+  goldenGrantedAt: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  owner: { id: string; username: string; arabicName?: string | null; displayName?: string | null; verified?: boolean };
+  membersCount: number;
+  presentNow: number;
+};
+
+export async function fetchAdminCouncils(params: {
+  status?: string;
+  golden?: string;
+  q?: string;
+  cursor?: string | null;
+} = {}) {
+  const query: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value.trim() !== "") query[key] = value.trim();
+  }
+  const res = await apiClient.get("/admin/councils", { params: query });
+  return unwrap<{
+    councils: AdminCouncil[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }>(res);
+}
+
+export async function setAdminCouncilGolden(id: string, golden: boolean) {
+  const res = await apiClient.patch(`/admin/councils/${id}/golden`, { golden });
+  return unwrap(res);
+}
+
+export async function closeAdminCouncil(id: string, reason?: string) {
+  const res = await apiClient.post(`/admin/councils/${id}/close`, { reason });
+  return unwrap(res);
+}
+
 export async function fetchSettings() {
   const res = await apiClient.get("/admin/settings");
   return unwrap<{ settings: Record<string, unknown>[] }>(res);

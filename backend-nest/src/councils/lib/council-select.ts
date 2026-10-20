@@ -21,6 +21,7 @@ export const COUNCIL_SPEAKER_SELECT = {
   seatIndex: true,
   micMuted: true,
   mutedByModerator: true,
+  cameraAllowed: true,
   user: { select: COUNCIL_USER_SELECT },
 } as const satisfies Prisma.CouncilMemberSelect;
 

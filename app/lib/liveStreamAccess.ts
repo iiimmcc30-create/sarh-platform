@@ -2,12 +2,16 @@ import type { Router } from 'expo-router';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { API_BASE } from '@/services/api';
 import { showAlert } from '@/lib/confirmDialog';
+import { isLiveBroadcastEnabled } from '@/lib/rtcProvider';
 
 export type LiveStreamEligibility = {
   canStream: boolean;
   listingsCount: number;
   reason?: string;
   messageAr?: string;
+  /** Server-selected RTC provider for new sessions (RTC_PROVIDER). */
+  provider?: 'livekit' | 'agora';
+  agoraAppId?: string | null;
 };
 
 export async function fetchLiveStreamEligibility(
@@ -28,6 +32,8 @@ export async function fetchLiveStreamEligibility(
         listingsCount: json.data.listingsCount ?? 0,
         reason: json.data.reason,
         messageAr: json.data.messageAr ?? json.messageAr,
+        provider: json.data.provider === 'agora' ? 'agora' : json.data.provider === 'livekit' ? 'livekit' : undefined,
+        agoraAppId: json.data.agoraAppId ?? null,
       };
     }
     return {
@@ -95,10 +101,14 @@ export function showLiveBroadcastComingSoonAlert() {
 }
 
 export async function openLiveCreateIfAllowed(
-  _router: Router,
+  router: Router,
   _accessToken: string | null,
   _params?: Record<string, string>,
 ): Promise<boolean> {
-  showLiveBroadcastComingSoonAlert();
-  return false;
+  if (!isLiveBroadcastEnabled()) {
+    showLiveBroadcastComingSoonAlert();
+    return false;
+  }
+  router.push('/live/create' as never);
+  return true;
 }
