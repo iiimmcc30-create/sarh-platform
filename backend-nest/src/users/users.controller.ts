@@ -13,6 +13,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { UsersService } from './services/users.service';
+import { UserReviewsService } from './services/user-reviews.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import {
   OptionalAuth,
@@ -25,7 +26,6 @@ import {
   ChangePhoneDto,
   ConnectionsQueryDto,
   ListUsersQueryDto,
-  RateUserDto,
   SetBlockDto,
   SetFollowDto,
   UpdateAccountSettingsDto,
@@ -33,10 +33,18 @@ import {
   UpdateUserDto,
   UsernameAvailableQueryDto,
 } from './dto/users.dto';
+import {
+  CreateUserReviewDto,
+  ListUserReviewsQueryDto,
+  ReportUserReviewDto,
+} from './dto/user-reviews.dto';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly reviews: UserReviewsService,
+  ) {}
 
   @Public()
   @RateLimit('api')
@@ -176,16 +184,42 @@ export class UsersController {
     );
   }
 
+  @Public()
+  @OptionalAuth()
   @RateLimit('api')
-  @Post(':id/rate')
+  @Get(':id/reviews')
+  @Header('Cache-Control', 'private, no-store')
   @HttpCode(HttpStatus.OK)
-  async rate(
+  async listReviews(
+    @Param('id') id: string,
+    @Query() query: ListUserReviewsQueryDto,
+    @CurrentUser() viewer?: JwtPayload,
+  ) {
+    return successResponse(await this.reviews.list(id, query, viewer));
+  }
+
+  @RateLimit('api')
+  @Post(':id/reviews')
+  @HttpCode(HttpStatus.CREATED)
+  async createReview(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
-    @Body() dto: RateUserDto,
+    @Body() dto: CreateUserReviewDto,
+  ) {
+    return successResponse(await this.reviews.create(id, user.userId, dto));
+  }
+
+  @RateLimit('api')
+  @Post(':id/reviews/:reviewId/report')
+  @HttpCode(HttpStatus.CREATED)
+  async reportReview(
+    @Param('id') id: string,
+    @Param('reviewId') reviewId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ReportUserReviewDto,
   ) {
     return successResponse(
-      await this.users.rateUser(id, user.userId, dto.rating),
+      await this.reviews.report(id, reviewId, user, dto),
     );
   }
 

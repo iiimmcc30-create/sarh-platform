@@ -11,6 +11,7 @@ const TARGET_LABEL_AR: Record<CreateReportDto['targetType'], string> = {
   story: 'قصة',
   collection: 'مجموعة',
   council_image: 'صورة في مجلس',
+  review: 'تقييم',
 };
 
 @Injectable()
@@ -28,6 +29,19 @@ export class ReportsService {
   async create(user: JwtPayload, dto: CreateReportDto) {
     if (dto.targetType === 'user' && dto.targetId === user.userId) {
       throwApi(400, 'invalid_action', 'لا يمكنك الإبلاغ عن نفسك');
+    }
+
+    if (dto.targetType === 'review') {
+      const review = await this.prisma.userReview.findUnique({
+        where: { id: dto.targetId },
+        select: { id: true, reviewerId: true, hiddenAt: true },
+      });
+      if (!review || review.hiddenAt) {
+        throwApi(404, 'not_found', 'التقييم غير موجود');
+      }
+      if (review.reviewerId === user.userId) {
+        throwApi(400, 'invalid_action', 'لا يمكنك الإبلاغ عن تقييمك');
+      }
     }
 
     // «عرض صورة»: capture the exact image (it can be replaced or removed later).

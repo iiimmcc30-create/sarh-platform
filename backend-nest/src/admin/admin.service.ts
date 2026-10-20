@@ -20,6 +20,7 @@ import {
   createManagedListingSchema,
   updateManagedListingSchema,
   updatePostSchema,
+  hideReviewSchema,
   updateReportSchema,
   updateSectionSchema,
   updateSettingSchema,
@@ -349,6 +350,77 @@ export class AdminService {
   async deleteReport(id: string) {
     await this.repo.softDeleteTicket(id);
     return { deleted: true, archived: true };
+  }
+
+  listReviews(query: Record<string, unknown>) {
+    const page = this.parsePagination(query);
+    const raw = typeof query.status === 'string' ? query.status : 'all';
+    const visibility = ['all', 'visible', 'hidden', 'reported'].includes(raw)
+      ? raw
+      : 'all';
+    return this.repo.listReviews({ ...page, visibility });
+  }
+
+  async getReview(id: string) {
+    const review = await this.repo.findReview(id);
+    if (!review) throwApi(404, 'not_found', 'التقييم غير موجود');
+    const reports = await this.repo.listReviewReportTickets([id]);
+    return { review, reports };
+  }
+
+  /**
+   * Hide a review through an existing report. Does not delete the row or
+   * change its comment, stars, or oath.
+   */
+  async hideReview(
+    id: string,
+    actor: JwtPayload,
+    body: Record<string, unknown>,
+  ) {
+    const parsed = hideReviewSchema.safeParse(body);
+    if (!parsed.success) {
+      throwApi(
+        400,
+        'validation_error',
+        'يجب ذكر سبب الإخفاء وربط بلاغ',
+        parsed.error.flatten(),
+      );
+    }
+    const ticket = await this.repo.findTicket(parsed.data.reportId);
+    const meta = ticket?.metadata as
+      | { targetType?: unknown; targetId?: unknown }
+      | null
+      | undefined;
+    if (!ticket || ticket.deletedAt || ticket.type !== 'REPORT') {
+      throwApi(404, 'not_found', 'البلاغ غير موجود');
+    }
+    if (meta?.targetType !== 'review' || meta?.targetId !== id) {
+      throwApi(400, 'validation_error', 'البلاغ لا يخص هذا التقييم');
+    }
+
+    const result = await this.repo.hideReview({
+      reviewId: id,
+      actorId: actor.userId,
+      reason: parsed.data.reason,
+      reportId: parsed.data.reportId,
+    });
+    if (!result) throwApi(404, 'not_found', 'التقييم غير موجود');
+    if (result.alreadyHidden) {
+      throwApi(409, 'already_hidden', 'التقييم مخفي بالفعل');
+    }
+
+    await this.cache
+      .del(`user:${result.review.targetId}`, `user:${result.review.targetId}:base`)
+      .catch(() => undefined);
+    this.logger.info(
+      { reviewId: id, by: actor.userId, reportId: parsed.data.reportId },
+      'Admin hid user review',
+    );
+    return {
+      hidden: true,
+      reviewId: id,
+      action: result.action,
+    };
   }
 
   listLiveStreams(query: Record<string, unknown>) {

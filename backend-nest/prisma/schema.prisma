@@ -69,6 +69,7 @@ model User {
   activityTargets                     Activity[]                        @relation("ActivityTarget")
   reviewsReceived                     UserReview[]                      @relation("UserReviewsReceived")
   reviewsGiven                        UserReview[]                      @relation("UserReviewsGiven")
+  reviewsHidden                       UserReview[]                      @relation("UserReviewsHidden")
   following                           Follow[]                          @relation("Followers")
   followers                           Follow[]                          @relation("Following")
   blocksInitiated                     UserBlock[]                       @relation("BlocksInitiated")
@@ -1200,20 +1201,33 @@ model Activity {
   @@index([targetUserId])
 }
 
-// General account rating — any user can rate any other user's account once (editable).
+// One review per reviewer per target. Content (stars, purchase, recommendation,
+// comment, oath) is immutable after insert. Staff may only hide a review.
 model UserReview {
-  id         String   @id @default(uuid())
-  targetId   String
-  reviewerId String
-  rating     Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  target     User     @relation("UserReviewsReceived", fields: [targetId], references: [id])
-  reviewer   User     @relation("UserReviewsGiven", fields: [reviewerId], references: [id])
+  id             String    @id @default(uuid())
+  targetId       String
+  reviewerId     String
+  rating         Int
+  /// Empty for ratings migrated from the star-only model.
+  comment        String    @default("") @db.VarChar(1000)
+  purchased      Boolean   @default(false)
+  recommend      Boolean   @default(false)
+  /// Null on rows migrated from star-only ratings (no oath, no comment counts).
+  oathAcceptedAt DateTime?
+  hiddenAt       DateTime?
+  hiddenReason   String?   @db.VarChar(500)
+  hiddenById     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  target         User      @relation("UserReviewsReceived", fields: [targetId], references: [id])
+  reviewer       User      @relation("UserReviewsGiven", fields: [reviewerId], references: [id])
+  hiddenBy       User?     @relation("UserReviewsHidden", fields: [hiddenById], references: [id])
 
   @@unique([targetId, reviewerId])
   @@index([targetId])
   @@index([reviewerId])
+  @@index([targetId, hiddenAt, createdAt])
+  @@index([hiddenAt])
 }
 
 enum Country {

@@ -174,6 +174,34 @@ export async function deleteReport(id: string) {
   return unwrap(res);
 }
 
+export type AdminReviewFilters = ListParams & {
+  status?: 'all' | 'visible' | 'hidden' | 'reported';
+};
+
+export async function fetchAdminReviews(params: AdminReviewFilters = {}) {
+  const res = await apiClient.get('/admin/reviews', {
+    params: cleanListParams(params),
+  });
+  return unwrap<Paginated<Record<string, unknown>>>(res);
+}
+
+export async function fetchAdminReview(id: string) {
+  const res = await apiClient.get(`/admin/reviews/${id}`);
+  return unwrap<{
+    review: Record<string, unknown>;
+    reports: Record<string, unknown>[];
+  }>(res);
+}
+
+/** Hide only. Reviews are never hard-deleted from the admin API. */
+export async function hideAdminReview(
+  id: string,
+  body: { reason: string; reportId: string },
+) {
+  const res = await apiClient.post(`/admin/reviews/${id}/hide`, body);
+  return unwrap(res);
+}
+
 export async function fetchLiveStreams(
   params: ListParams & { live?: string } = {},
 ) {
