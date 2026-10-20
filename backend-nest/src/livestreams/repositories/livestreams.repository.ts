@@ -41,6 +41,7 @@ const STREAM_DETAIL_SELECT = {
   likes: true,
   startedAt: true,
   endedAt: true,
+  hlsUrl: true,
   host: {
     select: {
       id: true,
@@ -181,7 +182,60 @@ export class LivestreamsRepository {
   findStreamForToken(id: string) {
     return this.prisma.liveStream.findUnique({
       where: { id },
-      select: { id: true, isLive: true },
+      select: {
+        id: true,
+        hostId: true,
+        isLive: true,
+        viewers: true,
+        hlsUrl: true,
+        hlsEgressId: true,
+      },
+    });
+  }
+
+  findStreamForHls(id: string) {
+    return this.prisma.liveStream.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        hostId: true,
+        isLive: true,
+        viewers: true,
+        hlsUrl: true,
+        hlsEgressId: true,
+      },
+    });
+  }
+
+  async sumLiveViewers(): Promise<number> {
+    const agg = await this.prisma.liveStream.aggregate({
+      where: { isLive: true, ...notDeleted },
+      _sum: { viewers: true },
+    });
+    return agg._sum.viewers ?? 0;
+  }
+
+  /** Egress requested: the playlist is NOT exposed to viewers yet. */
+  setStreamHlsPreparing(id: string, hlsEgressId: string) {
+    return this.prisma.liveStream.updateMany({
+      where: { id, isLive: true },
+      data: { hlsEgressId, hlsUrl: null },
+    });
+  }
+
+  /** Playlist verified live: only now may viewers be sent to it. */
+  setStreamHlsReady(id: string, hlsEgressId: string, hlsUrl: string) {
+    return this.prisma.liveStream.updateMany({
+      where: { id, isLive: true, hlsEgressId },
+      data: { hlsUrl },
+    });
+  }
+
+  /** Only clears when the stored egress is the one that ended (ignores stale events). */
+  clearStreamHls(id: string, hlsEgressId?: string) {
+    return this.prisma.liveStream.updateMany({
+      where: { id, ...(hlsEgressId ? { hlsEgressId } : {}) },
+      data: { hlsUrl: null, hlsEgressId: null },
     });
   }
 

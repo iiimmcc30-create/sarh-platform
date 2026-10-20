@@ -7,6 +7,7 @@ import {
   receiveLivekitWebhook,
   streamIdFromRoom,
 } from '../shared/rtc/livekit';
+import { HlsEgressService } from './hls-egress.service';
 import { LivestreamsService } from './livestreams.service';
 
 /**
@@ -19,6 +20,7 @@ import { LivestreamsService } from './livestreams.service';
 export class LivekitWebhookService {
   constructor(
     private readonly livestreams: LivestreamsService,
+    private readonly hls: HlsEgressService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -37,13 +39,23 @@ export class LivekitWebhookService {
       throwApi(401, 'invalid_webhook', 'Invalid LiveKit webhook signature');
     }
 
-    const room = event.room?.name ?? '';
+    const room = event.room?.name ?? event.egressInfo?.roomName ?? '';
     if (!room || councilIdFromRoom(room)) return { ok: true };
     const streamId = streamIdFromRoom(room);
     if (!streamId) return { ok: true };
 
     try {
-      if (event.event === 'room_finished') {
+      if (
+        event.event === 'egress_started' ||
+        event.event === 'egress_updated' ||
+        event.event === 'egress_ended'
+      ) {
+        await this.hls.handleEgressEvent(
+          event.event,
+          event.egressInfo,
+          streamId,
+        );
+      } else if (event.event === 'room_finished') {
         await this.livestreams.endStreamBySystem(streamId);
       } else if (
         event.event === 'participant_joined' ||

@@ -149,7 +149,10 @@ export async function setLivekitPublish(input: {
     }
   } catch (err) {
     logger.warn(
-      { err: err instanceof Error ? err.message : String(err), room: input.room },
+      {
+        err: err instanceof Error ? err.message : String(err),
+        room: input.room,
+      },
       'LiveKit updateParticipant failed',
     );
   }

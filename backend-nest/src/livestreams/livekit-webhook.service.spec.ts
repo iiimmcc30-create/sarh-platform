@@ -23,16 +23,25 @@ describe('LivekitWebhookService', () => {
   function service(overrides?: {
     endStreamBySystem?: jest.Mock;
     setViewerCountFromIdentities?: jest.Mock;
+    handleEgressEvent?: jest.Mock;
   }) {
     const livestreams = {
       endStreamBySystem: overrides?.endStreamBySystem ?? jest.fn(),
       setViewerCountFromIdentities:
         overrides?.setViewerCountFromIdentities ?? jest.fn(),
     };
+    const hls = {
+      handleEgressEvent: overrides?.handleEgressEvent ?? jest.fn(),
+    };
     const logger = { warn: jest.fn(), info: jest.fn(), error: jest.fn() };
     return {
-      svc: new LivekitWebhookService(livestreams as never, logger as never),
+      svc: new LivekitWebhookService(
+        livestreams as never,
+        hls as never,
+        logger as never,
+      ),
       livestreams,
+      hls,
       logger,
     };
   }
@@ -46,6 +55,21 @@ describe('LivekitWebhookService', () => {
     const { svc, livestreams } = service();
     await expect(svc.handle(body, auth)).resolves.toEqual({ ok: true });
     expect(livestreams.endStreamBySystem).toHaveBeenCalledWith(STREAM);
+  });
+
+  it('routes egress_ended to the HLS service using the egress room', async () => {
+    const body = JSON.stringify({
+      event: 'egress_ended',
+      egressInfo: { egressId: 'EG_1', roomName: ROOM, status: 3 },
+    });
+    const auth = await signLivekitWebhook(body, KEY, SECRET);
+    const { svc, hls } = service();
+    await expect(svc.handle(body, auth)).resolves.toEqual({ ok: true });
+    expect(hls.handleEgressEvent).toHaveBeenCalledWith(
+      'egress_ended',
+      expect.objectContaining({ egressId: 'EG_1' }),
+      STREAM,
+    );
   });
 
   it('ignores council rooms', async () => {

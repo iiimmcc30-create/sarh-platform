@@ -4,6 +4,7 @@
  * Never logs secret values — only missing key names.
  */
 
+import { hlsConfigProblem } from '../shared/rtc/hls-config';
 import { storeIapEnvWarnings } from '../store-purchases/store-purchases.config';
 
 function isBlank(value: string | undefined): boolean {
@@ -141,6 +142,8 @@ export function validateProductionEnv(): void {
     if (livekitUrl && !/^wss:\/\//i.test(livekitUrl)) {
       problems.push('LIVEKIT_URL must be a wss:// URL in production');
     }
+    const hlsProblem = hlsConfigProblem();
+    if (hlsProblem) problems.push(hlsProblem);
   }
 
   const uniqueMissing = [...new Set(missing)].filter(Boolean);

@@ -13,6 +13,7 @@ import {
   generateCouncilToken,
   isAgoraConfigured,
 } from '../shared/lib/agora';
+import { getRtcLimits } from '../shared/rtc/limits';
 import { getRtcProvider } from '../shared/rtc/rtc-provider';
 import {
   LIVEKIT_COUNCIL_TTL_SEC,
@@ -20,6 +21,7 @@ import {
   createLivekitToken,
   deleteLivekitRoom,
   isLivekitConfigured,
+  listLivekitIdentities,
   removeLivekitParticipant,
   requireLivekitConfig,
   setLivekitPublish,
@@ -420,6 +422,25 @@ export class CouncilsService {
       };
     }
     const room = councilRoomName(councilId);
+    if (role !== 'publisher') {
+      const cap = getRtcLimits().maxCouncilParticipants;
+      if (cap > 0) {
+        const identities = await listLivekitIdentities(room);
+        if (
+          identities &&
+          identities.length >= cap &&
+          !identities.includes(userId)
+        ) {
+          return {
+            provider: 'livekit' as const,
+            agora: null,
+            agoraError: null,
+            livekit: null,
+            livekitError: 'room_full' as const,
+          };
+        }
+      }
+    }
     const token = await createLivekitToken({
       identity: userId,
       room,
@@ -641,9 +662,11 @@ export class CouncilsService {
       throwApi(
         503,
         creds.provider === 'livekit'
-          ? 'livekit_unavailable'
+          ? (creds.livekitError ?? 'livekit_unavailable')
           : 'agora_unavailable',
-        'الصوت غير متاح حالياً',
+        creds.livekitError === 'room_full'
+          ? 'المجلس ممتلئ صوتياً حالياً'
+          : 'الصوت غير متاح حالياً',
       );
     }
     if (council.ownerId === user.userId) {

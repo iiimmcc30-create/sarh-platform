@@ -14,9 +14,17 @@ import {
   createLivekitToken,
   deleteLivekitRoom,
   isLivekitConfigured,
+  listLivekitIdentities,
   liveRoomName,
   requireLivekitConfig,
 } from '../shared/rtc/livekit';
+import {
+  decideViewerAdmission,
+  getRtcLimits,
+  shouldAutostartHls,
+} from '../shared/rtc/limits';
+import { HLS_LATENCY_SECONDS } from '../shared/rtc/hls-config';
+import { HlsEgressService } from './hls-egress.service';
 import { SubscriptionEntitlementService } from '../subscriptions/services/subscription-entitlement.service';
 import { SubscriptionLifecycleService } from '../subscriptions/services/subscription-lifecycle.service';
 import { AppNotificationsService } from '../queue/services/app-notifications.service';
@@ -39,6 +47,7 @@ export class LivestreamsService {
     private readonly subscriptionLifecycle: SubscriptionLifecycleService,
     private readonly entitlements: SubscriptionEntitlementService,
     private readonly liveBridge: LiveSocketBridgeService,
+    private readonly hls: HlsEgressService,
   ) {}
 
   private async resolveLiveAccess(userId: string) {
@@ -129,8 +138,11 @@ export class LivestreamsService {
       const access = await this.resolveLiveAccess(userId);
       const hasListing = listingsCount > 0;
 
+      const provider = getRtcProvider();
       return {
         canStream: hasListing && access.allowed,
+        provider,
+        agoraAppId: provider === 'agora' ? (process.env.AGORA_APP_ID ?? null) : null,
         listingsCount,
         planId: access.planId,
         ...(!access.allowed
@@ -206,7 +218,44 @@ export class LivestreamsService {
       if (!stream) throwApi(404, 'not_found', 'البث غير موجود');
       if (!stream.isLive) throwApi(410, 'stream_ended', 'انتهى البث');
 
-      return this.issueCredentials(id, user.userId, 'viewer');
+      if (getRtcProvider() === 'livekit' && user.userId !== stream.hostId) {
+        const limits = getRtcLimits();
+        const room = liveRoomName(id);
+        const atCap = (viewers: number, cluster: number) =>
+          decideViewerAdmission({
+            roomViewers: viewers,
+            clusterViewers: cluster,
+            limits,
+            hlsUrl: null,
+            hlsStartable: false,
+            alreadyInRoom: false,
+          }).mode !== 'webrtc';
+        const clusterViewers =
+          limits.maxParticipantsPerNode > 0
+            ? await this.repo.sumLiveViewers()
+            : 0;
+        if (atCap(stream.viewers, clusterViewers)) {
+          const identities = await listLivekitIdentities(room);
+          const admission = decideViewerAdmission({
+            roomViewers: identities
+              ? identities.filter((i) => i !== stream.hostId).length
+              : stream.viewers,
+            clusterViewers,
+            limits,
+            hlsUrl: stream.hlsUrl,
+            hlsStartable: this.hls.isEnabled(),
+            alreadyInRoom: identities?.includes(user.userId) ?? false,
+          });
+          if (admission.mode === 'hls') {
+            return this.hlsCredentials(admission.hlsUrl);
+          }
+          if (admission.mode === 'full') {
+            return this.fullRoomFallback(id, admission);
+          }
+        }
+      }
+
+      return this.issueCredentials(id, user.userId, 'viewer', stream.hlsUrl);
     } catch (err) {
       if (err instanceof ApiException) throw err;
       this.logger.error({ err }, 'Get viewer token error');
@@ -241,6 +290,65 @@ export class LivestreamsService {
       await this.repo.raisePeakViewers(id, viewers).catch(() => {});
     }
     this.liveBridge.toStream(id, 'live:viewers', viewers);
+    if (shouldAutostartHls(viewers)) void this.hls.tryStart(id);
+  }
+
+  /**
+   * WebRTC slots are full. A playlist is only handed out once it is verified live;
+   * otherwise the client gets an explicit state (preparing / failed / full) it can show.
+   */
+  private async fullRoomFallback(
+    id: string,
+    admission: { reason: 'room_full' | 'cluster_full'; hlsStartable: boolean },
+  ): Promise<never | ReturnType<LivestreamsService['hlsCredentials']>> {
+    let status = this.hls.isEnabled() ? await this.hls.status(id) : null;
+    if (status?.state === 'off' && admission.hlsStartable) {
+      try {
+        await this.hls.start(id);
+      } catch {
+        // recorded as `failed` by the HLS service
+      }
+      status = await this.hls.status(id);
+    }
+    if (status?.state === 'ready' && status.hlsUrl) {
+      return this.hlsCredentials(status.hlsUrl);
+    }
+    const state = status?.state ?? 'off';
+    const error =
+      state === 'preparing'
+        ? 'hls_preparing'
+        : state === 'failed'
+          ? 'hls_failed'
+          : admission.reason;
+    const message =
+      state === 'preparing'
+        ? 'البث ممتلئ — جارٍ تجهيز المشاهدة عبر الخادم الموزّع'
+        : state === 'failed'
+          ? 'تعذر تجهيز المشاهدة البديلة — سننتظر مقعداً فارغاً'
+          : 'البث ممتلئ حالياً';
+    throwApi(503, error, message, {
+      hlsState: state,
+      reason: status?.reason ?? null,
+      retryAfterSeconds: status?.retryAfterSeconds ?? 10,
+    });
+  }
+
+  async hlsStatus(id: string) {
+    return this.hls.status(id);
+  }
+
+  async startHls(id: string, user: JwtPayload) {
+    const stream = await this.repo.findStreamForHls(id);
+    if (!stream) throwApi(404, 'not_found', 'البث غير موجود');
+    if (stream.hostId !== user.userId) throwApi(403, 'forbidden', 'غير مسموح');
+    return this.hls.start(id);
+  }
+
+  async stopHls(id: string, user: JwtPayload) {
+    const stream = await this.repo.findStreamForHls(id);
+    if (!stream) throwApi(404, 'not_found', 'البث غير موجود');
+    if (stream.hostId !== user.userId) throwApi(403, 'forbidden', 'غير مسموح');
+    return this.hls.stop(id);
   }
 
   async getStream(id: string) {
@@ -261,6 +369,7 @@ export class LivestreamsService {
     durationMinutes: number,
     hostId: string,
   ) {
+    await this.hls.stop(stream.id).catch(() => undefined);
     await this.repo.endStream(stream.id, endedAt);
     if (durationMinutes > 0) {
       await this.repo
@@ -281,6 +390,7 @@ export class LivestreamsService {
     streamId: string,
     userId: string,
     role: 'host' | 'viewer',
+    hlsUrl: string | null = null,
   ) {
     const room = streamIdToChannel(streamId);
     const provider = getRtcProvider();
@@ -298,6 +408,9 @@ export class LivestreamsService {
         livekitUrl: null,
         livekitToken: null,
         livekitRoom: null,
+        mode: 'webrtc' as const,
+        hlsUrl: null,
+        hlsLatencySeconds: null,
         expiresIn:
           role === 'host' ? LIVEKIT_HOST_TTL_SEC : LIVEKIT_VIEWER_TTL_SEC,
       };
@@ -321,7 +434,29 @@ export class LivestreamsService {
       livekitUrl: requireLivekitConfig().url,
       livekitToken,
       livekitRoom: liveRoomName(streamId),
+      mode: 'webrtc' as const,
+      hlsUrl: role === 'viewer' ? hlsUrl : null,
+      hlsLatencySeconds:
+        role === 'viewer' && hlsUrl ? HLS_LATENCY_SECONDS : null,
       expiresIn: ttl,
+    };
+  }
+
+  /** WebRTC slots are full: the viewer plays the CDN-backed HLS stream instead. */
+  private hlsCredentials(hlsUrl: string) {
+    return {
+      provider: 'livekit' as const,
+      agoraAppId: null,
+      agoraChannel: null,
+      agoraToken: null,
+      agoraUid: null,
+      livekitUrl: null,
+      livekitToken: null,
+      livekitRoom: null,
+      mode: 'hls' as const,
+      hlsUrl,
+      hlsLatencySeconds: HLS_LATENCY_SECONDS,
+      expiresIn: LIVEKIT_VIEWER_TTL_SEC,
     };
   }
 

@@ -61,10 +61,7 @@ describe('LiveKit tokens and rooms', () => {
       canSubscribe: true,
       canPublishData: false,
     });
-    expect(hostGrant?.canPublishSources).toEqual([
-      'camera',
-      'microphone',
-    ]);
+    expect(hostGrant?.canPublishSources).toEqual(['camera', 'microphone']);
     expect(viewerGrant).toMatchObject({
       canPublish: false,
       canSubscribe: true,
@@ -86,14 +83,15 @@ describe('LiveKit tokens and rooms', () => {
   });
 
   it('rejects a webhook whose signature does not match the body', async () => {
-    const body = JSON.stringify({ event: 'room_finished', room: { name: 'x' } });
+    const body = JSON.stringify({
+      event: 'room_finished',
+      room: { name: 'x' },
+    });
     const auth = await signLivekitWebhook(body, KEY, SECRET);
     await expect(receiveLivekitWebhook(body, auth)).resolves.toMatchObject({
       event: 'room_finished',
     });
-    await expect(
-      receiveLivekitWebhook(body, 'not-a-token'),
-    ).rejects.toThrow();
+    await expect(receiveLivekitWebhook(body, 'not-a-token')).rejects.toThrow();
     await expect(
       receiveLivekitWebhook('{"event":"room_finished"}', auth),
     ).rejects.toThrow(/sha256/);

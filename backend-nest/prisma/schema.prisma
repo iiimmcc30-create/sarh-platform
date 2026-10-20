@@ -1073,6 +1073,7 @@ model LiveStream {
   streamKey   String        @unique @default(uuid())
   rtmpUrl     String?
   hlsUrl      String?
+  hlsEgressId String?
   isLive      Boolean       @default(false)
   viewers     Int           @default(0)
   peakViewers Int           @default(0)

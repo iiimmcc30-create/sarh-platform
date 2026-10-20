@@ -66,6 +66,11 @@ export class LivestreamsController {
       return successResponse(await this.livestreams.getViewerToken(id, user));
     }
 
+    if (action === 'hls-status') {
+      if (!user) throwApi(401, 'unauthorized', 'غير مصرح');
+      return successResponse(await this.livestreams.hlsStatus(id));
+    }
+
     if (action) {
       throw new MethodNotAllowedException();
     }
@@ -86,6 +91,12 @@ export class LivestreamsController {
     }
     if (action === 'end') {
       return successResponse(await this.livestreams.endStream(id, user));
+    }
+    if (action === 'hls-start') {
+      return successResponse(await this.livestreams.startHls(id, user));
+    }
+    if (action === 'hls-stop') {
+      return successResponse(await this.livestreams.stopHls(id, user));
     }
     throw new MethodNotAllowedException();
   }
