@@ -47,6 +47,13 @@ export default function UserReviewsScreen() {
   const [failed, setFailed] = useState(false);
   const [dialog, setDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [trackedId, setTrackedId] = useState(id);
+  if (id !== trackedId) {
+    setTrackedId(id);
+    setLoading(true);
+    setFailed(false);
+    setPage(null);
+  }
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -74,8 +81,18 @@ export default function UserReviewsScreen() {
   }, [id, loadingMore, page]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!id) return undefined;
+    let cancelled = false;
+    void fetchUserReviews(id).then((next) => {
+      if (cancelled) return;
+      setPage(next);
+      setFailed(!next);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const viewerId = user?.id;
   const ownProfile = !!viewerId && viewerId === id;

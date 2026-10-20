@@ -182,9 +182,16 @@ export class UserReviewsService {
 
   private assertCreatePayload(dto: CreateUserReviewDto) {
     if (dto.oathAccepted !== true) {
-      throwApi(400, 'oath_required', 'يجب الموافقة على التعهد قبل إرسال التقييم');
+      throwApi(
+        400,
+        'oath_required',
+        'يجب الموافقة على التعهد قبل إرسال التقييم',
+      );
     }
-    if (typeof dto.purchased !== 'boolean' || typeof dto.recommend !== 'boolean') {
+    if (
+      typeof dto.purchased !== 'boolean' ||
+      typeof dto.recommend !== 'boolean'
+    ) {
       throwApi(400, 'validation_error', 'أجب عن سؤال الشراء والتوصية');
     }
     if (!Number.isInteger(dto.rating) || dto.rating < 1 || dto.rating > 5) {

@@ -1,6 +1,7 @@
 -- Reviews become immutable comments. Existing star-only rows stay as reviews
--- with an empty comment and a null oath (excluded from positive/negative
--- comment counts, still included in the star average until hidden).
+-- with an empty comment and a null oath. Those rows count by stars: 4–5 are
+-- positive (recommend = true), 1–2 are negative, and 3 stays neutral. Every
+-- non-hidden row, including a neutral 3, stays in the star average.
 
 ALTER TABLE "UserReview" ADD COLUMN IF NOT EXISTS "comment" VARCHAR(1000) NOT NULL DEFAULT '';
 ALTER TABLE "UserReview" ADD COLUMN IF NOT EXISTS "purchased" BOOLEAN NOT NULL DEFAULT false;
@@ -55,7 +56,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop first so a re-run can backfill recommend before the trigger locks it.
 DROP TRIGGER IF EXISTS user_review_guard_immutable ON "UserReview";
+
+-- Star-only rows: 4–5 recommend (positive). 1–3 stay recommend = false.
+-- Counts still treat only 1–2 as negative and leave 3 out of both totals.
+UPDATE "UserReview"
+SET "recommend" = true
+WHERE "comment" = ''
+  AND "oathAcceptedAt" IS NULL
+  AND rating >= 4;
+
+UPDATE "UserReview"
+SET "recommend" = false
+WHERE "comment" = ''
+  AND "oathAcceptedAt" IS NULL
+  AND rating <= 3;
+
 CREATE TRIGGER user_review_guard_immutable
   BEFORE UPDATE OR DELETE ON "UserReview"
   FOR EACH ROW EXECUTE FUNCTION user_review_guard_immutable();

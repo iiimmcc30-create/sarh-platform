@@ -734,5 +734,4 @@ export class UsersService {
       postsCount: user._count.posts,
     };
   }
-
 }

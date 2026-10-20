@@ -118,7 +118,10 @@ describe('review moderation source', () => {
   it('hide update touches only moderation columns', () => {
     const hide = repository.slice(repository.indexOf('async hideReview'));
     const update = hide.slice(hide.indexOf('userReview.update'));
-    const data = update.slice(update.indexOf('data:'), update.indexOf('select:'));
+    const data = update.slice(
+      update.indexOf('data:'),
+      update.indexOf('select:'),
+    );
     expect(data).toContain('hiddenAt');
     expect(data).toContain('hiddenReason');
     expect(data).toContain('hiddenById');
@@ -132,6 +135,19 @@ describe('review moderation source', () => {
     expect(migration).toContain("DEFAULT ''");
     expect(migration).toContain('user reviews cannot be deleted');
     expect(migration).toContain('user review content is immutable');
+    expect(migration).toContain('SET "recommend" = true');
+    expect(migration).toContain('rating >= 4');
+    expect(migration).toContain('rating <= 3');
+    const backfill = migration.indexOf('SET "recommend" = true');
+    const dropGuard = migration.indexOf(
+      'DROP TRIGGER IF EXISTS user_review_guard_immutable',
+    );
+    const createGuard = migration.indexOf(
+      'CREATE TRIGGER user_review_guard_immutable',
+    );
+    expect(dropGuard).toBeGreaterThanOrEqual(0);
+    expect(backfill).toBeGreaterThan(dropGuard);
+    expect(createGuard).toBeGreaterThan(backfill);
     expect(migration).not.toContain('DROP TABLE');
     expect(migration).not.toContain('DELETE FROM "UserReview"');
   });

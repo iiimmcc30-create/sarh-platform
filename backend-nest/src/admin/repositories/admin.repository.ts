@@ -1146,7 +1146,9 @@ export class AdminRepository {
     };
   }
 
-  private reviewReportWhere(reviewIds?: string[]): Prisma.SupportTicketWhereInput {
+  private reviewReportWhere(
+    reviewIds?: string[],
+  ): Prisma.SupportTicketWhereInput {
     return {
       ...notDeleted,
       type: 'REPORT',

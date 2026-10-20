@@ -218,9 +218,7 @@ export class UsersController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: ReportUserReviewDto,
   ) {
-    return successResponse(
-      await this.reviews.report(id, reviewId, user, dto),
-    );
+    return successResponse(await this.reviews.report(id, reviewId, user, dto));
   }
 
   @Public()

@@ -10,7 +10,9 @@ const target = {
   avatar: null,
 };
 
-function validDto(overrides: Partial<CreateUserReviewDto> = {}): CreateUserReviewDto {
+function validDto(
+  overrides: Partial<CreateUserReviewDto> = {},
+): CreateUserReviewDto {
   return {
     rating: 5,
     purchased: true,
@@ -161,11 +163,15 @@ describe('UserReviewsService.list', () => {
       positiveCount: 2,
       negativeCount: 1,
     });
-    const page = await service.list('target-1', { limit: 2 }, {
-      userId: 'viewer-1',
-      username: 'v',
-      role: 'USER',
-    });
+    const page = await service.list(
+      'target-1',
+      { limit: 2 },
+      {
+        userId: 'viewer-1',
+        username: 'v',
+        role: 'USER',
+      },
+    );
     expect(repo.listVisibleReviews).toHaveBeenCalledWith('target-1', {
       cursor: undefined,
       take: 3,
@@ -196,7 +202,11 @@ describe('UserReviewsService.list', () => {
     const { service, repo } = makeService();
     repo.findBlock.mockResolvedValue({ id: 'block' });
     await expect(
-      service.list('target-1', {}, { userId: 'viewer-1', username: 'v', role: 'USER' }),
+      service.list(
+        'target-1',
+        {},
+        { userId: 'viewer-1', username: 'v', role: 'USER' },
+      ),
     ).rejects.toMatchObject({ status: 403, error: 'blocked' });
     expect(repo.listVisibleReviews).not.toHaveBeenCalled();
   });

@@ -388,9 +388,7 @@ export class AdminService {
     }
     const ticket = await this.repo.findTicket(parsed.data.reportId);
     const meta = ticket?.metadata as
-      | { targetType?: unknown; targetId?: unknown }
-      | null
-      | undefined;
+      { targetType?: unknown; targetId?: unknown } | null | undefined;
     if (!ticket || ticket.deletedAt || ticket.type !== 'REPORT') {
       throwApi(404, 'not_found', 'البلاغ غير موجود');
     }
@@ -410,7 +408,10 @@ export class AdminService {
     }
 
     await this.cache
-      .del(`user:${result.review.targetId}`, `user:${result.review.targetId}:base`)
+      .del(
+        `user:${result.review.targetId}`,
+        `user:${result.review.targetId}:base`,
+      )
       .catch(() => undefined);
     this.logger.info(
       { reviewId: id, by: actor.userId, reportId: parsed.data.reportId },

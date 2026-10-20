@@ -14,8 +14,12 @@ describe('UsersController routes', () => {
     listBlocked: jest.fn().mockResolvedValue({ users: [] }),
   };
   const reviewsService = {
-    list: jest.fn().mockResolvedValue({ reviews: [], positiveCount: 0, negativeCount: 0 }),
-    create: jest.fn().mockResolvedValue({ created: true, rating: 5, reviewCount: 1 }),
+    list: jest
+      .fn()
+      .mockResolvedValue({ reviews: [], positiveCount: 0, negativeCount: 0 }),
+    create: jest
+      .fn()
+      .mockResolvedValue({ created: true, rating: 5, reviewCount: 1 }),
     report: jest.fn().mockResolvedValue({ id: 'ticket-1' }),
   };
 

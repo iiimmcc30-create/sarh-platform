@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -42,15 +42,17 @@ export function AddReviewDialog({ visible, targetName, submitting, onClose, onSu
   const [purchased, setPurchased] = useState<boolean | null>(null);
   const [recommend, setRecommend] = useState<boolean | null>(null);
   const [comment, setComment] = useState('');
-
-  useEffect(() => {
-    if (!visible) return;
-    setRating(0);
-    setOath(false);
-    setPurchased(null);
-    setRecommend(null);
-    setComment('');
-  }, [visible]);
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) {
+      setRating(0);
+      setOath(false);
+      setPurchased(null);
+      setRecommend(null);
+      setComment('');
+    }
+  }
 
   const ready = canSubmitReview({ oath, purchased, recommend, comment, rating }) && !submitting;
   const name = targetName.trim() || 'هذا العضو';

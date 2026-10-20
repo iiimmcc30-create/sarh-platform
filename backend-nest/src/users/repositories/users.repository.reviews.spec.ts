@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { commentToneWhere } from '../lib/review-stats';
 import { UsersRepository } from './users.repository';
 
 describe('UsersRepository reviews', () => {
@@ -30,7 +31,7 @@ describe('UsersRepository reviews', () => {
     );
   });
 
-  it('counts positive and negative comments without hidden or blank rows', async () => {
+  it('counts full reviews by recommend and legacy stars by rating', async () => {
     await repo.reviewStats('target-1');
     expect(userReview.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -38,16 +39,10 @@ describe('UsersRepository reviews', () => {
       }),
     );
     expect(userReview.count).toHaveBeenCalledWith({
-      where: {
-        targetId: 'target-1',
-        hiddenAt: null,
-        recommend: true,
-        oathAcceptedAt: { not: null },
-        NOT: { comment: '' },
-      },
+      where: commentToneWhere('target-1', true),
     });
     expect(userReview.count).toHaveBeenCalledWith({
-      where: expect.objectContaining({ recommend: false }),
+      where: commentToneWhere('target-1', false),
     });
   });
 

@@ -1,8 +1,10 @@
 /**
  * Visible-review stats. Hidden rows are excluded from every count.
- * Star-only rows migrated before comments (null oath or blank comment) stay in
- * the average and review count, and stay out of the positive/negative comment
- * counts — a default `recommend: false` must not become a negative comment.
+ *
+ * A full review (oath accepted, non-empty comment) counts by `recommend`.
+ * A migrated star-only row (empty comment, null oath) counts by stars:
+ * 4–5 positive, 1–2 negative, 3 neutral. Neutral rows stay in the star
+ * average and the review count.
  */
 
 export type ReviewStatRow = {
@@ -13,30 +15,69 @@ export type ReviewStatRow = {
   hiddenAt: Date | null;
 };
 
+export function isLegacyStarReview(row: ReviewStatRow): boolean {
+  return row.oathAcceptedAt == null && row.comment.trim().length === 0;
+}
+
 export function isCommentReview(row: ReviewStatRow): boolean {
-  return row.hiddenAt == null && row.oathAcceptedAt != null && row.comment.trim().length > 0;
+  return (
+    row.hiddenAt == null &&
+    row.oathAcceptedAt != null &&
+    row.comment.trim().length > 0
+  );
+}
+
+function toneOf(row: ReviewStatRow): 'positive' | 'negative' | null {
+  if (row.hiddenAt != null) return null;
+  if (isLegacyStarReview(row)) {
+    if (row.rating >= 4) return 'positive';
+    if (row.rating <= 2) return 'negative';
+    return null;
+  }
+  if (isCommentReview(row)) return row.recommend ? 'positive' : 'negative';
+  return null;
 }
 
 export function summarizeReviews(rows: ReviewStatRow[]) {
   const visible = rows.filter((row) => row.hiddenAt == null);
-  const commented = visible.filter((row) => isCommentReview(row));
   const reviewCount = visible.length;
   const sum = visible.reduce((total, row) => total + row.rating, 0);
+  let positiveCount = 0;
+  let negativeCount = 0;
+  for (const row of visible) {
+    const tone = toneOf(row);
+    if (tone === 'positive') positiveCount += 1;
+    else if (tone === 'negative') negativeCount += 1;
+  }
   return {
     reviewCount,
     average: reviewCount > 0 ? sum / reviewCount : null,
-    positiveCount: commented.filter((row) => row.recommend).length,
-    negativeCount: commented.filter((row) => !row.recommend).length,
+    positiveCount,
+    negativeCount,
   };
 }
 
+/**
+ * Positive (`recommend` true) matches a recommending comment or a legacy
+ * 4–5 star row. Negative matches a non-recommending comment or a legacy
+ * 1–2 star row. A legacy 3 matches neither side.
+ */
 export function commentToneWhere(targetId: string, recommend: boolean) {
   return {
     targetId,
     hiddenAt: null,
-    recommend,
-    oathAcceptedAt: { not: null },
-    NOT: { comment: '' },
+    OR: [
+      {
+        recommend,
+        oathAcceptedAt: { not: null },
+        NOT: { comment: '' },
+      },
+      {
+        comment: '',
+        oathAcceptedAt: null,
+        rating: recommend ? { gte: 4 } : { lte: 2 },
+      },
+    ],
   };
 }
 
@@ -50,7 +91,10 @@ type RatingDb = {
       where: { targetId: string; hiddenAt: null };
       _avg: { rating: true };
       _count: { rating: true };
-    }): Promise<{ _avg: { rating: number | null }; _count: { rating: number } }>;
+    }): Promise<{
+      _avg: { rating: number | null };
+      _count: { rating: number };
+    }>;
   };
   user: {
     update(args: {
