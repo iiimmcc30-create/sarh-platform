@@ -105,7 +105,7 @@ describe('review moderation source', () => {
   const migration = readFileSync(
     join(
       __dirname,
-      '../../prisma/migrations/20261020140000_user_review_comments/migration.sql',
+      '../../prisma/migrations/20261021100000_user_review_comments/migration.sql',
     ),
     'utf8',
   );

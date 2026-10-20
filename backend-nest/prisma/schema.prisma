@@ -1251,7 +1251,7 @@ model UserReview {
   comment        String    @default("") @db.VarChar(1000)
   purchased      Boolean   @default(false)
   recommend      Boolean   @default(false)
-  /// Null on rows migrated from star-only ratings (no oath, no comment counts).
+  /// Null on rows migrated from star-only ratings. Those rows count by stars.
   oathAcceptedAt DateTime?
   hiddenAt       DateTime?
   hiddenReason   String?   @db.VarChar(500)
