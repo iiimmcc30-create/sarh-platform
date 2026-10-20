@@ -66,6 +66,7 @@ export type MemberLike = {
   role: CouncilMemberRole;
   seatIndex: number | null;
   mutedByModerator?: boolean;
+  cameraAllowed?: boolean;
 };
 
 export type CouncilPermissions = {
@@ -159,6 +160,61 @@ export function rtcRoleFor(
   if (member.mutedByModerator) return 'subscriber';
   return 'publisher';
 }
+
+export type CouncilPublish = 'none' | 'audio' | 'av';
+
+/** «بائع موثّق»: an active account carrying the verification badge (any tier). */
+export function isVerifiedSeller(
+  user:
+    | { verified?: boolean | null; isActive?: boolean; deletedAt?: Date | null }
+    | null
+    | undefined,
+): boolean {
+  if (!user || user.verified !== true) return false;
+  if (user.isActive === false || user.deletedAt) return false;
+  return true;
+}
+
+/**
+ * What a member may publish into the LiveKit room. Audio only for everyone on stage
+ * (unmuted by moderator). The camera is added ONLY when ALL hold: the council is golden,
+ * the member is a verified seller, and they are the owner or a speaker the owner allowed.
+ * Screen share is never granted. Used for token grants and live permission updates.
+ */
+export function councilPublishFor(
+  council: { golden: boolean; ownerId: string },
+  member: MemberLike | null | undefined,
+  verifiedSeller: boolean,
+): CouncilPublish {
+  if (rtcRoleFor(member) !== 'publisher') return 'none';
+  if (!council.golden || !verifiedSeller) return 'audio';
+  const isOwner = member!.userId === council.ownerId;
+  return isOwner || member!.cameraAllowed === true ? 'av' : 'audio';
+}
+
+/** Join codes: 4-16 letters/digits, compared case-insensitively. */
+export const COUNCIL_JOIN_CODE_RE = /^[A-Za-z0-9]{4,16}$/;
+const JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function normalizeJoinCode(code: string): string {
+  return code.trim().toUpperCase();
+}
+
+/** Random 6-char code without look-alike characters (32^6 ~ 1e9 combinations). */
+export function generateJoinCode(
+  random: (n: number) => Uint8Array,
+  length = 6,
+): string {
+  let out = '';
+  for (const b of random(length))
+    out += JOIN_CODE_ALPHABET[b % JOIN_CODE_ALPHABET.length];
+  return out;
+}
+
+/** Wrong join-code attempts allowed per user+council / per council in the window. */
+export const COUNCIL_CODE_USER_MAX_FAILS = 5;
+export const COUNCIL_CODE_COUNCIL_MAX_FAILS = 40;
+export const COUNCIL_CODE_WINDOW_SEC = 10 * 60;
 
 /** Lowest free seat (0..11) or null when the stage is full. */
 export function firstFreeSeat(taken: Array<number | null>): number | null {

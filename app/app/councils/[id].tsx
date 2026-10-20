@@ -9,6 +9,9 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { VerificationBadge } from '@/components/ui/VerificationBadge';
 import { CouncilArrivalChip } from '@/components/councils/CouncilArrivalChip';
+import { CouncilCodeGate } from '@/components/councils/CouncilCodeGate';
+import { CouncilGalleryControls } from '@/components/councils/CouncilGalleryControls';
+import { CouncilVideoStage } from '@/components/councils/CouncilVideoStage';
 import { CouncilHostFollowButton } from '@/components/councils/CouncilHostFollowButton';
 import { CouncilPeopleSheet } from '@/components/councils/CouncilPeopleSheet';
 import { CouncilImageCard } from '@/components/councils/CouncilImageCard';
@@ -41,11 +44,15 @@ import {
   COUNCIL_BANNED_TEXT,
   COUNCIL_ENDED_TEXT,
   COUNCIL_FULL_TEXT,
+  COUNCIL_GOLDEN_LABEL,
   COUNCIL_KICKED_TEXT,
   COUNCIL_LIVE_BUSY_TEXT,
   COUNCIL_SHOW_IMAGE_LABEL,
   COUNCIL_WEB_TEXT,
+  CouncilApiError,
   cancelSpeakRequest,
+  councilCameraMenu,
+  councilCodeRequestMessage,
   councilErrorMessage,
   councilHandle,
   councilListenersLabel,
@@ -57,9 +64,12 @@ import {
   endCouncil,
   fetchCouncilBanned,
   leaveCouncilStage,
+  presentCouncilImages,
   removeCouncilImage,
+  requestCouncilCode,
   requestToSpeak,
   showCouncilImage,
+  stepCouncilImages,
   type CouncilMemberAction,
   type CouncilParticipant,
   type CouncilRequest,
@@ -91,6 +101,8 @@ export default function CouncilRoomScreen() {
   const [bannedOpen, setBannedOpen] = useState(false);
   const [banned, setBanned] = useState<CouncilUser[]>([]);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [requestingCode, setRequestingCode] = useState(false);
 
   const focusedRef = useRef(false);
   const wasJoinedRef = useRef(false);
@@ -109,6 +121,32 @@ export default function CouncilRoomScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, code, session.open]);
+
+  const submitCode = useCallback(
+    async (value: string) => {
+      const r = await session.joinWithCode(value);
+      if (r === 'rules') {
+        setRulesReadOnly(false);
+        setRulesOpen(true);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session.joinWithCode],
+  );
+
+  const onRequestCode = useCallback(async () => {
+    setRequestingCode(true);
+    try {
+      await requestCouncilCode(id);
+      setCodeRequested(true);
+      void showToast(councilCodeRequestMessage(undefined), 'success');
+    } catch (err) {
+      if (err instanceof CouncilApiError && err.code === 'code_request_rate_limited') setCodeRequested(true);
+      void showToast(councilErrorMessage(err), 'error');
+    } finally {
+      setRequestingCode(false);
+    }
+  }, [id]);
 
   const acceptRules = useCallback(async () => {
     const r = await session.join(true);
@@ -161,6 +199,13 @@ export default function CouncilRoomScreen() {
 
   const toggleMic = session.toggleMic;
 
+  const toggleCamera = useCallback(async () => {
+    const on = !audio.cameraOn;
+    const ok = await audio.setCamera(on);
+    if (on && !ok) void showToast('تعذّر تشغيل الكاميرا — تأكد من الصلاحية وأنك موثّق', 'error');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audio.cameraOn, audio.setCamera]);
+
   const onRequest = useCallback(() => {
     const s = stateRef.current;
     if (!s) return;
@@ -210,7 +255,13 @@ export default function CouncilRoomScreen() {
 
   const openMemberMenu = useCallback(
     async (
-      target: { userId: string; user: CouncilUser; role: CouncilSpeaker['role']; mutedByModerator: boolean },
+      target: {
+        userId: string;
+        user: CouncilUser;
+        role: CouncilSpeaker['role'];
+        mutedByModerator: boolean;
+        cameraAllowed?: boolean;
+      },
       onStage: boolean,
     ) => {
       const s = stateRef.current;
@@ -220,14 +271,25 @@ export default function CouncilRoomScreen() {
         const items: ActionSheetItem[] = [
           { key: 'mic', label: s.me.micMuted ? 'فتح الميكروفون' : 'إغلاق الميكروفون', icon: s.me.micMuted ? 'mic' : 'mic-off' },
         ];
+        if (s.me.canCamera) {
+          items.push({
+            key: 'camera',
+            label: audio.cameraOn ? 'إيقاف الكاميرا' : 'تشغيل الكاميرا',
+            icon: audio.cameraOn ? 'videocam-off' : 'videocam-outline',
+          });
+        }
         if (!s.me.permissions.isOwner) items.push({ key: 'stage', label: 'النزول إلى المستمعين', icon: 'volume-high' });
         items.push({ key: 'cancel', label: 'إلغاء', cancel: true });
         const key = await presentActionSheet({ title: 'أنت', items });
         if (key === 'mic') void toggleMic();
+        if (key === 'camera') void toggleCamera();
         if (key === 'stage') void onLeaveStage();
         return;
       }
-      const menu = councilMemberMenu(s.me, { ...target, onStage }, s.isFull);
+      const menu = [
+        ...councilMemberMenu(s.me, { ...target, onStage }, s.isFull),
+        ...councilCameraMenu(s.me, s.council, { ...target, onStage }),
+      ];
       const items: ActionSheetItem[] = [
         { key: 'profile', label: 'عرض الملف الشخصي', icon: 'person-outline' },
         ...menu.map((m) => ({ key: m.key, label: m.label, icon: m.icon, destructive: m.destructive })),
@@ -241,7 +303,7 @@ export default function CouncilRoomScreen() {
       }
       void memberAction({ userId: target.userId, name }, key as CouncilMemberAction);
     },
-    [memberAction, onLeaveStage, router, toggleMic],
+    [audio.cameraOn, memberAction, onLeaveStage, router, toggleCamera, toggleMic],
   );
 
   const openBanned = useCallback(async () => {
@@ -273,6 +335,27 @@ export default function CouncilRoomScreen() {
     },
     [id, refresh, run],
   );
+
+  const onPickGallery = useCallback(
+    async (picks: CouncilImagePick[]) => {
+      const ok = await run('image', () => presentCouncilImages(id, picks), 'تم عرض الصور');
+      if (ok) setImagePickerOpen(false);
+      void refresh();
+    },
+    [id, refresh, run],
+  );
+
+  const onStepGallery = useCallback(
+    async (dir: 'next' | 'prev') => {
+      await run('image-step', () => stepCouncilImages(id, dir));
+    },
+    [id, run],
+  );
+
+  const onStopGallery = useCallback(async () => {
+    await run('image', () => removeCouncilImage(id), 'تم إيقاف العرض');
+    void refresh();
+  }, [id, refresh, run]);
 
   const openImageMenu = useCallback(async () => {
     const s = stateRef.current;
@@ -315,7 +398,9 @@ export default function CouncilRoomScreen() {
     if (!s) return;
     const p = s.me.permissions;
     const items: ActionSheetItem[] = [{ key: 'rules', label: 'قواعد المجلس', icon: 'document-text-outline' }];
-    if (s.me.canShowImage) items.push({ key: 'image', label: COUNCIL_SHOW_IMAGE_LABEL, icon: 'image-outline' });
+    if (s.me.canShowImage || s.me.canPresentGallery) {
+      items.push({ key: 'image', label: COUNCIL_SHOW_IMAGE_LABEL, icon: 'image-outline' });
+    }
     if (p.canInvite) items.push({ key: 'invite', label: 'دعوة', icon: 'person-add-outline' });
     if (p.canManageRequests) items.push({ key: 'requests', label: 'طلبات التحدث', icon: 'hand-left-outline' });
     if (p.canBan || p.isOwner) items.push({ key: 'banned', label: 'المحظورون', icon: 'block' });
@@ -413,6 +498,31 @@ export default function CouncilRoomScreen() {
     );
   }
 
+  if (state.locked && !joined) {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        {header}
+        <CouncilCodeGate
+          council={state.council}
+          joining={session.joining}
+          requested={codeRequested}
+          requesting={requestingCode}
+          onSubmit={(c) => void submitCode(c)}
+          onRequestCode={() => void onRequestCode()}
+        />
+        <CouncilRulesSheet
+          visible={rulesOpen}
+          councilName={state.council.name}
+          rules={state.council.rules}
+          readOnly={false}
+          loading={session.joining}
+          onAccept={() => void acceptRules()}
+          onClose={() => setRulesOpen(false)}
+        />
+      </Screen>
+    );
+  }
+
   const { council, me } = state;
   const perms = me.permissions;
   const requestsCount = state.pendingRequests.length;
@@ -461,6 +571,14 @@ export default function CouncilRoomScreen() {
                     </AppText>
                   </Row>
                 ) : null}
+                {council.golden ? (
+                  <Row gap="xs" align="center" testID="council-golden-badge">
+                    <AppIcon name="videocam-outline" size={12} color={colors.tierGold} />
+                    <AppText variant="caption" color="textMuted">
+                      {COUNCIL_GOLDEN_LABEL}
+                    </AppText>
+                  </Row>
+                ) : null}
               </Row>
               {council.description ? (
                 <AppText variant="bodySmall" color="textSecondary">
@@ -500,8 +618,17 @@ export default function CouncilRoomScreen() {
                 ) : null}
               </Row>
             ) : null}
+            <CouncilVideoStage tracks={audio.videoTracks} participants={session.participants} />
             {state.image ? (
               <CouncilImageCard image={state.image} onOpenListing={openListing} onMore={() => void openImageMenu()} />
+            ) : null}
+            {state.image?.gallery && me.canPresentGallery ? (
+              <CouncilGalleryControls
+                image={state.image}
+                busy={busy === 'image-step' || busy === 'image'}
+                onStep={(dir) => void onStepGallery(dir)}
+                onStop={() => void onStopGallery()}
+              />
             ) : null}
             <Row gap="sm" align="center" testID="council-stage">
               <AppText variant="label" color="textPrimary">
@@ -573,7 +700,22 @@ export default function CouncilRoomScreen() {
           >
             <AppIcon name="people-outline" size={20} color={colors.textPrimary} />
           </Pressable>
-          {me.canShowImage ? (
+          {me.canCamera ? (
+            <Pressable
+              onPress={() => void toggleCamera()}
+              style={[styles.barIcon, audio.cameraOn && styles.barIconOn]}
+              accessibilityRole="button"
+              accessibilityLabel={audio.cameraOn ? 'إيقاف الكاميرا' : 'تشغيل الكاميرا'}
+              testID="council-camera-toggle"
+            >
+              <AppIcon
+                name={audio.cameraOn ? 'videocam-off' : 'videocam-outline'}
+                size={20}
+                color={colors.textPrimary}
+              />
+            </Pressable>
+          ) : null}
+          {me.canShowImage || me.canPresentGallery ? (
             <Pressable
               onPress={() => setImagePickerOpen(true)}
               style={styles.barIcon}
@@ -601,6 +743,8 @@ export default function CouncilRoomScreen() {
       <CouncilImagePickerSheet
         visible={imagePickerOpen}
         busy={busy === 'image'}
+        multi={Boolean(me.canPresentGallery)}
+        onPickMany={(picks) => void onPickGallery(picks)}
         onPick={(pick) => void onPickImage(pick)}
         onClose={() => setImagePickerOpen(false)}
       />
@@ -634,10 +778,16 @@ export default function CouncilRoomScreen() {
           councilId={council.id}
           councilName={council.name}
           inviteCode={council.inviteCode}
+          joinCode={council.joinCode}
           isPrivate={council.visibility === 'PRIVATE'}
           canRotate={perms.isOwner}
-          onCodeRotated={(c) =>
-            session.setState((prev) => (prev ? { ...prev, council: { ...prev.council, inviteCode: c } } : prev))
+          onCodeRotated={(c, j) =>
+            session.setState((prev) =>
+              prev ? { ...prev, council: { ...prev.council, inviteCode: c, joinCode: j ?? prev.council.joinCode } } : prev,
+            )
+          }
+          onJoinCodeChanged={(j) =>
+            session.setState((prev) => (prev ? { ...prev, council: { ...prev.council, joinCode: j } } : prev))
           }
           onClose={() => setInviteOpen(false)}
         />
@@ -699,6 +849,7 @@ function createStyles(colors: ThemeColors) {
     /** Equal side slots keep the round mic button centred. */
     barSide: { width: 48, alignItems: 'center' },
     barCenter: { flex: 1, alignItems: 'center' },
+    barIconOn: { borderColor: colors.electric },
     barIcon: {
       width: 48,
       height: 48,
