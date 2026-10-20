@@ -426,6 +426,21 @@ export function handleNotificationNavigation(
         } as never, undefined, ctx.router);
         return true;
       }
+      if (councilId && stringField(data, 'kind') === 'council_code') {
+        const joinCode = stringField(data, 'code');
+        safePush({
+          pathname: '/councils/[id]',
+          params: joinCode ? { id: councilId, code: joinCode } : { id: councilId },
+        } as never, undefined, ctx.router);
+        return true;
+      }
+      if (councilId && stringField(data, 'kind') === 'council_code_request') {
+        safePush({
+          pathname: '/councils/[id]',
+          params: { id: councilId },
+        } as never, undefined, ctx.router);
+        return true;
+      }
       if (councilId && stringField(data, 'kind') === 'council_scheduled_due') {
         safePush('/councils' as never, undefined, ctx.router);
         return true;

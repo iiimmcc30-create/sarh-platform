@@ -54,6 +54,8 @@ import {
   fetchCouncil,
   fetchCouncilListeners,
   mergeCouncilListeners,
+  councilNeedsCode,
+  normalizeCouncilJoinCode,
   fetchCouncilToken,
   joinCouncil,
   leaveCouncil,
@@ -65,7 +67,8 @@ import {
   type CouncilUser,
 } from '@/services/councils';
 
-export type CouncilOpenResult = 'joined' | 'rules' | 'blocked' | 'error';
+/** `code`: a private council that needs the host's join code before entering. */
+export type CouncilOpenResult = 'joined' | 'rules' | 'blocked' | 'code' | 'error';
 
 /** Latest Gold / Blue+ entrance shown as a short chip in the room (key changes per event). */
 export type CouncilArrival = { key: string; at: number; user: CouncilUser; tier: 'gold' | 'blue_plus' };
@@ -94,6 +97,8 @@ export type CouncilSessionValue = {
   miniPlayerVisible: boolean;
   open: (id: string, code: string | null) => Promise<CouncilOpenResult>;
   join: (acceptRules: boolean) => Promise<CouncilOpenResult>;
+  /** Private council: verify the host's code (server rate-limits wrong attempts) and enter. */
+  joinWithCode: (code: string) => Promise<CouncilOpenResult>;
   refresh: () => Promise<CouncilState | null>;
   setState: Dispatch<SetStateAction<CouncilState | null>>;
   setBlocked: (b: CouncilBlocked) => void;
@@ -228,7 +233,9 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
   const applyState = useCallback((next: CouncilState) => {
     if (next.council.id !== idRef.current) return;
     // Keep listener pages already scrolled to; the first page is always fresh.
-    setState((prev) => (prev && prev.council.id === next.council.id ? withListenerPage(prev, next) : next));
+    setState((prev) =>
+      prev && prev.council.id === next.council.id ? withListenerPage(prev, { ...next, locked: next.locked }) : next,
+    );
     setLoadError(null);
     if (next.council.status === 'ENDED') setBlocked('ended');
     else if (next.me.banned) setBlocked('banned');
@@ -290,6 +297,15 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (err instanceof CouncilApiError) {
           if (err.code === 'rules_required') return 'rules';
+          if (
+            err.code === 'council_code_required' ||
+            err.code === 'council_code_invalid' ||
+            err.code === 'council_code_locked'
+          ) {
+            codeRef.current = null;
+            if (err.code !== 'council_code_required') void showToast(councilErrorMessage(err), 'error');
+            return 'code';
+          }
           if (handleBlockingError(err)) return 'blocked';
         }
         void showToast(councilErrorMessage(err), 'error');
@@ -300,6 +316,14 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [applyState],
+  );
+
+  const joinWithCode = useCallback(
+    async (code: string): Promise<CouncilOpenResult> => {
+      codeRef.current = normalizeCouncilJoinCode(code);
+      return join(false);
+    },
+    [join],
   );
 
   const leave = useCallback(async () => {
@@ -338,6 +362,7 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       if (idRef.current !== id) return 'error';
       if (!next) return blockedRef.current ? 'blocked' : 'error';
       if (next.council.status !== 'LIVE' || next.me.banned || next.me.kickedUntil) return 'blocked';
+      if (councilNeedsCode(next)) return codeRef.current ? join(false) : 'code';
       if (!next.me.rulesAccepted) return 'rules';
       return join(false);
     },
@@ -428,6 +453,11 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
     });
     return () => registerCouncilReleaser(null);
   }, [leave]);
+
+  // Stage cameras (golden councils) are subscribed only while the room is on screen.
+  useEffect(() => {
+    audioRef.current.setWatchVideo(roomFocused && joined);
+  }, [roomFocused, joined, audio.status]);
 
   // Safety-net resync while connected.
   useEffect(() => {
@@ -665,6 +695,7 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       miniPlayerVisible,
       open,
       join,
+      joinWithCode,
       refresh,
       setState,
       setBlocked,
@@ -694,6 +725,7 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
       miniPlayerVisible,
       open,
       join,
+      joinWithCode,
       refresh,
       setBlocked,
       run,
