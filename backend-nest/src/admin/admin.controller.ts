@@ -225,6 +225,36 @@ export class AdminController {
     return successResponse(await this.admin.deleteReport(id));
   }
 
+  // ─── Reviews (hide-only moderation) ─────────────────────────────────────────
+
+  @Roles(...STAFF)
+  @RateLimit('api')
+  @Get('reviews')
+  @HttpCode(HttpStatus.OK)
+  async listReviews(@Query() query: Record<string, unknown>) {
+    return successResponse(await this.admin.listReviews(query));
+  }
+
+  @Roles(...STAFF)
+  @RateLimit('api')
+  @Get('reviews/:id')
+  @HttpCode(HttpStatus.OK)
+  async getReview(@Param('id') id: string) {
+    return successResponse(await this.admin.getReview(id));
+  }
+
+  @Roles(...STAFF)
+  @RateLimit('api')
+  @Post('reviews/:id/hide')
+  @HttpCode(HttpStatus.OK)
+  async hideReview(
+    @Param('id') id: string,
+    @CurrentUser() actor: JwtPayload,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return successResponse(await this.admin.hideReview(id, actor, body));
+  }
+
   // ─── Livestreams ────────────────────────────────────────────────────────────
 
   @Roles(...STAFF)

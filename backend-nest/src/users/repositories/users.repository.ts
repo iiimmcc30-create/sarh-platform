@@ -5,6 +5,11 @@ import {
   accountDeletionOperations,
   collectAccountMediaUrls,
 } from '../lib/account-anonymization';
+import {
+  commentToneWhere,
+  recomputeUserRatingCache,
+  visibleReviewWhere,
+} from '../lib/review-stats';
 
 const listUserSelect = {
   id: true,
@@ -344,24 +349,108 @@ export class UsersRepository {
   findUserRating(targetId: string, reviewerId: string) {
     return this.prisma.userReview.findUnique({
       where: { targetId_reviewerId: { targetId, reviewerId } },
-      select: { rating: true },
+      select: { id: true, rating: true },
     });
   }
 
-  upsertUserRating(targetId: string, reviewerId: string, rating: number) {
-    return this.prisma.userReview.upsert({
+  findReviewTarget(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id, isActive: true, deletedAt: null },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        arabicName: true,
+        avatar: true,
+      },
+    });
+  }
+
+  findReviewByPair(targetId: string, reviewerId: string) {
+    return this.prisma.userReview.findUnique({
       where: { targetId_reviewerId: { targetId, reviewerId } },
-      update: { rating },
-      create: { targetId, reviewerId, rating },
+      select: { id: true },
     });
   }
 
-  aggregateUserRating(targetId: string) {
-    return this.prisma.userReview.aggregate({
-      where: { targetId },
-      _avg: { rating: true },
-      _count: { rating: true },
+  findReviewById(id: string) {
+    return this.prisma.userReview.findUnique({
+      where: { id },
+      select: { id: true, targetId: true, reviewerId: true, hiddenAt: true },
     });
+  }
+
+  /** Insert-only. Content updates are rejected by the database trigger. */
+  createUserReview(data: {
+    targetId: string;
+    reviewerId: string;
+    rating: number;
+    purchased: boolean;
+    recommend: boolean;
+    comment: string;
+    oathAcceptedAt: Date;
+  }) {
+    return this.prisma.userReview.create({ data });
+  }
+
+  listVisibleReviews(
+    targetId: string,
+    opts: { cursor?: string; take: number },
+  ) {
+    return this.prisma.userReview.findMany({
+      where: visibleReviewWhere(targetId),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: opts.take,
+      ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        purchased: true,
+        recommend: true,
+        oathAcceptedAt: true,
+        createdAt: true,
+        reviewer: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            arabicName: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+  }
+
+  async reviewStats(targetId: string) {
+    const [agg, positiveCount, negativeCount] = await Promise.all([
+      this.prisma.userReview.aggregate({
+        where: visibleReviewWhere(targetId),
+        _avg: { rating: true },
+        _count: { rating: true },
+      }),
+      this.prisma.userReview.count({
+        where: commentToneWhere(targetId, true),
+      }),
+      this.prisma.userReview.count({
+        where: commentToneWhere(targetId, false),
+      }),
+    ]);
+    const reviewCount = agg._count.rating;
+    return {
+      reviewCount,
+      average: reviewCount > 0 ? (agg._avg.rating ?? 0) : null,
+      positiveCount,
+      negativeCount,
+    };
+  }
+
+  recomputeRatingCache(targetId: string) {
+    return recomputeUserRatingCache(
+      this.prisma as unknown as Parameters<typeof recomputeUserRatingCache>[0],
+      targetId,
+    );
   }
 
   updateUserRatingCache(targetId: string, rating: number, reviewCount: number) {

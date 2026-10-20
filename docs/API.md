@@ -61,7 +61,9 @@ Swagger: ` /api/docs` عندما `NODE_ENV !== 'production'` أو `SWAGGER_ENABL
 | DELETE | `/api/users/:id` |
 | POST | `/api/users/:id/follow` |
 | POST | `/api/users/:id/block` |
-| POST | `/api/users/:id/rate` |
+| GET | `/api/users/:id/reviews` |
+| POST | `/api/users/:id/reviews` |
+| POST | `/api/users/:id/reviews/:reviewId/report` |
 | GET | `/api/users/:id/connections` |
 
 ---

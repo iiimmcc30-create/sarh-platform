@@ -111,7 +111,6 @@ describe('Dark mode white accent', () => {
     const files = [
       'components/ui/SidebarMenuItem.tsx',
       'components/ui/filterChipAppearance.tsx',
-      'components/feature/RatingModal.tsx',
       'components/listing/SarhListingCovenantModal.tsx',
       'components/listing/ListingFeePaymentSheet.tsx',
       'components/feature/LiveStreamItem.tsx',

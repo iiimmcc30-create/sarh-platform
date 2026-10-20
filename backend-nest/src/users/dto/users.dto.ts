@@ -5,13 +5,10 @@ import {
   IsDateString,
   IsEmail,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   Matches,
-  Max,
   MaxLength,
-  Min,
   MinLength,
   ValidateIf,
   ValidateNested,
@@ -168,13 +165,6 @@ export class UpdateUserDto {
   @ValidateIf((_, value) => value !== null)
   @IsDateString()
   birthDate?: string | null;
-}
-
-export class RateUserDto {
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  rating: number;
 }
 
 export class SetFollowDto {
