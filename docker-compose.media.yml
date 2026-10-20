@@ -1,48 +1,134 @@
-# Dedicated media server (LiveKit + Caddy). Run on its own VPS — NOT on the DB server.
-#   cp .env.media.example .env.media   # then fill the secret
+# LiveKit media node (+ optional Redis / Egress). Run on a dedicated VPS - NOT the DB server.
+#   cp .env.media.example .env.media        # fill the secrets
 #   docker compose -f docker-compose.media.yml --env-file .env.media up -d
-# Host networking is required: WebRTC needs the real UDP port range and public IP.
+#   # optional: add `--profile redis` and/or `--profile egress` (see docs/livekit-scaling.md)
+#   # egress-only worker (no livekit/caddy): docker compose -f docker-compose.media.yml --env-file .env.media --profile egress up -d egress
+# Host networking: WebRTC needs the real UDP ranges and the node's public IP.
+# Everything has restart: unless-stopped, so a reboot brings the stack back by itself.
+name: sarh-media
+
 services:
+  # One-shot: renders livekit.yaml / egress.yaml / nginx.conf into the media_config volume.
+  config:
+    image: alpine:3
+    restart: "no"
+    network_mode: none
+    env_file: .env.media
+    volumes:
+      - ./infra/media/render-config.sh:/render-config.sh:ro
+      - media_config:/out
+    command: ["sh", "/render-config.sh"]
+
+  # Terminates TLS for rtc.<domain> (wss) and obtains the TURN certificate. Listens on 80 + 8443.
   caddy:
     image: caddy:2
     restart: unless-stopped
     network_mode: host
+    env_file: .env.media
     volumes:
       - ./infra/media/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
 
-  livekit:
-    image: livekit/livekit-server:v1.9
+  # Public :443, routed by SNI without terminating TLS:
+  #   turn.<domain> -> livekit TURN/TLS (5349)      everything else -> caddy (8443)
+  sni-proxy:
+    image: nginx:1.27-alpine
     restart: unless-stopped
     network_mode: host
-    command: ["--config", "/etc/livekit.yaml"]
+    depends_on:
+      config:
+        condition: service_completed_successfully
+    volumes:
+      - media_config:/cfg:ro
+    command: ["nginx", "-c", "/cfg/nginx.conf", "-g", "daemon off;"]
+
+  livekit:
+    image: livekit/livekit-server:v1.9
+    container_name: sarh-livekit
+    restart: unless-stopped
+    network_mode: host
+    command: ["--config", "/cfg/livekit.yaml"]
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
     volumes:
-      - ./livekit.yaml:/etc/livekit.yaml:ro
+      - media_config:/cfg:ro
       - turn_certs:/certs:ro
+      - ./infra/media/secrets/redis-tls:/redis-tls:ro
     depends_on:
-      turn-certs:
+      config:
         condition: service_completed_successfully
+      cert-sync:
+        condition: service_healthy
 
-  # Copies the TURN certificate Caddy obtained into a volume LiveKit can read.
-  # Re-run (and restart livekit) after renewals: see docs/livekit.md.
-  turn-certs:
-    image: alpine:3
+  # Long-running: copies Caddy's TURN cert for LiveKit and restarts LiveKit after each renewal.
+  # Needs the Docker socket to restart one named container - acceptable on a dedicated media VPS.
+  cert-sync:
+    image: docker:27-cli
+    restart: unless-stopped
     network_mode: none
-    restart: "no"
+    env_file: .env.media
+    environment:
+      LIVEKIT_CONTAINER: sarh-livekit
     volumes:
+      - ./infra/media/cert-sync.sh:/cert-sync.sh:ro
       - caddy_data:/caddy:ro
       - turn_certs:/certs
-    command: >
-      sh -c "d=/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/turn.getsarh.com;
-      until [ -f $$d/turn.getsarh.com.crt ]; do sleep 2; done;
-      cp $$d/turn.getsarh.com.crt $$d/turn.getsarh.com.key /certs/"
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["sh", "/cert-sync.sh"]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/certs/turn.crt"]
+      interval: 5s
+      timeout: 3s
+      retries: 120
     depends_on:
       - caddy
 
+  # --profile redis: shared state for multi-node LiveKit and for Egress.
+  # Password is mandatory and it binds to REDIS_BIND_IP only (loopback by default).
+  # Across providers use a WireGuard IP (REDIS_BIND_IP=10.8.0.1) or REDIS_TLS_SERVER=true (mutual TLS).
+  redis:
+    profiles: ["redis"]
+    image: redis:7-alpine
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env.media
+    volumes:
+      - ./infra/media/secrets/redis-tls:/redis-tls:ro
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        test -n "$$REDIS_PASSWORD" || { echo "set REDIS_PASSWORD in .env.media"; exit 1; };
+        if [ "$$REDIS_TLS_SERVER" = "true" ]; then
+        exec redis-server --port 0 --tls-port 6379 --bind "$${REDIS_BIND_IP:-127.0.0.1}"
+        --tls-cert-file /redis-tls/redis.crt --tls-key-file /redis-tls/redis.key
+        --tls-ca-cert-file /redis-tls/ca.crt --tls-auth-clients yes
+        --protected-mode yes --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no;
+        fi;
+        exec redis-server --bind "$${REDIS_BIND_IP:-127.0.0.1}" --protected-mode yes
+        --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no
+
+  # --profile egress: HLS output for big video rooms (needs Redis). CPU heavy: ideally its own node.
+  egress:
+    profiles: ["egress"]
+    image: livekit/egress:v1.9
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - SYS_ADMIN
+    shm_size: "1gb"
+    environment:
+      EGRESS_CONFIG_FILE: /cfg/egress.yaml
+    volumes:
+      - media_config:/cfg:ro
+      - ./infra/media/secrets/redis-tls:/redis-tls:ro
+    depends_on:
+      config:
+        condition: service_completed_successfully
+
 volumes:
+  media_config:
   caddy_data:
   caddy_config:
   turn_certs:
