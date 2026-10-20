@@ -19,7 +19,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AgoraVideoView } from '@/components/live/AgoraVideoView';
+import { HlsPlayerView } from '@/components/live/HlsPlayerView';
 import { LiveKitVideoView } from '@/components/live/LiveKitVideoView';
+import { describePhase } from '@/lib/liveViewerMode';
+import { useLiveViewerAccess } from '@/hooks/useLiveViewerAccess';
 import { isAgoraAvailable, VideoSourceType } from '@/lib/agora';
 import { rtcProvider } from '@/lib/rtcProvider';
 import { useYieldCouncilForLive } from '@/contexts/CouncilSessionContext';
@@ -99,24 +102,35 @@ export default function WatchScreen() {
     },
   });
 
-  // ── Fetch stream details + Agora token ──────────────────────────────────────
+  const access = useLiveViewerAccess({
+    streamId: id,
+    accessToken,
+    enabled: !loading,
+    joinWebRtc: (data) =>
+      join({
+        provider: data.provider as 'livekit' | 'agora' | undefined,
+        agoraAppId: data.agoraAppId as string | undefined,
+        agoraChannel: data.agoraChannel as string | undefined,
+        agoraToken: data.agoraToken as string | undefined,
+        agoraUid: data.agoraUid as number | undefined,
+        livekitUrl: data.livekitUrl as string | undefined,
+        livekitToken: data.livekitToken as string | undefined,
+        livekitRoom: data.livekitRoom as string | undefined,
+        expiresIn: data.expiresIn as number | undefined,
+      }),
+  });
+  const view = describePhase(access.phase);
+
+  // ── Fetch stream details ────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
 
     (async () => {
       try {
-        // Parallel: stream info + viewer token
-        const [streamResp, tokenResp] = await Promise.all([
-          fetch(`${API_BASE}/api/livestreams/${id}`, {
-            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-          }),
-          fetch(`${API_BASE}/api/livestreams/${id}?action=token`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }),
-        ]);
-
+        const streamResp = await fetch(`${API_BASE}/api/livestreams/${id}`, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
         const streamData = await streamResp.json();
-        const tokenData  = await tokenResp.json();
 
         if (!streamData.success) {
           router.back();
@@ -128,18 +142,6 @@ export default function WatchScreen() {
         setViewers(s.viewers);
         setLikes(s.likes);
         setComments((streamData.data.comments ?? []).reverse());
-
-        await join({
-          provider:     tokenData.data.provider,
-          agoraAppId:   tokenData.data.agoraAppId,
-          agoraChannel: tokenData.data.agoraChannel,
-          agoraToken:   tokenData.data.agoraToken,
-          agoraUid:     tokenData.data.agoraUid,
-          livekitUrl:   tokenData.data.livekitUrl,
-          livekitToken: tokenData.data.livekitToken,
-          livekitRoom:  tokenData.data.livekitRoom,
-          expiresIn:    tokenData.data.expiresIn,
-        });
 
         setLoading(false);
       } catch (e) {
@@ -211,24 +213,49 @@ export default function WatchScreen() {
   return (
     <View style={styles.container}>
 
-      {/* Remote host video */}
-      {remoteVideoTrack ? (
-        <LiveKitVideoView track={remoteVideoTrack} style={StyleSheet.absoluteFill} />
-      ) : hostUid !== null ? (
-        <AgoraVideoView
-          canvas={{ uid: hostUid, sourceType: VideoSourceType.VideoSourceRemote }}
-          style={StyleSheet.absoluteFill}
-        />
+      {/* Video: WebRTC, CDN-backed HLS, or an explicit state (never a black screen) */}
+      {access.phase.kind === 'hls' ? (
+        <HlsPlayerView url={access.phase.url} style={StyleSheet.absoluteFill} onError={access.onHlsPlayerError} />
+      ) : view.showWebRtcVideo ? (
+        remoteVideoTrack ? (
+          <LiveKitVideoView track={remoteVideoTrack} style={StyleSheet.absoluteFill} />
+        ) : hostUid !== null ? (
+          <AgoraVideoView
+            canvas={{ uid: hostUid, sourceType: VideoSourceType.VideoSourceRemote }}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, styles.waitingOverlay]}>
+            {stream?.thumbnail && (
+              <Image source={{ uri: stream.thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            )}
+            <View style={styles.loadingDim} />
+            <ActivityIndicator color={overlayAccent} />
+            <Text style={styles.loadingText}>في انتظار المضيف...</Text>
+          </View>
+        )
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.waitingOverlay]}>
           {stream?.thumbnail && (
             <Image source={{ uri: stream.thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
           )}
           <View style={styles.loadingDim} />
-          <ActivityIndicator color={overlayAccent} />
-          <Text style={styles.loadingText}>في انتظار المضيف...</Text>
+          {view.busy ? <ActivityIndicator color={overlayAccent} /> : null}
+          {view.message ? <Text style={styles.stateText}>{view.message}</Text> : null}
+          {view.canRetry ? (
+            <Pressable style={styles.retryBtn} onPress={access.retry}>
+              <Text style={styles.retryText}>إعادة المحاولة</Text>
+            </Pressable>
+          ) : null}
         </View>
       )}
+
+      {view.badge ? (
+        <View style={styles.hlsBadgeWrap} pointerEvents="none">
+          <Text style={styles.hlsBadge}>{view.badge}</Text>
+          {view.interactionNote ? <Text style={styles.hlsNote}>{view.interactionNote}</Text> : null}
+        </View>
+      ) : null}
 
       {/* Top bar */}
       <View style={styles.topOverlay} pointerEvents="box-none">
@@ -347,6 +374,15 @@ function createStyles(colors: ThemeColors) {
   loadingDim:   { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   loadingText:  { ...typography.secondary, color: '#ccc', marginTop: 12 },
   waitingOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  stateText: { ...typography.secondary, color: '#fff', marginTop: 12, textAlign: 'center', paddingHorizontal: spacing.xl },
+  retryBtn: { marginTop: 16, backgroundColor: colors.electricBright, borderRadius: radius.pill, paddingHorizontal: 20, paddingVertical: 10 },
+  retryText: { ...typography.secondary, color: colors.onElectric },
+  hlsBadgeWrap: { position: 'absolute', top: 120, left: spacing.lg, right: spacing.lg, alignItems: 'flex-start' },
+  hlsBadge: {
+    ...typography.badge, color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden',
+  },
+  hlsNote: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 6, backgroundColor: 'rgba(0,0,0,0.4)', padding: 6, borderRadius: radius.md },
 
   topOverlay: { position: 'absolute', top: 0, left: 0, right: 0 },
   topRow: {

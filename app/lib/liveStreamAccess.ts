@@ -9,6 +9,9 @@ export type LiveStreamEligibility = {
   listingsCount: number;
   reason?: string;
   messageAr?: string;
+  /** Server-selected RTC provider for new sessions (RTC_PROVIDER). */
+  provider?: 'livekit' | 'agora';
+  agoraAppId?: string | null;
 };
 
 export async function fetchLiveStreamEligibility(
@@ -29,6 +32,8 @@ export async function fetchLiveStreamEligibility(
         listingsCount: json.data.listingsCount ?? 0,
         reason: json.data.reason,
         messageAr: json.data.messageAr ?? json.messageAr,
+        provider: json.data.provider === 'agora' ? 'agora' : json.data.provider === 'livekit' ? 'livekit' : undefined,
+        agoraAppId: json.data.agoraAppId ?? null,
       };
     }
     return {

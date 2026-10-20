@@ -4,7 +4,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -60,6 +60,7 @@ function mapCategory(id: string): string {
 export default function CreateStreamScreen() {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const router = useRouter();
+  const serverProvider = useRef<{ provider?: 'livekit' | 'agora'; agoraAppId?: string }>({});
   const params = useLocalSearchParams<{ listingId?: string; listingTitle?: string }>();
   const { accessToken } = useAuth();
 
@@ -116,6 +117,10 @@ export default function CreateStreamScreen() {
       const eligibility = await fetchLiveStreamEligibility(accessToken);
       if (!active) return;
 
+      serverProvider.current = {
+        provider: eligibility.provider,
+        agoraAppId: eligibility.agoraAppId ?? undefined,
+      };
       if (!eligibility.canStream) {
         setAccessDenied(true);
         showLiveStreamEligibilityDeniedAlert(router, eligibility);
@@ -129,18 +134,20 @@ export default function CreateStreamScreen() {
   }, [accessToken, router]);
 
   const requestPreview = useCallback(async () => {
-    if (!USE_LIVEKIT && !AGORA_APP_ID) {
+    const provider = serverProvider.current.provider ?? (USE_LIVEKIT ? 'livekit' : 'agora');
+    const agoraAppId = serverProvider.current.agoraAppId || AGORA_APP_ID;
+    if (provider === 'agora' && !agoraAppId) {
       setPermissionError(true);
       return;
     }
     setPermissionError(false);
-    const ok = await startLocalPreview(AGORA_APP_ID);
+    const ok = await startLocalPreview(agoraAppId, provider);
     setPreviewReady(ok);
     if (!ok) setPermissionError(true);
   }, [startLocalPreview]);
 
   useEffect(() => {
-    if (!checkingAccess && !accessDenied && (USE_LIVEKIT || AGORA_APP_ID)) {
+    if (!checkingAccess && !accessDenied) {
       requestPreview();
     }
     return () => {

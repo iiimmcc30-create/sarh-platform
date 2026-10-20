@@ -16,7 +16,7 @@ import {
 import { getAgoraModule } from '@/lib/agora';
 import { ensureLivePermissions } from '@/lib/livePermissions';
 import { claimRtcEngine, markLiveSession, releaseRtcEngine } from '@/lib/rtcEngineGuard';
-import { rtcProvider } from '@/lib/rtcProvider';
+import { providerFromCreds } from '@/lib/rtcProvider';
 
 export type StreamRole = 'host' | 'viewer';
 
@@ -61,10 +61,7 @@ const EXPO_GO_MESSAGE =
 const SESSION_ID = 'live';
 
 function wantsLiveKit(creds?: AgoraCredentials): boolean {
-  if (creds?.provider === 'agora') return false;
-  if (creds?.provider === 'livekit') return true;
-  if (creds?.livekitUrl && creds.livekitToken) return true;
-  return rtcProvider() === 'livekit' && !creds?.agoraToken;
+  return providerFromCreds(creds) === 'livekit';
 }
 
 export function useLiveStream({ role, onTokenWillExpire, onError }: UseLiveStreamOptions) {
@@ -421,8 +418,8 @@ export function useLiveStream({ role, onTokenWillExpire, onError }: UseLiveStrea
     if (!mute) engine.startPreview();
   }, []);
 
-  const startLocalPreview = useCallback(async (appId: string) => {
-    if (wantsLiveKit()) {
+  const startLocalPreview = useCallback(async (appId: string, provider?: 'livekit' | 'agora') => {
+    if (wantsLiveKit(provider ? { provider } : undefined)) {
       if (!claimRtcEngine('live', SESSION_ID)) {
         setState((s) => ({ ...s, error: 'هناك جلسة صوتية أخرى تعمل الآن' }));
         return false;
