@@ -79,8 +79,8 @@ context.
 ## Media (LiveKit by default)
 
 `RTC_PROVIDER=livekit|agora` (default `livekit`). Room = `council_<hex id>`, identity = userId.
-Listeners get a subscribe-only token; speakers get a microphone-only publish token (never camera,
-no data). Moderation applies instantly through the LiveKit server API (`updateParticipant`
+Listeners get a subscribe-only token; speakers get a microphone-only publish token (no data,
+never screen share). Camera is granted only in golden councils (see below). Moderation applies instantly through the LiveKit server API (`updateParticipant`
 permission, `mutePublishedTrack`, `removeParticipant` with token revocation) on seat accept,
 role change, mute, kick and ban. With `agora` the previous behaviour (token renewal + kicking
 rule) is kept. See `docs/livekit.md`.
@@ -89,11 +89,65 @@ Listener cap: `LIVEKIT_MAX_COUNCIL_PARTICIPANTS` (default 200, env-driven; set i
 results). A full council answers `503 room_full` (`livekitError: 'room_full'` in the join
 response). Audio rooms have no HLS fallback. Provider switches apply to new sessions only.
 
+## Private councils (join code)
+
+Private councils appear in the public list with a lock. `GET :id` for a non-member returns the card
+only (`locked: true`, no speakers/listeners/codes). `POST :id/join` runs the access check **before**
+rules and before any media credentials:
+
+- owner, existing non-banned members, and users with a per-user invite pass;
+- everyone else must send `code` (the host's join code, case-insensitive; the invite-link code is
+  also accepted). Errors: `403 council_code_required`, `403 council_code_invalid`,
+  `429 council_code_locked`.
+- Wrong attempts are limited to 5 per user+council and 40 per council per 10 minutes (Redis
+  `incr`/`expire`, in-memory fallback). A locked user is rejected before the code is compared.
+- The host sets `joinCode` on create/update (4–16 letters/digits) or gets a generated one;
+  `POST :id/join-code/regenerate` (alias `invite-code/rotate`) renews both join code and invite link.
+  Kick/ban work as before.
+- «طلب الرمز»: `POST :id/code-request` notifies the host (`data.kind = 'council_code_request'`;
+  limits: 1 per user+council per 10 min, 10 per user per hour → `429 code_request_rate_limited`).
+  Host answers with `POST :id/code-requests/:userId/respond` `{action: invite | send_code | ignore}`:
+  `invite` creates a **one-time** invite (consumed after the join succeeds), `send_code` notifies the
+  requester with the code (`council_code`), `ignore` is silent. `GET :id/code-requests` lists pending.
+
+## Golden councils (المجلس الذهبي)
+
+`Council.golden` is set by an admin (`PATCH admin/councils/:id/golden`, ADMIN role; payment later).
+Publish policy (`councilPublishFor`, used for tokens and live `updateParticipant`):
+
+| member | golden? | verified seller? | camera approved? | grant |
+| --- | --- | --- | --- | --- |
+| listener / banned / muted by moderator | any | any | any | none |
+| speaker | no | any | any | microphone |
+| speaker | yes | no | any | microphone |
+| speaker | yes | yes | no | microphone |
+| speaker | yes | yes | yes | microphone + camera |
+| host | yes | yes | n/a | microphone + camera |
+| host | yes | no | n/a | microphone |
+
+Verified seller = `User.verified === true` on an active, non-deleted account. Screen share is never
+granted. The host approves/withdraws a speaker's camera with member actions `allow_camera` /
+`revoke_camera` (409 `golden_required`, `not_on_stage`, `seller_not_verified`, `camera_unavailable`
+under Agora). Revoking golden (admin) re-applies grants, drops approvals and the gallery.
+
+Stage gallery: `PUT :id/stage/images` (≤10 images), `POST :id/stage/images/step {dir}`, removal via
+`DELETE :id/image`. Host only, golden, verified seller.
+
+Bandwidth: the token response carries `videoProfile` (only with a camera grant) from
+`COUNCIL_VIDEO_MAX_HEIGHT` (default 540, max 720), `COUNCIL_VIDEO_MAX_FPS` (24) and
+`COUNCIL_VIDEO_MAX_BITRATE_KBPS`. LiveKit does not enforce resolution server-side, so the app applies it
+(capture size, simulcast with a half-size layer, `adaptiveStream` + `dynacast`) and listeners subscribe to
+camera tracks only while the room screen is open.
+
+Admin: `GET admin/councils` (STAFF), `PATCH admin/councils/:id/golden` (ADMIN),
+`POST admin/councils/:id/close` (STAFF). Migration `20261021090000_golden_councils_join_code`
+(additive; also copies the invite code to `joinCode` for existing PRIVATE councils).
+
 ## Rules & edge cases
 
 - Rules must be accepted before the first join (`412 rules_required`).
-- Private councils: owner, members, invited users, or a valid invite code — everyone else gets
-  `404` (list/detail/token never leak private data). Invites reuse the `system` notification type
+- Private councils are listed (lock badge) but entering needs the host's join code — see
+  «Private councils» below. Invites reuse the `system` notification type
   (`data.kind = 'council_invite'`).
 - Kick = 10 min re-join block; ban = permanent until unbanned. Rejected requests: 60s cooldown.
 - Host leaves → council stays LIVE (host keeps seat 0 and can return). Host "end" ends it.
