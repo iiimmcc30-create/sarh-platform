@@ -14,6 +14,7 @@ import {
   isAgoraConfigured,
 } from '../shared/lib/agora';
 import { getRtcLimits } from '../shared/rtc/limits';
+import { getCouncilVideoProfile } from '../shared/rtc/council-video';
 import { getRtcProvider } from '../shared/rtc/rtc-provider';
 import {
   LIVEKIT_COUNCIL_TTL_SEC,
@@ -34,6 +35,11 @@ import {
   parseCouncilSchedule,
   COUNCIL_MAX_SPEAKERS,
   COUNCIL_REQUEST_COOLDOWN_MS,
+  COUNCIL_JOIN_CODE_RE,
+  councilPublishFor,
+  generateJoinCode,
+  isVerifiedSeller,
+  normalizeJoinCode,
   COUNCIL_STALE_SPEAKER_MS,
   canActOn,
   councilPermissions,
@@ -44,6 +50,7 @@ import {
   type CouncilPermissions,
 } from './lib/council-policy';
 import { COUNCIL_USER_SELECT, type CouncilUser } from './lib/council-select';
+import { CouncilCodeLimiter } from './lib/council-code-limiter';
 import { CouncilPresenceService } from './services/council-presence.service';
 import { CouncilRealtimeService } from './services/council-realtime.service';
 import { CouncilAgoraModerationService } from './services/council-agora-moderation.service';
@@ -72,6 +79,10 @@ export const COUNCIL_USERS_SEARCH_LIMIT = 20;
 export const COUNCIL_UPCOMING_LIMIT = 30;
 /** «عرض صورة» picker: my latest listings with photos. */
 export const COUNCIL_IMAGE_SOURCE_LISTINGS = 30;
+/** «طلب الرمز»: one request per user+council per window, and a per-user hourly cap. */
+export const COUNCIL_CODE_REQUEST_PER_COUNCIL = 1;
+export const COUNCIL_CODE_REQUEST_WINDOW_SEC = 10 * 60;
+export const COUNCIL_CODE_REQUEST_PER_USER_HOUR = 10;
 const COUNCIL_IMAGE_SOURCE_PHOTOS = 8;
 const GOLD_ONLY_AR = 'عرض الصور في المجالس متاح لمشتركي Gold';
 const BAN_AGORA_SECONDS = 24 * 60 * 60;
@@ -103,6 +114,21 @@ function sameCode(a: string, b: string): boolean {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
+/** Join code (case-insensitive) or the shareable invite-link token. */
+export function councilCodeMatches(
+  council: Pick<Council, 'joinCode' | 'inviteCode'>,
+  code: string,
+): boolean {
+  const trimmed = code.trim();
+  if (
+    council.joinCode &&
+    sameCode(normalizeJoinCode(trimmed), council.joinCode)
+  ) {
+    return true;
+  }
+  return sameCode(trimmed, council.inviteCode);
+}
+
 type CouncilWithOwner = Council & { owner: CouncilUser };
 type Tx = Prisma.TransactionClient;
 
@@ -110,6 +136,8 @@ const ACTIVE_OWNER: Prisma.UserWhereInput = { isActive: true, deletedAt: null };
 
 @Injectable()
 export class CouncilsService {
+  private readonly codeLimiter = new CouncilCodeLimiter(this.cache);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: RedisCacheService,
@@ -143,33 +171,66 @@ export class CouncilsService {
   // ─── Access ─────────────────────────────────────────────────────────────
 
   /**
-   * Loads a council for a viewer. Private councils answer 404 (never 403) unless the
-   * viewer is the owner, a member (incl. banned, so they see why), invited, or holds
-   * the invite code — so their existence and data never leak.
+   * Loads a council for a viewer. Private councils are visible (listed with a lock);
+   * joining them is gated by `assertPrivateAccess` on the join path, and every in-room
+   * action requires membership.
    */
-  private async loadForViewer(id: string, viewerId: string, code?: string) {
+  private async loadForViewer(id: string, viewerId: string) {
     const council = await this.prisma.council.findUnique({
       where: { id },
       include: { owner: { select: COUNCIL_USER_SELECT } },
     });
     if (!council) throwApi(404, 'not_found', NOT_FOUND_AR);
     const member = await this.findMember(this.prisma, id, viewerId);
-    if (
-      council.visibility === 'PRIVATE' &&
-      council.ownerId !== viewerId &&
-      !member
-    ) {
-      const codeOk = Boolean(code) && sameCode(code!, council.inviteCode);
-      if (!codeOk) {
-        const invite = await this.prisma.councilInvite.findUnique({
-          where: { councilId_userId: { councilId: id, userId: viewerId } },
-          select: { id: true },
-        });
-        if (!invite) throwApi(404, 'not_found', NOT_FOUND_AR);
-      }
-    }
     await this.endIfHostAbsent(council);
     return { council, member };
+  }
+
+  /**
+   * Private-council gate (runs before any LiveKit/Agora credential is issued): owner,
+   * existing non-banned members and per-user invites pass; everyone else needs the
+   * host's join code. Wrong codes are rate limited per user+council and per council.
+   * Returns the one-time invite to consume once the join succeeds.
+   */
+  private async assertPrivateAccess(
+    council: Council,
+    userId: string,
+    member: CouncilMember | null,
+    code?: string,
+  ): Promise<{ consumeInviteId: string | null }> {
+    const none = { consumeInviteId: null };
+    if (council.visibility !== 'PRIVATE') return none;
+    if (council.ownerId === userId) return none;
+    if (member && member.role !== 'BANNED') return none;
+    const lock = await this.codeLimiter.check(council.id, userId);
+    if (lock.locked) {
+      throwApi(429, 'council_code_locked', 'محاولات كثيرة خاطئة، حاول لاحقاً', {
+        retryAfterSeconds: lock.retryAfterSec,
+      });
+    }
+    const invite = await this.prisma.councilInvite.findUnique({
+      where: { councilId_userId: { councilId: council.id, userId } },
+      select: { id: true, oneTime: true },
+    });
+    if (invite) return { consumeInviteId: invite.oneTime ? invite.id : null };
+    if (!code) {
+      throwApi(
+        403,
+        'council_code_required',
+        'هذا المجلس خاص، أدخل رمز الدخول',
+        {
+          locked: true,
+        },
+      );
+    }
+    if (!councilCodeMatches(council, code)) {
+      await this.codeLimiter.recordFailure(council.id, userId);
+      throwApi(403, 'council_code_invalid', 'رمز الدخول غير صحيح', {
+        locked: true,
+      });
+    }
+    await this.codeLimiter.reset(council.id, userId);
+    return none;
   }
 
   private findMember(
@@ -262,6 +323,7 @@ export class CouncilsService {
         role: roleOnStage(member.role),
         micMuted: true,
         mutedByModerator: false,
+        cameraAllowed: false,
       },
     });
     await tx.councilSpeakRequest.updateMany({
@@ -282,6 +344,8 @@ export class CouncilsService {
       visibility: council.visibility,
       status: council.status,
       followersOnly: council.followersOnly,
+      locked: council.visibility === 'PRIVATE',
+      golden: council.golden,
       scheduledFor: council.scheduledFor,
       createdAt: council.createdAt,
       startedAt: council.startedAt,
@@ -294,7 +358,14 @@ export class CouncilsService {
         canRemove: council.modCanRemove,
         canBan: council.modCanBan,
       },
-      ...(perms.canInvite ? { inviteCode: council.inviteCode } : {}),
+      ...(perms.canInvite
+        ? {
+            inviteCode: council.inviteCode,
+            ...(council.visibility === 'PRIVATE'
+              ? { joinCode: council.joinCode }
+              : {}),
+          }
+        : {}),
     };
   }
 
@@ -339,6 +410,15 @@ export class CouncilsService {
       activeMember &&
       (perms.isOwner || member!.seatIndex !== null) &&
       canShowCouncilImages(await this.subscriberTier(viewerId));
+    const livekit = getRtcProvider() === 'livekit';
+    const canCamera =
+      council.golden && live && activeMember && livekit
+        ? (await this.publishFor(council, member!)) === 'av'
+        : false;
+    const canPresentGallery =
+      council.golden && live && perms.isOwner && livekit
+        ? await this.isVerifiedSellerId(viewerId)
+        : false;
     return {
       council: this.presentMeta(council, perms),
       speakers,
@@ -370,6 +450,11 @@ export class CouncilsService {
         permissions: perms,
         /** Gold owner / speaker on stage may use «عرض صورة» (server re-checks). */
         canShowImage,
+        cameraAllowed: member?.cameraAllowed ?? false,
+        /** Golden + verified seller + (owner or allowed speaker) on stage. */
+        canCamera,
+        /** Golden + verified seller owner: stage image gallery (next/prev/stop). */
+        canPresentGallery,
       },
       pendingRequests,
     };
@@ -380,10 +465,11 @@ export class CouncilsService {
    * when `RTC_PROVIDER=agora`. The unused side is null.
    */
   private async credentials(
-    councilId: string,
+    council: Pick<Council, 'id' | 'golden' | 'ownerId'>,
     userId: string,
     member: CouncilMember,
   ) {
+    const councilId = council.id;
     const role = rtcRoleFor(member);
     if (getRtcProvider() === 'agora') {
       if (!isAgoraConfigured()) {
@@ -441,11 +527,12 @@ export class CouncilsService {
         }
       }
     }
+    const publish = await this.publishFor(council, member);
     const token = await createLivekitToken({
       identity: userId,
       room,
       ttlSeconds: LIVEKIT_COUNCIL_TTL_SEC,
-      publish: role === 'publisher' ? 'audio' : 'none',
+      publish,
     });
     return {
       provider: 'livekit' as const,
@@ -458,9 +545,32 @@ export class CouncilsService {
         role,
         expiresIn: LIVEKIT_COUNCIL_TTL_SEC,
         publishExpiresIn: null as number | null,
+        /** Golden council + verified seller (+ allowed speaker): camera permitted. */
+        canCamera: publish === 'av',
+        videoProfile: publish === 'av' ? getCouncilVideoProfile() : null,
       },
       livekitError: null,
     };
+  }
+
+  /** Server-side publish grant for a member (audio, plus camera only in golden councils). */
+  private async publishFor(
+    council: Pick<Council, 'golden' | 'ownerId'>,
+    member: CouncilMember,
+  ) {
+    let verified = false;
+    if (council.golden && rtcRoleFor(member) === 'publisher') {
+      verified = await this.isVerifiedSellerId(member.userId);
+    }
+    return councilPublishFor(council, member, verified);
+  }
+
+  private async isVerifiedSellerId(userId: string): Promise<boolean> {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { verified: true, isActive: true, deletedAt: true },
+    });
+    return isVerifiedSeller(u);
   }
 
   // ─── Create / read ──────────────────────────────────────────────────────
@@ -535,6 +645,12 @@ export class CouncilsService {
           rules: dto.rules ?? [],
           agoraChannelName: councilIdToChannel(id),
           inviteCode: newCouncilInviteCode(),
+          joinCode:
+            dto.visibility === 'PRIVATE'
+              ? dto.joinCode
+                ? normalizeJoinCode(dto.joinCode)
+                : generateJoinCode(randomBytes)
+              : null,
           ...(dto.modCanManageRequests !== undefined
             ? { modCanManageRequests: dto.modCanManageRequests }
             : {}),
@@ -574,12 +690,41 @@ export class CouncilsService {
     }
     return {
       state: await this.buildState(council, user.userId, member),
-      ...(await this.credentials(id, user.userId, member!)),
+      ...(await this.credentials(council, user.userId, member!)),
     };
   }
 
-  async getState(user: JwtPayload, id: string, code?: string) {
-    const { council, member } = await this.loadForViewer(id, user.userId, code);
+  async getState(user: JwtPayload, id: string) {
+    const { council, member } = await this.loadForViewer(id, user.userId);
+    if (
+      council.visibility === 'PRIVATE' &&
+      council.ownerId !== user.userId &&
+      (!member || member.role === 'BANNED') &&
+      !(await this.prisma.councilInvite.findUnique({
+        where: {
+          councilId_userId: { councilId: id, userId: user.userId },
+        },
+        select: { id: true },
+      }))
+    ) {
+      return {
+        locked: true as const,
+        council: {
+          id: council.id,
+          name: council.name,
+          description: council.description,
+          visibility: council.visibility,
+          status: council.status,
+          golden: council.golden,
+          owner: council.owner,
+        },
+        me: {
+          userId: user.userId,
+          joined: false,
+          banned: member?.role === 'BANNED',
+        },
+      };
+    }
     if (council.status === 'LIVE') {
       if (council.ownerId === user.userId) {
         await this.realtime.touchHost(id, user.userId);
@@ -592,11 +737,7 @@ export class CouncilsService {
   }
 
   async join(user: JwtPayload, id: string, dto: JoinCouncilDto) {
-    const { council, member } = await this.loadForViewer(
-      id,
-      user.userId,
-      dto.code,
-    );
+    const { council, member } = await this.loadForViewer(id, user.userId);
     if (council.status === 'SCHEDULED') {
       throwApi(409, 'council_not_started', NOT_STARTED_AR, {
         scheduledFor: council.scheduledFor,
@@ -610,6 +751,12 @@ export class CouncilsService {
     if (member?.kickedUntil && member.kickedUntil > new Date()) {
       throwApi(403, 'council_kicked', 'تمت إزالتك من المجلس مؤقتاً');
     }
+    const access = await this.assertPrivateAccess(
+      council,
+      user.userId,
+      member,
+      dto.code,
+    );
     const needsRules = council.rules.length > 0 && !member?.rulesAcceptedAt;
     if (needsRules && dto.acceptRules !== true) {
       throwApi(
@@ -642,12 +789,17 @@ export class CouncilsService {
         throw err;
       }
     }
+    if (access.consumeInviteId) {
+      await this.prisma.councilInvite
+        .deleteMany({ where: { id: access.consumeInviteId } })
+        .catch(() => undefined);
+    }
     if (council.ownerId === user.userId) {
       await this.realtime.touchHost(id, user.userId);
     }
     return {
       state: await this.buildState(council, user.userId, joined),
-      ...(await this.credentials(id, user.userId, joined)),
+      ...(await this.credentials(council, user.userId, joined)),
     };
   }
 
@@ -656,7 +808,7 @@ export class CouncilsService {
     const { council, member } = await this.loadForViewer(id, user.userId);
     this.assertLive(council);
     this.assertActiveMember(member);
-    const creds = await this.credentials(id, user.userId, member);
+    const creds = await this.credentials(council, user.userId, member);
     const flat = creds.provider === 'livekit' ? creds.livekit : creds.agora;
     if (!flat) {
       throwApi(
@@ -688,7 +840,6 @@ export class CouncilsService {
     const rows = await this.prisma.council.findMany({
       where: {
         status: 'LIVE',
-        visibility: 'PUBLIC',
         owner: {
           ...ACTIVE_OWNER,
           blocksInitiated: { none: { blockedId: user.userId } },
@@ -770,6 +921,8 @@ export class CouncilsService {
       name: c.name,
       description: c.description,
       visibility: c.visibility,
+      locked: c.visibility === 'PRIVATE',
+      golden: c.golden,
       followersOnly: c.followersOnly,
       status: c.status,
       startedAt: c.startedAt,
@@ -893,7 +1046,7 @@ export class CouncilsService {
       const member = await this.findMember(this.prisma, id, user.userId);
       return {
         state: await this.buildState(council, user.userId, member),
-        ...(await this.credentials(id, user.userId, member!)),
+        ...(await this.credentials(council, user.userId, member!)),
       };
     }
     if (council.status !== 'SCHEDULED') this.assertLive(council);
@@ -912,7 +1065,7 @@ export class CouncilsService {
     const fresh = await this.loadForViewer(id, user.userId);
     return {
       state: await this.buildState(fresh.council, user.userId, fresh.member),
-      ...(await this.credentials(id, user.userId, fresh.member!)),
+      ...(await this.credentials(fresh.council, user.userId, fresh.member!)),
     };
   }
 
@@ -1070,6 +1223,16 @@ export class CouncilsService {
     if (dto.description !== undefined)
       data.description = dto.description || null;
     if (dto.visibility !== undefined) data.visibility = dto.visibility;
+    const nextVisibility = dto.visibility ?? council.visibility;
+    if (dto.joinCode !== undefined) {
+      if (nextVisibility !== 'PRIVATE') {
+        throwApi(400, 'not_private', 'رمز الدخول للمجالس الخاصة فقط');
+      }
+      data.joinCode = normalizeJoinCode(dto.joinCode);
+    } else if (nextVisibility === 'PRIVATE' && !council.joinCode) {
+      data.joinCode = generateJoinCode(randomBytes);
+    }
+    if (nextVisibility === 'PUBLIC') data.joinCode = null;
     if (dto.rules !== undefined) data.rules = dto.rules;
     if (dto.modCanManageRequests !== undefined) {
       data.modCanManageRequests = dto.modCanManageRequests;
@@ -1164,9 +1327,16 @@ export class CouncilsService {
     if (!councilPermissions(council, user.userId, member).canEdit) {
       throwApi(403, 'forbidden', FORBIDDEN_AR);
     }
+    if (council.visibility !== 'PRIVATE') {
+      throwApi(400, 'not_private', 'رمز الدخول للمجالس الخاصة فقط');
+    }
     const inviteCode = newCouncilInviteCode();
-    await this.prisma.council.update({ where: { id }, data: { inviteCode } });
-    return { inviteCode };
+    const joinCode = generateJoinCode(randomBytes);
+    await this.prisma.council.update({
+      where: { id },
+      data: { inviteCode, joinCode },
+    });
+    return { inviteCode, joinCode };
   }
 
   async invite(user: JwtPayload, id: string, userIds: string[]) {
@@ -1221,6 +1391,177 @@ export class CouncilsService {
         .catch(() => {});
     }
     return { invited: fresh.length };
+  }
+
+  // ─── «طلب الرمز» (code requests for locked private councils) ─────────────
+
+  /** A user asks the host for the join code. Rate limited; the host is notified. */
+  async requestCode(user: JwtPayload, id: string) {
+    const { council, member } = await this.loadForViewer(id, user.userId);
+    this.assertLive(council);
+    if (council.visibility !== 'PRIVATE') {
+      throwApi(409, 'not_private', 'المجلس ليس خاصاً');
+    }
+    if (
+      council.ownerId === user.userId ||
+      (member && member.role !== 'BANNED')
+    ) {
+      throwApi(409, 'already_member', 'أنت عضو في هذا المجلس');
+    }
+    if (member?.role === 'BANNED') {
+      throwApi(403, 'council_banned', 'تم حظرك من هذا المجلس');
+    }
+    const perCouncil = await this.codeLimiter.throttle(
+      `council:codereq:${id}:${user.userId}`,
+      COUNCIL_CODE_REQUEST_PER_COUNCIL,
+      COUNCIL_CODE_REQUEST_WINDOW_SEC,
+    );
+    if (!perCouncil.ok) {
+      throwApi(
+        429,
+        'code_request_rate_limited',
+        'سبق أن أرسلت طلباً، انتظر قليلاً',
+        {
+          retryAfterSeconds: perCouncil.retryAfterSec,
+        },
+      );
+    }
+    const perUser = await this.codeLimiter.throttle(
+      `council:codereq:u:${user.userId}`,
+      COUNCIL_CODE_REQUEST_PER_USER_HOUR,
+      60 * 60,
+    );
+    if (!perUser.ok) {
+      throwApi(429, 'code_request_rate_limited', 'طلبات كثيرة، حاول لاحقاً', {
+        retryAfterSeconds: perUser.retryAfterSec,
+      });
+    }
+    const blocked = await this.prisma.userBlock.findFirst({
+      where: {
+        OR: [
+          { blockerId: council.ownerId, blockedId: user.userId },
+          { blockerId: user.userId, blockedId: council.ownerId },
+        ],
+      },
+      select: { id: true },
+    });
+    if (blocked) return { requested: true };
+    await this.prisma.councilCodeRequest.upsert({
+      where: { councilId_userId: { councilId: id, userId: user.userId } },
+      create: { councilId: id, userId: user.userId },
+      update: {
+        status: 'PENDING',
+        createdAt: new Date(),
+        decidedAt: null,
+        decidedById: null,
+      },
+    });
+    const who = await this.prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { arabicName: true, displayName: true, username: true },
+    });
+    const name = who?.arabicName || who?.displayName || who?.username || '';
+    void this.notifications
+      .notifyUsers([council.ownerId], {
+        type: 'system',
+        titleAr: 'طلب رمز دخول',
+        bodyAr: `${name} يطلب رمز الدخول إلى «${council.name}»`,
+        data: {
+          kind: 'council_code_request',
+          councilId: id,
+          requesterId: user.userId,
+        },
+      })
+      .catch(() => {});
+    return { requested: true };
+  }
+
+  async codeRequests(user: JwtPayload, id: string) {
+    const { council, member } = await this.loadForViewer(id, user.userId);
+    if (!councilPermissions(council, user.userId, member).canInvite) {
+      throwApi(403, 'forbidden', FORBIDDEN_AR);
+    }
+    const rows = await this.prisma.councilCodeRequest.findMany({
+      where: { councilId: id, status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+      select: {
+        userId: true,
+        createdAt: true,
+        user: { select: COUNCIL_USER_SELECT },
+      },
+    });
+    return { requests: rows };
+  }
+
+  /** Host (or an inviting moderator) answers: one-time invite, the code, or ignore. */
+  async respondCodeRequest(
+    user: JwtPayload,
+    id: string,
+    requesterId: string,
+    action: 'invite' | 'send_code' | 'ignore',
+  ) {
+    const { council, member } = await this.loadForViewer(id, user.userId);
+    if (!councilPermissions(council, user.userId, member).canInvite) {
+      throwApi(403, 'forbidden', FORBIDDEN_AR);
+    }
+    this.assertLive(council);
+    const req = await this.prisma.councilCodeRequest.findUnique({
+      where: { councilId_userId: { councilId: id, userId: requesterId } },
+    });
+    if (!req || req.status !== 'PENDING') {
+      throwApi(404, 'request_not_found', 'الطلب غير موجود');
+    }
+    const requester = await this.findMember(this.prisma, id, requesterId);
+    if (requester?.role === 'BANNED') {
+      throwApi(409, 'member_banned', 'العضو محظور');
+    }
+    const status =
+      action === 'invite'
+        ? ('INVITED' as const)
+        : action === 'send_code'
+          ? ('CODE_SENT' as const)
+          : ('IGNORED' as const);
+    if (action === 'invite') {
+      await this.prisma.councilInvite.upsert({
+        where: { councilId_userId: { councilId: id, userId: requesterId } },
+        create: {
+          councilId: id,
+          userId: requesterId,
+          invitedById: user.userId,
+          oneTime: true,
+        },
+        update: {},
+      });
+    }
+    await this.prisma.councilCodeRequest.update({
+      where: { id: req.id },
+      data: { status, decidedAt: new Date(), decidedById: user.userId },
+    });
+    if (action === 'invite') {
+      void this.notifications
+        .notifyUsers([requesterId], {
+          type: 'system',
+          titleAr: 'دعوة إلى مجلس',
+          bodyAr: `وافق المضيف على انضمامك إلى «${council.name}»`,
+          data: { kind: 'council_invite', councilId: id },
+        })
+        .catch(() => {});
+    } else if (action === 'send_code') {
+      void this.notifications
+        .notifyUsers([requesterId], {
+          type: 'system',
+          titleAr: 'رمز دخول المجلس',
+          bodyAr: `أرسل لك المضيف رمز الدخول إلى «${council.name}»`,
+          data: {
+            kind: 'council_code',
+            councilId: id,
+            code: council.joinCode ?? council.inviteCode,
+          },
+        })
+        .catch(() => {});
+    }
+    return { requesterId, status };
   }
 
   async banned(user: JwtPayload, id: string) {
@@ -1292,17 +1633,11 @@ export class CouncilsService {
     return { canShowImages: canShowCouncilImages(tier), listings };
   }
 
-  /**
-   * Pins an image at the top of the room. Server-side rules: active Gold
-   * subscription, the owner or a member on stage, an image we host (our upload
-   * storage), and for a listing photo the listing must be mine and contain it.
-   * The owner may replace anyone's image; others only an empty slot or their own.
-   */
-  async showImage(user: JwtPayload, id: string, dto: CouncilImageDto) {
-    const tier = await this.subscriberTier(user.userId);
-    if (!canShowCouncilImages(tier)) {
-      throwApi(403, 'council_image_gold_only', GOLD_ONLY_AR);
-    }
+  /** Image must be one of our uploads: the user's own gallery upload or a photo of their listing. */
+  private async validateStageImage(
+    user: JwtPayload,
+    dto: CouncilImageDto,
+  ): Promise<{ url: string; listingId: string | null }> {
     const url = dto.imageUrl.trim();
     if (!isOurUploadUrl(url) || isListingVideoUrl(url)) {
       throwApi(400, 'invalid_image', 'الصورة غير صالحة');
@@ -1326,6 +1661,21 @@ export class CouncilsService {
       // Gallery upload: must be the user's own upload, within size/format.
       await assertUserMediaUrls([url], user.userId);
     }
+    return { url, listingId };
+  }
+
+  /**
+   * Pins an image at the top of the room. Server-side rules: active Gold
+   * subscription, the owner or a member on stage, an image we host (our upload
+   * storage), and for a listing photo the listing must be mine and contain it.
+   * The owner may replace anyone's image; others only an empty slot or their own.
+   */
+  async showImage(user: JwtPayload, id: string, dto: CouncilImageDto) {
+    const tier = await this.subscriberTier(user.userId);
+    if (!canShowCouncilImages(tier)) {
+      throwApi(403, 'council_image_gold_only', GOLD_ONLY_AR);
+    }
+    const { url, listingId } = await this.validateStageImage(user, dto);
     const updated = await this.withCouncilLock(id, async (tx, council) => {
       const member = await this.findMember(tx, id, user.userId);
       this.assertActiveMember(member);
@@ -1348,14 +1698,99 @@ export class CouncilsService {
           imageListingId: listingId,
           imageById: user.userId,
           imageAt: new Date(),
+          stageImages: [],
+          stageIndex: 0,
         },
         select: {
           imageUrl: true,
           imageListingId: true,
           imageById: true,
           imageAt: true,
+          stageImages: true,
+          stageIndex: true,
         },
       });
+    });
+    const image = await this.realtime.presentImage(updated);
+    await this.realtime.emitImage(id, image);
+    return { image };
+  }
+
+  /** Golden stage: owner must be a verified seller in a golden council. */
+  private async assertGoldenPresenter(userId: string, council: Council) {
+    if (council.ownerId !== userId) {
+      throwApi(403, 'forbidden', 'العرض متاح لمضيف المجلس فقط');
+    }
+    if (!council.golden) {
+      throwApi(409, 'golden_required', 'عرض الصور متاح في المجلس الذهبي فقط');
+    }
+    if (!(await this.isVerifiedSellerId(userId))) {
+      throwApi(403, 'seller_not_verified', 'العرض متاح للبائعين الموثّقين فقط');
+    }
+  }
+
+  /**
+   * Golden stage view: the host presents up to COUNCIL_STAGE_IMAGES_MAX images
+   * (own uploads or own listing photos) to everyone, then steps next/prev or stops.
+   */
+  async presentImages(user: JwtPayload, id: string, images: CouncilImageDto[]) {
+    const { council } = await this.loadForViewer(id, user.userId);
+    this.assertLive(council);
+    await this.assertGoldenPresenter(user.userId, council);
+    const urls: string[] = [];
+    for (const dto of images) {
+      urls.push((await this.validateStageImage(user, dto)).url);
+    }
+    const unique = [...new Set(urls)];
+    const updated = await this.prisma.council.update({
+      where: { id },
+      data: {
+        stageImages: unique,
+        stageIndex: 0,
+        imageUrl: unique[0],
+        imageListingId: null,
+        imageById: user.userId,
+        imageAt: new Date(),
+      },
+      select: {
+        imageUrl: true,
+        imageListingId: true,
+        imageById: true,
+        imageAt: true,
+        stageImages: true,
+        stageIndex: true,
+      },
+    });
+    const image = await this.realtime.presentImage(updated);
+    await this.realtime.emitImage(id, image);
+    return { image };
+  }
+
+  async stepImages(user: JwtPayload, id: string, dir: 'next' | 'prev') {
+    const { council } = await this.loadForViewer(id, user.userId);
+    this.assertLive(council);
+    await this.assertGoldenPresenter(user.userId, council);
+    const count = council.stageImages.length;
+    if (count === 0) {
+      throwApi(409, 'no_stage_images', 'لا توجد صور معروضة');
+    }
+    const index =
+      (council.stageIndex + (dir === 'next' ? 1 : count - 1)) % count;
+    const updated = await this.prisma.council.update({
+      where: { id },
+      data: {
+        stageIndex: index,
+        imageUrl: council.stageImages[index],
+        imageAt: new Date(),
+      },
+      select: {
+        imageUrl: true,
+        imageListingId: true,
+        imageById: true,
+        imageAt: true,
+        stageImages: true,
+        stageIndex: true,
+      },
     });
     const image = await this.realtime.presentImage(updated);
     await this.realtime.emitImage(id, image);
@@ -1391,6 +1826,8 @@ export class CouncilsService {
             imageListingId: null,
             imageById: null,
             imageAt: null,
+            stageImages: [],
+            stageIndex: 0,
           },
         });
         return true;
@@ -1780,6 +2217,41 @@ export class CouncilsService {
           });
           break;
         }
+        case 'allow_camera':
+        case 'revoke_camera': {
+          need(perms.isOwner);
+          if (getRtcProvider() === 'agora') {
+            throwApi(409, 'camera_unavailable', 'الكاميرا غير متاحة حالياً');
+          }
+          if (!council.golden) {
+            throwApi(
+              409,
+              'golden_required',
+              'الكاميرا متاحة في المجلس الذهبي فقط',
+            );
+          }
+          if (target.seatIndex === null) {
+            throwApi(409, 'not_on_stage', 'العضو ليس ضمن المتحدثين');
+          }
+          if (action === 'allow_camera') {
+            const targetUser = await tx.user.findUnique({
+              where: { id: targetUserId },
+              select: { verified: true, isActive: true, deletedAt: true },
+            });
+            if (!isVerifiedSeller(targetUser)) {
+              throwApi(
+                409,
+                'seller_not_verified',
+                'الكاميرا متاحة للبائعين الموثّقين فقط',
+              );
+            }
+          }
+          await tx.councilMember.update({
+            where: { id: target.id },
+            data: { cameraAllowed: action === 'allow_camera' },
+          });
+          break;
+        }
         case 'remove_moderator': {
           need(perms.canManageModerators);
           if (target.role !== 'MODERATOR') {
@@ -1805,6 +2277,7 @@ export class CouncilsService {
         seatIndex: out.after.seatIndex,
         micMuted: out.after.micMuted,
         mutedByModerator: out.after.mutedByModerator,
+        cameraAllowed: out.after.cameraAllowed,
       },
     };
   }
@@ -1840,6 +2313,7 @@ export class CouncilsService {
         seatIndex: after.seatIndex,
         micMuted: after.micMuted,
         mutedByModerator: after.mutedByModerator,
+        cameraAllowed: after.cameraAllowed,
       });
     }
 
@@ -1858,12 +2332,20 @@ export class CouncilsService {
         void this.agoraModeration.lift(id, targetUserId);
       }
     } else if (action !== 'kick' && action !== 'ban') {
-      const publish = rtcRoleFor(after) === 'publisher';
+      const council = await this.prisma.council.findUnique({
+        where: { id },
+        select: { golden: true, ownerId: true },
+      });
+      const publish = council
+        ? await this.publishFor(council, after)
+        : rtcRoleFor(after) === 'publisher'
+          ? 'audio'
+          : 'none';
       void setLivekitPublish({
         room: councilRoomName(id),
         identity: targetUserId,
-        publish: publish ? 'audio' : 'none',
-        muteAudio: !publish,
+        publish,
+        muteAudio: publish === 'none',
       });
     }
 

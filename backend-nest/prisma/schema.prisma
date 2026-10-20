@@ -113,6 +113,7 @@ model User {
   councilSpeakRequests                CouncilSpeakRequest[]             @relation("CouncilSpeakRequestUser")
   councilInvites                      CouncilInvite[]                   @relation("CouncilInviteUser")
   councilReminders                    CouncilReminder[]                 @relation("CouncilReminderUser")
+  councilCodeRequests                 CouncilCodeRequest[]              @relation("CouncilCodeRequestUser")
   profileViewsReceived                ProfileView[]                     @relation("ProfileViewsReceived")
   profileViewsGiven                   ProfileView[]                     @relation("ProfileViewsGiven")
   mutesInitiated                      UserMute[]                        @relation("MutesInitiated")
@@ -330,6 +331,15 @@ model Council {
   imageListingId       String?
   imageById            String?
   imageAt              DateTime?
+  /// Private councils: host-chosen join code (case-insensitive). Listed publicly, locked.
+  joinCode             String?
+  /// المجلس الذهبي: camera on stage + image gallery. Granted by an admin (payment later).
+  golden               Boolean               @default(false)
+  goldenGrantedAt      DateTime?
+  goldenGrantedById    String?
+  /// Golden stage gallery (our upload URLs); `imageUrl` always mirrors stageImages[stageIndex].
+  stageImages          String[]              @default([])
+  stageIndex           Int                   @default(0)
   createdAt            DateTime              @default(now())
   startedAt            DateTime              @default(now())
   endedAt              DateTime?
@@ -339,6 +349,7 @@ model Council {
   speakRequests        CouncilSpeakRequest[]
   invites              CouncilInvite[]
   reminders            CouncilReminder[]
+  codeRequests         CouncilCodeRequest[]
 
   @@index([ownerId, status])
   @@index([status, visibility, startedAt])
@@ -355,6 +366,8 @@ model CouncilMember {
   micMuted         Boolean           @default(true)
   /// Hard mute by the host/moderator: the speaker cannot unmute and gets no publish token.
   mutedByModerator Boolean           @default(false)
+  /// Golden councils: the owner allowed this speaker to publish their camera.
+  cameraAllowed    Boolean           @default(false)
   rulesAcceptedAt  DateTime?
   kickedUntil      DateTime?
   bannedAt         DateTime?
@@ -391,6 +404,8 @@ model CouncilInvite {
   councilId   String
   userId      String
   invitedById String
+  /// Consumed (deleted) when the invited user joins. Set for invites granted via a code request.
+  oneTime     Boolean  @default(false)
   createdAt   DateTime @default(now())
   council     Council  @relation(fields: [councilId], references: [id], onDelete: Cascade)
   user        User     @relation("CouncilInviteUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -410,6 +425,29 @@ model CouncilReminder {
 
   @@unique([councilId, userId])
   @@index([userId])
+}
+
+/// «طلب الرمز»: a user asks the host of a locked private council for the join code.
+model CouncilCodeRequest {
+  id          String                   @id @default(uuid())
+  councilId   String
+  userId      String
+  status      CouncilCodeRequestStatus @default(PENDING)
+  createdAt   DateTime                 @default(now())
+  decidedAt   DateTime?
+  decidedById String?
+  council     Council                  @relation(fields: [councilId], references: [id], onDelete: Cascade)
+  user        User                     @relation("CouncilCodeRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([councilId, userId])
+  @@index([councilId, status, createdAt])
+}
+
+enum CouncilCodeRequestStatus {
+  PENDING
+  INVITED
+  CODE_SENT
+  IGNORED
 }
 
 enum CouncilVisibility {
