@@ -14,10 +14,27 @@ Video live streams and «المجالس» voice rooms run on a self-hosted LiveK
 - Webhook `POST /api/livekit/webhook` (signature verified, raw body): participant joined/left set
   the viewer count, `room_finished` ends the stream.
 
-## Media server (dedicated VPS — not the DB server)
+## Media server (dedicated VPS - not the DB server)
 
-Recommended: small VPS in Europe (OVH/Hetzner), 1 Gbps, 4 vCPU / 8 GB to start. Files:
-`docker-compose.media.yml`, `livekit.yaml`, `infra/media/Caddyfile`, `.env.media.example`.
+Recommended: VPS in Europe (OVH/Hetzner/Contabo), 1 Gbps ideal, 4+ vCPU / 8 GB to start.
+Files: `docker-compose.media.yml`, `infra/media/*`, `.env.media.example`. `livekit.yaml` and
+`nginx.conf` are **rendered at start** from `.env.media` by the one-shot `config` service into a
+volume, so no secret lives in git. Multi-node, Redis, HLS and cross-provider setups are in
+`docs/livekit-scaling.md`.
+
+### Services
+| Service | Role |
+|---------|------|
+| `config` | renders `livekit.yaml` / `egress.yaml` / `nginx.conf` from env |
+| `sni-proxy` (nginx stream) | owns 443; `turn.*` SNI -> LiveKit 5349 (TLS passthrough), everything else -> Caddy on 8443 |
+| `caddy` | certificates (HTTP-01 on 80) and `wss://rtc.*` reverse proxy |
+| `cert-sync` | copies Caddy's TURN cert for LiveKit and restarts LiveKit when it renews (checks hourly) |
+| `livekit` | the SFU; `restart: unless-stopped`, starts only after config + first cert sync |
+| `redis`, `egress` | optional profiles (`--profile redis`, `--profile egress`) |
+
+Why SNI on 443: LiveKit 1.9.12 always advertises `turns:<turn domain>:443`, so TURN/TLS must be
+reachable on 443 while Caddy also needs it for `rtc.*`. **[tested with real nginx; deployed node
+verified with `scripts/media/verify-node.sh`]**
 
 ### DNS
 | Record | Type | Value |
@@ -28,27 +45,45 @@ Recommended: small VPS in Europe (OVH/Hetzner), 1 Gbps, 4 vCPU / 8 GB to start. 
 ### Firewall (allow inbound)
 | Port | Proto | Purpose |
 |------|-------|---------|
-| 80, 443 | TCP | Caddy: ACME + `wss://rtc.getsarh.com` signalling |
+| 80 | TCP | ACME HTTP-01 |
+| 443 | TCP | SNI-routed: `rtc.*` signalling (wss), `turn.*` TURN/TLS |
+| 5349 | TCP | TURN/TLS direct |
 | 7881 | TCP | WebRTC over TCP fallback |
-| 50000-60000 | UDP | WebRTC media |
 | 3478 | UDP | TURN/UDP |
-| 5349 | TCP | TURN/TLS |
+| 50000-60000 | UDP | WebRTC media |
+| 30000-40000 | UDP | TURN relay range (`turn.relay_range_start/end`) |
 
-Port 7880 stays internal (Caddy proxies to it). If you cannot open the full UDP range, shrink
-`rtc.port_range_*` in `livekit.yaml` and the firewall together (about 2 ports per participant).
+7880 and 8443 are loopback only. If you shrink `rtc.port_range_*`, shrink the firewall to match
+(about 2 ports per participant).
 
 ### Steps
-1. `git clone` the repo on the VPS (or copy the 4 files), install Docker.
-2. `cp .env.media.example .env.media`; set `LIVEKIT_API_SECRET=$(openssl rand -hex 32)`. Keep
-   `LIVEKIT_API_KEY=sarh` (the webhook block in `livekit.yaml` references that key name).
-3. Edit domains in `livekit.yaml` / `Caddyfile` if you do not use `getsarh.com`.
-4. `docker compose -f docker-compose.media.yml --env-file .env.media up -d`
-5. Check: `curl -I https://rtc.getsarh.com` (Caddy answers once the cert is issued) and
-   `docker compose -f docker-compose.media.yml logs livekit`.
-6. TURN certs are copied once at startup. Caddy renews every ~60 days; add a monthly cron:
-   `docker compose -f docker-compose.media.yml --env-file .env.media up turn-certs && docker compose -f docker-compose.media.yml restart livekit`.
+1. `git clone` the repo on the VPS, install Docker.
+2. `cp .env.media.example .env.media`; set `LIVEKIT_API_SECRET=$(openssl rand -hex 32)`; set
+   `RTC_DOMAIN`, `TURN_DOMAIN`, `WEBHOOK_URL` if they differ from `getsarh.com`.
+3. `docker compose -f docker-compose.media.yml --env-file .env.media up -d`
+4. `sh scripts/media/verify-node.sh <public-ip>`
+5. `docker compose -f docker-compose.media.yml logs livekit cert-sync`
 
-Logs, `LIVEKIT_KEYS` and the secret never go into git (`.env.*` is ignored except the examples).
+### Reboots and certificate renewal
+Everything restarts by itself (`restart: unless-stopped`; LiveKit waits for config and the first
+cert). `cert-sync` replaces the old manual `turn-certs` job: LiveKit reads the TURN cert only at
+startup, so it restarts the `sarh-livekit` container when Caddy renews (the restart briefly drops
+active calls; renewals happen about every 60 days). It needs the Docker socket - this is the one
+privileged piece; the container does nothing else.
+
+### Migrating a node that was set up by hand (turn-certs + systemd unit + cron)
+```bash
+sudo systemctl disable --now <your-livekit-systemd-unit> ; sudo rm /etc/cron.d/<monthly-cert-renew>
+# stop whatever binds 443 outside compose (the manual SNI proxy), then:
+git pull && cp .env.media .env.media.bak   # keep key/secret/domains; add NODE_IP if needed
+docker compose -f docker-compose.media.yml --env-file .env.media down
+docker compose -f docker-compose.media.yml --env-file .env.media up -d
+sh scripts/media/verify-node.sh <public-ip>
+```
+The root `livekit.yaml` was removed (rendered now). The API key name is whatever
+`LIVEKIT_API_KEY` is; the webhook block follows it, there is no longer a hard `sarh` coupling.
+
+Logs, secrets and `.env.media` never go into git.
 
 ## Backend / app configuration
 
@@ -70,21 +105,12 @@ App: `EXPO_PUBLIC_RTC_PROVIDER=livekit`, `EXPO_PUBLIC_LIVE_ENABLED=true` (alread
 `@livekit/react-native-webrtc`, config plugins) require a **new EAS development/production build**;
 OTA updates are not enough.
 
-Rollback to Agora: set `RTC_PROVIDER=agora` + the `AGORA_*` vars on the backend and
-`EXPO_PUBLIC_RTC_PROVIDER=agora` in the app build.
+Rollback to Agora: set `RTC_PROVIDER=agora` + the `AGORA_*` vars on the backend. The app follows
+the provider returned by each API response, so **no app update is needed** (both SDKs ship in the
+same build). Only **new** sessions switch; ongoing streams/councils are not migrated.
+Details and caps: `docs/livekit-scaling.md`.
 
 ## Load testing
 
-Install the CLI (`brew install livekit-cli` or `curl -sSL https://get.livekit.io/cli | bash`), then:
-
-```bash
-export LIVEKIT_URL=wss://rtc.getsarh.com LIVEKIT_API_KEY=sarh LIVEKIT_API_SECRET=...
-# 1 video publisher, 200 viewers
-lk load-test --room loadtest-live --video-publishers 1 --subscribers 200 --duration 2m
-# council: 12 speakers, 300 listeners
-lk load-test --room loadtest-council --audio-publishers 12 --subscribers 300 --duration 2m
-```
-
-Run it from a different machine/region and watch CPU, bandwidth and packet loss on the VPS.
-A 1 Gbps link carries roughly 1000+ viewers of a 1 Mbps stream; scale out with more nodes +
-Redis if needed.
+See `docs/livekit-scaling.md` section 6 (`scripts/loadtest/`: ramp, node metrics, safe-limit
+derivation). Viewer caps (`LIVEKIT_MAX_*`) are placeholders until set from your own results.

@@ -85,6 +85,10 @@ permission, `mutePublishedTrack`, `removeParticipant` with token revocation) on 
 role change, mute, kick and ban. With `agora` the previous behaviour (token renewal + kicking
 rule) is kept. See `docs/livekit.md`.
 
+Listener cap: `LIVEKIT_MAX_COUNCIL_PARTICIPANTS` (default 200, env-driven; set it from load-test
+results). A full council answers `503 room_full` (`livekitError: 'room_full'` in the join
+response). Audio rooms have no HLS fallback. Provider switches apply to new sessions only.
+
 ## Rules & edge cases
 
 - Rules must be accepted before the first join (`412 rules_required`).
