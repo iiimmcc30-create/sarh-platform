@@ -687,7 +687,8 @@ suite('CouncilsService (real Postgres)', () => {
     expect(card).toMatchObject({ locked: true, visibility: 'PRIVATE' });
     const locked = await service.getState(as('outsider'), id);
     expect(locked).toMatchObject({ locked: true });
-    expect(locked).not.toHaveProperty('speakers');
+    expect(locked.speakers).toEqual([]);
+    expect(locked.listeners).toEqual([]);
     expect(locked.council).not.toHaveProperty('inviteCode');
 
     // No code / wrong code: no credentials, no membership row.

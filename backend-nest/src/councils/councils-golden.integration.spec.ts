@@ -87,7 +87,7 @@ suite('Private councils + golden tier (real Postgres)', () => {
   async function seat(councilId: string, name: string) {
     await service.join(as(name), councilId, {});
     const r = await service.requestToSpeak(as(name), councilId);
-    await service.decideRequest(as('owner'), councilId, r.requestId, 'accept');
+    await service.decideRequest(as('owner'), councilId, r.requestId, true);
   }
 
   beforeAll(async () => {
@@ -185,7 +185,7 @@ suite('Private councils + golden tier (real Postgres)', () => {
       await admin.setGolden(staff(), id, true);
       const t = await service.token(as('unverifiedHost'), id);
       expect(grants(t.token).canPublishSources).toEqual(['microphone']);
-      expect(t.canCamera).toBe(false);
+      expect('canCamera' in t && t.canCamera).toBe(false);
       expect(
         await apiError(() =>
           service.presentImages(as('unverifiedHost'), id, [

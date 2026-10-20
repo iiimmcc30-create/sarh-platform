@@ -368,6 +368,59 @@ export class CouncilsService {
     };
   }
 
+  /**
+   * What a non-member sees of a locked private council: the card only. Same shape as
+   * `buildState` with every room-data field empty, so no speakers/listeners/codes leak.
+   */
+  private lockedState(
+    council: CouncilWithOwner,
+    viewerId: string,
+    member: CouncilMember | null,
+  ) {
+    return {
+      locked: true as const,
+      council: this.presentMeta(
+        council,
+        councilPermissions(council, viewerId, null),
+      ),
+      speakers: [] as Awaited<
+        ReturnType<CouncilRealtimeService['loadSpeakers']>
+      >,
+      speakersCount: 0,
+      listenerCount: 0,
+      listeners: [] as Awaited<
+        ReturnType<CouncilRealtimeService['loadListeners']>
+      >['listeners'],
+      listenersNextCursor: null as string | null,
+      image: null as Awaited<
+        ReturnType<CouncilRealtimeService['presentImage']>
+      >,
+      isFull: false,
+      me: {
+        userId: viewerId,
+        role: null as CouncilMember['role'] | null,
+        joined: false,
+        banned: member?.role === 'BANNED',
+        kickedUntil: null as Date | null,
+        seatIndex: null as number | null,
+        onStage: false,
+        micMuted: true,
+        mutedByModerator: false,
+        rulesAccepted: false,
+        pendingRequestId: null as string | null,
+        rtcRole: 'subscriber' as const,
+        permissions: councilPermissions(council, viewerId, null),
+        canShowImage: false,
+        cameraAllowed: false,
+        canCamera: false,
+        canPresentGallery: false,
+      },
+      pendingRequests: [] as Awaited<
+        ReturnType<CouncilRealtimeService['pendingRequests']>
+      >,
+    };
+  }
+
   /** Everything a room screen needs — never the listener list. */
   async buildState(
     council: CouncilWithOwner,
@@ -706,23 +759,7 @@ export class CouncilsService {
         select: { id: true },
       }))
     ) {
-      return {
-        locked: true as const,
-        council: {
-          id: council.id,
-          name: council.name,
-          description: council.description,
-          visibility: council.visibility,
-          status: council.status,
-          golden: council.golden,
-          owner: council.owner,
-        },
-        me: {
-          userId: user.userId,
-          joined: false,
-          banned: member?.role === 'BANNED',
-        },
-      };
+      return this.lockedState(council, user.userId, member);
     }
     if (council.status === 'LIVE') {
       if (council.ownerId === user.userId) {
