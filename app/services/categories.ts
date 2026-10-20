@@ -1,6 +1,7 @@
 import { MARKET_CATEGORIES_FALLBACK } from '@/lib/marketCategoriesFallback';
 import { ensureApiReachable } from './api';
 import { dedupeInflight } from './requestCoordination';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type MarketCategory = {
   id: string;
@@ -52,7 +53,7 @@ export async function fetchMarketCategories(
   return dedupeInflight('GET:/api/categories', async () => {
     const base = await ensureApiReachable();
     try {
-      const res = await fetch(`${base.replace(/\/$/, '')}/api/categories`, {
+      const res = await fetchWithTimeout(`${base.replace(/\/$/, '')}/api/categories`, {
         cache: 'no-store',
       });
       const data = await readJson<{ categories: MarketCategory[] }>(res);
@@ -91,7 +92,7 @@ export async function fetchMarketCategory(id: string): Promise<MarketCategory | 
 
   const base = await ensureApiReachable();
   try {
-    const res = await fetch(`${base.replace(/\/$/, '')}/api/categories/${id}`, {
+    const res = await fetchWithTimeout(`${base.replace(/\/$/, '')}/api/categories/${id}`, {
       cache: 'no-store',
     });
     const data = await readJson<{ category: MarketCategory }>(res);
@@ -110,7 +111,7 @@ export async function fetchMarketSubcategories(id: string): Promise<MarketCatego
 
   const base = await ensureApiReachable();
   try {
-    const res = await fetch(`${base.replace(/\/$/, '')}/api/categories/${id}/subcategories`, {
+    const res = await fetchWithTimeout(`${base.replace(/\/$/, '')}/api/categories/${id}/subcategories`, {
       cache: 'no-store',
     });
     const data = await readJson<{ subcategories: MarketCategory[] }>(res);

@@ -10,6 +10,7 @@ import { safePush } from '@/lib/safeNavigate';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { digitalPurchasesEnabled } from '@/lib/storePurchases';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 // v2: iOS switched from raw APNs tokens to Expo push tokens. New keys force
 // builds that cached an APNs token to register (and sync) a fresh one.
@@ -456,7 +457,7 @@ export async function clearPushTokenOnLogout(
 ): Promise<void> {
   try {
     const stored = await getStoredPushToken();
-    await fetch(`${API_BASE}/api/users/${userId}`, {
+    await fetchWithTimeout(`${API_BASE}/api/users/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

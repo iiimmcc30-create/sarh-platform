@@ -145,6 +145,51 @@ export async function removeFromFeedSnapshot(
   }
 }
 
+const ENTITY_SNAPSHOT_PREFIX = 'sarouh:entity_snapshot_v1:';
+
+export type EntitySnapshotKind = 'listing' | 'profile';
+
+type EntityEnvelope<T> = { savedAt: number; value: T };
+
+function entityKey(kind: EntitySnapshotKind, id: string): string {
+  return `${ENTITY_SNAPSHOT_PREFIX}${kind}:${id}`;
+}
+
+/** Disk copy of one listing or profile so a screen can paint before the network returns. */
+export async function readEntitySnapshot<T>(
+  kind: EntitySnapshotKind,
+  id: string,
+  now = Date.now(),
+): Promise<T | null> {
+  const keyId = id?.trim();
+  if (!keyId) return null;
+  try {
+    const raw = await AsyncStorage.getItem(entityKey(kind, keyId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as EntityEnvelope<T>;
+    if (!parsed || typeof parsed.savedAt !== 'number' || parsed.value == null) return null;
+    if (now - parsed.savedAt > FEED_SNAPSHOT_MAX_AGE_MS) return null;
+    return parsed.value;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeEntitySnapshot<T>(
+  kind: EntitySnapshotKind,
+  id: string,
+  value: T,
+): Promise<void> {
+  const keyId = id?.trim();
+  if (!keyId || value == null) return;
+  try {
+    const envelope: EntityEnvelope<T> = { savedAt: Date.now(), value };
+    await AsyncStorage.setItem(entityKey(kind, keyId), JSON.stringify(envelope));
+  } catch {
+    /* ignore quota */
+  }
+}
+
 export async function clearFeedSnapshot(): Promise<void> {
   try {
     await AsyncStorage.removeItem(FEED_SNAPSHOT_KEY);

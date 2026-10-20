@@ -2,7 +2,7 @@ import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 import { dedupeGetResponse } from '@/services/requestCoordination';
 
 /** Feed GETs should fail fast so the UI can retry; uploads/login keep the longer default. */
-export const FEED_TIMEOUT_MS = 12_000;
+export const FEED_TIMEOUT_MS = 15_000;
 
 /** Public feed GET — optional auth; retries without token after 401 (stale session). */
 export async function fetchPublicFeed(

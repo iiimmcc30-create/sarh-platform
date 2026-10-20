@@ -7,6 +7,7 @@ import { motion } from '@/design-system';
 import { AppText, SarhDivider } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
 const TERMS = [
   {
@@ -44,7 +45,7 @@ const TERMS = [
 ];
 
 const CONTACT = [
-  { icon: 'mail-outline', href: 'mailto:sarh@sarhsa.online', text: 'sarh@sarhsa.online' },
+  { icon: 'mail-outline', href: `mailto:${SARH_OFFICIAL_EMAIL}`, text: SARH_OFFICIAL_EMAIL },
 ];
 
 export default function TermsScreen() {

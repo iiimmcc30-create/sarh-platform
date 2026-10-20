@@ -2,7 +2,7 @@
 # Daily logical backup (pg_dump custom format) of the data-server PostgreSQL.
 # Non-destructive: reads the live DB, writes a new dump, prunes OLD dump files only.
 # The Docker volume is NOT a backup — copy BACKUP_DIR off-site as well
-# (see scripts/data-server/backup-cron.example).
+# (scripts/data-server/backup-offsite.sh, docs/BACKUP_RUNBOOK.md).
 #
 # Usage:
 #   SARH_ROOT=/opt/sarh ./scripts/data-server/backup-postgres.sh

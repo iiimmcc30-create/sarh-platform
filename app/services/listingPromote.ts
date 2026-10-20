@@ -5,6 +5,7 @@ import {
   PROMOTE_CATALOG_AMOUNT_MIN,
 } from '@/services/promoteCatalog';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 export type PromotionGoal = 'visibility' | 'pinned' | 'featured';
 
 export const PROMOTE_AMOUNT_MIN = PROMOTE_CATALOG_AMOUNT_MIN;
@@ -202,7 +203,7 @@ export async function fetchPromoteQuote(
     goal,
     durationHours: String(durationHours),
   });
-  const res = await fetch(`${API_BASE}/api/listings/promote/quote?${params.toString()}`);
+  const res = await fetchWithTimeout(`${API_BASE}/api/listings/promote/quote?${params.toString()}`);
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.success) {
     throw new Error(json.messageAr ?? json.message ?? 'تعذّر حساب السعر');

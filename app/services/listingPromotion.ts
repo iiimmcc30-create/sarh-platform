@@ -1,6 +1,7 @@
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { promotionPlansFromCatalog } from '@/services/promoteCatalog';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type PromotionPlanOption = {
   durationDays: number;
@@ -41,7 +42,7 @@ export const PROMOTION_META = {
 
 export async function fetchPromotionPlans(): Promise<PromotionPlanOption[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/listings/promotion/plans`);
+    const res = await fetchWithTimeout(`${API_BASE}/api/listings/promotion/plans`);
     if (!res.ok) return FALLBACK_PROMOTION_PLANS;
     const json = await res.json();
     const plans = json.data?.plans;
@@ -67,7 +68,7 @@ export async function trackPromotionEvent(
   event: 'impression' | 'click' | 'view',
 ): Promise<void> {
   try {
-    await fetch(`${API_BASE}/api/listings/${listingId}/promotion/track`, {
+    await fetchWithTimeout(`${API_BASE}/api/listings/${listingId}/promotion/track`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event }),

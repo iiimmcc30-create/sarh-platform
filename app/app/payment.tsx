@@ -29,6 +29,7 @@ import {
 } from 'react-native';
 import { type ThemeColors } from '@/constants/theme';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 type Step = 'method' | 'card_details' | 'processing' | 'success';
 
 function formatCardDisplay(num: string): string {
@@ -197,7 +198,7 @@ function PaymentScreen() {
     setStep('processing');
 
     try {
-      const res = await fetch(`${API_BASE}/api/payments/initiate`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/payments/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({

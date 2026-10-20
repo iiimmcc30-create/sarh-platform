@@ -14,13 +14,14 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { contactMessageError, contactTicketPayload } from '@/lib/helpCenter';
 import { createTicket } from '@/services/support';
+import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
 const CHANNELS = [
   {
     icon: 'mail',
     label: 'البريد الإلكتروني',
-    value: 'sarh@sarhsa.online',
-    href: 'mailto:sarh@sarhsa.online',
+    value: SARH_OFFICIAL_EMAIL,
+    href: `mailto:${SARH_OFFICIAL_EMAIL}`,
   },
   {
     icon: 'globe-outline',

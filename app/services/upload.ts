@@ -3,6 +3,7 @@
 import { Platform } from 'react-native';
 import { API_BASE } from './api';
 import { authFetch, getAccessToken } from './authFetch';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 type UploadFolder =
   | 'avatars'
@@ -174,6 +175,7 @@ async function buildFileForm(localUri: string, mimetype: string): Promise<FormDa
   const form = new FormData();
   const ext = fileExtension(mimetype);
   if (Platform.OS === 'web') {
+    // Local file:// and blob: reads stay on raw fetch. The shared client is for remote URLs.
     const blob = await (await fetch(localUri)).blob();
     form.append('file', blob, `upload.${ext}`);
   } else {
@@ -250,7 +252,7 @@ async function uploadToS3(slot: S3UploadSlot, localUri: string, mimetype: string
   const fileRes = await fetch(localUri);
   const blob = await fileRes.blob();
 
-  const putRes = await fetch(slot.uploadUrl, {
+  const putRes = await fetchWithTimeout(slot.uploadUrl, {
     method: 'PUT',
     headers: { 'Content-Type': mimetype },
     body: blob,
@@ -290,7 +292,7 @@ async function uploadToCloudinary(
   if (slot.type) form.append('type', slot.type);
   if (slot.allowedFormats) form.append('allowed_formats', slot.allowedFormats);
 
-  const res = await fetch(slot.uploadUrl, { method: 'POST', body: form });
+  const res = await fetchWithTimeout(slot.uploadUrl, { method: 'POST', body: form });
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok || !json.secure_url) {
@@ -336,6 +338,23 @@ async function uploadToLocal(
   return json.data.url as string;
 }
 
+async function shrinkImageForUpload(
+  localUri: string,
+  mediaType: UploadMediaType,
+  mimetype: string,
+): Promise<{ uri: string; mimetype: string }> {
+  if (mediaType !== 'image') return { uri: localUri, mimetype };
+  if (/pdf|gif|svg/i.test(mimetype)) return { uri: localUri, mimetype };
+  try {
+    const { prepareUploadImage } = await import('@/lib/prepareUploadImage');
+    const next = await prepareUploadImage(localUri);
+    if (next && next !== localUri) return { uri: next, mimetype: 'image/jpeg' };
+  } catch {
+    /* keep the picker file */
+  }
+  return { uri: localUri, mimetype };
+}
+
 export async function uploadMediaFromUri(
   accessToken: string,
   localUri: string,
@@ -343,14 +362,17 @@ export async function uploadMediaFromUri(
   mediaType: UploadMediaType = 'image',
   options?: UploadMediaOptions,
 ): Promise<string> {
-  const mimetype =
+  const guessed =
     options?.mimeType ??
     (mediaType === 'video'
       ? guessVideoMime(localUri)
       : mediaType === 'audio'
         ? guessAudioMime(localUri)
         : guessMime(localUri));
-  if (options) assertUploadSize(mediaType, options.sizeBytes);
+  const prepared = await shrinkImageForUpload(localUri, mediaType, guessed);
+  const uploadUri = prepared.uri;
+  const mimetype = prepared.mimetype;
+  if (options && uploadUri === localUri) assertUploadSize(mediaType, options.sizeBytes);
   // Use the live AuthProvider token when available (closure tokens go stale after refresh).
   const token = getAccessToken() ?? accessToken;
 
@@ -392,28 +414,28 @@ export async function uploadMediaFromUri(
   if (options) {
     // Server-announced limit wins when it is stricter than the client table.
     const serverMax = Number(presignJson.data?.maxSizeMb);
-    if (Number.isFinite(serverMax) && serverMax > 0) {
+    if (uploadUri === localUri && Number.isFinite(serverMax) && serverMax > 0) {
       assertUploadSize(mediaType, options.sizeBytes, serverMax);
     }
-    return uploadWithProgress(slot, liveToken, localUri, mimetype, {
+    return uploadWithProgress(slot, liveToken, uploadUri, mimetype, {
       ...options,
       timeoutMs: options.timeoutMs ?? 120_000,
     });
   }
 
   if (slot.provider === 'local') {
-    return uploadToLocal(liveToken, slot as LocalUploadSlot, localUri, mimetype);
+    return uploadToLocal(liveToken, slot as LocalUploadSlot, uploadUri, mimetype);
   }
 
   if (slot.provider === 'cloudinary' || 'signature' in slot) {
-    return uploadToCloudinary(slot as CloudinaryUploadSlot, localUri, mimetype);
+    return uploadToCloudinary(slot as CloudinaryUploadSlot, uploadUri, mimetype);
   }
 
   if (!slot.cdnUrl) {
     throw new Error('استجابة الرفع غير صالحة');
   }
 
-  return uploadToS3(slot, localUri, mimetype);
+  return uploadToS3(slot, uploadUri, mimetype);
 }
 
 export async function uploadImageFromUri(
@@ -452,7 +474,7 @@ async function uploadBlobToSlot(
     throw new Error('استجابة الرفع غير صالحة');
   }
   const body = blob ?? (await (await fetch(localUri)).blob());
-  const putRes = await fetch(slot.uploadUrl, {
+  const putRes = await fetchWithTimeout(slot.uploadUrl, {
     method: 'PUT',
     headers: { 'Content-Type': mimetype },
     body,

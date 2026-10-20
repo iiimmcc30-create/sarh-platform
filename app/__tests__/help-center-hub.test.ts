@@ -112,7 +112,12 @@ describe('contact form', () => {
 
   it('creates a ticket instead of opening mailto', () => {
     expect(screen).toContain('createTicket(contactTicketPayload');
-    expect(screen).not.toContain('mailto:sarh@sarhsa.online?subject');
+    expect(screen).toContain('SARH_OFFICIAL_EMAIL');
+    expect(screen).not.toMatch(/mailto:[^`'"]*\?subject/);
+    const hub = src('app/support/index.tsx');
+    expect(hub).toContain('SARH_OFFICIAL_EMAIL');
+    expect(hub).not.toMatch(/mailto:[^`'"]*\?subject/);
+    expect(src('constants/sarhOfficial.ts')).toContain('sarh@getsarh.com');
   });
 
   it('validates and builds the payload', () => {

@@ -32,14 +32,14 @@ describe('home feed speed', () => {
     resetRequestCoordination();
   });
 
-  it('uses a 12s timeout for public feed GETs', async () => {
-    expect(FEED_TIMEOUT_MS).toBe(12_000);
+  it('uses a 15s timeout for public feed GETs', async () => {
+    expect(FEED_TIMEOUT_MS).toBe(15_000);
     fetchWithTimeout.mockResolvedValue(jsonResponse({ success: true }));
     await fetchPublicFeed('https://sarh-new4.onrender.com/api/posts', 'token');
     expect(fetchWithTimeout).toHaveBeenCalledWith(
       'https://sarh-new4.onrender.com/api/posts',
       expect.any(Object),
-      12_000,
+      15_000,
     );
   });
 
@@ -53,7 +53,7 @@ describe('home feed speed', () => {
     expect(fetchWithTimeout).toHaveBeenCalledWith(
       'https://sarh-new4.onrender.com/api/editorial-stories',
       {},
-      12_000,
+      15_000,
     );
   });
 });

@@ -68,6 +68,7 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-
 import { AppText, SarhButton } from '@/design-system/components';
 import { BottomAction, Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 type Selection = { goal: PromotionGoal; durationHours: number };
 type Notice = { tone: 'error' | 'info'; text: string };
 type Success = { title: string; text: string };
@@ -177,7 +178,7 @@ function ListingPromoteScreen() {
       try {
         const res = await (accessToken
           ? authFetch(`${API_BASE}/api/listings/${id}`)
-          : fetch(`${API_BASE}/api/listings/${id}`));
+          : fetchWithTimeout(`${API_BASE}/api/listings/${id}`));
         if (!res.ok) throw new Error(`listing_fetch_${res.status}`);
         const json = await res.json();
         if (!json.success || !json.data) throw new Error('listing_fetch_empty');

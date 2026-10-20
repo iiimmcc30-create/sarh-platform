@@ -226,6 +226,8 @@ describe('syncPaymentStatus mapping (fetch mock)', () => {
 
     const p1 = syncPaymentStatus('tok', 'same-id');
     const p2 = syncPaymentStatus('tok', 'same-id');
+    // The shared client resolves the API base before calling fetch.
+    for (let i = 0; i < 5; i += 1) await Promise.resolve();
     expect(global.fetch).toHaveBeenCalledTimes(1);
     resolveJson({
       success: true,

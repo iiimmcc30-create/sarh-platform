@@ -1116,7 +1116,7 @@ export default function SearchScreen({ variant = 'stack' }: SearchScreenProps) {
               >
                 <Row gap="md" align="center">
                   {s.logo ? (
-                    <Image source={uriSource(s.logo)} style={styles.resultThumb} contentFit="cover" />
+                    <Image source={uriSource(cloudinaryFitUrl(s.logo, 'row'))} style={styles.resultThumb} contentFit="cover" />
                   ) : (
                     <View style={[styles.resultThumb, styles.resultThumbPlaceholder]}>
                       <AppIcon name="store" size={18} color={colors.textMuted} />

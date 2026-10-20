@@ -7,6 +7,7 @@ import { motion } from '@/design-system';
 import { AppText, SarhDivider } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 import { Linking, Pressable, StyleSheet } from 'react-native';
+import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
 const SECTIONS = [
   {
@@ -27,7 +28,7 @@ const SECTIONS = [
   },
   {
     title: 'حقوقك',
-    content: `يحق لك في أي وقت:\n• الاطلاع على بياناتك الشخصية المحفوظة لدينا.\n• تصحيح أي بيانات غير دقيقة.\n• طلب حذف بياناتك.\n• الاعتراض على معالجة بياناتك لأغراض التسويق.\n\nللتواصل بشأن هذه الحقوق: sarh@sarhsa.online`,
+    content: `يحق لك في أي وقت:\n• الاطلاع على بياناتك الشخصية المحفوظة لدينا.\n• تصحيح أي بيانات غير دقيقة.\n• طلب حذف بياناتك.\n• الاعتراض على معالجة بياناتك لأغراض التسويق.\n\nللتواصل بشأن هذه الحقوق: ${SARH_OFFICIAL_EMAIL}`,
   },
   {
     title: 'حفظ البيانات وأمانها',
@@ -40,7 +41,7 @@ const SECTIONS = [
 ];
 
 const CONTACT = [
-  { icon: 'mail-outline', href: 'mailto:sarh@sarhsa.online', text: 'sarh@sarhsa.online' },
+  { icon: 'mail-outline', href: `mailto:${SARH_OFFICIAL_EMAIL}`, text: SARH_OFFICIAL_EMAIL },
 ];
 
 export default function PrivacyScreen() {

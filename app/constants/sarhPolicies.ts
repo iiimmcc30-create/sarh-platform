@@ -1,7 +1,8 @@
 /**
  * Fallback policy content for سرح — used when CMS/API is unavailable.
- * Placeholders must be filled before final legal publication.
+ * The legal-entity name still needs review before final publication.
  */
+import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
 export type SarhPolicySlug =
   | 'terms'
@@ -25,7 +26,7 @@ export type SarhPolicyDoc = {
 
 export const POLICY_LAST_UPDATED_PLACEHOLDER = '[تاريخ آخر تحديث]';
 export const LEGAL_ENTITY_PLACEHOLDER = '[اسم الكيان القانوني]';
-export const LEGAL_EMAIL_PLACEHOLDER = '[البريد الإلكتروني الرسمي]';
+export const LEGAL_EMAIL_PLACEHOLDER = SARH_OFFICIAL_EMAIL;
 
 export const SARH_POLICIES: SarhPolicyDoc[] = [
   {

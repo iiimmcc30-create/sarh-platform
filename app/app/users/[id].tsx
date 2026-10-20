@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchUserProfile,
   getCachedUserProfile,
+  hydrateUserProfileSnapshot,
   rateUser,
   setFollowUser,
   setBlockUser,
@@ -113,6 +114,11 @@ export default function UserProfileScreen() {
       setProfile(cached);
     } else {
       setProfile((prev) => (prev?.id === targetId ? prev : null));
+      if (targetId) {
+        void hydrateUserProfileSnapshot(targetId).then((disk) => {
+          if (disk) setProfile((prev) => (prev?.id === targetId ? prev : disk));
+        });
+      }
     }
     setUserPosts([]);
   }, [targetId]);

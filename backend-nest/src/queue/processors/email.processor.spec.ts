@@ -18,7 +18,7 @@ describe('EmailProcessor', () => {
     jest.clearAllMocks();
     process.env.SMTP_HOST = 'smtp.example.com';
     process.env.SMTP_PASS = 'secret';
-    process.env.EMAIL_FROM = 'sarh@sarhsa.online';
+    process.env.EMAIL_FROM = 'sarh@getsarh.com';
     processor = new EmailProcessor(logger as never);
   });
 

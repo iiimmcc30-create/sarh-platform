@@ -14,6 +14,7 @@ import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoo
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchUserProfile, setFollowUser } from '@/services/users';
 import { openUserProfile } from '@/lib/openUserProfile';
+import { readEntitySnapshot, writeEntitySnapshot } from '@/lib/feedSnapshot';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { promptReport } from '@/services/reports';
@@ -66,6 +67,8 @@ import { usePaidServices } from '@/hooks/usePaidServices';
 import { GoldSellerLabel } from '@/components/feature/GoldSellerLabel';
 import { firstEnabledPromoteGoal, isPromoteGoalEnabled } from '@/services/paidServices';
 import { showAlert } from '@/lib/confirmDialog';
+
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 function safeIndex(index: number, length: number): number {
   if (length <= 0) return 0;
@@ -144,7 +147,7 @@ export default function ListingDetailScreen() {
     try {
       const res = await (accessToken
         ? authFetch(`${API_BASE}/api/listings/${id}`)
-        : fetch(`${API_BASE}/api/listings/${id}`));
+        : fetchWithTimeout(`${API_BASE}/api/listings/${id}`));
       if (!res.ok) {
         if (res.status !== 404) failed = true;
         return;
@@ -152,7 +155,7 @@ export default function ListingDetailScreen() {
       const json = await res.json();
       if (!json.success || !json.data) return;
       const raw = json.data;
-      setListing({
+      const mapped = {
         id: raw.id,
         title: raw.title,
         arabicTitle: raw.arabicTitle,
@@ -221,7 +224,9 @@ export default function ListingDetailScreen() {
         postedAt: new Date(raw.createdAt).toLocaleDateString('ar-SA'),
         createdAt: raw.createdAt,
         editCount: typeof raw.editCount === 'number' ? raw.editCount : 0,
-      });
+      };
+      setListing(mapped);
+      void writeEntitySnapshot('listing', String(id), mapped);
     } catch {
       failed = true;
     } finally {
@@ -237,6 +242,19 @@ export default function ListingDetailScreen() {
       return prev;
     });
   }, [cachedListing]);
+
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    void readEntitySnapshot<Listing>('listing', String(id)).then((cached) => {
+      if (!alive || !cached || cached.id !== id) return;
+      setListing((prev) => prev ?? cached);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;

@@ -87,7 +87,8 @@ write_kv() {
     RATE_LIMIT_WINDOW_MS=900000
     AUTH_RATE_LIMIT_MAX=20
     AUTH_RATE_LIMIT_WINDOW_SEC=900
-    EMAIL_FROM=sarh@sarhsa.online
+    EMAIL_FROM=sarh@getsarh.com
+    SUPPORT_ALERT_EMAIL=sarh@getsarh.com
     SUBSCRIPTION_GRACE_DAYS=3
     SMTP_PORT=587
   )

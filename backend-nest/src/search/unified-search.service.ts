@@ -36,6 +36,7 @@ import {
   withEffectiveBoostState,
   type BoostFlagFields,
 } from '../listings/boost/boost-effective-state';
+import { trimListingForList } from '../listings/listing-list-payload';
 
 /**
  * Listing items keep their row (incl. featuredUntil / pinnedUntil /
@@ -533,7 +534,7 @@ export class UnifiedSearchService {
         imageUrl: row.thumbnailUrl ?? row.images?.[0] ?? null,
         relevance,
         createdAt: row.createdAt.toISOString(),
-        data: row as unknown as Record<string, unknown>,
+        data: trimListingForList(row) as unknown as Record<string, unknown>,
       };
     });
     return rankSearchResults(scored);

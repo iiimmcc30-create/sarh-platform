@@ -6,6 +6,7 @@ import {
 } from '@/lib/exploreSarhBanners';
 import { dedupeInflight } from '@/services/requestCoordination';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 const EXPLORE_SARH_BANNERS_TTL_MS = 60_000;
 
 let cache: { at: number; data: ExploreSarhBannerView[] } | null = null;
@@ -26,7 +27,7 @@ export async function fetchExploreSarhBanners(
 
   return dedupeInflight('GET:/api/explore-sarh-banners', async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/explore-sarh-banners`);
+      const res = await fetchWithTimeout(`${API_BASE}/api/explore-sarh-banners`);
       if (!res.ok) {
         return cache?.data ?? FALLBACK_EXPLORE_SARH_BANNERS;
       }

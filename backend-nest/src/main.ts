@@ -20,6 +20,7 @@ import { logger } from './shared/lib/logger';
 import { initialiseSentry } from './shared/lib/sentry';
 import { isAllowedCorsOrigin } from './lib/cors-origins';
 import { validateProductionEnv } from './config/validate-production-env';
+import { responseCompression } from './shared/http/response-compression';
 
 async function bootstrap() {
   try {
@@ -32,6 +33,7 @@ async function bootstrap() {
   initialiseSentry();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   app.getHttpAdapter().getInstance().disable('x-powered-by');
+  app.use(responseCompression);
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const url = req.url ?? '';

@@ -87,7 +87,7 @@ export class EmailProcessor extends WorkerHost implements OnModuleInit {
     };
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'sarh@sarhsa.online',
+      from: process.env.EMAIL_FROM || 'sarh@getsarh.com',
       to: sanitizeHeaderValue(to),
       subject: sanitizeHeaderValue(subject),
       html: `<div dir="rtl" style="font-family:sans-serif;max-width:600px;margin:0 auto">${templates[template]}</div>`,

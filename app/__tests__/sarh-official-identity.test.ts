@@ -18,11 +18,13 @@ const identityFiles = [
   'app/listing/[id].tsx',
   'components/feature/StoryViewer.tsx',
   'constants/sarhOfficial.ts',
+  'constants/sarhPolicies.ts',
+  'app/support/index.tsx',
 ];
 
 describe('Sarh official identity', () => {
   it('exports the approved email and site', () => {
-    expect(SARH_OFFICIAL_EMAIL).toBe('sarh@sarhsa.online');
+    expect(SARH_OFFICIAL_EMAIL).toBe('sarh@getsarh.com');
     expect(SARH_OFFICIAL_SITE).toBe('https://getsarh.com');
     expect(sarhListingShareUrl('abc')).toBe('https://getsarh.com/l/abc');
     expect(sarhProfileShareUrl('user1')).toBe('https://getsarh.com/u/user1');
@@ -34,6 +36,7 @@ describe('Sarh official identity', () => {
       expect(source).not.toMatch(/info@alsfat\.com/);
       expect(source).not.toMatch(/https:\/\/alsfat\.com/);
       expect(source).not.toMatch(/support@safat\.app/);
+      expect(source).not.toMatch(/sarh@sarhsa\.online/);
     }
   });
 });

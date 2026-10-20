@@ -1,6 +1,7 @@
 // Powered by OnSpace.AI
 // SAFAT — Chat Screen (محادثة سرح)
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 import { Image, uriSource } from '@/components/ui/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -662,7 +663,7 @@ export default function ChatScreen() {
     if (!hasToken) return;
     let cancelled = false;
     const loadMessages = async (id: string) => {
-      const msgRes = await fetch(`${API_BASE}/api/messages/${id}`, {
+      const msgRes = await fetchWithTimeout(`${API_BASE}/api/messages/${id}`, {
         headers: { Authorization: `Bearer ${accessTokenRef.current ?? ''}` },
       });
       if (!msgRes.ok || cancelled) return;
@@ -730,7 +731,7 @@ export default function ChatScreen() {
     loadingOlderRef.current = true;
     setLoadingOlder(true);
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `${API_BASE}/api/messages/${threadId}?cursor=${encodeURIComponent(olderCursor)}`,
         { headers: { Authorization: `Bearer ${accessTokenRef.current ?? ''}` } },
       );
@@ -819,7 +820,7 @@ export default function ChatScreen() {
     setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
 
     try {
-      const res = await fetch(`${API_BASE}/api/messages`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

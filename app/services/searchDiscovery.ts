@@ -1,6 +1,7 @@
 import { ensureApiReachable } from './api';
 import { dedupeInflight, shouldReuseFreshResult } from './requestCoordination';
 import { mapListingFromSearch } from './unifiedSearch';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type ExploreSectionType =
   | 'trending_topics'
@@ -98,7 +99,7 @@ export async function fetchSearchExplore(options?: {
 
   return dedupeInflight('GET:/api/search/explore', async () => {
     const base = await ensureApiReachable();
-    const res = await fetch(`${base}/api/search/explore`);
+    const res = await fetchWithTimeout(`${base}/api/search/explore`);
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) {
       return exploreCache?.data ?? { sections: [] };
@@ -131,7 +132,7 @@ export async function fetchSearchTrending(options?: {
   return dedupeInflight(`GET:/api/search/trending:${key}`, async () => {
     const base = await ensureApiReachable();
     const qs = new URLSearchParams({ window, limit: String(limit) });
-    const res = await fetch(`${base}/api/search/trending?${qs.toString()}`);
+    const res = await fetchWithTimeout(`${base}/api/search/trending?${qs.toString()}`);
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) {
       return trendingCache?.data ?? { trending: [] };

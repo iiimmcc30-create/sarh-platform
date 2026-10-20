@@ -300,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     purpose: 'login' | 'signup' | 'join' | 'reset_password' = 'login',
   ) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, channel, purpose }),
@@ -328,7 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     purpose: 'login' | 'reset_password' | 'signup' | 'join' = 'login',
   ) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, code, purpose }),
@@ -373,7 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const body: Record<string, string> = {};
       if (fields.phone) body.phone = fields.phone;
       if (fields.username) body.username = fields.username;
-      const res = await fetch(`${API_BASE}/api/auth/check-signup`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/check-signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -395,7 +395,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Google Sign In ─────────────────────────────────────────────────────────
   const signInWithGoogle = useCallback(async (idToken: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/google`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id_token: idToken }),
@@ -467,7 +467,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = useCallback(async (phone: string, phoneToken: string, newPassword: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, phone_token: phoneToken, newPassword }),
@@ -488,7 +488,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── تسجيل مستخدم جديد ────────────────────────────────────────────────────
   const register = useCallback(async (regData: RegisterData) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/register`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(regData),
@@ -519,7 +519,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearPushTokenOnLogout(user.id, accessToken);
       }
       if (refresh && accessToken) {
-        fetch(`${API_BASE}/api/auth/logout`, {
+        fetchWithTimeout(`${API_BASE}/api/auth/logout`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
           body: JSON.stringify({ refresh_token: refresh, refreshToken: refresh }),

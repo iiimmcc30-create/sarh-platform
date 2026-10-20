@@ -3,6 +3,7 @@ import { authFetch, getAccessToken } from '@/services/authFetch';
 import { fetchUserPosts } from '@/services/posts';
 import { shouldReuseFreshResult } from '@/services/requestCoordination';
 import type { Post } from '@/services/types';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type OfficialService = {
   id: string;
@@ -262,7 +263,7 @@ export function fetchMinistryAccount(options?: {
 
 export async function fetchOfficialService(id: string): Promise<OfficialService | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/services/${encodeURIComponent(id)}`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/services/${encodeURIComponent(id)}`, {
       headers: { Accept: 'application/json' },
     });
     const json = await res.json().catch(() => ({}));
@@ -289,7 +290,7 @@ export function fetchOfficialServices(options?: {
 
   servicesInflight = (async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/services`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/services`, {
         headers: { Accept: 'application/json' },
       });
       const json = await res.json().catch(() => ({}));

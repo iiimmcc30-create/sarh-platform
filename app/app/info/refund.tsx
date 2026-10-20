@@ -3,6 +3,7 @@ import { spacing } from '@/constants/theme';
 import { AppText, SarhDivider } from '@/design-system/components';
 import { Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { StyleSheet } from 'react-native';
+import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
 const REFUND_SECTIONS = [
   {
@@ -31,7 +32,7 @@ const REFUND_SECTIONS = [
   },
   {
     title: 'التواصل',
-    content: `للاستفسار أو تقديم طلب استرداد:\n📧 sarh@sarhsa.online\nأو عبر صفحة تواصل معنا داخل التطبيق.`,
+    content: `للاستفسار أو تقديم طلب استرداد:\n📧 ${SARH_OFFICIAL_EMAIL}\nأو عبر صفحة تواصل معنا داخل التطبيق.`,
   },
 ];
 

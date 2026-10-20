@@ -11,7 +11,7 @@ import { getRtlText, inlineEnd, inlineStart, marginStart, getRtlRow } from '@/li
 import { SHARE_ICON } from '@/lib/interactionActions';
 import { LiveStream } from '@/services/types';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
-import { avatarUrl } from '@/lib/listingMedia';
+import { avatarUrl, cloudinaryFitUrl } from '@/lib/listingMedia';
 
 interface LiveStreamItemProps {
   stream: LiveStream;
@@ -29,7 +29,7 @@ function LiveStreamItemInner({ stream, height, onComment, onShare }: LiveStreamI
   return (
     <View style={[styles.container, { height }]}>
       <Image
-        source={uriSource(stream.thumbnail)}
+        source={uriSource(cloudinaryFitUrl(stream.thumbnail, 'wide'))}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         transition={0}

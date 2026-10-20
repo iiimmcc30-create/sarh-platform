@@ -43,7 +43,7 @@ describe('tab navigation API performance', () => {
       'shouldReuseFreshResult(listingsLastSuccessAt, REFETCH_TTL_MS)',
     );
     expect(src('services/stories.ts')).toContain("fetchPublicFeed(`${API_BASE}/api/stories/feed`, accessToken)");
-    expect(src('services/fetchPublicFeed.ts')).toContain('export const FEED_TIMEOUT_MS = 12_000');
+    expect(src('services/fetchPublicFeed.ts')).toContain('export const FEED_TIMEOUT_MS = 15_000');
     expect(src('services/fetchPublicFeed.ts')).toContain('dedupeGetResponse');
   });
 

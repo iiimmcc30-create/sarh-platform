@@ -2,6 +2,7 @@
 // Viewer screen: fetch Agora token → join channel → watch host stream
 // Navigation: router.push({ pathname: '/live/watch/[id]', params: { id: streamId } })
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 import { Image } from '@/components/ui/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -89,7 +90,7 @@ export default function WatchScreen() {
     role: 'viewer',
     onTokenWillExpire: async () => {
       // Fetch a fresh viewer token
-      const resp = await fetch(`${API_BASE}/api/livestreams/${id}?action=token`, {
+      const resp = await fetchWithTimeout(`${API_BASE}/api/livestreams/${id}?action=token`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const { data } = await resp.json();
@@ -105,10 +106,10 @@ export default function WatchScreen() {
       try {
         // Parallel: stream info + viewer token
         const [streamResp, tokenResp] = await Promise.all([
-          fetch(`${API_BASE}/api/livestreams/${id}`, {
+          fetchWithTimeout(`${API_BASE}/api/livestreams/${id}`, {
             headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
           }),
-          fetch(`${API_BASE}/api/livestreams/${id}?action=token`, {
+          fetchWithTimeout(`${API_BASE}/api/livestreams/${id}?action=token`, {
             headers: { Authorization: `Bearer ${accessToken}` },
           }),
         ]);

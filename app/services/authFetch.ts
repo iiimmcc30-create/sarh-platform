@@ -9,8 +9,6 @@ type AuthFetchDeps = {
 
 let deps: AuthFetchDeps | null = null;
 
-const DEFAULT_TIMEOUT_MS = 60_000;
-
 export function registerAuthFetch(next: AuthFetchDeps) {
   deps = next;
 }
@@ -23,7 +21,7 @@ export function getAccessToken(): string | null {
 export async function authFetch(
   input: string,
   init: RequestInit = {},
-  timeoutMs = DEFAULT_TIMEOUT_MS,
+  timeoutMs?: number,
 ): Promise<Response> {
   const token = deps?.getToken() ?? null;
   const headers = new Headers(init.headers);
