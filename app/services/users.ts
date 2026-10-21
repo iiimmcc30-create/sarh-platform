@@ -67,7 +67,7 @@ export function resetPublicProfileCache(): void {
  * Memory cache, then the disk snapshot. A disk hit is stored with `at: 0` so the
  * next fetch still goes to the network and the screen can render immediately.
  */
-export async function hydrateUserProfileSnapshot(
+export async function loadUserProfileSnapshot(
   userId: string,
 ): Promise<PublicUserProfile | null> {
   const id = userId?.trim();
