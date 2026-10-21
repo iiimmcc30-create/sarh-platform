@@ -51,6 +51,23 @@ function councilIdOf(raw: unknown): unknown {
  * «المجالس»: the client may emit right after `connect`, before the async
  * `handleConnection` auth has set `client.data.user` — wait briefly for it.
  */
+/**
+ * A client may emit as soon as the socket connects, before `handleConnection`
+ * has finished JWT checks. HTTP guards no longer run on ws (they throw), so
+ * handlers wait briefly for `client.data.user`.
+ */
+async function socketUser(
+  client: AuthenticatedSocket,
+  timeoutMs = 5000,
+): Promise<JwtPayload | null> {
+  const started = Date.now();
+  while (!client.data.user && client.connected) {
+    if (Date.now() - started > timeoutMs) return null;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return client.data.user ?? null;
+}
+
 async function councilUserOf(
   client: AuthenticatedSocket,
   timeoutMs = 5000,
@@ -136,14 +153,14 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() threadId: unknown,
   ) {
+    const user = await socketUser(client);
+    if (!user) return this.emitErr(client, 'unauthorized', 'غير مصرح');
+
     const parsed = this.socketService.parseUuid(threadId);
     if (!parsed)
       return this.emitErr(client, 'invalid_input', 'Invalid threadId');
 
-    const err = await this.socketService.handleChatJoin(
-      parsed,
-      client.data.user!.userId,
-    );
+    const err = await this.socketService.handleChatJoin(parsed, user.userId);
     if (err) return this.emitErr(client, err.code, err.message);
 
     void client.join(`thread:${parsed}`);
@@ -164,14 +181,13 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
+    const user = await socketUser(client);
+    if (!user) return this.emitErr(client, 'unauthorized', 'غير مصرح');
     const data = this.socketService.validateDto(ChatSendDto, raw);
     if (!data)
       return this.emitErr(client, 'invalid_input', 'Invalid message data');
 
-    const err = await this.socketService.handleChatSend(
-      client.data.user!,
-      data,
-    );
+    const err = await this.socketService.handleChatSend(user, data);
     if (err) this.emitErr(client, err.code, err.message);
   }
 
@@ -180,13 +196,12 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
+    const user = await socketUser(client);
+    if (!user) return;
     const data = this.socketService.validateDto(ChatTypingDto, raw);
     if (!data) return;
 
-    const err = await this.socketService.handleChatTyping(
-      client.data.user!,
-      data,
-    );
+    const err = await this.socketService.handleChatTyping(user, data);
     if (err) this.emitErr(client, err.code, err.message);
   }
 
@@ -195,13 +210,12 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
+    const user = await socketUser(client);
+    if (!user) return;
     const data = this.socketService.validateDto(ChatReadDto, raw);
     if (!data) return;
 
-    const err = await this.socketService.handleChatRead(
-      client.data.user!,
-      data,
-    );
+    const err = await this.socketService.handleChatRead(user, data);
     if (err) this.emitErr(client, err.code, err.message);
   }
 
@@ -214,7 +228,8 @@ export class AppGateway
     if (!parsed)
       return this.emitErr(client, 'invalid_input', 'Invalid streamId');
 
-    const user = client.data.user!;
+    const user = await socketUser(client);
+    if (!user) return this.emitErr(client, 'unauthorized', 'غير مصرح');
     const result = await this.socketService.handleLiveJoin(
       parsed,
       user,
@@ -246,14 +261,13 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
+    const user = await socketUser(client);
+    if (!user) return this.emitErr(client, 'unauthorized', 'غير مصرح');
     const data = this.socketService.validateDto(LiveCommentDto, raw);
     if (!data)
       return this.emitErr(client, 'invalid_input', 'Invalid comment data');
 
-    const err = await this.socketService.handleLiveComment(
-      client.data.user!,
-      data,
-    );
+    const err = await this.socketService.handleLiveComment(user, data);
     if (err) this.emitErr(client, err.code, err.message);
   }
 
@@ -264,14 +278,16 @@ export class AppGateway
   ) {
     const parsed = this.socketService.parseUuid(streamId);
     if (!parsed) return;
+    const user = await socketUser(client);
+    if (!user) return;
 
-    await this.socketService.handleLiveLike(parsed, client.data.user!);
+    await this.socketService.handleLiveLike(parsed, user);
   }
 
   // ─── «المجالس» ──────────────────────────────────────────────────────────
-  // Bound as raw socket listeners (not @SubscribeMessage): the global HTTP
-  // guards/interceptors do not support the ws context. Auth comes from the
-  // handshake — `handleConnection` disconnects unauthenticated sockets.
+  // Bound as raw socket listeners (not @SubscribeMessage) so they keep a
+  // per-socket rate budget. Global HTTP guards skip the ws context; auth is
+  // the handshake — `handleConnection` disconnects unauthenticated sockets.
 
   private bindCouncilHandlers(client: AuthenticatedSocket) {
     const bind = (
@@ -342,8 +358,9 @@ export class AppGateway
   }
 
   @SubscribeMessage('presence:ping')
-  onPresencePing(@ConnectedSocket() client: AuthenticatedSocket) {
-    const user = client.data.user!;
+  async onPresencePing(@ConnectedSocket() client: AuthenticatedSocket) {
+    const user = await socketUser(client);
+    if (!user) return;
     this.socketService.onPresencePing(user.userId, client.id);
   }
 
@@ -352,10 +369,9 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
-    await this.socketService.handleNotificationsRead(
-      client.data.user!.userId,
-      raw,
-    );
+    const user = await socketUser(client);
+    if (!user) return;
+    await this.socketService.handleNotificationsRead(user.userId, raw);
   }
 
   @SubscribeMessage('support:join')
@@ -363,13 +379,12 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
+    const user = await socketUser(client);
+    if (!user) return this.emitErr(client, 'unauthorized', 'غير مصرح');
     const data = this.socketService.validateDto(SupportJoinDto, raw);
     if (!data) return this.emitErr(client, 'invalid_input', 'Invalid ticketId');
 
-    const err = await this.socketService.handleSupportJoin(
-      client.data.user!,
-      data.ticketId,
-    );
+    const err = await this.socketService.handleSupportJoin(user, data.ticketId);
     if (err) return this.emitErr(client, err.code, err.message);
     void client.join(`support:${data.ticketId}`);
   }
@@ -389,14 +404,13 @@ export class AppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
+    const user = await socketUser(client);
+    if (!user) return this.emitErr(client, 'unauthorized', 'غير مصرح');
     const data = this.socketService.validateDto(SupportSendDto, raw);
     if (!data)
       return this.emitErr(client, 'invalid_input', 'Invalid support message');
 
-    const err = await this.socketService.handleSupportSend(
-      client.data.user!,
-      data,
-    );
+    const err = await this.socketService.handleSupportSend(user, data);
     if (err) this.emitErr(client, err.code, err.message);
   }
 

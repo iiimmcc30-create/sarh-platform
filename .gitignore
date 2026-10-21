@@ -7,6 +7,9 @@ node_modules/
 !.env.example
 !.env.e2e.example
 !.env.app.example
+!.env.media.example
+!.env.media.node.example
+!.env.media.egress.example
 !.env.data.example
 .env.local
 .env.*.local
@@ -85,3 +88,6 @@ backend-nest/prisma/*.db-journal
 uploads/
 tmp/
 temp/
+
+# Redis TLS material (infra/media/gen-redis-tls.sh)
+infra/media/secrets/

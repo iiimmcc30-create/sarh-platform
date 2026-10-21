@@ -32,6 +32,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Socket handlers authenticate in AppGateway.handleConnection. The HTTP
+    // request shape below does not exist on a ws context and used to throw,
+    // which dropped every @SubscribeMessage (live comments, likes, chat).
+    if (context.getType() !== 'http') return true;
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),

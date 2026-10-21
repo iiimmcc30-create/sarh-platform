@@ -384,7 +384,15 @@ export class UserSettingsService {
       }),
       this.prisma.userReview.findMany({
         where: { reviewerId: userId },
-        select: { targetId: true, rating: true, createdAt: true },
+        select: {
+          targetId: true,
+          rating: true,
+          comment: true,
+          purchased: true,
+          recommend: true,
+          oathAcceptedAt: true,
+          createdAt: true,
+        },
       }),
       this.listPayments(userId).then((r) => r.payments),
       this.prisma.supportTicket.findMany({

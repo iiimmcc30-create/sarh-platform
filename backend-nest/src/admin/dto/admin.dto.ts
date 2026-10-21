@@ -66,6 +66,11 @@ export const updatePostSchema = z.object({
   isHidden: z.boolean(),
 });
 
+export const hideReviewSchema = z.object({
+  reason: z.string().trim().min(4).max(500),
+  reportId: z.string().uuid(),
+});
+
 export const updateListingSchema = z.object({
   status: z.enum(['active', 'sold', 'expired', 'pending_fee', 'suspended']),
 });

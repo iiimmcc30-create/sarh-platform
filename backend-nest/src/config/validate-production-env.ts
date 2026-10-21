@@ -4,6 +4,7 @@
  * Never logs secret values — only missing key names.
  */
 
+import { hlsConfigProblem } from '../shared/rtc/hls-config';
 import { storeIapEnvWarnings } from '../store-purchases/store-purchases.config';
 
 function isBlank(value: string | undefined): boolean {
@@ -122,6 +123,27 @@ export function validateProductionEnv(): void {
     problems.push(
       'STORAGE_PROVIDER=local is not allowed in production (use cloudinary or s3)',
     );
+  }
+
+  const rtcProvider = (process.env.RTC_PROVIDER ?? 'livekit')
+    .trim()
+    .toLowerCase();
+  if (rtcProvider === 'agora') {
+    missing.push(...collectMissing(['AGORA_APP_ID', 'AGORA_APP_CERTIFICATE']));
+  } else {
+    missing.push(
+      ...collectMissing([
+        'LIVEKIT_URL',
+        'LIVEKIT_API_KEY',
+        'LIVEKIT_API_SECRET',
+      ]),
+    );
+    const livekitUrl = process.env.LIVEKIT_URL?.trim() ?? '';
+    if (livekitUrl && !/^wss:\/\//i.test(livekitUrl)) {
+      problems.push('LIVEKIT_URL must be a wss:// URL in production');
+    }
+    const hlsProblem = hlsConfigProblem();
+    if (hlsProblem) problems.push(hlsProblem);
   }
 
   const uniqueMissing = [...new Set(missing)].filter(Boolean);

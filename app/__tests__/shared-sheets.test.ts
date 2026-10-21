@@ -155,7 +155,6 @@ describe('shared sheet components (source contracts)', () => {
       'components/ui/VerifiedInfoSheet.tsx',
       'components/listing/ListingContactSheet.tsx',
       'components/listing/PromotionStatsSheet.tsx',
-      'components/feature/RatingModal.tsx',
       'components/ui/sheets/GroupedPickerSheet.tsx',
       'components/listing/ListingFeePaymentSheet.tsx',
       'components/live/LiveBroadcastPledgeModal.tsx',

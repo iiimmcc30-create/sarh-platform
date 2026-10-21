@@ -15,6 +15,7 @@ import {
 } from '../../users/lib/account-anonymization';
 import { ADMIN_MEMBERSHIP_SELECT } from '../../subscriptions/verification/admin-membership';
 import { moneyToNumber, type MoneyInput } from '../../common/money';
+import { recomputeUserRatingCache } from '../../users/lib/review-stats';
 
 const USER_SELECT = {
   id: true,
@@ -1143,6 +1144,214 @@ export class AdminRepository {
           previousActions: actionsByUser.get(row.user.id) ?? [],
         })),
     };
+  }
+
+  private reviewReportWhere(
+    reviewIds?: string[],
+  ): Prisma.SupportTicketWhereInput {
+    return {
+      ...notDeleted,
+      type: 'REPORT',
+      AND: [
+        { metadata: { path: ['targetType'], equals: 'review' } },
+        ...(reviewIds?.length
+          ? [
+              {
+                OR: reviewIds.map((id) => ({
+                  metadata: { path: ['targetId'], equals: id },
+                })),
+              },
+            ]
+          : []),
+      ],
+    };
+  }
+
+  async listReviewReportTickets(reviewIds?: string[]) {
+    return this.prisma.supportTicket.findMany({
+      where: this.reviewReportWhere(reviewIds),
+      orderBy: { createdAt: 'desc' },
+      take: reviewIds?.length ? 200 : 5000,
+      select: {
+        id: true,
+        ticketNumber: true,
+        subject: true,
+        status: true,
+        description: true,
+        metadata: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async listReviews(query: PaginationQueryDto & { visibility?: string }) {
+    const { page, pageSize, search } = query;
+    const visibility = query.visibility ?? 'all';
+    const q = search?.trim();
+    const searchWhere: Prisma.UserReviewWhereInput | undefined = q
+      ? {
+          OR: [
+            { comment: { contains: q, mode: 'insensitive' } },
+            {
+              reviewer: {
+                OR: [
+                  { username: { contains: q, mode: 'insensitive' } },
+                  { arabicName: { contains: q, mode: 'insensitive' } },
+                  { displayName: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+            },
+            {
+              target: {
+                OR: [
+                  { username: { contains: q, mode: 'insensitive' } },
+                  { arabicName: { contains: q, mode: 'insensitive' } },
+                  { displayName: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+            },
+          ],
+        }
+      : undefined;
+
+    let idFilter: Prisma.UserReviewWhereInput | undefined;
+    if (visibility === 'reported') {
+      const tickets = await this.listReviewReportTickets();
+      const ids = [
+        ...new Set(
+          tickets
+            .map((ticket) => {
+              const meta = ticket.metadata as { targetId?: unknown } | null;
+              return typeof meta?.targetId === 'string' ? meta.targetId : null;
+            })
+            .filter((id): id is string => !!id),
+        ),
+      ];
+      idFilter = { id: { in: ids } };
+    }
+
+    const where: Prisma.UserReviewWhereInput = {
+      ...searchWhere,
+      ...idFilter,
+      ...(visibility === 'visible' ? { hiddenAt: null } : {}),
+      ...(visibility === 'hidden' ? { hiddenAt: { not: null } } : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.userReview.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          purchased: true,
+          recommend: true,
+          oathAcceptedAt: true,
+          hiddenAt: true,
+          hiddenReason: true,
+          createdAt: true,
+          reviewer: { select: AUTHOR_SELECT },
+          target: { select: AUTHOR_SELECT },
+        },
+      }),
+      this.prisma.userReview.count({ where }),
+    ]);
+
+    const reports = items.length
+      ? await this.listReviewReportTickets(items.map((item) => item.id))
+      : [];
+    const reportsByReview = new Map<string, typeof reports>();
+    for (const ticket of reports) {
+      const meta = ticket.metadata as { targetId?: unknown } | null;
+      const reviewId = typeof meta?.targetId === 'string' ? meta.targetId : '';
+      const list = reportsByReview.get(reviewId) ?? [];
+      list.push(ticket);
+      reportsByReview.set(reviewId, list);
+    }
+
+    return paginate(
+      items.map((item) => ({
+        ...item,
+        reports: reportsByReview.get(item.id) ?? [],
+        reportCount: (reportsByReview.get(item.id) ?? []).length,
+      })),
+      total,
+      page,
+      pageSize,
+    );
+  }
+
+  findReview(id: string) {
+    return this.prisma.userReview.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        purchased: true,
+        recommend: true,
+        oathAcceptedAt: true,
+        hiddenAt: true,
+        hiddenReason: true,
+        hiddenById: true,
+        targetId: true,
+        createdAt: true,
+        reviewer: { select: AUTHOR_SELECT },
+        target: { select: AUTHOR_SELECT },
+      },
+    });
+  }
+
+  /**
+   * Soft-hide only. The row stays; content columns are not written.
+   * A database trigger rejects DELETE and any edit of the comment.
+   */
+  async hideReview(params: {
+    reviewId: string;
+    actorId: string;
+    reason: string;
+    reportId: string;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const review = await tx.userReview.findUnique({
+        where: { id: params.reviewId },
+        select: { id: true, targetId: true, reviewerId: true, hiddenAt: true },
+      });
+      if (!review) return null;
+      if (review.hiddenAt) return { alreadyHidden: true as const, review };
+
+      const updated = await tx.userReview.update({
+        where: { id: review.id },
+        data: {
+          hiddenAt: new Date(),
+          hiddenReason: params.reason,
+          hiddenById: params.actorId,
+        },
+        select: { id: true, targetId: true, hiddenAt: true },
+      });
+      const cache = await recomputeUserRatingCache(
+        tx as unknown as Parameters<typeof recomputeUserRatingCache>[0],
+        review.targetId,
+      );
+      const action = await tx.adminAccountAction.create({
+        data: {
+          userId: review.targetId,
+          actorId: params.actorId,
+          action: 'hide_user_review',
+          reason: params.reason,
+          metadata: {
+            reviewId: review.id,
+            reviewerId: review.reviewerId,
+            reportId: params.reportId,
+          },
+        },
+        select: { id: true, action: true, reason: true, createdAt: true },
+      });
+      return { alreadyHidden: false as const, review: updated, cache, action };
+    });
   }
 
   async recordAccountAction(params: {

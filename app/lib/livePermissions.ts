@@ -35,3 +35,17 @@ export async function ensureMicPermission(): Promise<boolean> {
   const result = await PermissionsAndroid.request(mic);
   return result === PermissionsAndroid.RESULTS.GRANTED;
 }
+
+/**
+ * «المجلس الذهبي»: camera only, asked right before a verified-seller host / approved
+ * speaker turns the camera on inside an audio council (the server decides who may).
+ */
+export async function ensureCameraPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+  const cam = PermissionsAndroid.PERMISSIONS.CAMERA;
+  if (await PermissionsAndroid.check(cam)) return true;
+  const result = await PermissionsAndroid.request(cam);
+  return result === PermissionsAndroid.RESULTS.GRANTED;
+}

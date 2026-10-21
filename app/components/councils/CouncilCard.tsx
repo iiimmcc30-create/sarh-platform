@@ -10,6 +10,8 @@ import { subscriberTierOf } from '@/lib/subscriberTier';
 import { resolveMediaUrl } from '@/services/media';
 import {
   COUNCIL_FOLLOWERS_ONLY_LABEL,
+  COUNCIL_GOLDEN_LABEL,
+  COUNCIL_LOCKED_LABEL,
   councilListenersLabel,
   councilSpeakersLabel,
   councilUserName,
@@ -53,11 +55,19 @@ export function CouncilCard({ council, onPress }: Props) {
         <AppText variant="caption" color="success">
           مباشر
         </AppText>
-        {council.visibility === 'PRIVATE' ? (
-          <Row gap="xs" align="center">
+        {council.locked || council.visibility === 'PRIVATE' ? (
+          <Row gap="xs" align="center" testID="council-card-locked">
             <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
             <AppText variant="caption" color="textMuted">
-              خاص
+              {COUNCIL_LOCKED_LABEL}
+            </AppText>
+          </Row>
+        ) : null}
+        {council.golden ? (
+          <Row gap="xs" align="center" testID="council-card-golden">
+            <AppIcon name="videocam-outline" size={12} color={colors.tierGold} />
+            <AppText variant="caption" color="textMuted">
+              {COUNCIL_GOLDEN_LABEL}
             </AppText>
           </Row>
         ) : null}

@@ -22,6 +22,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_BASE } from '@/services/api';
 import { showLiveBroadcastComingSoonAlert } from '@/lib/liveStreamAccess';
+import { isLiveBroadcastEnabled } from '@/lib/rtcProvider';
 import { LiveStreamItem } from '@/components/feature/LiveStreamItem';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import type { LiveStream } from '@/services/types';
@@ -224,11 +225,17 @@ export default function LiveScreen() {
 
       <Pressable
         style={[styles.fab, { bottom: Math.max(insets.bottom, spacing.lg) + 58 }]}
-        onPress={() => showLiveBroadcastComingSoonAlert()}
+        onPress={() => {
+          if (!isLiveBroadcastEnabled()) {
+            showLiveBroadcastComingSoonAlert();
+            return;
+          }
+          router.push('/live/create' as never);
+        }}
       >
         <LinearGradient colors={['#EF4444', '#DC2626']} style={styles.fabGrad}>
           <View style={styles.fabDot} />
-          <Text style={styles.fabText}>قريباً</Text>
+          <Text style={styles.fabText}>{isLiveBroadcastEnabled() ? 'ابدأ' : 'قريباً'}</Text>
         </LinearGradient>
       </Pressable>
     </SafeAreaView>

@@ -4,7 +4,7 @@ import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,8 +19,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SarhButton } from '@/design-system/components';
 import { AgoraVideoView } from '@/components/live/AgoraVideoView';
+import { LiveKitVideoView } from '@/components/live/LiveKitVideoView';
 import { LiveBroadcastPledgeModal } from '@/components/live/LiveBroadcastPledgeModal';
 import { VideoSourceType } from '@/lib/agora';
+import { isLiveBroadcastEnabled, rtcProvider } from '@/lib/rtcProvider';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { useYieldCouncilForLive } from '@/contexts/CouncilSessionContext';
 import { colors, radius, spacing, typography, type ThemeColors } from '@/constants/theme';
@@ -34,8 +36,9 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { showAlert } from '@/lib/confirmDialog';
 
 const AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID ?? '';
-/** Disabled until app launch — see liveStreamAccess.ts */
-const LIVE_BROADCAST_ENABLED = false;
+/** On unless EXPO_PUBLIC_LIVE_ENABLED=false. Councils use a separate flag. */
+const LIVE_BROADCAST_ENABLED = isLiveBroadcastEnabled();
+const USE_LIVEKIT = rtcProvider() === 'livekit';
 
 const CATEGORIES = [
   { id: 'camels', ar: 'إبل' },
@@ -57,6 +60,7 @@ function mapCategory(id: string): string {
 export default function CreateStreamScreen() {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const router = useRouter();
+  const serverProvider = useRef<{ provider?: 'livekit' | 'agora'; agoraAppId?: string }>({});
   const params = useLocalSearchParams<{ listingId?: string; listingTitle?: string }>();
   const { accessToken } = useAuth();
 
@@ -77,6 +81,7 @@ export default function CreateStreamScreen() {
   const {
     isJoined,
     localUid,
+    localVideoTrack,
     error: agoraError,
     startLocalPreview,
     stopLocalPreview,
@@ -112,6 +117,10 @@ export default function CreateStreamScreen() {
       const eligibility = await fetchLiveStreamEligibility(accessToken);
       if (!active) return;
 
+      serverProvider.current = {
+        provider: eligibility.provider,
+        agoraAppId: eligibility.agoraAppId ?? undefined,
+      };
       if (!eligibility.canStream) {
         setAccessDenied(true);
         showLiveStreamEligibilityDeniedAlert(router, eligibility);
@@ -125,18 +134,20 @@ export default function CreateStreamScreen() {
   }, [accessToken, router]);
 
   const requestPreview = useCallback(async () => {
-    if (!AGORA_APP_ID) {
+    const provider = serverProvider.current.provider ?? (USE_LIVEKIT ? 'livekit' : 'agora');
+    const agoraAppId = serverProvider.current.agoraAppId || AGORA_APP_ID;
+    if (provider === 'agora' && !agoraAppId) {
       setPermissionError(true);
       return;
     }
     setPermissionError(false);
-    const ok = await startLocalPreview(AGORA_APP_ID);
+    const ok = await startLocalPreview(agoraAppId, provider);
     setPreviewReady(ok);
     if (!ok) setPermissionError(true);
   }, [startLocalPreview]);
 
   useEffect(() => {
-    if (!checkingAccess && !accessDenied && AGORA_APP_ID) {
+    if (!checkingAccess && !accessDenied) {
       requestPreview();
     }
     return () => {
@@ -203,7 +214,18 @@ export default function CreateStreamScreen() {
         return;
       }
 
-      const { streamId, agoraAppId, agoraChannel, agoraToken, agoraUid } = json.data;
+      const {
+        streamId,
+        provider,
+        agoraAppId,
+        agoraChannel,
+        agoraToken,
+        agoraUid,
+        livekitUrl,
+        livekitToken,
+        livekitRoom,
+        expiresIn,
+      } = json.data;
 
       await destroy();
 
@@ -211,10 +233,15 @@ export default function CreateStreamScreen() {
         pathname: '/live/broadcast',
         params: {
           streamId,
-          agoraAppId,
-          agoraChannel,
-          agoraToken,
+          provider: provider ?? (USE_LIVEKIT ? 'livekit' : 'agora'),
+          agoraAppId: agoraAppId ?? '',
+          agoraChannel: agoraChannel ?? '',
+          agoraToken: agoraToken ?? '',
           agoraUid: String(agoraUid ?? 0),
+          livekitUrl: livekitUrl ?? '',
+          livekitToken: livekitToken ?? '',
+          livekitRoom: livekitRoom ?? '',
+          expiresIn: String(expiresIn ?? ''),
           arabicTitle: titleEn,
           category: mapCategory(category),
           autoStart: '1',
@@ -297,10 +324,12 @@ export default function CreateStreamScreen() {
         >
           {/* Preview */}
           <View style={styles.previewBox}>
-            {isJoined && !camOff ? (
+            {localVideoTrack && !camOff ? (
+              <LiveKitVideoView track={localVideoTrack} mirror style={StyleSheet.absoluteFillObject} />
+            ) : isJoined && !camOff ? (
               <AgoraVideoView
                 local
-                canvas={{ uid: 0, sourceType: VideoSourceType.VideoSourceCamera }}
+                canvas={{ uid: localUid ?? 0, sourceType: VideoSourceType.VideoSourceCamera }}
                 style={StyleSheet.absoluteFillObject}
               />
             ) : (

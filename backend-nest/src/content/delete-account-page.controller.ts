@@ -97,7 +97,7 @@ function explainBody(banner = ''): string {
       </div>
       <button type="submit">إرسال طلب الحذف</button>
     </form>
-    <p class="hint">أو راسلنا على <a href="mailto:sarh@sarhsa.online">sarh@sarhsa.online</a> من بريدك مع رقم الجوال.</p>
+    <p class="hint">أو راسلنا على <a href="mailto:sarh@getsarh.com">sarh@getsarh.com</a> من بريدك مع رقم الجوال.</p>
     <h2>ما يُحذف عند تنفيذ الطلب</h2>
     <ul>
       <li>بيانات الحساب الظاهرة: الاسم، اسم المستخدم، الجوال، البريد، الصورة، الغلاف، والنبذة — تُمسح من الصف فوراً.</li>
@@ -209,7 +209,7 @@ export class DeleteAccountPageController {
           shell(
             'حذف الحساب',
             explainBody(
-              '<p class="err">تعذّر إرسال الطلب الآن. راسل sarh@sarhsa.online.</p>',
+              '<p class="err">تعذّر إرسال الطلب الآن. راسل sarh@getsarh.com.</p>',
             ),
           ),
         );

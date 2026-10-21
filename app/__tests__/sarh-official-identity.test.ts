@@ -22,7 +22,7 @@ const identityFiles = [
 
 describe('Sarh official identity', () => {
   it('exports the approved email and site', () => {
-    expect(SARH_OFFICIAL_EMAIL).toBe('sarh@sarhsa.online');
+    expect(SARH_OFFICIAL_EMAIL).toBe('sarh@getsarh.com');
     expect(SARH_OFFICIAL_SITE).toBe('https://getsarh.com');
     expect(sarhListingShareUrl('abc')).toBe('https://getsarh.com/l/abc');
     expect(sarhProfileShareUrl('user1')).toBe('https://getsarh.com/u/user1');
