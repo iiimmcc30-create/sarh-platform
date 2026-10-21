@@ -17,7 +17,8 @@ git fetch -q origin main
 git cat-file -e "$TARGET^{commit}"
 # local nginx edits (getsarh.com) must already be in main, except ssl-redirect.conf (kept local)
 for f in nginx/nginx.prod.conf nginx/nginx.ssl.server.conf; do
-  if ! git diff --quiet "$TARGET" -- "$f"; then
+  # ignore the new compression.conf include lines added by PR #8 (expected)
+  if git diff -U0 "$TARGET" -- "$f" | grep -E '^[-+][^-+]' | grep -vE '^[-+]\s*(include /etc/nginx/includes/compression\.conf;)?\s*$' | grep -q .; then
     echo "LOCAL $f DIFFERS FROM $TARGET - abort (nothing changed yet)"; git diff --stat "$TARGET" -- "$f"; exit 4
   fi
 done
