@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import type { ThemeColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,15 +30,10 @@ import {
   type UserReviewsPage,
 } from '@/services/reviews';
 
-const BLUE = '#1A6FB5';
-const GOLD = '#F5B400';
-const GREEN = '#1F9D55';
-const RED = '#E0453A';
-const PAGE = '#F3F5F8';
-const INK = '#1C2833';
-const MUTED = '#66727C';
 
 export default function UserReviewsScreen() {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -130,15 +127,15 @@ export default function UserReviewsScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="light" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <SarhBackButton onPress={() => router.back()} color="#FFFFFF" />
+        <SarhBackButton onPress={() => router.back()} color={colors.textPrimary} />
         <AppText style={styles.headerTitle}>التقييمات</AppText>
         <View style={styles.headerSide} />
       </View>
 
       {loading && !page ? (
-        <ActivityIndicator color={BLUE} style={styles.loader} />
+        <ActivityIndicator color={colors.electric} style={styles.loader} />
       ) : failed || !page ? (
         <View style={styles.emptyWrap}>
           <AppText style={styles.empty}>تعذّر تحميل التقييمات</AppText>
@@ -165,8 +162,8 @@ export default function UserReviewsScreen() {
                 <Stars rating={page.average} count={page.reviewCount} size={18} />
               </View>
               <View style={styles.counts}>
-                <Count icon="thumbs-up" color={GREEN} value={page.positiveCount} label="تعليق ايجابي" />
-                <Count icon="thumbs-down" color={MUTED} value={page.negativeCount} label="تعليق سلبي" />
+                <Count icon="thumbs-up" color={colors.success} value={page.positiveCount} label="تعليق ايجابي" />
+                <Count icon="thumbs-down" color={colors.textSecondary} value={page.negativeCount} label="تعليق سلبي" />
               </View>
             </View>
           }
@@ -179,7 +176,7 @@ export default function UserReviewsScreen() {
             />
           )}
           ListFooterComponent={
-            loadingMore ? <ActivityIndicator color={BLUE} style={styles.loader} /> : null
+            loadingMore ? <ActivityIndicator color={colors.electric} style={styles.loader} /> : null
           }
         />
       )}
@@ -213,18 +210,22 @@ function displayName(person?: ReviewAuthor | null): string {
 }
 
 function Avatar({ person, size }: { person: ReviewAuthor; size: number }) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const source = uriSource(person.avatar);
   if (source) {
     return <Image source={source} style={{ width: size, height: size, borderRadius: size / 2 }} />;
   }
   return (
     <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
-      <AppIcon name="person-circle-outline" size={size * 0.62} color={BLUE} />
+      <AppIcon name="person-circle-outline" size={size * 0.62} color={colors.electric} />
     </View>
   );
 }
 
 function Stars({ rating, count, size }: { rating: number | null; count: number; size: number }) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const fills = profileStarFills(rating, count) ?? [0, 0, 0, 0, 0];
   return (
     <View style={styles.stars}>
@@ -234,7 +235,7 @@ function Stars({ rating, count, size }: { rating: number | null; count: number; 
           name="star"
           variant={fill > 0 ? 'sr' : 'rr'}
           size={size}
-          color={fill > 0 ? GOLD : '#D5DDE3'}
+          color={fill > 0 ? colors.tierGold : colors.borderStrong}
         />
       ))}
     </View>
@@ -252,6 +253,8 @@ function Count({
   value: number;
   label: string;
 }) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.count}>
       <AppIcon name={icon} variant="sr" size={16} color={color} />
@@ -271,6 +274,8 @@ function ReviewCard({
   canReport: boolean;
   onReport: () => void;
 }) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const positive = item.recommend;
   return (
     <View style={styles.card}>
@@ -286,13 +291,13 @@ function ReviewCard({
           {item.legacy ? (
             <Stars rating={item.rating} count={1} size={12} />
           ) : (
-            <View style={[styles.badge, { backgroundColor: positive ? GREEN : RED }]}>
-              <AppIcon name={positive ? 'thumbs-up' : 'thumbs-down'} variant="sr" size={14} color="#FFFFFF" />
+            <View style={[styles.badge, { backgroundColor: positive ? colors.success : colors.danger }]}>
+              <AppIcon name={positive ? 'thumbs-up' : 'thumbs-down'} variant="sr" size={14} color={colors.onElectric} />
             </View>
           )}
           {canReport ? (
             <Pressable onPress={onReport} hitSlop={8} accessibilityLabel="إبلاغ عن التقييم">
-              <AppIcon name="flag-outline" size={14} color={MUTED} />
+              <AppIcon name="flag-outline" size={14} color={colors.textSecondary} />
             </Pressable>
           ) : null}
         </View>
@@ -302,10 +307,13 @@ function ReviewCard({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: PAGE },
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bgPrimary },
   header: {
-    backgroundColor: BLUE,
+    backgroundColor: colors.bgSurface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderSoft,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
@@ -314,13 +322,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
   headerSide: { width: 44 },
   summary: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bgSurface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -334,32 +342,32 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   targetName: {
-    color: INK,
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
     flexShrink: 1,
   },
   stars: { flexDirection: 'row', gap: 2 },
   counts: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bgSurface,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E3E8EE',
+    borderBottomColor: colors.borderSoft,
   },
   count: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   countText: { fontSize: 14, fontWeight: '600' },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bgSurface,
     marginHorizontal: 12,
     marginTop: 10,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E6ECF2',
+    borderColor: colors.borderSoft,
   },
   cardTop: {
     flexDirection: 'row',
@@ -373,7 +381,7 @@ const styles = StyleSheet.create({
     gap: 8,
     flexShrink: 1,
   },
-  reviewerName: { color: BLUE, fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  reviewerName: { color: colors.electric, fontSize: 14, fontWeight: '700', flexShrink: 1 },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badge: {
     width: 26,
@@ -382,16 +390,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  age: { color: MUTED, fontSize: 13 },
-  comment: { color: INK, fontSize: 15, lineHeight: 24, marginTop: 8 },
+  age: { color: colors.textSecondary, fontSize: 13 },
+  comment: { color: colors.textPrimary, fontSize: 15, lineHeight: 24, marginTop: 8 },
   avatarFallback: {
-    backgroundColor: '#E7F1F8',
+    backgroundColor: colors.bgField,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyWrap: { alignItems: 'center', paddingTop: 48, gap: 8 },
-  empty: { textAlign: 'center', color: MUTED, marginTop: 28 },
-  retry: { color: BLUE, fontWeight: '700' },
+  empty: { textAlign: 'center', color: colors.textSecondary, marginTop: 28 },
+  retry: { color: colors.electric, fontWeight: '700' },
   loader: { marginTop: 24 },
   footer: {
     position: 'absolute',
@@ -400,15 +408,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 16,
     paddingTop: 8,
-    backgroundColor: PAGE,
+    backgroundColor: colors.bgPrimary,
   },
   addButton: {
     height: 50,
     borderRadius: 12,
-    backgroundColor: BLUE,
+    backgroundColor: colors.electric,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addButtonDone: { backgroundColor: '#8AA4B8' },
-  addLabel: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  addButtonDone: { backgroundColor: colors.borderStrong },
+  addLabel: { color: colors.onElectric, fontSize: 18, fontWeight: '700' },
 });

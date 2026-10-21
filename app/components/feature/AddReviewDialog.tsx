@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import type { ThemeColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import { useState, useMemo } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -20,13 +22,6 @@ import {
 import { rtlInputText } from '@/lib/rtl';
 import type { CreateReviewInput } from '@/services/reviews';
 
-const BLUE = '#1A6FB5';
-const GOLD = '#F5B400';
-const INK = '#1C2833';
-const MUTED = '#5E6A75';
-const LINE = '#D5DDE6';
-const FIELD = '#F4F7FA';
-const DISABLED = '#C5CED6';
 
 type Props = {
   visible: boolean;
@@ -37,6 +32,8 @@ type Props = {
 };
 
 export function AddReviewDialog({ visible, targetName, submitting, onClose, onSubmit }: Props) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [rating, setRating] = useState(0);
   const [oath, setOath] = useState(false);
   const [purchased, setPurchased] = useState<boolean | null>(null);
@@ -76,7 +73,7 @@ export function AddReviewDialog({ visible, targetName, submitting, onClose, onSu
                 accessibilityRole="button"
                 accessibilityLabel={`${n} نجوم`}
               >
-                <AppIcon name="star" variant={n <= rating ? 'sr' : 'rr'} size={28} color={n <= rating ? GOLD : '#C5CDD4'} />
+                <AppIcon name="star" variant={n <= rating ? 'sr' : 'rr'} size={28} color={n <= rating ? colors.tierGold : colors.borderStrong} />
               </Pressable>
             ))}
           </View>
@@ -88,7 +85,7 @@ export function AddReviewDialog({ visible, targetName, submitting, onClose, onSu
             accessibilityState={{ checked: oath }}
           >
             <View style={[styles.checkbox, oath && styles.checkboxOn]}>
-              {oath ? <AppIcon name="check" size={14} color="#FFFFFF" /> : null}
+              {oath ? <AppIcon name="check" size={14} color={colors.onElectric} /> : null}
             </View>
             <AppText style={styles.oathText}>{reviewOathText(name)}</AppText>
           </Pressable>
@@ -109,7 +106,7 @@ export function AddReviewDialog({ visible, targetName, submitting, onClose, onSu
               value={comment}
               onChangeText={(text) => setComment(text.slice(0, REVIEW_COMMENT_MAX))}
               placeholder="أضف تعليقك ..."
-              placeholderTextColor="#9AA6B2"
+              placeholderTextColor={colors.textMuted}
               multiline
               maxLength={REVIEW_COMMENT_MAX}
               style={[styles.input, rtlInputText]}
@@ -153,6 +150,8 @@ function Question({
   value: boolean | null;
   onChange: (next: boolean) => void;
 }) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.question}>
       <AppText style={styles.questionText}>{title}</AppText>
@@ -173,6 +172,8 @@ function Choice({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable style={styles.choice} onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }}>
       <AppText style={styles.choiceLabel}>{label}</AppText>
@@ -183,18 +184,19 @@ function Choice({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 22,
-    backgroundColor: 'rgba(20, 28, 36, 0.45)',
+    backgroundColor: colors.bgOverlay,
   },
   backdropTap: {
     ...StyleSheet.absoluteFillObject,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bgSurface,
     borderRadius: 18,
     paddingHorizontal: 18,
     paddingTop: 18,
@@ -203,7 +205,7 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: 'center',
-    color: BLUE,
+    color: colors.electric,
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 10,
@@ -226,16 +228,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: BLUE,
+    borderColor: colors.electric,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxOn: {
-    backgroundColor: BLUE,
+    backgroundColor: colors.electric,
   },
   oathText: {
     flex: 1,
-    color: INK,
+    color: colors.textPrimary,
     fontSize: 14,
     lineHeight: 22,
   },
@@ -244,7 +246,7 @@ const styles = StyleSheet.create({
   },
   questionText: {
     textAlign: 'center',
-    color: INK,
+    color: colors.textPrimary,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 8,
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   choiceLabel: {
-    color: INK,
+    color: colors.textPrimary,
     fontSize: 16,
   },
   radio: {
@@ -268,24 +270,24 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: '#9AA8B5',
+    borderColor: colors.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOn: {
-    borderColor: BLUE,
+    borderColor: colors.electric,
   },
   radioDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: BLUE,
+    backgroundColor: colors.electric,
   },
   field: {
     borderWidth: 1,
-    borderColor: LINE,
+    borderColor: colors.borderSoft,
     borderRadius: 10,
-    backgroundColor: FIELD,
+    backgroundColor: colors.bgField,
     minHeight: 110,
     marginBottom: 14,
   },
@@ -294,11 +296,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
     fontSize: 15,
-    color: INK,
+    color: colors.textPrimary,
   },
   counter: {
     alignSelf: 'flex-start',
-    color: MUTED,
+    color: colors.textSecondary,
     fontSize: 12,
     paddingHorizontal: 10,
     paddingBottom: 6,
@@ -306,15 +308,15 @@ const styles = StyleSheet.create({
   send: {
     height: 48,
     borderRadius: 10,
-    backgroundColor: BLUE,
+    backgroundColor: colors.electric,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendDisabled: {
-    backgroundColor: DISABLED,
+    backgroundColor: colors.borderStrong,
   },
   sendText: {
-    color: '#FFFFFF',
+    color: colors.onElectric,
     fontSize: 18,
     fontWeight: '700',
   },
