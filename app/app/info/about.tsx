@@ -12,6 +12,11 @@ import {
   BRAND_VISION_AR,
   FOUNDER_NAME,
 } from '@/constants/brandCopy';
+import {
+  SARH_OFFICIAL_EMAIL,
+  SARH_OFFICIAL_SITE,
+  SARH_OFFICIAL_SITE_HOST,
+} from '@/constants/sarhOfficial';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { motion } from '@/design-system';
 import { AppText, SarhCard, SarhDivider } from '@/design-system/components';
@@ -40,8 +45,16 @@ const OWNERSHIP = [
 ];
 
 const CONTACT = [
-  { icon: 'mail-outline', href: `mailto:${SARH_OFFICIAL_EMAIL}`, text: SARH_OFFICIAL_EMAIL },
-  { icon: 'globe-outline', href: 'https://sarhsa.online', text: 'sarhsa.online' },
+  {
+    icon: 'mail-outline',
+    href: `mailto:${SARH_OFFICIAL_EMAIL}`,
+    text: SARH_OFFICIAL_EMAIL,
+  },
+  {
+    icon: 'globe-outline',
+    href: SARH_OFFICIAL_SITE,
+    text: SARH_OFFICIAL_SITE_HOST,
+  },
 ];
 
 export default function AboutScreen() {

@@ -21,21 +21,21 @@ const WRITE_CATEGORIES = SUPPORT_TICKET_CATEGORIES.filter(
 export const CS_WRITE_API = Symbol('CS_WRITE_API');
 
 export type CsWriteApi = {
-  createOwnedHelpTicket(
+  createOwnedHelpTicket: (
     userId: string,
     category: string,
     summary: string,
-  ): Promise<{ ticketNumber: string; duplicate: boolean }>;
-  addOwnedNote(
+  ) => Promise<{ ticketNumber: string; duplicate: boolean }>;
+  addOwnedNote: (
     userId: string,
     ticketNumber: string,
     body: string,
-  ): Promise<{ ok: boolean; reason?: 'not_owner' | 'closed' }>;
-  handoffOwnedTicket(
+  ) => Promise<{ ok: boolean; reason?: 'not_owner' | 'closed' }>;
+  handoffOwnedTicket: (
     userId: string,
     ticketNumber: string,
     reason: SupportEscalationReason,
-  ): Promise<{ ok: boolean; reason?: 'not_owner' | 'closed' }>;
+  ) => Promise<{ ok: boolean; reason?: 'not_owner' | 'closed' }>;
 };
 
 const HANDOFF_REASON: Record<string, SupportEscalationReason> = {
@@ -87,7 +87,10 @@ export function buildCsWriteTools(deps: {
       throw new ToolDenied('confirmation_required');
     }
   };
-  const guarded = async <T>(userId: string, fn: () => Promise<T>): Promise<T> => {
+  const guarded = async <T>(
+    userId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> => {
     const gate = await deps.budget.reserve(userId, deps.ticketId);
     if (gate !== 'ok') throw new ToolDenied(gate);
     try {
@@ -123,7 +126,8 @@ export function buildCsWriteTools(deps: {
             parsed.category,
             summary,
           );
-          if (created.duplicate) await deps.budget.release(userId, deps.ticketId);
+          if (created.duplicate)
+            await deps.budget.release(userId, deps.ticketId);
           return created;
         });
       },
@@ -159,7 +163,7 @@ export function buildCsWriteTools(deps: {
     ),
     writeTool(
       'request_human_handoff',
-      'Hand the user\'s own ticket to human support.',
+      "Hand the user's own ticket to human support.",
       z
         .object({
           ticketNumber: z.string().min(4).max(40),
@@ -176,7 +180,8 @@ export function buildCsWriteTools(deps: {
         const userId = selfId(actor);
         confirm('handoff');
         const parsed = args as { ticketNumber: string; reason?: string };
-        const reason = HANDOFF_REASON[parsed.reason ?? 'other'] ?? 'human_requested';
+        const reason =
+          HANDOFF_REASON[parsed.reason ?? 'other'] ?? 'human_requested';
         return guarded(userId, async () => {
           const result = await deps.tickets.handoffOwnedTicket(
             userId,

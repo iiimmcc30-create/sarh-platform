@@ -36,7 +36,9 @@ describe('support handoff reminder', () => {
   let svc: SupportHandoffReminderService;
 
   const now = new Date('2026-10-10T12:00:00.000Z');
-  const dueAt = new Date(now.getTime() - HANDOFF_REMINDER_AFTER_MS).toISOString();
+  const dueAt = new Date(
+    now.getTime() - HANDOFF_REMINDER_AFTER_MS,
+  ).toISOString();
 
   beforeEach(() => {
     jest.clearAllMocks();

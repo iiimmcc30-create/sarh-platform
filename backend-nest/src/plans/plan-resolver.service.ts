@@ -9,6 +9,7 @@ import {
   type ResolvedPlan,
 } from './plan.types';
 import { PLAN_FEATURE_LABELS_AR } from './plan-feature-catalog';
+import { moneyToNumber } from '../common/money';
 
 @Injectable()
 export class PlanResolverService implements OnModuleInit {
@@ -41,10 +42,10 @@ export class PlanResolverService implements OnModuleInit {
         name: plan.name,
         description: plan.description,
         audience: plan.audience,
-        monthlyPrice: plan.monthlyPrice,
-        yearlyPrice: plan.yearlyPrice,
+        monthlyPrice: moneyToNumber(plan.monthlyPrice),
+        yearlyPrice: moneyToNumber(plan.yearlyPrice),
         currency: plan.currency,
-        yearlyDiscount: plan.yearlyDiscount,
+        yearlyDiscount: moneyToNumber(plan.yearlyDiscount),
         isActive: plan.isActive,
         sortOrder: plan.sortOrder,
         permissions: buildPermissions(plan.features),
@@ -83,10 +84,10 @@ export class PlanResolverService implements OnModuleInit {
       name: plan.name,
       description: plan.description,
       audience: plan.audience,
-      monthlyPrice: plan.monthlyPrice,
-      yearlyPrice: plan.yearlyPrice,
+      monthlyPrice: moneyToNumber(plan.monthlyPrice),
+      yearlyPrice: moneyToNumber(plan.yearlyPrice),
       currency: plan.currency,
-      yearlyDiscount: plan.yearlyDiscount,
+      yearlyDiscount: moneyToNumber(plan.yearlyDiscount),
       isActive: plan.isActive,
       sortOrder: plan.sortOrder,
       permissions: buildPermissions(plan.features),

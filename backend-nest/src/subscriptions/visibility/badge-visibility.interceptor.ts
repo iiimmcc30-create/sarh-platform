@@ -28,7 +28,9 @@ export class BadgeVisibilityInterceptor implements NestInterceptor {
     if (/\/admin(\/|$|\?)/.test(path)) return next.handle();
     // «إخفاء الشارة» hides the badge from the owner too (everywhere), except the
     // subscription / verification hub, which needs the real tier to manage it.
-    const ownerSeesReal = /\/api\/(subscriptions|verification)(\/|$|\?)/.test(path);
+    const ownerSeesReal = /\/api\/(subscriptions|verification)(\/|$|\?)/.test(
+      path,
+    );
     const viewerId = ownerSeesReal ? req.user?.userId : null;
     return next
       .handle()
@@ -37,9 +39,7 @@ export class BadgeVisibilityInterceptor implements NestInterceptor {
           from(
             this.visibility
               .hiddenMap()
-              .then((hidden) =>
-                maskHiddenBadges(body, hidden, viewerId),
-              ),
+              .then((hidden) => maskHiddenBadges(body, hidden, viewerId)),
           ),
         ),
       );

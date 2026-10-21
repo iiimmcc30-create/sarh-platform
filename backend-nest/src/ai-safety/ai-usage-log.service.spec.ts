@@ -65,7 +65,9 @@ describe('AiUsageLogService', () => {
       outcome: 'error',
     });
     expect(logger.warn).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('table missing');
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(
+      'table missing',
+    );
   });
 
   it('does nothing when the Prisma delegate is absent', async () => {

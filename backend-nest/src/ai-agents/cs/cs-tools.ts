@@ -8,12 +8,12 @@ import {
 export type TicketFilter = 'open' | 'review' | 'closed';
 
 export type CsReads = {
-  subscription(userId: string): Promise<unknown>;
-  verification(userId: string): Promise<unknown>;
-  fees(userId: string): Promise<unknown>;
-  payments(userId: string, limit: number): Promise<unknown>;
-  tickets(userId: string, status?: TicketFilter): Promise<unknown>;
-  searchFaq(query: string): Promise<unknown>;
+  subscription: (userId: string) => Promise<unknown>;
+  verification: (userId: string) => Promise<unknown>;
+  fees: (userId: string) => Promise<unknown>;
+  payments: (userId: string, limit: number) => Promise<unknown>;
+  tickets: (userId: string, status?: TicketFilter) => Promise<unknown>;
+  searchFaq: (query: string) => Promise<unknown>;
 };
 
 function selfId(actor: ToolActor): string | null {
@@ -22,7 +22,13 @@ function selfId(actor: ToolActor): string | null {
   return actor.actorId;
 }
 
-function none(name: string, description: string, schema: z.ZodType, parameters: Record<string, unknown>, execute: AgentTool['execute']): AgentTool {
+function none(
+  name: string,
+  description: string,
+  schema: z.ZodType,
+  parameters: Record<string, unknown>,
+  execute: AgentTool['execute'],
+): AgentTool {
   return {
     name,
     description,
@@ -85,9 +91,7 @@ export function buildCsTools(reads: CsReads): AgentTool[] {
     none(
       'get_my_payments',
       'Recent payments for the signed-in user.',
-      z
-        .object({ limit: z.number().int().min(1).max(10).optional() })
-        .strict(),
+      z.object({ limit: z.number().int().min(1).max(10).optional() }).strict(),
       objectJsonSchema({ limit: { type: 'number' } }, []),
       async (args, actor) => {
         const userId = selfId(actor);

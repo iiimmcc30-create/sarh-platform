@@ -142,7 +142,8 @@ export class LivestreamsService {
       return {
         canStream: hasListing && access.allowed,
         provider,
-        agoraAppId: provider === 'agora' ? (process.env.AGORA_APP_ID ?? null) : null,
+        agoraAppId:
+          provider === 'agora' ? (process.env.AGORA_APP_ID ?? null) : null,
         listingsCount,
         planId: access.planId,
         ...(!access.allowed

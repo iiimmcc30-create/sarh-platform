@@ -18,16 +18,27 @@ describe('UsersService.getConnections relationship flags', () => {
   }) {
     const repo = {
       findActiveUserId: jest.fn().mockResolvedValue({ id: 'target' }),
-      findUserPrivacyFlags: jest.fn().mockResolvedValue({ showFollowingList: true }),
+      findUserPrivacyFlags: jest
+        .fn()
+        .mockResolvedValue({ showFollowingList: true }),
       findFollowers: jest
         .fn()
-        .mockResolvedValue((opts.followers ?? []).map((id) => ({ follower: row(id) }))),
+        .mockResolvedValue(
+          (opts.followers ?? []).map((id) => ({ follower: row(id) })),
+        ),
       findFollowing: jest
         .fn()
-        .mockResolvedValue((opts.following ?? []).map((id) => ({ following: row(id) }))),
+        .mockResolvedValue(
+          (opts.following ?? []).map((id) => ({ following: row(id) })),
+        ),
       findViewerRelationEdges: jest.fn().mockResolvedValue(opts.edges),
     };
-    const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
     const service = new UsersService(
       repo as never,
       {} as never,
@@ -53,10 +64,17 @@ describe('UsersService.getConnections relationship flags', () => {
       'target',
       { type: 'followers' } as never,
       { userId: 'me' } as never,
-    )) as { users: { id: string; isFollowing: boolean; followsYou: boolean }[] };
+    )) as {
+      users: { id: string; isFollowing: boolean; followsYou: boolean }[];
+    };
 
     expect(repo.findViewerRelationEdges).toHaveBeenCalledTimes(1);
-    expect(repo.findViewerRelationEdges).toHaveBeenCalledWith('me', ['a', 'b', 'c', 'me']);
+    expect(repo.findViewerRelationEdges).toHaveBeenCalledWith('me', [
+      'a',
+      'b',
+      'c',
+      'me',
+    ]);
     const byId = Object.fromEntries(res.users.map((u) => [u.id, u]));
     expect(byId.a).toMatchObject({ isFollowing: false, followsYou: true });
     expect(byId.b).toMatchObject({ isFollowing: true, followsYou: false });
@@ -66,10 +84,15 @@ describe('UsersService.getConnections relationship flags', () => {
 
   it('works on the following tab and for guests (all false, no relation query)', async () => {
     const { service, repo } = makeService({ following: ['x'], edges: [] });
-    const res = (await service.getConnections('target', { type: 'following' } as never)) as {
+    const res = (await service.getConnections('target', {
+      type: 'following',
+    } as never)) as {
       users: { isFollowing: boolean; followsYou: boolean }[];
     };
     expect(repo.findViewerRelationEdges).not.toHaveBeenCalled();
-    expect(res.users[0]).toMatchObject({ isFollowing: false, followsYou: false });
+    expect(res.users[0]).toMatchObject({
+      isFollowing: false,
+      followsYou: false,
+    });
   });
 });

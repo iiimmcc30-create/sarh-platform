@@ -2,9 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { AiBudgetService } from '../../ai-safety/ai-budget.service';
 import { AiCallGuardService } from '../../ai-safety/ai-call-guard.service';
-import {
-  isCsAgentWriteEnabled,
-} from '../../ai-safety/ai-flags';
+import { isCsAgentWriteEnabled } from '../../ai-safety/ai-flags';
 import { AiAuditService } from '../core/audit.service';
 import type { AgentModel, AgentToolCall } from '../core/agent-runner';
 import { CsAgentService } from './cs-agent.service';
@@ -79,7 +77,9 @@ function modelCalling(calls: AgentToolCall[], then = 'تم'): AgentModel {
       expect(user?.content).toContain('<<<UNTRUSTED_DATA>>>');
       step += 1;
       if (step === 1) return { content: '', toolCalls: calls };
-      expect(JSON.stringify(request.messages)).toContain('<<<UNTRUSTED_DATA>>>');
+      expect(JSON.stringify(request.messages)).toContain(
+        '<<<UNTRUSTED_DATA>>>',
+      );
       return { content: then, toolCalls: [] };
     },
   };
@@ -112,9 +112,13 @@ describe('customer-service write tools', () => {
 
   it('accepts only an explicit yes from the customer', () => {
     expect(hasExplicitWriteConfirmation('ticket', 'نعم افتح تذكرة')).toBe(true);
-    expect(hasExplicitWriteConfirmation('ticket', 'نعم، أفتح تذكرة')).toBe(true);
+    expect(hasExplicitWriteConfirmation('ticket', 'نعم، أفتح تذكرة')).toBe(
+      true,
+    );
     expect(hasExplicitWriteConfirmation('note', 'نعم أضف ملاحظة')).toBe(true);
-    expect(hasExplicitWriteConfirmation('handoff', 'نعم حولني لموظف')).toBe(true);
+    expect(hasExplicitWriteConfirmation('handoff', 'نعم حولني لموظف')).toBe(
+      true,
+    );
     expect(hasExplicitWriteConfirmation('ticket', 'افتح تذكرة')).toBe(false);
     expect(hasExplicitWriteConfirmation('ticket', 'نعم')).toBe(false);
   });
@@ -215,7 +219,10 @@ describe('customer-service write tools', () => {
     });
     expect(tickets.createOwnedHelpTicket).not.toHaveBeenCalled();
     expect(rows[0]).toEqual(
-      expect.objectContaining({ status: 'denied', resultSummary: 'actor_from_model' }),
+      expect.objectContaining({
+        status: 'denied',
+        resultSummary: 'actor_from_model',
+      }),
     );
     expect(JSON.stringify(rows)).not.toContain('0501234567');
     expect(JSON.stringify(rows)).not.toContain('user-b');
@@ -223,11 +230,16 @@ describe('customer-service write tools', () => {
 
   it('writes after yes, refuses another user ticket, and records both attempts', async () => {
     const tickets: CsWriteApi = {
-      createOwnedHelpTicket: jest.fn(async (_userId: string, _category: string, summary: string) => {
-        expect(summary).not.toContain('0501234567');
-        return { ticketNumber: 'SRH-2026-000010', duplicate: false };
-      }),
-      addOwnedNote: jest.fn(async () => ({ ok: false, reason: 'not_owner' as const })),
+      createOwnedHelpTicket: jest.fn(
+        async (_userId: string, _category: string, summary: string) => {
+          expect(summary).not.toContain('0501234567');
+          return { ticketNumber: 'SRH-2026-000010', duplicate: false };
+        },
+      ),
+      addOwnedNote: jest.fn(async () => ({
+        ok: false,
+        reason: 'not_owner' as const,
+      })),
       handoffOwnedTicket: jest.fn(),
     };
     const { service, rows } = harness({
@@ -306,7 +318,9 @@ describe('customer-service write tools', () => {
     expect(tickets.createOwnedHelpTicket).toHaveBeenCalledTimes(1);
     expect(tickets.addOwnedNote).toHaveBeenCalledTimes(1);
     expect(tickets.handoffOwnedTicket).not.toHaveBeenCalled();
-    expect(rows.map((row) => row.resultSummary)).toContain('conversation_limit');
+    expect(rows.map((row) => row.resultSummary)).toContain(
+      'conversation_limit',
+    );
 
     const third = harness({
       tickets,
@@ -343,7 +357,10 @@ describe('customer-service write tools', () => {
       text: 'نعم افتح تذكرة',
     });
     expect(blocked.rows[blocked.rows.length - 1]).toEqual(
-      expect.objectContaining({ resultSummary: 'daily_limit', status: 'denied' }),
+      expect.objectContaining({
+        resultSummary: 'daily_limit',
+        status: 'denied',
+      }),
     );
     expect(tickets.createOwnedHelpTicket).toHaveBeenCalledTimes(2);
   });

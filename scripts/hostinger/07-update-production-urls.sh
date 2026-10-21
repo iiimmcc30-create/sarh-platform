@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Point backend production URLs at sarhsa.online (no secret values printed).
+# Point backend production URLs at getsarh.com (no secret values printed).
+# sarhsa.online stays in ALLOWED_ORIGINS: the API is still served there.
 set -euo pipefail
 
 ENV_FILE="${ENV_FILE:-/opt/sarh/.env.production}"
-PROD_API="${PROD_API:-https://sarhsa.online}"
-PROD_ORIGINS="${PROD_ORIGINS:-https://sarhsa.online,https://www.sarhsa.online}"
+PROD_API="${PROD_API:-https://getsarh.com}"
+PROD_ORIGINS="${PROD_ORIGINS:-https://getsarh.com,https://www.getsarh.com,https://sarhsa.online,https://www.sarhsa.online}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: missing $ENV_FILE"

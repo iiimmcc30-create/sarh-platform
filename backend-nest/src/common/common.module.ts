@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
+import { MoneySerializationInterceptor } from './interceptors/money-serialization.interceptor';
 import { RequestIdInterceptor } from './interceptors/request-id.interceptor';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { RateLimitService } from './services/rate-limit.service';
@@ -13,6 +14,7 @@ import { LoggerService } from './services/logger.service';
     RateLimitService,
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: RequestIdInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: MoneySerializationInterceptor },
     { provide: APP_GUARD, useClass: RateLimitGuard },
   ],
   exports: [RateLimitService, LoggerService],

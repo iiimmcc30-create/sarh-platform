@@ -8,14 +8,15 @@
  * require: a captured/purchased state AND the exact amount + currency of our
  * local Payment row. Anything else is held for manual review.
  */
+import { moneyToNumber, sameMoney, type MoneyInput } from '../common/money';
 import { classifyNiOrderState } from './ni-client';
 
-export function normalizeMoney(value: number): number {
-  return Math.round(value * 100);
+export function normalizeMoney(value: MoneyInput): number {
+  return Math.round(moneyToNumber(value) * 100);
 }
 
-export function sameMoneyAmount(a: number, b: number): boolean {
-  return normalizeMoney(a) === normalizeMoney(b);
+export function sameMoneyAmount(a: MoneyInput, b: MoneyInput): boolean {
+  return sameMoney(a, b);
 }
 
 /** NI order `amount` is `{ currencyCode, value }` in minor units (halalas). */
@@ -48,7 +49,7 @@ export type NiFulfilmentCheck =
 export function checkNiOrderForFulfilment(
   order: Record<string, unknown>,
   state: string,
-  payment: { amount: number; currency?: string | null },
+  payment: { amount: MoneyInput; currency?: string | null },
 ): NiFulfilmentCheck {
   if (classifyNiOrderState(state) !== 'success') {
     return { ok: false, reason: 'not_captured' };
@@ -64,7 +65,7 @@ export function checkNiOrderForFulfilment(
       niCurrency: ni.currency,
     };
   }
-  if (!sameMoneyAmount(ni.amount, Number(payment.amount))) {
+  if (!sameMoneyAmount(ni.amount, payment.amount)) {
     return {
       ok: false,
       reason: 'amount_mismatch',

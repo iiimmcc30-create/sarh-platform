@@ -4,10 +4,7 @@ import { isTechAgentEnabled } from '../../ai-safety/ai-flags';
 import { AiCallGuardService } from '../../ai-safety/ai-call-guard.service';
 import { AGENT_MODEL } from '../ai-agents.module';
 import { AiAuditService } from '../core/audit.service';
-import {
-  AgentRunner,
-  type AgentModel,
-} from '../core/agent-runner';
+import { AgentRunner, type AgentModel } from '../core/agent-runner';
 import { ToolRegistry } from '../core/tool-registry';
 import { wrapUntrusted } from '../core/untrusted';
 import { TechDraftStore, type TechDraft } from './tech-draft-store';
@@ -20,16 +17,23 @@ severity واحدة من P1 أو P2 أو P3 أو P4.
 
 const SEVERITIES = new Set(['P1', 'P2', 'P3', 'P4']);
 
-export function parseTechDraft(text: string): Omit<TechDraft, 'createdAt'> | null {
+export function parseTechDraft(
+  text: string,
+): Omit<TechDraft, 'createdAt'> | null {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) return null;
   try {
-    const body = JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
+    const body = JSON.parse(text.slice(start, end + 1)) as Record<
+      string,
+      unknown
+    >;
     const severity = typeof body.severity === 'string' ? body.severity : '';
     if (!SEVERITIES.has(severity)) return null;
-    const service = typeof body.service === 'string' ? body.service.slice(0, 40) : '';
-    const cause = typeof body.cause === 'string' ? body.cause.slice(0, 240) : '';
+    const service =
+      typeof body.service === 'string' ? body.service.slice(0, 40) : '';
+    const cause =
+      typeof body.cause === 'string' ? body.cause.slice(0, 240) : '';
     const fix = typeof body.fix === 'string' ? body.fix.slice(0, 240) : '';
     if (!service || !cause) return null;
     const pii = new PiiPseudonymizer();

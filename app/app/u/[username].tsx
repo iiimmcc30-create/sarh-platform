@@ -1,4 +1,4 @@
-// Shared profile link: sarhsa.online/u/<username> (sarhProfileShareUrl) → the user profile.
+// Shared profile link: getsarh.com/u/<username> (sarhProfileShareUrl) → the user profile.
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';

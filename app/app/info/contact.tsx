@@ -13,6 +13,11 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { contactMessageError, contactTicketPayload } from '@/lib/helpCenter';
+import {
+  SARH_OFFICIAL_EMAIL,
+  SARH_OFFICIAL_SITE,
+  SARH_OFFICIAL_SITE_HOST,
+} from '@/constants/sarhOfficial';
 import { createTicket } from '@/services/support';
 import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
@@ -26,8 +31,8 @@ const CHANNELS = [
   {
     icon: 'globe-outline',
     label: 'الموقع الإلكتروني',
-    value: 'sarhsa.online',
-    href: 'https://sarhsa.online',
+    value: SARH_OFFICIAL_SITE_HOST,
+    href: SARH_OFFICIAL_SITE,
   },
 ];
 

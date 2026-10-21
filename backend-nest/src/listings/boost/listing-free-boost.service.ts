@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { throwApi } from '../../common/exceptions/api.exception';
+import { toMoneyDecimal } from '../../common/money';
 import { LoggerService } from '../../common/services/logger.service';
 import { AppNotificationsService } from '../../queue/services/app-notifications.service';
 import { RedisCacheService } from '../../redis/services/redis-cache.service';
@@ -153,7 +154,7 @@ export class ListingFreeBoostService {
           userId: user.userId,
           boostType: FREE_BOOST_TYPE,
           durationDays: 1,
-          amount: 0,
+          amount: toMoneyDecimal(0),
           currency: 'SAR',
           status: 'paid',
           paidAt: now,

@@ -7,8 +7,14 @@ describe('collection social proof', () => {
       [
         { collectionId: 'a', user: { id: '1', username: 'one', avatar: null } },
         { collectionId: 'a', user: { id: '2', username: 'two', avatar: 'x' } },
-        { collectionId: 'a', user: { id: '3', username: 'three', avatar: null } },
-        { collectionId: 'a', user: { id: '4', username: 'four', avatar: null } },
+        {
+          collectionId: 'a',
+          user: { id: '3', username: 'three', avatar: null },
+        },
+        {
+          collectionId: 'a',
+          user: { id: '4', username: 'four', avatar: null },
+        },
         { collectionId: 'b', user: { id: '9', username: '', avatar: null } },
       ],
       [
@@ -25,7 +31,10 @@ describe('collection social proof', () => {
       ],
       mutualFollower: { username: 'Samilm' },
     });
-    expect(proof.get('b')).toEqual({ previewMembers: [], mutualFollower: null });
+    expect(proof.get('b')).toEqual({
+      previewMembers: [],
+      mutualFollower: null,
+    });
     expect(proof.has('missing')).toBe(false);
   });
 });

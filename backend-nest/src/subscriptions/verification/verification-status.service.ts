@@ -1,5 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { moneyToNumber } from '../../common/money';
 import { buildPermissions } from '../../plans/plan.types';
 import { PlanPermissionService } from '../../plans/plan-permission.service';
 import { getSubscriptionStatus } from '../../lib/subscription-lifecycle';
@@ -199,7 +200,7 @@ export class VerificationStatusService {
       const slug = VERIFICATION_PLAN_SLUGS[tier];
       const row = rows.find((r) => r.slug === slug);
       const perms = row ? buildPermissions(row.features) : {};
-      const monthlyPrice = row?.monthlyPrice ?? 0;
+      const monthlyPrice = moneyToNumber(row?.monthlyPrice ?? 0);
       return {
         tier,
         slug,

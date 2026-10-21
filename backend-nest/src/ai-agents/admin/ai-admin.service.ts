@@ -5,7 +5,10 @@ import {
   aiDailyTokenBudget,
 } from '../../ai-safety/ai-flags';
 import { riyadhDay } from '../../ai-safety/ai-budget.service';
-import { AiRuntimeFlagsService, isAiControlFlag } from '../../ai-safety/ai-runtime-flags.service';
+import {
+  AiRuntimeFlagsService,
+  isAiControlFlag,
+} from '../../ai-safety/ai-runtime-flags.service';
 import { AiUsageLogService } from '../../ai-safety/ai-usage-log.service';
 import type { JwtPayload } from '../../common/types/jwt-payload.interface';
 import { AiAuditService } from '../core/audit.service';
@@ -34,7 +37,9 @@ export class AiAdminService {
   async dashboard() {
     await this.flags.refresh();
     const usage = await this.budget.usageToday();
-    const outcomes = await this.usage.outcomeCountsSince(riyadhStart(riyadhDay()));
+    const outcomes = await this.usage.outcomeCountsSince(
+      riyadhStart(riyadhDay()),
+    );
     const [cs, tech] = await Promise.all([
       this.audit.list('cs', 8),
       this.audit.list('tech', 8),
@@ -68,10 +73,11 @@ export class AiAdminService {
       actorId: admin.userId,
       tool: `flag:${name}`,
       inputJson: '{}',
-      resultSummary: `${result.ok ? (enabled ? 'cleared' : 'off') : 'env_ceiling'}:${admin.username}`.slice(
-        0,
-        240,
-      ),
+      resultSummary:
+        `${result.ok ? (enabled ? 'cleared' : 'off') : 'env_ceiling'}:${admin.username}`.slice(
+          0,
+          240,
+        ),
       status: result.ok ? 'ok' : 'denied',
       durationMs: 0,
     });
@@ -80,13 +86,18 @@ export class AiAdminService {
 
   runTech(admin: JwtPayload) {
     if (admin.role !== 'ADMIN') {
-      return Promise.resolve({ ran: false, drafted: false, reason: 'forbidden' as const });
+      return Promise.resolve({
+        ran: false,
+        drafted: false,
+        reason: 'forbidden' as const,
+      });
     }
     return this.tech.observe(admin.userId);
   }
 
   approveAction(admin: JwtPayload, id: string) {
-    if (!this.actions) return Promise.resolve({ ok: false, reason: 'unavailable' });
+    if (!this.actions)
+      return Promise.resolve({ ok: false, reason: 'unavailable' });
     return this.actions.approve(admin, id);
   }
 }

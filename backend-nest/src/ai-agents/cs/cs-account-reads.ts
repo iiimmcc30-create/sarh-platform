@@ -9,10 +9,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { FaqService } from '../../support/services/faq.service';
 import { FAQ_KNOWLEDGE_BASE } from '../../support/kb/faq-knowledge-base';
-import {
-  FAQ_SEARCH_MIN_SCORE,
-  rankFaqs,
-} from '../../support/kb/faq-retrieval';
+import { FAQ_SEARCH_MIN_SCORE, rankFaqs } from '../../support/kb/faq-retrieval';
 import { SubscriptionBillingService } from '../../subscriptions/billing/subscription-billing.service';
 import type { BillingSource } from '../../subscriptions/billing/subscription-billing';
 import type { TicketFilter } from './cs-tools';
@@ -103,9 +100,10 @@ export class CsAccountReads {
         },
       }),
     ]);
-    const tier = user?.verifiedTier === 'blue' || user?.verifiedTier === 'gold'
-      ? user.verifiedTier
-      : 'none';
+    const tier =
+      user?.verifiedTier === 'blue' || user?.verifiedTier === 'gold'
+        ? user.verifiedTier
+        : 'none';
     const hasRegister = (request?.documents ?? []).some(
       (doc) => doc.type === 'COMMERCIAL_REGISTER',
     );

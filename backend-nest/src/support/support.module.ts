@@ -19,12 +19,7 @@ import { AiSafetyModule } from '../ai-safety/ai-safety.module';
 import { AiCallGuardService } from '../ai-safety/ai-call-guard.service';
 
 @Module({
-  imports: [
-    PrismaModule,
-    QueueModule,
-    GatewaySharedModule,
-    AiSafetyModule,
-  ],
+  imports: [PrismaModule, QueueModule, GatewaySharedModule, AiSafetyModule],
   controllers: [SupportController, AdminSupportController],
   providers: [
     SupportRepository,

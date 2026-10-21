@@ -483,10 +483,10 @@ model Plan {
   name           String
   description    String         @default("")
   audience       PlanAudience
-  monthlyPrice   Float          @default(0)
-  yearlyPrice    Float          @default(0)
+  monthlyPrice   Decimal        @default(0) @db.Decimal(12, 2)
+  yearlyPrice    Decimal        @default(0) @db.Decimal(12, 2)
   currency       String         @default("SAR")
-  yearlyDiscount Float          @default(0)
+  yearlyDiscount Decimal        @default(0) @db.Decimal(12, 2)
   isActive       Boolean        @default(true)
   sortOrder      Int            @default(0)
   createdAt      DateTime       @default(now())
@@ -551,7 +551,7 @@ model Payment {
   referenceId    String?
   referenceType  PaymentReferenceType?
   orderId        String                @unique
-  amount         Float
+  amount         Decimal               @db.Decimal(12, 2)
   currency       String                @default("SAR")
   method         PaymentMethod
   status         PaymentStatus         @default(pending)
@@ -834,7 +834,7 @@ model ListingBoost {
   userId        String
   boostType     BoostType
   durationDays  Int        @default(30)
-  amount        Float
+  amount        Decimal    @db.Decimal(12, 2)
   currency      String     @default("SAR")
   status        FeeStatus  @default(pending)
   startsAt      DateTime?
@@ -860,7 +860,7 @@ model ListingPromotion {
   tier            String    @default("standard")
   weight          Int       @default(100)
   durationDays    Int
-  amount          Float
+  amount          Decimal   @db.Decimal(12, 2)
   currency        String    @default("SAR")
   status          FeeStatus @default(pending)
   startsAt        DateTime?
@@ -890,11 +890,11 @@ model ListingFee {
   userId        String
   category      String
   quantity      Int       @default(1)
-  price         Float
-  commission    Float
+  price         Decimal   @db.Decimal(12, 2)
+  commission    Decimal   @db.Decimal(12, 2)
   status        FeeStatus @default(pending)
   dueDate       DateTime?
-  saleAmount    Float?
+  saleAmount    Decimal?  @db.Decimal(12, 2)
   saleDeclaredAt DateTime?
   paidAt        DateTime?
   transactionId String?
@@ -929,7 +929,7 @@ model ListingOffer {
   id        String   @id @default(uuid())
   listingId String
   buyerId   String
-  amount    Float
+  amount    Decimal  @db.Decimal(12, 2)
   currency  String   @default("SAR")
   message   String?
   status    String   @default("pending")

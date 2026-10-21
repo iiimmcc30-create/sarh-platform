@@ -111,6 +111,7 @@ Uses DB 1 exclusively. Disabled when `REDIS_ENABLED=false` — queues no-op.
 ## 10. Security
 
 - Redis should not be exposed publicly
+- Single-node production (`docker-compose.prod.yml`) requires `REDIS_PASSWORD` (no default, no hardcoded secret). Compose passes it as `REDIS_PASSWORD` and starts Redis with `--requirepass`. The app reads the same variable in `backend-nest/src/redis/redis-connection.ts` (or a password embedded in `REDIS_URL`). Generate it with `openssl rand -hex 32` and set it in `.env.production` before the next deploy; existing AOF data is kept, and every client must authenticate. Local `docker-compose.yml` stays passwordless. The split data host (`docker-compose.data.yml`) uses the same variable.
 - Session DB holds short-lived auth artifacts
 - Dev mode may skip cache when Redis unavailable (`markedUnavailable`)
 

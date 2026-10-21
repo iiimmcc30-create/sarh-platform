@@ -16,8 +16,7 @@ describe('standalone process boot', () => {
     process.env.JWT_REFRESH_SECRET =
       process.env.JWT_REFRESH_SECRET || 'local-boot-test-refresh-secret-32';
     process.env.DATABASE_URL =
-      previousDb ||
-      'postgresql://boot:boot@127.0.0.1:1/boot?connect_timeout=1';
+      previousDb || 'postgresql://boot:boot@127.0.0.1:1/boot?connect_timeout=1';
     try {
       return await fn();
     } finally {
@@ -37,12 +36,10 @@ describe('standalone process boot', () => {
       await jest.isolateModulesAsync(async () => {
         const { Test } = await import('@nestjs/testing');
         const { GatewayModule } = await import('./gateway/gateway.module');
-        const { CsAccountReads } = await import(
-          './ai-agents/cs/cs-account-reads'
-        );
-        const { SupportTicketsService } = await import(
-          './support/services/support-tickets.service'
-        );
+        const { CsAccountReads } =
+          await import('./ai-agents/cs/cs-account-reads');
+        const { SupportTicketsService } =
+          await import('./support/services/support-tickets.service');
         const started = Date.now();
         const compiled = await Promise.race([
           Test.createTestingModule({ imports: [GatewayModule] }).compile(),
@@ -54,9 +51,9 @@ describe('standalone process boot', () => {
           ),
         ]);
         expect(Date.now() - started).toBeLessThan(20_000);
-        expect(compiled.get(SupportTicketsService, { strict: false })).toBeInstanceOf(
-          SupportTicketsService,
-        );
+        expect(
+          compiled.get(SupportTicketsService, { strict: false }),
+        ).toBeInstanceOf(SupportTicketsService);
         expect(() => compiled.get(CsAccountReads)).toThrow(
           /does not exist|Nest could not find CsAccountReads/i,
         );
@@ -70,9 +67,8 @@ describe('standalone process boot', () => {
       await jest.isolateModulesAsync(async () => {
         const { Test } = await import('@nestjs/testing');
         const { WorkerModule } = await import('./queue/worker.module');
-        const { WorkerCronService } = await import(
-          './queue/services/worker-cron.service'
-        );
+        const { WorkerCronService } =
+          await import('./queue/services/worker-cron.service');
         const started = Date.now();
         const compiled = await Promise.race([
           Test.createTestingModule({ imports: [WorkerModule] }).compile(),
@@ -84,9 +80,9 @@ describe('standalone process boot', () => {
           ),
         ]);
         expect(Date.now() - started).toBeLessThan(20_000);
-        expect(compiled.get(WorkerCronService, { strict: false })).toBeInstanceOf(
-          WorkerCronService,
-        );
+        expect(
+          compiled.get(WorkerCronService, { strict: false }),
+        ).toBeInstanceOf(WorkerCronService);
         await compiled.close();
       });
     });

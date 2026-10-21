@@ -7,12 +7,15 @@ import { motion } from '@/design-system';
 import { AppText, SarhDivider } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
 import { Linking, Pressable, StyleSheet } from 'react-native';
-import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
+import {
+  SARH_OFFICIAL_EMAIL,
+  SARH_OFFICIAL_SITE_HOST,
+} from '@/constants/sarhOfficial';
 
 const SECTIONS = [
   {
     title: 'مقدمة',
-    content: `تلتزم منصة سرح (sarhsa.online)، المملوكة لمؤسسة ماد يونيت للتجارة، بحماية خصوصية مستخدميها. توضّح هذه السياسة كيفية جمع بياناتك الشخصية واستخدامها وحفظها والحفاظ عليها وفق أحكام نظام حماية البيانات الشخصية في المملكة العربية السعودية.`,
+    content: `تلتزم منصة سرح (${SARH_OFFICIAL_SITE_HOST})، المملوكة لمؤسسة ماد يونيت للتجارة، بحماية خصوصية مستخدميها. توضّح هذه السياسة كيفية جمع بياناتك الشخصية واستخدامها وحفظها والحفاظ عليها وفق أحكام نظام حماية البيانات الشخصية في المملكة العربية السعودية.`,
   },
   {
     title: 'البيانات التي نجمعها',
@@ -41,7 +44,11 @@ const SECTIONS = [
 ];
 
 const CONTACT = [
-  { icon: 'mail-outline', href: `mailto:${SARH_OFFICIAL_EMAIL}`, text: SARH_OFFICIAL_EMAIL },
+  {
+    icon: 'mail-outline',
+    href: `mailto:${SARH_OFFICIAL_EMAIL}`,
+    text: SARH_OFFICIAL_EMAIL,
+  },
 ];
 
 export default function PrivacyScreen() {
