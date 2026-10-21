@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { AiAdminService } from '../ai-agents/admin/ai-admin.service';
 import { RateLimit, Roles } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -28,7 +36,9 @@ export class AdminAiController {
     if (typeof body?.enabled !== 'boolean' || !body.name) {
       return successResponse({ ok: false, reason: 'unknown' });
     }
-    return successResponse(await this.admin.setFlag(admin, body.name, body.enabled));
+    return successResponse(
+      await this.admin.setFlag(admin, body.name, body.enabled),
+    );
   }
 
   @Roles('ADMIN')

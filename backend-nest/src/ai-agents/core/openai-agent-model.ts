@@ -66,7 +66,9 @@ export class OpenAiAgentModel implements AgentModel {
     if (request.parallelToolCalls !== false) {
       throw new Error('parallel_tool_calls_required_false');
     }
-    let completion: Awaited<ReturnType<ChatClient['chat']['completions']['create']>>;
+    let completion: Awaited<
+      ReturnType<ChatClient['chat']['completions']['create']>
+    >;
     try {
       completion = await this.client.chat.completions.create(
         agentCompletionBody(this.model, request, this.maxOutputTokens),

@@ -2,10 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { LoggerService } from '../common/services/logger.service';
 import { AiBudgetService } from './ai-budget.service';
 import { aiMaxRetries, aiTimeoutMs, isAiEnabled } from './ai-flags';
-import {
-  AiUsageLogService,
-  type AiUsageOutcome,
-} from './ai-usage-log.service';
+import { AiUsageLogService, type AiUsageOutcome } from './ai-usage-log.service';
 import { AiRuntimeFlagsService } from './ai-runtime-flags.service';
 
 export type AiUsage = {

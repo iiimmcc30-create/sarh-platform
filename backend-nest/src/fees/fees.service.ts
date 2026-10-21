@@ -83,7 +83,9 @@ export class FeesService {
 
     const owed = rows.filter((r) => r.owed);
     const owedTotal =
-      Math.round(owed.reduce((sum, r) => sum + (Number(r.commission) || 0), 0) * 100) / 100;
+      Math.round(
+        owed.reduce((sum, r) => sum + (Number(r.commission) || 0), 0) * 100,
+      ) / 100;
 
     return {
       ratePercent: LISTING_COMMISSION_PERCENT,

@@ -87,7 +87,7 @@ write_kv() {
     RATE_LIMIT_WINDOW_MS=900000
     AUTH_RATE_LIMIT_MAX=20
     AUTH_RATE_LIMIT_WINDOW_SEC=900
-    EMAIL_FROM=sarh@sarhsa.online
+    EMAIL_FROM=sarh@getsarh.com
     SUBSCRIPTION_GRACE_DAYS=3
     SMTP_PORT=587
   )
@@ -118,6 +118,11 @@ write_kv() {
   )
   for k in "${secret_keys[@]}"; do
     v="$(get_existing "$k")"
+    # Single-node Redis refuses to start without a password. Generate one
+    # only when the file does not already have a value (never printed).
+    if [[ "$k" == "REDIS_PASSWORD" && -z "$v" ]]; then
+      v="$(openssl rand -hex 32)"
+    fi
     write_kv "$k" "$v"
   done
 } > "$OUT.new"

@@ -19,7 +19,9 @@ export function noteServerError(path: string, at = Date.now()): void {
   while (memory.length && memory[0]!.at < cutoff) memory.shift();
 }
 
-export function errorCountsSince(sinceMs: number): Array<{ route: string; count: number }> {
+export function errorCountsSince(
+  sinceMs: number,
+): Array<{ route: string; count: number }> {
   const totals = new Map<string, number>();
   for (const row of memory) {
     if (row.at < sinceMs) continue;

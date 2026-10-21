@@ -12,7 +12,8 @@ Production deployment and live infrastructure were not re-verified during Phase 
 ## ما يوثّقه المستودع
 
 - المضيف المقصود: **Hostinger VPS**
-- النطاق: **https://sarhsa.online**
+- النطاق الرسمي: **https://getsarh.com**
+- `sarhsa.online` يبقى للشهادات والـ API والمقابس والرفع وملفات الروابط العميقة وصفحات عودة الدفع؛ صفحات الويب تُحوَّل إلى `getsarh.com`
 - المسار الشائع على الخادم في السكربتات: `/opt/sarh` أو `SARH_ROOT`
 - Compose الإنتاج:  
   `docker compose -f docker-compose.prod.yml -f docker-compose.prod.ssl.yml --env-file .env.production up -d`
@@ -33,7 +34,7 @@ Production deployment and live infrastructure were not re-verified during Phase 
 | Socket | `GET /health` على :3002 |
 | Admin | `GET /admin/login` داخل الحاوية |
 
-README يذكر أن Nginx يمرّر `GET /health` إلى الـ API، وأن GitHub keep-alive يضرب `https://sarhsa.online/api/health`. **لم يُتحقق من ذلك في Phase 1.**
+README يذكر أن Nginx يمرّر `GET /health` إلى الـ API. GitHub keep-alive ما زال يضرب `https://sarhsa.online/api/health` لأن الواجهة تُخدم هناك أيضًا؛ المسار المكافئ على النطاق الرسمي هو `https://getsarh.com/api/health`. **لم يُتحقق من ذلك في Phase 1.**
 
 ---
 
@@ -48,7 +49,7 @@ npx prisma migrate deploy
 ```
 
 Phase 1/2 **لم تنفّذ** `migrate` أو `migrate deploy` أو `db push`.  
-أحدث مجلد migration في الشجرة: `20260923180000_post_bookmarks`. حالة تطبيقه على الإنتاج **غير معروفة**.
+ترحيل المبالغ إلى `DECIMAL(12,2)`: `20261017120000_payment_amounts_decimal` (يُطبَّق بـ `prisma migrate deploy` عند إقلاع الـ API ما لم يُضبط `SKIP_MIGRATIONS=true`). يحافظ على الهللات عبر `ROUND(col::numeric, 2)`.
 
 لا تشغّل `migrate reset` ضد الإنتاج (تحذير README).
 

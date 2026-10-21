@@ -13,7 +13,11 @@ describe('RateLimitService per-account bucket', () => {
     process.env = OLD;
   });
 
-  const logger = { warn: jest.fn(), error: jest.fn(), info: jest.fn() } as never;
+  const logger = {
+    warn: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+  } as never;
   const res = () => ({ setHeader: jest.fn() }) as never;
   const req = (auth?: string) =>
     ({
@@ -26,7 +30,9 @@ describe('RateLimitService per-account bucket', () => {
     const svc = new RateLimitService(logger);
     const token = jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET!);
     for (let i = 0; i < 50; i++) {
-      expect(await svc.consume(req(`Bearer ${token}`), res(), 'api')).toBe(true);
+      expect(await svc.consume(req(`Bearer ${token}`), res(), 'api')).toBe(
+        true,
+      );
     }
   });
 
@@ -34,7 +40,8 @@ describe('RateLimitService per-account bucket', () => {
     const svc = new RateLimitService(logger);
     const forged = jwt.sign({ userId: 'u2' }, 'y'.repeat(40));
     const results: boolean[] = [];
-    for (let i = 0; i < 5; i++) results.push(await svc.consume(req(`Bearer ${forged}`), res(), 'api'));
+    for (let i = 0; i < 5; i++)
+      results.push(await svc.consume(req(`Bearer ${forged}`), res(), 'api'));
     expect(results.filter(Boolean).length).toBe(3);
   });
 });

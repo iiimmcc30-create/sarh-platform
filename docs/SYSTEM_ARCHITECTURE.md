@@ -10,7 +10,8 @@
 
 سرح (Sarh) سوق مواشٍ ومحتوى اجتماعي في السعودية، مع اشتراكات، بث مباشر، وإدارة.
 
-هوية التطبيق الظاهرة: اسم العرض `Sarh`، الحزمة `com.sarh.app`، النطاق `sarhsa.online`.  
+هوية التطبيق الظاهرة: اسم العرض `Sarh`، الحزمة `com.sarh.app`، النطاق الرسمي `getsarh.com`.  
+`sarhsa.online` نطاق قديم: CORS وروابط التطبيق المثبّتة وإعادة التوجيه تُبقيه.  
 أسماء npm/Expo الداخلية `safat` / `safat-backend-nest` بقايا توافق — انظر قسم Legacy.
 
 ---
@@ -95,7 +96,7 @@ api / worker / socket → postgres + redis (شبكة sarh_internal)
 - JWT + refresh في `backend-nest/src/auth/`
 - حراس عامة: `JwtAuthGuard` و`RolesGuard`
 - أدوار Prisma: `USER` · `ADMIN` · `MODERATOR`
-- CORS: قائمة بيضاء (`cors-origins.ts`)؛ أصول الإنتاج الافتراضية `https://sarhsa.online` و`https://www.sarhsa.online`
+- CORS: قائمة بيضاء (`cors-origins.ts`)؛ أصول الإنتاج الافتراضية `https://getsarh.com` و`https://www.getsarh.com` بالإضافة إلى `https://sarhsa.online` و`https://www.sarhsa.online` (النطاق القديم)
 
 لم يُختبر مسار تسجيل دخول حي في Phase 1.
 

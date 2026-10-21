@@ -15,10 +15,17 @@ let activeService: BadgeVisibilityService | null = null;
  * Realtime (socket) payloads skip the HTTP interceptor, so hidden badges leaked
  * through chat / council events. Emitters call this before sending.
  */
-export function maskBadgesForRealtime<T>(data: T, _viewerId?: string | null): T {
+export function maskBadgesForRealtime<T>(
+  data: T,
+  _viewerId?: string | null,
+): T {
   if (!activeService) return data;
   // Owner included: a hidden badge is hidden from everyone, the owner too.
   return maskHiddenBadges(data, activeService.peekHiddenMap(), null);
+}
+
+function registerActiveService(service: BadgeVisibilityService): void {
+  activeService = service;
 }
 
 @Injectable()
@@ -28,7 +35,7 @@ export class BadgeVisibilityService {
   private inflight: Promise<Map<string, BadgeVisibilityPrefs>> | null = null;
 
   constructor(private readonly prisma: PrismaService) {
-    activeService = this;
+    registerActiveService(this);
   }
 
   /** Last known map without waiting (refreshes in the background). For socket emits. */

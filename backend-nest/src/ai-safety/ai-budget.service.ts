@@ -29,9 +29,7 @@ import {
 export type AiBudgetDenyReason = 'tokens' | 'requests' | 'unavailable';
 
 export type AiBudgetFeature =
-  | 'support_assistant'
-  | 'knowledge_summarizer'
-  | 'other';
+  'support_assistant' | 'knowledge_summarizer' | 'other';
 
 export type AiBudgetReservation =
   | { ok: true; day: string; reserved: number; feature: AiBudgetFeature }

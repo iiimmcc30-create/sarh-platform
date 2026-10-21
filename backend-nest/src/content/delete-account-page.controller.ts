@@ -97,7 +97,7 @@ function explainBody(banner = ''): string {
       </div>
       <button type="submit">إرسال طلب الحذف</button>
     </form>
-    <p class="hint">أو راسلنا على <a href="mailto:sarh@sarhsa.online">sarh@sarhsa.online</a> من بريدك مع رقم الجوال.</p>
+    <p class="hint">أو راسلنا على <a href="mailto:sarh@getsarh.com">sarh@getsarh.com</a> من بريدك مع رقم الجوال.</p>
     <h2>ما يُحذف عند تنفيذ الطلب</h2>
     <ul>
       <li>بيانات الحساب الظاهرة: الاسم، اسم المستخدم، الجوال، البريد، الصورة، الغلاف، والنبذة — تُمسح من الصف فوراً.</li>
@@ -144,21 +144,36 @@ export class DeleteAccountPageController {
   @Header('Cache-Control', 'no-store')
   async submit(@Body() dto: DeleteAccountRequestDto, @Res() res: Response) {
     if (dto.website?.trim()) {
-      res.status(200).send(shell('حذف الحساب', explainBody(
-        '<p class="ok">تم استلام الطلب.</p>',
-      )));
+      res
+        .status(200)
+        .send(
+          shell(
+            'حذف الحساب',
+            explainBody('<p class="ok">تم استلام الطلب.</p>'),
+          ),
+        );
       return;
     }
 
     const phone = normalizeSaudiMobile(dto.phone ?? '');
     if (!phone) {
-      res.status(400).send(shell('حذف الحساب', explainBody(
-        '<p class="err">أدخل رقم جوال سعودي صحيح يبدأ بـ 05.</p>',
-      )));
+      res
+        .status(400)
+        .send(
+          shell(
+            'حذف الحساب',
+            explainBody(
+              '<p class="err">أدخل رقم جوال سعودي صحيح يبدأ بـ 05.</p>',
+            ),
+          ),
+        );
       return;
     }
 
-    const note = (dto.note ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 500);
+    const note = (dto.note ?? '')
+      .replace(/[\r\n]+/g, ' ')
+      .trim()
+      .slice(0, 500);
     const year = new Date().getUTCFullYear();
     const ticketNumber = `SRH-${year}-W${Date.now().toString(36).toUpperCase()}`;
 
@@ -188,15 +203,29 @@ export class DeleteAccountPageController {
         { err: err instanceof Error ? err.message : String(err) },
         'Web account-deletion request failed',
       );
-      res.status(500).send(shell('حذف الحساب', explainBody(
-        '<p class="err">تعذّر إرسال الطلب الآن. راسل sarh@sarhsa.online.</p>',
-      )));
+      res
+        .status(500)
+        .send(
+          shell(
+            'حذف الحساب',
+            explainBody(
+              '<p class="err">تعذّر إرسال الطلب الآن. راسل sarh@getsarh.com.</p>',
+            ),
+          ),
+        );
       return;
     }
 
     this.logger.info({ ticketNumber }, 'Web account-deletion request filed');
-    res.status(200).send(shell('حذف الحساب', explainBody(
-      `<p class="ok">تم استلام طلب الحذف برقم ${escapeHtml(ticketNumber)}. سيراجعه فريق سرح ولن يُحذف الحساب قبل التحقق.</p>`,
-    )));
+    res
+      .status(200)
+      .send(
+        shell(
+          'حذف الحساب',
+          explainBody(
+            `<p class="ok">تم استلام طلب الحذف برقم ${escapeHtml(ticketNumber)}. سيراجعه فريق سرح ولن يُحذف الحساب قبل التحقق.</p>`,
+          ),
+        ),
+      );
   }
 }

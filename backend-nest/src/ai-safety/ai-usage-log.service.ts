@@ -80,16 +80,19 @@ export class AiUsageLogService {
     }
   }
 
-  async outcomeCountsSince(
-    since: Date,
-  ): Promise<{ answered: number; escalated: number; fallback: number; error: number }> {
+  async outcomeCountsSince(since: Date): Promise<{
+    answered: number;
+    escalated: number;
+    fallback: number;
+    error: number;
+  }> {
     const empty = { answered: 0, escalated: 0, fallback: 0, error: 0 };
     const delegate = (
       this.prisma as unknown as {
         aiUsageLog?: {
-          groupBy: (args: unknown) => Promise<
-            Array<{ outcome: string; _count: { _all: number } }>
-          >;
+          groupBy: (
+            args: unknown,
+          ) => Promise<Array<{ outcome: string; _count: { _all: number } }>>;
         };
       }
     ).aiUsageLog;

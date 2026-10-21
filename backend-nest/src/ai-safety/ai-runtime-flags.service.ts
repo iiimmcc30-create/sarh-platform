@@ -110,14 +110,18 @@ export class AiRuntimeFlagsService {
     return false;
   }
 
-  private async persist(name: AiControlFlag, value: 'off' | null): Promise<void> {
+  private async persist(
+    name: AiControlFlag,
+    value: 'off' | null,
+  ): Promise<void> {
     if (process.env.REDIS_ENABLED === 'false' || !this.cache?.isEnabled()) {
       return;
     }
     try {
       const client = this.cache.getClient();
       if (client.status !== 'ready') return;
-      if (value === 'off') await client.set(key(name), 'off', 'EX', TTL_SECONDS);
+      if (value === 'off')
+        await client.set(key(name), 'off', 'EX', TTL_SECONDS);
       else await client.del(key(name));
     } catch {
       // The in-process switch still applies on this replica.

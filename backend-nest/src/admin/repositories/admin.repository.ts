@@ -14,6 +14,7 @@ import {
   collectAccountMediaUrls,
 } from '../../users/lib/account-anonymization';
 import { ADMIN_MEMBERSHIP_SELECT } from '../../subscriptions/verification/admin-membership';
+import { moneyToNumber, type MoneyInput } from '../../common/money';
 import { recomputeUserRatingCache } from '../../users/lib/review-stats';
 
 const USER_SELECT = {
@@ -864,8 +865,7 @@ export class AdminRepository {
       if (reports7.has(key)) reports7.set(key, (reports7.get(key) ?? 0) + 1);
     }
 
-    const money = (n: number | null | undefined) =>
-      Math.round((n ?? 0) * 100) / 100;
+    const money = (n: MoneyInput) => moneyToNumber(n);
 
     return {
       users: {
@@ -1098,13 +1098,13 @@ export class AdminRepository {
       const current = byUser.get(row.userId);
       if (current) {
         current.deletedUnpaidCount += 1;
-        current.outstandingTotal += row.commission;
+        current.outstandingTotal += moneyToNumber(row.commission);
         current.cases.push(row);
       } else {
         byUser.set(row.userId, {
           user: row.user,
           deletedUnpaidCount: 1,
-          outstandingTotal: row.commission,
+          outstandingTotal: moneyToNumber(row.commission),
           cases: [row],
         });
       }
