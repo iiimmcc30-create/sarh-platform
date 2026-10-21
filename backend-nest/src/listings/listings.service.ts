@@ -54,10 +54,7 @@ import { SubscriptionEntitlementService } from '../subscriptions/services/subscr
 import { PlanResolverService } from '../plans/plan-resolver.service';
 import { PlanPermissionService } from '../plans/plan-permission.service';
 import { notDeleted } from '../common/utils/soft-delete.util';
-import {
-  LISTING_PAGE_SIZE,
-  trimListingForList,
-} from './listing-list-payload';
+import { LISTING_PAGE_SIZE, trimListingForList } from './listing-list-payload';
 import {
   categoryRequiresWeight,
   resolveLegacyListingCategory,
@@ -524,7 +521,9 @@ export class ListingsService {
         ? sorted
         : interleavePromotedListings(sorted);
     const publicListings = ranked.map((item) =>
-      trimListingForList(sanitizeListingMedia(withEffectiveBoostState(item, now))),
+      trimListingForList(
+        sanitizeListingMedia(withEffectiveBoostState(item, now)),
+      ),
     );
 
     const result = { listings: publicListings, nextCursor, hasMore };
@@ -567,7 +566,9 @@ export class ListingsService {
     const now = new Date();
     return {
       listings: items.map((item) =>
-        trimListingForList(sanitizeListingMedia(withEffectiveBoostState(item, now))),
+        trimListingForList(
+          sanitizeListingMedia(withEffectiveBoostState(item, now)),
+        ),
       ),
       nextCursor,
       hasMore,

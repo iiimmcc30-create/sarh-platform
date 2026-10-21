@@ -47,7 +47,10 @@ export function trimListingForList<T>(listing: T): T {
   const next = { ...(listing as Record<string, unknown>) };
   for (const key of LIST_OMIT) delete next[key];
   next.description = clipText(next.description, LISTING_LIST_DESC_MAX);
-  next.arabicDescription = clipText(next.arabicDescription, LISTING_LIST_DESC_MAX);
+  next.arabicDescription = clipText(
+    next.arabicDescription,
+    LISTING_LIST_DESC_MAX,
+  );
   if (Array.isArray(next.images)) {
     next.images = next.images.slice(0, LISTING_LIST_IMAGE_MAX);
   }
@@ -56,7 +59,8 @@ export function trimListingForList<T>(listing: T): T {
     delete seller.subscription;
     next.seller = seller;
   }
-  if ('marketCategory' in next) next.marketCategory = trimCategory(next.marketCategory);
+  if ('marketCategory' in next)
+    next.marketCategory = trimCategory(next.marketCategory);
   if ('marketSubcategory' in next) {
     next.marketSubcategory = trimCategory(next.marketSubcategory);
   }

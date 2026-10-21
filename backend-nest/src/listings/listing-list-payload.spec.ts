@@ -34,7 +34,11 @@ describe('trimListingForList', () => {
   });
 
   it('is idempotent', () => {
-    const once = trimListingForList({ id: 'l1', description: 'hi', images: ['a'] });
+    const once = trimListingForList({
+      id: 'l1',
+      description: 'hi',
+      images: ['a'],
+    });
     expect(trimListingForList(once)).toEqual(once);
   });
 });

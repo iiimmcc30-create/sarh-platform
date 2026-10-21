@@ -204,9 +204,16 @@ export class DeleteAccountPageController {
         { err: err instanceof Error ? err.message : String(err) },
         'Web account-deletion request failed',
       );
-      res.status(500).send(shell('حذف الحساب', explainBody(
-        `<p class="err">تعذّر إرسال الطلب الآن. راسل ${SARH_OFFICIAL_EMAIL}.</p>`,
-      )));
+      res
+        .status(500)
+        .send(
+          shell(
+            'حذف الحساب',
+            explainBody(
+              `<p class="err">تعذّر إرسال الطلب الآن. راسل ${SARH_OFFICIAL_EMAIL}.</p>`,
+            ),
+          ),
+        );
       return;
     }
 

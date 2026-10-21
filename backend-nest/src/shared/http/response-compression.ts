@@ -116,7 +116,7 @@ export function responseCompression(
       chunks.push(
         Buffer.isBuffer(payload)
           ? payload
-          : Buffer.from(String(payload), typeof encodingArg === 'string' ? encodingArg : 'utf8'),
+          : Buffer.from(String(payload), typeof encodingArg === 'string' ? (encodingArg as BufferEncoding) : 'utf8'),
       );
     }
     const body = Buffer.concat(chunks);
