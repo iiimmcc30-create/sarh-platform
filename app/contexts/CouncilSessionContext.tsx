@@ -622,7 +622,12 @@ export function CouncilSessionProvider({ children }: { children: ReactNode }) {
         setArrival({ key: `${p.user.id}:${now}`, at: now, user: p.user, tier });
       },
       onEnded: () => setBlocked('ended'),
-      onUpdated: () => void refresh(),
+      onUpdated: () => {
+        // Golden toggled / grants changed: reload state AND the RTC token so the
+        // camera grant (canCamera + video profile) matches the server.
+        void refresh();
+        void audioRef.current.renew();
+      },
       onError: (p) => {
         if (p.code === 'council_ended') setBlocked('ended');
         else if (p.code === 'council_banned') setBlocked('banned');

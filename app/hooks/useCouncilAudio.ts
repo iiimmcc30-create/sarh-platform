@@ -575,6 +575,8 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
       setCameraOn(false);
       return true;
     }
+    // Token may predate the golden activation / going on stage: renew once and re-check.
+    if (!canCameraRef.current || !videoProfileRef.current) await renew();
     const profile = videoProfileRef.current;
     if (!canCameraRef.current || !profile) return false;
     if (!(await ensureCameraPermission())) return false;
@@ -593,7 +595,7 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
       setCameraOn(false);
       return false;
     }
-  }, []);
+  }, [renew]);
 
   /** Subscribe to stage cameras only while the room is on screen. */
   const setWatchVideo = useCallback((watch: boolean) => {

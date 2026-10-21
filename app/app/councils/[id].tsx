@@ -53,7 +53,6 @@ import {
   COUNCIL_WEB_TEXT,
   CouncilApiError,
   cancelSpeakRequest,
-  councilCameraMenu,
   councilCodeRequestMessage,
   councilErrorMessage,
   councilHandle,
@@ -290,7 +289,6 @@ export default function CouncilRoomScreen() {
       }
       const menu = [
         ...councilMemberMenu(s.me, { ...target, onStage }, s.isFull),
-        ...councilCameraMenu(s.me, s.council, { ...target, onStage }),
       ];
       const items: ActionSheetItem[] = [
         { key: 'profile', label: 'عرض الملف الشخصي', icon: 'person-outline' },
@@ -864,7 +862,7 @@ function createStyles(colors: ThemeColors) {
       borderTopColor: colors.borderSoft,
     },
     /** Equal side slots keep the round mic button centred. */
-    barSide: { width: 48, alignItems: 'center' },
+    barSide: { minWidth: 48, alignItems: 'center', justifyContent: 'center' },
     barCenter: { flex: 1, alignItems: 'center' },
     barIconOn: { borderColor: colors.electric },
     barIcon: {

@@ -35,15 +35,24 @@ describe('councilPublishFor (token / permission grants)', () => {
     expect(councilPublishFor(council(true), owner, false)).toBe('audio');
   });
 
-  it('golden: a speaker needs BOTH owner approval and verified-seller status', () => {
+  it('golden: every verified speaker on stage gets camera automatically (no manual grant)', () => {
     const g = council(true);
-    expect(councilPublishFor(g, speaker(), true)).toBe('audio');
-    expect(councilPublishFor(g, speaker({ cameraAllowed: true }), false)).toBe(
-      'audio',
-    );
+    expect(councilPublishFor(g, speaker(), true)).toBe('av');
     expect(councilPublishFor(g, speaker({ cameraAllowed: true }), true)).toBe(
       'av',
     );
+  });
+
+  it('golden: unverified speakers stay audio-only', () => {
+    const g = council(true);
+    expect(councilPublishFor(g, speaker(), false)).toBe('audio');
+    expect(councilPublishFor(g, speaker({ cameraAllowed: true }), false)).toBe(
+      'audio',
+    );
+  });
+
+  it('non-golden: verified speakers on stage stay audio-only', () => {
+    expect(councilPublishFor(council(false), speaker(), true)).toBe('audio');
   });
 
   it('listeners, banned and moderator-muted members never publish anything', () => {

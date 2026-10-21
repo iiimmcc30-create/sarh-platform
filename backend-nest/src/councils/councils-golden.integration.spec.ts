@@ -195,40 +195,18 @@ suite('Private councils + golden tier (real Postgres)', () => {
       ).toMatchObject({ status: 403, error: 'seller_not_verified' });
     });
 
-    it('speaker camera needs host approval AND verified seller status', async () => {
+    it('golden: verified speaker on stage gets camera automatically; unverified stays audio', async () => {
       const { id } = await open('owner');
       await admin.setGolden(staff(), id, true);
       await seat(id, 'vsp');
       await seat(id, 'usp');
-      // Not approved yet: audio only, even though verified.
       expect(
-        grants((await service.token(as('vsp'), id)).token).canPublishSources,
+        grants((await service.token(as('vsp'), id)).token).canPublishSources?.sort(),
+      ).toEqual(['camera', 'microphone']);
+      expect(
+        grants((await service.token(as('usp'), id)).token).canPublishSources,
       ).toEqual(['microphone']);
-      // Unverified speaker cannot be approved.
-      expect(
-        await apiError(() =>
-          service.memberAction(as('owner'), id, users.usp, 'allow_camera'),
-        ),
-      ).toMatchObject({ status: 409, error: 'seller_not_verified' });
-      // Only the host can approve.
-      expect(
-        await apiError(() =>
-          service.memberAction(as('vsp'), id, users.vsp, 'allow_camera'),
-        ),
-      ).toMatchObject({ status: 403 });
-      const out = await service.memberAction(
-        as('owner'),
-        id,
-        users.vsp,
-        'allow_camera',
-      );
-      expect(out.member.cameraAllowed).toBe(true);
-      const t = await service.token(as('vsp'), id);
-      expect(grants(t.token).canPublishSources?.sort()).toEqual([
-        'camera',
-        'microphone',
-      ]);
-      // Verification revoked after approval: the next token is audio-only again.
+      // Verification revoked: the next token is audio-only again.
       await prisma.user.update({
         where: { id: users.vsp },
         data: { verified: false },
@@ -240,20 +218,12 @@ suite('Private councils + golden tier (real Postgres)', () => {
         where: { id: users.vsp },
         data: { verified: true },
       });
-      // Demote then re-promote: approval does not survive leaving the stage.
-      await service.memberAction(as('owner'), id, users.vsp, 'demote');
-      await seat(id, 'vsp').catch(() => undefined);
-      const again = await prisma.councilMember.findFirst({
-        where: { councilId: id, userId: users.vsp },
-      });
-      expect(again?.cameraAllowed).toBe(false);
     });
 
     it('admin revoking golden strips camera approvals and the stage gallery', async () => {
       const { id } = await open('owner');
       await admin.setGolden(staff(), id, true);
       await seat(id, 'vsp');
-      await service.memberAction(as('owner'), id, users.vsp, 'allow_camera');
       await admin.setGolden(staff(), id, false);
       const m = await prisma.councilMember.findFirst({
         where: { councilId: id, userId: users.vsp },
