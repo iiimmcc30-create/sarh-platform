@@ -879,25 +879,6 @@ export function councilCodeRequestMessage(code: string | undefined): string {
     : 'تم إرسال طلبك إلى المضيف';
 }
 
-/**
- * Extra member-menu items for golden councils: the host approves / withdraws a speaker's
- * camera. Mirrors the server (golden + target on stage + owner only; the server also
- * requires the target to be a verified seller and answers 409 otherwise).
- */
-export function councilCameraMenu(
-  me: Pick<CouncilMe, 'userId' | 'permissions'>,
-  council: Pick<CouncilMeta, 'golden'>,
-  target: Pick<CouncilSpeaker, 'userId' | 'role'> & { onStage: boolean; cameraAllowed?: boolean },
-): CouncilMenuItem[] {
-  if (!council.golden || !me.permissions.isOwner) return [];
-  if (!target.onStage || target.userId === me.userId || target.role === 'OWNER') return [];
-  return [
-    target.cameraAllowed
-      ? { key: 'revoke_camera', label: 'إيقاف كاميرا المتحدث', icon: 'videocam-off' }
-      : { key: 'allow_camera', label: 'السماح بالكاميرا', icon: 'videocam-outline' },
-  ];
-}
-
 export type CouncilCameraOptions = {
   resolution: { width: number; height: number; frameRate: number };
   publish: {

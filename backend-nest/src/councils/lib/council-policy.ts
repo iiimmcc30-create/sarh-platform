@@ -177,8 +177,9 @@ export function isVerifiedSeller(
 
 /**
  * What a member may publish into the LiveKit room. Audio only for everyone on stage
- * (unmuted by moderator). The camera is added ONLY when ALL hold: the council is golden,
- * the member is a verified seller, and they are the owner or a speaker the owner allowed.
+ * (unmuted by moderator). The camera is added automatically when the council is golden
+ * and the member on stage (owner or approved speaker) is a verified seller — no
+ * per-speaker grant. Regular councils stay audio-only.
  * Screen share is never granted. Used for token grants and live permission updates.
  */
 export function councilPublishFor(
@@ -188,8 +189,7 @@ export function councilPublishFor(
 ): CouncilPublish {
   if (rtcRoleFor(member) !== 'publisher') return 'none';
   if (!council.golden || !verifiedSeller) return 'audio';
-  const isOwner = member!.userId === council.ownerId;
-  return isOwner || member!.cameraAllowed === true ? 'av' : 'audio';
+  return 'av';
 }
 
 /** Join codes: 4-16 letters/digits, compared case-insensitively. */

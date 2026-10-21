@@ -1,20 +1,13 @@
 import {
   CouncilApiError,
-  councilCameraMenu,
   councilCameraOptions,
   councilErrorMessage,
   councilGalleryLabel,
   councilNeedsCode,
   isValidCouncilJoinCode,
   normalizeCouncilJoinCode,
-  type CouncilMe,
   type CouncilVideoProfile,
 } from '@/services/councils';
-
-const perms = (isOwner: boolean) =>
-  ({ isOwner, isModerator: false }) as unknown as CouncilMe['permissions'];
-const host = { userId: 'host', permissions: perms(true) };
-const mod = { userId: 'mod', permissions: perms(false) };
 
 describe('private council join code (client helpers)', () => {
   it('normalizes case, spaces and dashes before sending', () => {
@@ -42,22 +35,6 @@ describe('private council join code (client helpers)', () => {
     expect(councilErrorMessage(e('council_code_locked'))).toContain('محاولات كثيرة');
     expect(councilErrorMessage(e('code_request_rate_limited'))).toContain('انتظر');
     expect(councilErrorMessage(e('seller_not_verified'))).toContain('الموثّقين');
-  });
-});
-
-describe('golden council camera menu (host approves speakers)', () => {
-  const golden = { golden: true };
-  const speaker = { userId: 's1', role: 'SPEAKER' as const, onStage: true };
-
-  it('offers allow / revoke only to the host, in golden councils, for speakers on stage', () => {
-    expect(councilCameraMenu(host, golden, speaker).map((i) => i.key)).toEqual(['allow_camera']);
-    expect(councilCameraMenu(host, golden, { ...speaker, cameraAllowed: true }).map((i) => i.key)).toEqual([
-      'revoke_camera',
-    ]);
-    expect(councilCameraMenu(host, { golden: false }, speaker)).toEqual([]);
-    expect(councilCameraMenu(mod, golden, speaker)).toEqual([]);
-    expect(councilCameraMenu(host, golden, { ...speaker, onStage: false })).toEqual([]);
-    expect(councilCameraMenu(host, golden, { ...speaker, userId: 'host', role: 'OWNER' })).toEqual([]);
   });
 });
 
