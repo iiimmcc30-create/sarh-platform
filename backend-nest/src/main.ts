@@ -47,6 +47,7 @@ async function bootstrap() {
     if (
       req.path === '/api/payments/webhook' ||
       req.path === '/api/integrations/ni/webhook' ||
+      req.path === '/api/livekit/webhook' ||
       req.path === '/api/upload/direct'
     )
       return next();

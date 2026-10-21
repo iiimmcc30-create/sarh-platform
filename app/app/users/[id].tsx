@@ -12,7 +12,6 @@ import {
   fetchUserProfile,
   getCachedUserProfile,
   hydrateUserProfileSnapshot,
-  rateUser,
   setFollowUser,
   setBlockUser,
   type PublicUserProfile,
@@ -31,7 +30,6 @@ import { ProfileRepostAttribution } from '@/components/feature/ProfileRepostAttr
 import { ProfileScreenLayout, type ProfileDisplayUser } from '@/components/feature/ProfileScreenLayout';
 import { useProfileActivity } from '@/hooks/useProfileActivity';
 import type { ProfileTabKey } from '@/lib/profileTabs';
-import { RatingModal } from '@/components/feature/RatingModal';
 import { requireAuth, sharePost, showPostMenu } from '@/lib/postInteractions';
 import { openPostDetail } from '@/lib/openPost';
 import { presentActionSheet, confirmDestructive, alertMessage } from '@/lib/actionSheet';
@@ -39,7 +37,7 @@ import { fetchMutedUsers, setMuteUser } from '@/services/userSettings';
 import { MEMBER_OF_MENU_ITEM, openMemberOfCollections } from '@/lib/profileCollectionsMenu';
 import { showToast } from '@/lib/toast';
 import { resolveProfileBack } from '@/lib/profileHeader';
-import { safeReplace } from '@/lib/safeNavigate';
+import { safePush, safeReplace } from '@/lib/safeNavigate';
 import { SHARE_ICON } from '@/lib/interactionActions';
 import { parseProfileLinks } from '@/lib/profileLinks';
 import { showAlert } from '@/lib/confirmDialog';
@@ -90,7 +88,6 @@ export default function UserProfileScreen() {
   /** Target whose posts + first listings page have settled (first-load skeletons until then). */
   const [extrasLoadedFor, setExtrasLoadedFor] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [ratingVisible, setRatingVisible] = useState(false);
   const {
     listings: userListings,
     hasMore,
@@ -554,11 +551,9 @@ export default function UserProfileScreen() {
         onFollow={handleFollow}
         onMessage={profile.allowPrivateMessages === false ? undefined : handleChat}
         onRatePress={() => {
-          if (!accessToken) {
-            showAlert('تسجيل الدخول', 'يجب تسجيل الدخول لتقييم الحساب');
-            return;
-          }
-          setRatingVisible(true);
+          const profileId = profile.id;
+          if (!profileId) return;
+          safePush({ pathname: '/users/reviews/[id]', params: { id: profileId } }, undefined, router);
         }}
         followLoading={followLoading}
         isFollowing={profile.isFollowing}
@@ -571,30 +566,6 @@ export default function UserProfileScreen() {
         repostsContent={profile.isBlocked ? null : renderReposts()}
         onTabChange={onTabChange}
         onAdsNearEnd={() => void loadNextPage()}
-      />
-
-      <RatingModal
-        visible={ratingVisible}
-        onClose={() => setRatingVisible(false)}
-        targetName={profile.arabicName || profile.displayName}
-        currentRating={profile.rating}
-        currentCount={profile.reviewCount}
-        myRating={profile.myRating ?? null}
-        onSubmit={async (rating) => {
-          const result = await rateUser(profile.id, rating);
-          if (!result) return false;
-          setProfile((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  rating: result.rating,
-                  reviewCount: result.reviewCount,
-                  myRating: result.myRating,
-                }
-              : prev,
-          );
-          return true;
-        }}
       />
     </>
   );

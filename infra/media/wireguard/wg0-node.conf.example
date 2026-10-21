@@ -1,0 +1,13 @@
+# WireGuard spoke = every other LiveKit / Egress node. /etc/wireguard/wg0.conf
+# Address must be unique per node (10.8.0.2, 10.8.0.3, ...).
+[Interface]
+Address = 10.8.0.2/32
+PrivateKey = <this node's private key>
+
+[Peer]
+# hub (Redis host)
+PublicKey = <hub public key>
+Endpoint = <hub public IPv4>:51820
+# Route ONLY the tunnel subnet: media/internet traffic never goes through the hub.
+AllowedIPs = 10.8.0.0/24
+PersistentKeepalive = 25

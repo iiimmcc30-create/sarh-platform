@@ -117,6 +117,7 @@ function RootNavigator() {
         <Stack.Screen name="search" />
         <Stack.Screen name="news" />
         <Stack.Screen name="users/[id]" />
+        <Stack.Screen name="users/reviews/[id]" />
         <Stack.Screen name="ministry/index" />
         <Stack.Screen name="ministry/services/[id]" />
         <Stack.Screen

@@ -1,4 +1,7 @@
-# Agora RTC Tokens
+# Agora RTC Tokens (fallback provider)
+
+> Sarh's default RTC provider is now self-hosted LiveKit (`docs/livekit.md`). Agora stays available
+> as a fallback with `RTC_PROVIDER=agora`; everything below applies to that mode only.
 
 ## 1. Business Purpose
 
@@ -141,3 +144,11 @@ No Agora-related BullMQ jobs.
 **90%**
 
 Official `agora-token` builder, role separation, env validation, and integration with livestream flows are production-standard. Ensure certificate rotation process and host token renewal UX for streams longer than 4 hours.
+
+## Fallback semantics
+
+`RTC_PROVIDER=agora` (backend env, read per request) switches **new** live/council sessions to
+Agora without an app update: responses carry `provider` and the app uses it; the Agora SDK is
+loadable by default (disable only with `EXPO_PUBLIC_AGORA_ENABLED=false`). Ongoing sessions are not
+migrated. LiveKit-only features (caps, HLS, webhook counts) do not apply under Agora.
+See `docs/livekit-scaling.md`.

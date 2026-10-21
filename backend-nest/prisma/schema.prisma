@@ -69,6 +69,7 @@ model User {
   activityTargets                     Activity[]                        @relation("ActivityTarget")
   reviewsReceived                     UserReview[]                      @relation("UserReviewsReceived")
   reviewsGiven                        UserReview[]                      @relation("UserReviewsGiven")
+  reviewsHidden                       UserReview[]                      @relation("UserReviewsHidden")
   following                           Follow[]                          @relation("Followers")
   followers                           Follow[]                          @relation("Following")
   blocksInitiated                     UserBlock[]                       @relation("BlocksInitiated")
@@ -113,6 +114,7 @@ model User {
   councilSpeakRequests                CouncilSpeakRequest[]             @relation("CouncilSpeakRequestUser")
   councilInvites                      CouncilInvite[]                   @relation("CouncilInviteUser")
   councilReminders                    CouncilReminder[]                 @relation("CouncilReminderUser")
+  councilCodeRequests                 CouncilCodeRequest[]              @relation("CouncilCodeRequestUser")
   profileViewsReceived                ProfileView[]                     @relation("ProfileViewsReceived")
   profileViewsGiven                   ProfileView[]                     @relation("ProfileViewsGiven")
   mutesInitiated                      UserMute[]                        @relation("MutesInitiated")
@@ -330,6 +332,15 @@ model Council {
   imageListingId       String?
   imageById            String?
   imageAt              DateTime?
+  /// Private councils: host-chosen join code (case-insensitive). Listed publicly, locked.
+  joinCode             String?
+  /// المجلس الذهبي: camera on stage + image gallery. Granted by an admin (payment later).
+  golden               Boolean               @default(false)
+  goldenGrantedAt      DateTime?
+  goldenGrantedById    String?
+  /// Golden stage gallery (our upload URLs); `imageUrl` always mirrors stageImages[stageIndex].
+  stageImages          String[]              @default([])
+  stageIndex           Int                   @default(0)
   createdAt            DateTime              @default(now())
   startedAt            DateTime              @default(now())
   endedAt              DateTime?
@@ -339,6 +350,7 @@ model Council {
   speakRequests        CouncilSpeakRequest[]
   invites              CouncilInvite[]
   reminders            CouncilReminder[]
+  codeRequests         CouncilCodeRequest[]
 
   @@index([ownerId, status])
   @@index([status, visibility, startedAt])
@@ -355,6 +367,8 @@ model CouncilMember {
   micMuted         Boolean           @default(true)
   /// Hard mute by the host/moderator: the speaker cannot unmute and gets no publish token.
   mutedByModerator Boolean           @default(false)
+  /// Golden councils: the owner allowed this speaker to publish their camera.
+  cameraAllowed    Boolean           @default(false)
   rulesAcceptedAt  DateTime?
   kickedUntil      DateTime?
   bannedAt         DateTime?
@@ -391,6 +405,8 @@ model CouncilInvite {
   councilId   String
   userId      String
   invitedById String
+  /// Consumed (deleted) when the invited user joins. Set for invites granted via a code request.
+  oneTime     Boolean  @default(false)
   createdAt   DateTime @default(now())
   council     Council  @relation(fields: [councilId], references: [id], onDelete: Cascade)
   user        User     @relation("CouncilInviteUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -410,6 +426,29 @@ model CouncilReminder {
 
   @@unique([councilId, userId])
   @@index([userId])
+}
+
+/// «طلب الرمز»: a user asks the host of a locked private council for the join code.
+model CouncilCodeRequest {
+  id          String                   @id @default(uuid())
+  councilId   String
+  userId      String
+  status      CouncilCodeRequestStatus @default(PENDING)
+  createdAt   DateTime                 @default(now())
+  decidedAt   DateTime?
+  decidedById String?
+  council     Council                  @relation(fields: [councilId], references: [id], onDelete: Cascade)
+  user        User                     @relation("CouncilCodeRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([councilId, userId])
+  @@index([councilId, status, createdAt])
+}
+
+enum CouncilCodeRequestStatus {
+  PENDING
+  INVITED
+  CODE_SENT
+  IGNORED
 }
 
 enum CouncilVisibility {
@@ -1073,6 +1112,7 @@ model LiveStream {
   streamKey   String        @unique @default(uuid())
   rtmpUrl     String?
   hlsUrl      String?
+  hlsEgressId String?
   isLive      Boolean       @default(false)
   viewers     Int           @default(0)
   peakViewers Int           @default(0)
@@ -1200,20 +1240,33 @@ model Activity {
   @@index([targetUserId])
 }
 
-// General account rating — any user can rate any other user's account once (editable).
+// One review per reviewer per target. Content (stars, purchase, recommendation,
+// comment, oath) is immutable after insert. Staff may only hide a review.
 model UserReview {
-  id         String   @id @default(uuid())
-  targetId   String
-  reviewerId String
-  rating     Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  target     User     @relation("UserReviewsReceived", fields: [targetId], references: [id])
-  reviewer   User     @relation("UserReviewsGiven", fields: [reviewerId], references: [id])
+  id             String    @id @default(uuid())
+  targetId       String
+  reviewerId     String
+  rating         Int
+  /// Empty for ratings migrated from the star-only model.
+  comment        String    @default("") @db.VarChar(1000)
+  purchased      Boolean   @default(false)
+  recommend      Boolean   @default(false)
+  /// Null on rows migrated from star-only ratings. Those rows count by stars.
+  oathAcceptedAt DateTime?
+  hiddenAt       DateTime?
+  hiddenReason   String?   @db.VarChar(500)
+  hiddenById     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  target         User      @relation("UserReviewsReceived", fields: [targetId], references: [id])
+  reviewer       User      @relation("UserReviewsGiven", fields: [reviewerId], references: [id])
+  hiddenBy       User?     @relation("UserReviewsHidden", fields: [hiddenById], references: [id])
 
   @@unique([targetId, reviewerId])
   @@index([targetId])
   @@index([reviewerId])
+  @@index([targetId, hiddenAt, createdAt])
+  @@index([hiddenAt])
 }
 
 enum Country {

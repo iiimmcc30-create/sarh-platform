@@ -162,6 +162,7 @@ describe('SocketGatewayService chat authorization', () => {
   });
 
   it('allows live:join when not blocked and increments viewers', async () => {
+    process.env.RTC_PROVIDER = 'agora';
     repo.findLiveStream = jest.fn().mockResolvedValue({
       id: 'stream-1',
       hostId: 'host',
@@ -191,6 +192,31 @@ describe('SocketGatewayService chat authorization', () => {
       'host',
     );
     expect(repo.incrementStreamViewers).toHaveBeenCalledWith('stream-1');
+    delete process.env.RTC_PROVIDER;
+  });
+
+  it('does not bump viewers on live:join when LiveKit webhooks own the count', async () => {
+    delete process.env.RTC_PROVIDER;
+    repo.findLiveStream = jest.fn().mockResolvedValue({
+      id: 'stream-1',
+      hostId: 'host',
+      viewers: 3,
+      likes: 1,
+      _count: { comments: 0 },
+    });
+    repo.incrementStreamViewers = jest.fn();
+    messagingPolicy.assertNotBlocked.mockResolvedValue(undefined);
+    emitService.emitToStream = jest.fn();
+
+    const result = await service.handleLiveJoin(
+      'stream-1',
+      user('viewer'),
+      jest.fn(),
+    );
+    expect(result).toEqual({
+      stats: { viewers: 3, likes: 1, commentsCount: 0 },
+    });
+    expect(repo.incrementStreamViewers).not.toHaveBeenCalled();
   });
 
   it('skips block check when the host joins their own stream', async () => {

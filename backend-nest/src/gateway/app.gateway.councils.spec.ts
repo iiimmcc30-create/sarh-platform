@@ -47,7 +47,7 @@ function setup() {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('AppGateway «المجالس» socket handlers', () => {
-  it('are raw listeners, not @SubscribeMessage (global HTTP guards break ws)', () => {
+  it('are raw listeners, not @SubscribeMessage (own per-socket rate budget)', () => {
     const proto = AppGateway.prototype as unknown as Record<string, object>;
     expect(Reflect.getMetadata(MESSAGE_METADATA, proto.onPresencePing)).toBe(
       'presence:ping',

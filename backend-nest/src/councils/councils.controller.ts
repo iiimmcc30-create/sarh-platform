@@ -18,6 +18,9 @@ import { successResponse } from '../common/utils/response.util';
 import type { JwtPayload } from '../common/types/jwt-payload.interface';
 import {
   CouncilAccessQueryDto,
+  CouncilCodeRequestResponseDto,
+  CouncilStageImagesDto,
+  CouncilStageStepDto,
   CouncilImageDto,
   CouncilListenersQueryDto,
   CouncilMemberActionDto,
@@ -108,9 +111,9 @@ export class CouncilsController {
   async detail(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
-    @Query() query: CouncilAccessQueryDto,
+    @Query() _query: CouncilAccessQueryDto,
   ) {
-    return successResponse(await this.councils.getState(user, id, query.code));
+    return successResponse(await this.councils.getState(user, id));
   }
 
   /** Participants grid: next page of off-stage participants. */
@@ -319,6 +322,74 @@ export class CouncilsController {
     @Body() dto: InviteCouncilUsersDto,
   ) {
     return successResponse(await this.councils.invite(user, id, dto.userIds));
+  }
+
+  @RateLimit('api')
+  @Post(':id/code-request')
+  @HttpCode(HttpStatus.OK)
+  async requestCode(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return successResponse(await this.councils.requestCode(user, id));
+  }
+
+  @RateLimit('api')
+  @Get(':id/code-requests')
+  async codeRequests(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return successResponse(await this.councils.codeRequests(user, id));
+  }
+
+  @RateLimit('api')
+  @Post(':id/code-requests/:userId/respond')
+  @HttpCode(HttpStatus.OK)
+  async respondCodeRequest(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() dto: CouncilCodeRequestResponseDto,
+  ) {
+    return successResponse(
+      await this.councils.respondCodeRequest(user, id, userId, dto.action),
+    );
+  }
+
+  /** Golden stage: present a set of images (host, verified seller). */
+  @RateLimit('api')
+  @Put(':id/stage/images')
+  @HttpCode(HttpStatus.OK)
+  async presentImages(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CouncilStageImagesDto,
+  ) {
+    return successResponse(
+      await this.councils.presentImages(user, id, dto.images),
+    );
+  }
+
+  @RateLimit('api')
+  @Post(':id/stage/images/step')
+  @HttpCode(HttpStatus.OK)
+  async stepImages(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CouncilStageStepDto,
+  ) {
+    return successResponse(await this.councils.stepImages(user, id, dto.dir));
+  }
+
+  @RateLimit('api')
+  @Post(':id/join-code/regenerate')
+  @HttpCode(HttpStatus.OK)
+  async regenerateJoinCode(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return successResponse(await this.councils.rotateInvite(user, id));
   }
 
   @RateLimit('api')

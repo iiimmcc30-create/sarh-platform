@@ -1,0 +1,26 @@
+# Caddy owns the certificates and the wss:// signalling vhost, but NOT public port 443:
+# nginx (sni-proxy) listens on 443 and forwards to Caddy's :8443 unless the SNI is the
+# TURN domain, which goes straight to LiveKit's TURN/TLS listener (5349).
+{
+	# Redirects would point at :8443; certificates are issued over HTTP-01 on port 80.
+	auto_https disable_redirects
+}
+
+{$RTC_DOMAIN}:8443 {
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+	reverse_proxy 127.0.0.1:7880
+}
+
+# Only here so Caddy obtains/renews the TURN certificate (cert-sync hands it to LiveKit).
+{$TURN_DOMAIN}:8443 {
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+	respond "ok" 200
+}

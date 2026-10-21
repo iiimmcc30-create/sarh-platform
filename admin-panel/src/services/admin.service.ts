@@ -174,6 +174,34 @@ export async function deleteReport(id: string) {
   return unwrap(res);
 }
 
+export type AdminReviewFilters = ListParams & {
+  status?: 'all' | 'visible' | 'hidden' | 'reported';
+};
+
+export async function fetchAdminReviews(params: AdminReviewFilters = {}) {
+  const res = await apiClient.get('/admin/reviews', {
+    params: cleanListParams(params),
+  });
+  return unwrap<Paginated<Record<string, unknown>>>(res);
+}
+
+export async function fetchAdminReview(id: string) {
+  const res = await apiClient.get(`/admin/reviews/${id}`);
+  return unwrap<{
+    review: Record<string, unknown>;
+    reports: Record<string, unknown>[];
+  }>(res);
+}
+
+/** Hide only. Reviews are never hard-deleted from the admin API. */
+export async function hideAdminReview(
+  id: string,
+  body: { reason: string; reportId: string },
+) {
+  const res = await apiClient.post(`/admin/reviews/${id}/hide`, body);
+  return unwrap(res);
+}
+
 export async function fetchLiveStreams(
   params: ListParams & { live?: string } = {},
 ) {
@@ -190,6 +218,49 @@ export async function stopLiveStream(id: string) {
 
 export async function deleteLiveStream(id: string) {
   const res = await apiClient.delete(`/admin/livestreams/${id}`);
+  return unwrap(res);
+}
+
+export type AdminCouncil = {
+  id: string;
+  name: string;
+  description: string | null;
+  visibility: "PUBLIC" | "PRIVATE";
+  status: "LIVE" | "ENDED" | "SCHEDULED";
+  golden: boolean;
+  goldenGrantedAt: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  owner: { id: string; username: string; arabicName?: string | null; displayName?: string | null; verified?: boolean };
+  membersCount: number;
+  presentNow: number;
+};
+
+export async function fetchAdminCouncils(params: {
+  status?: string;
+  golden?: string;
+  q?: string;
+  cursor?: string | null;
+} = {}) {
+  const query: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value.trim() !== "") query[key] = value.trim();
+  }
+  const res = await apiClient.get("/admin/councils", { params: query });
+  return unwrap<{
+    councils: AdminCouncil[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }>(res);
+}
+
+export async function setAdminCouncilGolden(id: string, golden: boolean) {
+  const res = await apiClient.patch(`/admin/councils/${id}/golden`, { golden });
+  return unwrap(res);
+}
+
+export async function closeAdminCouncil(id: string, reason?: string) {
+  const res = await apiClient.post(`/admin/councils/${id}/close`, { reason });
   return unwrap(res);
 }
 

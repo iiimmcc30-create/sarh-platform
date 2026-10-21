@@ -106,6 +106,26 @@ describe("admin feature API wiring — login to every section", () => {
     );
   });
 
+  it("reviews are hidden, never deleted", async () => {
+    (apiClient.get as jest.Mock).mockResolvedValueOnce(
+      ok({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 1 }),
+    );
+    await admin.fetchAdminReviews({ status: "reported" });
+    await admin.hideAdminReview("rev-1", {
+      reason: "تعليق مسيء",
+      reportId: "6d5f4c2a-1b2c-4d3e-8f90-aabbccddeeff",
+    });
+    expect(apiClient.get).toHaveBeenCalledWith(
+      "/admin/reviews",
+      expect.any(Object),
+    );
+    expect(apiClient.post).toHaveBeenCalledWith("/admin/reviews/rev-1/hide", {
+      reason: "تعليق مسيء",
+      reportId: "6d5f4c2a-1b2c-4d3e-8f90-aabbccddeeff",
+    });
+    expect(admin).not.toHaveProperty("deleteAdminReview");
+  });
+
   it("reports", async () => {
     (apiClient.get as jest.Mock)
       .mockResolvedValueOnce(

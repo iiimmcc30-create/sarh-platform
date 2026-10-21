@@ -2,6 +2,7 @@
 // Gated by its own flag (EXPO_PUBLIC_COUNCILS_ENABLED) so live streaming keeps its
 // own gating (`EXPO_PUBLIC_AGORA_ENABLED` in lib/agora.ts) untouched.
 import Constants from 'expo-constants';
+import { rtcProvider } from '@/lib/rtcProvider';
 
 type AgoraModule = typeof import('react-native-agora');
 
@@ -32,5 +33,8 @@ export function getCouncilAgoraModule(): AgoraModule | null {
 }
 
 export function isCouncilAudioAvailable(): boolean {
+  if (rtcProvider() === 'livekit') {
+    return Constants.appOwnership !== 'expo' && isCouncilsFeatureEnabled();
+  }
   return getCouncilAgoraModule() !== null;
 }

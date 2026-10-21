@@ -156,21 +156,56 @@ describe('§6–§16 Social: profile, follow, posts, notifications, ratings, blo
     expect([403, 404]).toContain(res.status);
   });
 
-  // ── Ratings (§13) ───────────────────────────────────────────
-  t('rate another user with a valid rating', async () => {
+  // ── Reviews (§13) ───────────────────────────────────────────
+  const reviewBody = {
+    rating: 5,
+    purchased: true,
+    recommend: true,
+    comment: 'تعامل ممتاز في الاختبار',
+    oathAccepted: true,
+  };
+
+  t('create a review then list it with counts', async () => {
     const res = await request(API)
-      .post(`/api/users/${b.id}/rate`)
+      .post(`/api/users/${b.id}/reviews`)
       .set(authHeader(a.accessToken))
-      .send({ rating: 5 });
+      .send(reviewBody);
     expect([200, 201]).toContain(res.status);
+
+    const list = await request(API)
+      .get(`/api/users/${b.id}/reviews`)
+      .set(authHeader(a.accessToken));
+    expect(list.status).toBe(200);
+    expect(list.body.data.positiveCount).toBeGreaterThanOrEqual(1);
+    expect(list.body.data.viewerHasReviewed).toBe(true);
   });
 
-  t('rating out of range → 400', async () => {
-    const res = await request(API)
-      .post(`/api/users/${b.id}/rate`)
+  t('a second review is rejected and cannot be edited', async () => {
+    const again = await request(API)
+      .post(`/api/users/${b.id}/reviews`)
       .set(authHeader(a.accessToken))
-      .send({ rating: 99 });
-    expect(res.status).toBe(400);
+      .send({ ...reviewBody, rating: 1, comment: 'محاولة تعديل' });
+    expect(again.status).toBe(409);
+
+    const patch = await request(API)
+      .patch(`/api/users/${b.id}/reviews/nope`)
+      .set(authHeader(a.accessToken))
+      .send(reviewBody);
+    expect(patch.status).toBe(404);
+  });
+
+  t('review without the oath or out of range → 400', async () => {
+    const oath = await request(API)
+      .post(`/api/users/${b.id}/reviews`)
+      .set(authHeader(a.accessToken))
+      .send({ ...reviewBody, oathAccepted: false });
+    expect(oath.status).toBe(400);
+
+    const range = await request(API)
+      .post(`/api/users/${b.id}/reviews`)
+      .set(authHeader(a.accessToken))
+      .send({ ...reviewBody, rating: 99 });
+    expect(range.status).toBe(400);
   });
 
   // ── Report (§16) ────────────────────────────────────────────

@@ -198,3 +198,27 @@ Live minute billing updates `Subscription` directly in `endStream` (usage tied t
 **83%**
 
 Full create/start/end API, Agora tokens, socket realtime, entitlement gating, and follower notifications are implemented. Needs production Agora credentials, dev-build distribution, and viewer-count hardening.
+
+
+## RTC provider (LiveKit / Agora)
+
+Create-stream and `?action=token` responses keep the Agora fields and add `provider`,
+`livekitUrl`, `livekitToken`, `livekitRoom` (unused side is `null`). Room = stream id without
+hyphens; host token publishes camera + mic, viewers are subscribe-only. With LiveKit the
+`POST /api/livekit/webhook` endpoint (signature verified) keeps `viewers` / `peakViewers`
+accurate from participant joined/left events and ends the stream on `room_finished`; the socket
+`live:join` / `live:leave` no longer change the count. Ending a stream deletes the LiveKit room and
+emits `live:ended` to the `stream:<id>` room (through the Redis bridge from the API process).
+See `docs/livekit.md`.
+
+### Viewer admission, HLS fallback
+`?action=token` for a viewer returns `mode: "webrtc"` (LiveKit/Agora credentials) or
+`mode: "hls"` (`hlsUrl`, `hlsLatencySeconds`), or `503` with `room_full | cluster_full |
+hls_preparing | hls_failed` and `details {hlsState, reason, retryAfterSeconds}`. Caps come from
+`LIVEKIT_MAX_VIEWERS_PER_ROOM`, `LIVEKIT_MAX_PARTICIPANTS_PER_NODE x LIVEKIT_NODE_COUNT`
+(env-driven, placeholders until load-tested). A viewer already in the room is never bounced.
+`hlsUrl` is only set once the backend has fetched the playlist and seen real segments.
+Host/admin: `POST ?action=hls-start|hls-stop`; anyone authed: `GET ?action=hls-status`.
+`LiveStream.hlsEgressId` tracks the egress job. The watch screen runs the client state machine
+(`app/lib/liveViewerMode.ts`): preparing, HLS with latency badge, failed + retry, waiting for a
+WebRTC slot. Chat/gifts/likes stay on sockets/REST. See `docs/livekit-scaling.md`.
