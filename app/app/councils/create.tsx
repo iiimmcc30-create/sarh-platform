@@ -1,6 +1,7 @@
 // «المجالس» — create a council, or edit its settings (owner) when `id` is passed.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, View, type SwitchProps } from 'react-native';
+import { councilsWebBlockedReason, isCouncilsWebBlocked } from '@/lib/councilsAgora';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -17,6 +18,7 @@ import {
   COUNCIL_NAME_MAX,
   COUNCIL_RULE_MAX,
   COUNCIL_RULES_MAX,
+  COUNCIL_WEB_AGORA_TEXT,
   COUNCIL_WEB_TEXT,
   COUNCIL_FOLLOWERS_ONLY_LABEL,
   CouncilApiError,
@@ -93,7 +95,7 @@ export default function CouncilFormScreen() {
   const slots = useMemo(() => councilScheduleSlots(scheduleDay), [scheduleDay]);
 
   useEffect(() => {
-    if (editId || Platform.OS === 'web') return;
+    if (editId || isCouncilsWebBlocked()) return;
     void fetchCouncilPerks()
       .then(setPerks)
       .catch(() => setPerks({ tier: null, canFollowersOnly: false, canSchedule: false }));
@@ -113,7 +115,7 @@ export default function CouncilFormScreen() {
   }, [router]);
 
   useEffect(() => {
-    if (!editId || Platform.OS === 'web') return;
+    if (!editId || isCouncilsWebBlocked()) return;
     void fetchCouncil(editId)
       .then((s) => {
         setName(s.council.name);
@@ -216,11 +218,11 @@ export default function CouncilFormScreen() {
     [styles, visibility],
   );
 
-  if (Platform.OS === 'web') {
+  if (isCouncilsWebBlocked()) {
     return (
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader variant="screen" title="المجالس" showBack />
-        <CouncilNotice title="المجالس في التطبيق" message={COUNCIL_WEB_TEXT} />
+        <CouncilNotice title="المجالس في التطبيق" message={councilsWebBlockedReason() === 'agora' ? COUNCIL_WEB_AGORA_TEXT : COUNCIL_WEB_TEXT} />
       </Screen>
     );
   }

@@ -6,6 +6,7 @@
 // which calls POST /councils/:id/token — the server re-reads my role from the DB, so a
 // demoted/muted/banned speaker cannot keep publishing by renewing.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import {
   DisconnectReason,
   Room,
@@ -13,6 +14,7 @@ import {
   ConnectionState,
   Track,
   VideoPreset,
+  type RemoteTrack,
   type RemoteTrackPublication,
   type VideoTrack,
 } from 'livekit-client';
@@ -55,6 +57,47 @@ function collectVideoTracks(room: Room): CouncilVideoTrack[] {
   return out;
 }
 
+const IS_WEB = Platform.OS === 'web';
+
+/**
+ * Web only: livekit-client does not play remote audio by itself in a browser — each remote
+ * audio track must be attached to an <audio> element in the DOM. Elements are hidden and
+ * keyed by track sid so they can be removed on unsubscribe / disconnect / leave.
+ */
+export function attachWebAudioTrack(track: RemoteTrack, els: Map<string, HTMLMediaElement>): void {
+  if (!IS_WEB || track.kind !== Track.Kind.Audio || typeof document === 'undefined') return;
+  const key = track.sid ?? String(els.size);
+  if (els.has(key)) return;
+  const el = track.attach();
+  el.style.display = 'none';
+  el.setAttribute('data-council-audio', key);
+  document.body.appendChild(el);
+  els.set(key, el);
+}
+
+export function detachWebAudioTrack(track: RemoteTrack, els: Map<string, HTMLMediaElement>): void {
+  if (!IS_WEB || track.kind !== Track.Kind.Audio) return;
+  const key = track.sid ?? '';
+  track.detach().forEach((el) => el.remove());
+  const el = els.get(key);
+  if (el) {
+    el.remove();
+    els.delete(key);
+  }
+}
+
+export function detachAllWebAudio(els: Map<string, HTMLMediaElement>): void {
+  els.forEach((el) => {
+    try {
+      (el as HTMLMediaElement & { srcObject: MediaStream | null }).srcObject = null;
+    } catch {
+      // ignore
+    }
+    el.remove();
+  });
+  els.clear();
+}
+
 export type CouncilAudioStatus =
   | 'idle'
   | 'connecting'
@@ -91,6 +134,9 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
   const [speakingIdentities, setSpeakingIdentities] = useState<string[]>([]);
   const [videoTracks, setVideoTracks] = useState<CouncilVideoTrack[]>([]);
   const [cameraOn, setCameraOn] = useState(false);
+  /** Web: false while the browser blocks autoplay — show «اضغط لتشغيل الصوت» → startAudio(). */
+  const [canPlaybackAudio, setCanPlaybackAudio] = useState(true);
+  const webAudioEls = useRef(new Map<string, HTMLMediaElement>());
 
   const engineRef = useRef<Engine | null>(null);
   const roomRef = useRef<Room | null>(null);
@@ -233,6 +279,10 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
       room.removeAllListeners();
       void room.disconnect();
     }
+    if (IS_WEB) {
+      detachAllWebAudio(webAudioEls.current);
+      setCanPlaybackAudio(true);
+    }
     const engine = engineRef.current;
     engineRef.current = null;
     publisherRef.current = false;
@@ -326,6 +376,12 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
         room.on(RoomEvent.TrackPublished, (pub) => applyWatch(pub));
         room.on(RoomEvent.TrackSubscribed, syncVideo);
         room.on(RoomEvent.TrackUnsubscribed, syncVideo);
+        if (IS_WEB) {
+          room.on(RoomEvent.TrackSubscribed, (track) => attachWebAudioTrack(track, webAudioEls.current));
+          room.on(RoomEvent.TrackUnsubscribed, (track) => detachWebAudioTrack(track, webAudioEls.current));
+          room.on(RoomEvent.AudioPlaybackStatusChanged, () => setCanPlaybackAudio(room.canPlaybackAudio));
+          room.on(RoomEvent.Disconnected, () => detachAllWebAudio(webAudioEls.current));
+        }
         room.on(RoomEvent.TrackMuted, syncVideo);
         room.on(RoomEvent.TrackUnmuted, syncVideo);
         room.on(RoomEvent.LocalTrackPublished, syncVideo);
@@ -337,6 +393,14 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
             p.trackPublications.forEach((pub) => applyWatch(pub as RemoteTrackPublication)),
           );
           await room.startAudio().catch(() => undefined);
+          if (IS_WEB) {
+            room.remoteParticipants.forEach((p) =>
+              p.audioTrackPublications.forEach((pub) => {
+                if (pub.track) attachWebAudioTrack(pub.track as RemoteTrack, webAudioEls.current);
+              }),
+            );
+            setCanPlaybackAudio(room.canPlaybackAudio);
+          }
           publisherRef.current = publisher;
           mutedRef.current = !publisher || micMuted;
           if (publisher) {
@@ -569,12 +633,26 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
 
   useEffect(() => () => teardown(), [teardown]);
 
+  /** Web: must run from a user gesture (button press) to unlock browser autoplay. */
+  const startAudioPlayback = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room) return;
+    try {
+      await room.startAudio();
+    } catch {
+      // still blocked
+    }
+    setCanPlaybackAudio(room.canPlaybackAudio);
+  }, []);
+
   return {
     status,
     speakingUids,
     speakingIdentities,
     videoTracks,
     cameraOn,
+    canPlaybackAudio,
+    startAudioPlayback,
     setCamera,
     setWatchVideo,
     start,

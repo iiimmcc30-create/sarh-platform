@@ -1,13 +1,14 @@
 // «المجالس» invite link: /councils/join/<code> → resolves the council and opens the room.
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { councilsWebBlockedReason, isCouncilsWebBlocked } from '@/lib/councilsAgora';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CouncilNotice } from '@/components/councils/CouncilNotice';
 import { Screen } from '@/design-system/layout';
 import { useTheme } from '@/hooks/useTheme';
 import { safeReplace } from '@/lib/safeNavigate';
-import { COUNCIL_WEB_TEXT, councilErrorMessage, resolveCouncilInvite } from '@/services/councils';
+import { COUNCIL_WEB_AGORA_TEXT, COUNCIL_WEB_TEXT, councilErrorMessage, resolveCouncilInvite } from '@/services/councils';
 
 export default function CouncilInviteScreen() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function CouncilInviteScreen() {
   const error = validCode ? resolveError : 'رابط الدعوة غير صالح';
 
   useEffect(() => {
-    if (Platform.OS === 'web' || !validCode) return;
+    if (isCouncilsWebBlocked() || !validCode) return;
     void resolveCouncilInvite(code)
       .then((r) =>
         safeReplace({ pathname: '/councils/[id]', params: { id: r.councilId, code: r.code } }, undefined, router),
@@ -30,8 +31,8 @@ export default function CouncilInviteScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       <ScreenHeader variant="screen" title="دعوة إلى مجلس" showBack />
-      {Platform.OS === 'web' ? (
-        <CouncilNotice title="المجالس في التطبيق" message={COUNCIL_WEB_TEXT} />
+      {isCouncilsWebBlocked() ? (
+        <CouncilNotice title="المجالس في التطبيق" message={councilsWebBlockedReason() === 'agora' ? COUNCIL_WEB_AGORA_TEXT : COUNCIL_WEB_TEXT} />
       ) : error ? (
         <CouncilNotice
           icon="lock-closed-outline"

@@ -22,6 +22,10 @@ export const COUNCIL_ENDED_TEXT = 'انتهى المجلس';
 export const COUNCIL_BANNED_TEXT = 'تم حظرك من هذا المجلس';
 export const COUNCIL_KICKED_TEXT = 'تمت إزالتك من المجلس';
 export const COUNCIL_WEB_TEXT = 'المجالس متاحة في تطبيق سرح على الجوال';
+/** Web build with the Agora provider: browser audio is impossible, councils need the app. */
+export const COUNCIL_WEB_AGORA_TEXT = 'المجالس الصوتية على المتصفح غير متاحة حالياً — افتح المجلس من تطبيق سرح على الجوال';
+/** Browser blocked autoplay: one tap is needed before remote audio can play. */
+export const COUNCIL_TAP_TO_PLAY_TEXT = 'اضغط لتشغيل الصوت';
 export const COUNCIL_AUDIO_UNAVAILABLE_TEXT = 'الصوت غير متاح حالياً، حاول لاحقاً';
 export const COUNCIL_LIVE_BUSY_TEXT = 'أغلق البث المباشر أولاً للاستماع إلى المجلس';
 export const COUNCILS_EMPTY_TEXT = 'لا توجد مجالس مباشرة الآن';
