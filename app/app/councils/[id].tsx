@@ -31,7 +31,7 @@ import { Row, Screen, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { confirmDestructive, presentActionSheet, type ActionSheetItem } from '@/lib/actionSheet';
-import { isCouncilAudioAvailable } from '@/lib/councilsAgora';
+import { councilsWebBlockedReason, isCouncilAudioAvailable, isCouncilsWebBlocked } from '@/lib/councilsAgora';
 import { openUserProfile } from '@/lib/openUserProfile';
 import { safePush } from '@/lib/safeNavigate';
 import { subscriberTierOf } from '@/lib/subscriberTier';
@@ -48,6 +48,8 @@ import {
   COUNCIL_KICKED_TEXT,
   COUNCIL_LIVE_BUSY_TEXT,
   COUNCIL_SHOW_IMAGE_LABEL,
+  COUNCIL_TAP_TO_PLAY_TEXT,
+  COUNCIL_WEB_AGORA_TEXT,
   COUNCIL_WEB_TEXT,
   CouncilApiError,
   cancelSpeakRequest,
@@ -157,7 +159,7 @@ export default function CouncilRoomScreen() {
   // Focus only toggles the mini player; blur never stops audio (minimise = keep listening).
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS === 'web' || !id) return undefined;
+      if (isCouncilsWebBlocked() || !id) return undefined;
       session.setRoomFocused(true);
       focusedRef.current = true;
       void enter();
@@ -442,11 +444,11 @@ export default function CouncilRoomScreen() {
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
-  if (Platform.OS === 'web') {
+  if (isCouncilsWebBlocked()) {
     return (
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader variant="screen" title="المجالس" showBack />
-        <CouncilNotice title="المجالس في التطبيق" message={COUNCIL_WEB_TEXT} />
+        <CouncilNotice title="المجالس في التطبيق" message={councilsWebBlockedReason() === 'agora' ? COUNCIL_WEB_AGORA_TEXT : COUNCIL_WEB_TEXT} />
       </Screen>
     );
   }
@@ -617,6 +619,21 @@ export default function CouncilRoomScreen() {
                   </Pressable>
                 ) : null}
               </Row>
+            ) : null}
+            {Platform.OS === 'web' && !audio.canPlaybackAudio ? (
+              <Pressable
+                onPress={() => void audio.startAudioPlayback()}
+                accessibilityRole="button"
+                accessibilityLabel={COUNCIL_TAP_TO_PLAY_TEXT}
+                style={styles.notice}
+              >
+                <Row gap="sm" align="center">
+                  <AppIcon name="volume-high-outline" size={16} color={colors.textPrimary} />
+                  <AppText variant="caption" color="textPrimary">
+                    {COUNCIL_TAP_TO_PLAY_TEXT}
+                  </AppText>
+                </Row>
+              </Pressable>
             ) : null}
             <CouncilVideoStage tracks={audio.videoTracks} participants={session.participants} />
             {state.image ? (

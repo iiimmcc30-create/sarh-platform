@@ -38,3 +38,12 @@ export function isCouncilAudioAvailable(): boolean {
   }
   return getCouncilAgoraModule() !== null;
 }
+
+/** Web-only gate (see councilsAgora.web.ts); native builds never block council routes. */
+export function isCouncilsWebBlocked(): boolean {
+  return false;
+}
+
+export function councilsWebBlockedReason(): 'agora' | 'disabled' | null {
+  return null;
+}

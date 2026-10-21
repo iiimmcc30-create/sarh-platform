@@ -1,6 +1,7 @@
 // «المجالس» — live voice councils: my council, private invitations, public list.
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { councilsWebBlockedReason, isCouncilsWebBlocked } from '@/lib/councilsAgora';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -25,6 +26,7 @@ import { sortCouncilsByHostTier } from '@/lib/subscriberTier';
 import { safePush } from '@/lib/safeNavigate';
 import { showToast } from '@/lib/toast';
 import {
+  COUNCIL_WEB_AGORA_TEXT,
   COUNCIL_WEB_TEXT,
   COUNCILS_EMPTY_TEXT,
   COUNCILS_UPCOMING_TITLE,
@@ -89,7 +91,7 @@ export default function CouncilsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS !== 'web') void load();
+      if (!isCouncilsWebBlocked()) void load();
     }, [load]),
   );
 
@@ -153,11 +155,11 @@ export default function CouncilsScreen() {
     [load, router, upcomingBusy],
   );
 
-  if (Platform.OS === 'web') {
+  if (isCouncilsWebBlocked()) {
     return (
       <Screen edges={['top', 'bottom']}>
         <ScreenHeader variant="screen" title="المجالس" showBack />
-        <CouncilNotice title="المجالس في التطبيق" message={COUNCIL_WEB_TEXT} />
+        <CouncilNotice title="المجالس في التطبيق" message={councilsWebBlockedReason() === 'agora' ? COUNCIL_WEB_AGORA_TEXT : COUNCIL_WEB_TEXT} />
       </Screen>
     );
   }
