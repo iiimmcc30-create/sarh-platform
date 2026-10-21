@@ -2,7 +2,7 @@
 # Deploy cbf0d12 (PRs #5 #6/#7 #8 #10 #11). Pattern copied from /root/deploy-councils.sh.
 set -euo pipefail
 cd /opt/sarh
-TARGET=aac6dbe
+TARGET=4d47b88
 TAG=20261021
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 PREV="$(git rev-parse --short HEAD)"
