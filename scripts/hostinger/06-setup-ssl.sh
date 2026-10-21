@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="${SARH_ROOT:-/opt/sarh}"
 cd "$ROOT"
 DOMAIN="${DOMAIN:-sarhsa.online}"
-EMAIL="${SSL_EMAIL:-admin@sarhsa.online}"
+EMAIL="${SSL_EMAIL:-sarh@getsarh.com}"
 
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 COMPOSE_SSL=(docker compose -f docker-compose.prod.yml -f docker-compose.prod.ssl.yml --env-file .env.production)

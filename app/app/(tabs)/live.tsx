@@ -1,4 +1,5 @@
 import { SarhChip, SarhChipRow } from '@/design-system/components';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 // Powered by OnSpace.AI
 // SAFAT — Live Tab (البث المباشر)
 import { AppIcon } from '@/components/ui/FlaticonIcon';
@@ -27,7 +28,7 @@ import { LiveStreamItem } from '@/components/feature/LiveStreamItem';
 import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import type { LiveStream } from '@/services/types';
 import { marginAutoStart } from '@/lib/rtl';
-import { avatarUrl } from '@/lib/listingMedia';
+import { avatarUrl, cloudinaryFitUrl } from '@/lib/listingMedia';
 
 const LIVE_CATEGORIES = ['الكل', 'إبل', 'خيول', 'أغنام', 'صقور', 'معز'] as const;
 const LIVE_CAT_MAP: Record<string, string> = {
@@ -58,7 +59,7 @@ export default function LiveScreen() {
     }
     try {
       const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-      const res = await fetch(`${API_BASE}/api/livestreams`, { headers });
+      const res = await fetchWithTimeout(`${API_BASE}/api/livestreams`, { headers });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -137,7 +138,7 @@ export default function LiveScreen() {
         {featured ? (
           <Pressable style={styles.featured} onPress={() => openWatch(featured.id)}>
             <Image
-              source={uriSource(featured.thumbnail)}
+              source={uriSource(cloudinaryFitUrl(featured.thumbnail, 'wide'))}
               style={styles.featuredImg}
               contentFit="cover"
               transition={150}

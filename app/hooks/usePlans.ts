@@ -8,13 +8,14 @@ import {
   type SubscriptionPlan,
 } from '@/services/subscriptionPlans';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 export function usePlans(audience: PlanAudience = 'USER') {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([EMPTY_PLAN]);
   const [loading, setLoading] = useState(true);
 
   const fetchPlans = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/plans?audience=${audience}`);
+      const res = await fetchWithTimeout(`${API_BASE}/api/plans?audience=${audience}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data?.plans)) {

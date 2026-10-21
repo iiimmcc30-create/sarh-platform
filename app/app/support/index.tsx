@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { FaqAnswerList } from '@/components/support/FaqAnswerList';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { radius, spacing } from '@/constants/theme';
 import { SUPPORT_CUSTOMER_SERVICE } from '@/constants/supportIdentity';
+import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 import { motion } from '@/design-system';
 import {
   AppText,
@@ -239,6 +240,15 @@ export default function SupportHubScreen() {
             title="بلاغاتي"
             showDivider={false}
             onPress={() => router.push(MY_REPORTS_ROUTE as never)}
+          />
+        </SarhSettingsSection>
+
+        <SarhSettingsSection title="تواصل معنا">
+          <SarhSettingsRow
+            icon="mail-outline"
+            title={SARH_OFFICIAL_EMAIL}
+            showDivider={false}
+            onPress={() => void Linking.openURL(`mailto:${SARH_OFFICIAL_EMAIL}`)}
           />
         </SarhSettingsSection>
 

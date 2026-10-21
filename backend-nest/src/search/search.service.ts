@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { notDeleted } from '../common/utils/soft-delete.util';
 import { rankByEffectiveBoost } from '../listings/boost/boost-effective-state';
+import { trimListingForList } from '../listings/listing-list-payload';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
 import {
   applyAntiDomination,
@@ -156,7 +157,7 @@ export class SearchRepository {
       take,
     });
     // Pinned/Featured by effective state (expired boosts rank as regular).
-    return rankByEffectiveBoost(rows);
+    return rankByEffectiveBoost(rows).map((row) => trimListingForList(row));
   }
 
   findExploreNews(take: number) {

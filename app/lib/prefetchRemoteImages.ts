@@ -1,7 +1,6 @@
 import { Image } from 'expo-image';
 import { InteractionManager } from 'react-native';
 import { resolveMediaUrl } from '@/services/media';
-
 /** Warm expo-image disk/memory cache after first paint — no UI. */
 export function prefetchRemoteImages(
   uris: Array<string | undefined | null>,

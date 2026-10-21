@@ -2,6 +2,7 @@ import { Controller, Get, Header, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public, RateLimit } from '../common/decorators/auth.decorators';
 import { ContentService } from './content.service';
+import { SARH_OFFICIAL_EMAIL } from './official-contact';
 
 function escapeHtml(value: string): string {
   return value
@@ -90,7 +91,7 @@ export class PrivacyPageController {
 <body>
   <main>
     <h1>${escapeHtml(title)}</h1>
-    <p class="meta">منصة سرح · <a href="https://getsarh.com">getsarh.com</a> · للتواصل: sarh@sarhsa.online</p>
+    <p class="meta">منصة سرح · <a href="https://getsarh.com">getsarh.com</a> · للتواصل: ${SARH_OFFICIAL_EMAIL}</p>
     ${markdownLiteToHtml(bodyAr)}
   </main>
 </body>

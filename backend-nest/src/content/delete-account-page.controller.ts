@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { Public, RateLimit } from '../common/decorators/auth.decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoggerService } from '../common/services/logger.service';
+import { SARH_OFFICIAL_EMAIL } from './official-contact';
 
 function escapeHtml(value: string): string {
   return value
@@ -97,7 +98,7 @@ function explainBody(banner = ''): string {
       </div>
       <button type="submit">إرسال طلب الحذف</button>
     </form>
-    <p class="hint">أو راسلنا على <a href="mailto:sarh@getsarh.com">sarh@getsarh.com</a> من بريدك مع رقم الجوال.</p>
+    <p class="hint">أو راسلنا على <a href="mailto:${SARH_OFFICIAL_EMAIL}">${SARH_OFFICIAL_EMAIL}</a> من بريدك مع رقم الجوال.</p>
     <h2>ما يُحذف عند تنفيذ الطلب</h2>
     <ul>
       <li>بيانات الحساب الظاهرة: الاسم، اسم المستخدم، الجوال، البريد، الصورة، الغلاف، والنبذة — تُمسح من الصف فوراً.</li>
@@ -209,7 +210,7 @@ export class DeleteAccountPageController {
           shell(
             'حذف الحساب',
             explainBody(
-              '<p class="err">تعذّر إرسال الطلب الآن. راسل sarh@getsarh.com.</p>',
+              `<p class="err">تعذّر إرسال الطلب الآن. راسل ${SARH_OFFICIAL_EMAIL}.</p>`,
             ),
           ),
         );

@@ -20,6 +20,7 @@ import { useAuth } from './AuthContext';
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 interface SubscriptionState {
   id: string | null;
   planSlug: string;
@@ -69,7 +70,7 @@ async function fetchPlanCatalog(audience: 'USER'): Promise<SubscriptionPlan[]> {
   if (cached && now - cached.fetchedAt < PLAN_CATALOG_TTL_MS) {
     return cached.plans;
   }
-  const plansRes = await fetch(`${API_BASE}/api/plans?audience=${audience}`);
+  const plansRes = await fetchWithTimeout(`${API_BASE}/api/plans?audience=${audience}`);
   if (!plansRes.ok) return cached?.plans ?? [];
   const plansJson = await plansRes.json();
   if (!plansJson.success || !Array.isArray(plansJson.data?.plans)) {

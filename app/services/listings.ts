@@ -5,6 +5,7 @@ import { fetchPublicFeed } from './fetchPublicFeed';
 import { shouldReuseFreshResult } from './requestCoordination';
 import { countries, type Listing, type Country } from './types';
 import { managedSeller, isManagedListing } from '@/lib/managedListing';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 type BackendListing = {
   id: string;
@@ -374,7 +375,7 @@ export async function fetchListingById(listingId: string): Promise<Listing | nul
   const id = String(listingId ?? '').trim();
   if (!id) return null;
   try {
-    const res = await fetch(`${API_BASE}/api/listings/${encodeURIComponent(id)}`);
+    const res = await fetchWithTimeout(`${API_BASE}/api/listings/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
     const json = await res.json();
     if (!json?.success || !json.data) return null;

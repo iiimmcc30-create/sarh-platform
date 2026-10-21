@@ -1,5 +1,6 @@
 import { formatRelativeTimeAr } from '@/lib/formatRelativeTime';
 import type { PostComment } from '@/services/types';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type ListingCommentsFetchResult = {
   comments: PostComment[];
@@ -137,7 +138,7 @@ export async function fetchListingComments(
   const promise = (async (): Promise<ListingCommentsFetchResult> => {
     try {
       const { API_BASE } = await import('@/services/api');
-      const res = await fetch(`${API_BASE}/api/listings/${encodeURIComponent(id)}/comments`);
+      const res = await fetchWithTimeout(`${API_BASE}/api/listings/${encodeURIComponent(id)}/comments`);
       const json = await res.json().catch(() => ({}));
 
       if (res.ok && json.success) {

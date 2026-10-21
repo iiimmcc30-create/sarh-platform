@@ -21,6 +21,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { motion } from '@/design-system';
 import { AppText, SarhCard, SarhDivider } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Section, Stack } from '@/design-system/layout';
+import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
 const PURPOSE = [
   { title: 'رسالتنا', content: BRAND_MISSION_AR },

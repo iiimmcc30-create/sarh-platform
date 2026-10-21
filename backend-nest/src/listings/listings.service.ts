@@ -54,6 +54,7 @@ import { SubscriptionEntitlementService } from '../subscriptions/services/subscr
 import { PlanResolverService } from '../plans/plan-resolver.service';
 import { PlanPermissionService } from '../plans/plan-permission.service';
 import { notDeleted } from '../common/utils/soft-delete.util';
+import { LISTING_PAGE_SIZE, trimListingForList } from './listing-list-payload';
 import {
   categoryRequiresWeight,
   resolveLegacyListingCategory,
@@ -78,7 +79,7 @@ import {
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { filterBlockedComments } from '../users/lib/block-filter';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LISTING_PAGE_SIZE;
 /** Radius mode scans the geo keyset in batches and filters each batch with Prisma. */
 const NEARBY_SCAN_BATCH = 100;
 const NEARBY_MAX_SCAN_BATCHES = 10;
@@ -252,10 +253,10 @@ export class ListingsService {
       .map((r) => {
         const row = byId.get(r.id);
         if (!row) return null;
-        return {
+        return trimListingForList({
           ...sanitizeListingMedia(withEffectiveBoostState(row, now)),
           distanceKm: roundDistanceKm(r.distanceKm),
-        };
+        });
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
     return { listings, nextCursor, hasMore, radiusKm };
@@ -387,8 +388,10 @@ export class ListingsService {
         return {
           ...cached,
           listings: cached.listings.map((item) =>
-            sanitizeListingMedia(
-              withEffectiveBoostState((item ?? {}) as BoostFlagFields),
+            trimListingForList(
+              sanitizeListingMedia(
+                withEffectiveBoostState((item ?? {}) as BoostFlagFields),
+              ),
             ),
           ),
         };
@@ -518,7 +521,9 @@ export class ListingsService {
         ? sorted
         : interleavePromotedListings(sorted);
     const publicListings = ranked.map((item) =>
-      sanitizeListingMedia(withEffectiveBoostState(item, now)),
+      trimListingForList(
+        sanitizeListingMedia(withEffectiveBoostState(item, now)),
+      ),
     );
 
     const result = { listings: publicListings, nextCursor, hasMore };
@@ -561,7 +566,9 @@ export class ListingsService {
     const now = new Date();
     return {
       listings: items.map((item) =>
-        sanitizeListingMedia(withEffectiveBoostState(item, now)),
+        trimListingForList(
+          sanitizeListingMedia(withEffectiveBoostState(item, now)),
+        ),
       ),
       nextCursor,
       hasMore,

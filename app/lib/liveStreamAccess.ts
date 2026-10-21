@@ -2,6 +2,7 @@ import type { Router } from 'expo-router';
 import { navigateToCreateListing } from '@/lib/navigateToCreateListing';
 import { API_BASE } from '@/services/api';
 import { showAlert } from '@/lib/confirmDialog';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 import { isLiveBroadcastEnabled } from '@/lib/rtcProvider';
 
 export type LiveStreamEligibility = {
@@ -22,7 +23,7 @@ export async function fetchLiveStreamEligibility(
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/livestreams/eligibility`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/livestreams/eligibility`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const json = await res.json().catch(() => ({}));

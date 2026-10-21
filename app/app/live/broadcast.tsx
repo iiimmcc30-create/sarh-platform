@@ -16,6 +16,7 @@ import { useLiveStream } from '@/hooks/useLiveStream';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { showAlert } from '@/lib/confirmDialog';
 import { API_BASE } from '@/services/api';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 type Params = {
   streamId?: string;
@@ -52,7 +53,7 @@ export default function BroadcastScreen() {
 
   const api = useCallback(
     (action: 'start' | 'end') =>
-      fetch(`${API_BASE}/api/livestreams/${streamId}?action=${action}`, {
+      fetchWithTimeout(`${API_BASE}/api/livestreams/${streamId}?action=${action}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` },
       }),

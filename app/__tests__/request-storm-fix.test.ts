@@ -124,7 +124,7 @@ describe('request storm coordination', () => {
   });
 
   it('fetchPublicFeed dedupes concurrent GETs for the same URL', async () => {
-    expect(FEED_TIMEOUT_MS).toBe(12_000);
+    expect(FEED_TIMEOUT_MS).toBe(15_000);
     fetchWithTimeout.mockImplementation(async () => {
       await new Promise((r) => setTimeout(r, 15));
       return jsonResponse({ success: true });
@@ -140,7 +140,7 @@ describe('request storm coordination', () => {
   });
 
   it('home explore and editorial stories cache within TTL', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue(
+    fetchWithTimeout.mockResolvedValue(
       jsonResponse({
         data: {
           sections: [
@@ -155,14 +155,15 @@ describe('request storm coordination', () => {
         },
       }),
     );
+
+    await fetchHomeExploreSections();
+    await fetchHomeExploreSections();
+    expect(fetchWithTimeout).toHaveBeenCalledTimes(1);
+
+    fetchWithTimeout.mockClear();
     fetchWithTimeout.mockResolvedValue(
       jsonResponse({ data: { stories: [{ id: 's1', titleAr: 'خبر' }] } }),
     );
-
-    await fetchHomeExploreSections();
-    await fetchHomeExploreSections();
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-
     await fetchEditorialStories();
     await fetchEditorialStories();
     expect(fetchWithTimeout).toHaveBeenCalledTimes(1);

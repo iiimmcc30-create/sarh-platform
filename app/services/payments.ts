@@ -9,6 +9,7 @@ import {
   usesStoreBilling,
 } from '@/lib/storePurchases';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 export type PaymentContext =
   | 'subscription'
   | 'listing_fee'
@@ -29,7 +30,7 @@ export async function devCompletePayment(
   paymentId: string,
 ): Promise<{ ok: boolean; status?: string; message?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/api/payments/${paymentId}/dev-complete`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/payments/${paymentId}/dev-complete`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -132,7 +133,7 @@ export async function syncPaymentStatus(
 
   const promise = (async (): Promise<PaymentSyncResult> => {
     try {
-      const res = await fetch(`${API_BASE}/api/payments/${paymentId}/sync`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/payments/${paymentId}/sync`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` },
       });

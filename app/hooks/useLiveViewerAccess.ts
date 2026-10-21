@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE } from '@/services/api';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 import {
   HLS_PREPARE_CLIENT_TIMEOUT_MS,
   pollDelayMs,
@@ -36,7 +37,7 @@ export function useLiveViewerAccess({ streamId, accessToken, joinWebRtc, enabled
     if (!streamId || !accessToken || busy.current) return;
     busy.current = true;
     try {
-      const res = await fetch(`${API_BASE}/api/livestreams/${streamId}?action=token`, { headers });
+      const res = await fetchWithTimeout(`${API_BASE}/api/livestreams/${streamId}?action=token`, { headers });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         dispatch({ type: 'token_error', status: res.status, error: json?.error, details: json?.details });
@@ -65,7 +66,7 @@ export function useLiveViewerAccess({ streamId, accessToken, joinWebRtc, enabled
   const pollHls = useCallback(async () => {
     if (!streamId || !accessToken) return;
     try {
-      const res = await fetch(`${API_BASE}/api/livestreams/${streamId}?action=hls-status`, { headers });
+      const res = await fetchWithTimeout(`${API_BASE}/api/livestreams/${streamId}?action=hls-status`, { headers });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.data) {
         dispatch({

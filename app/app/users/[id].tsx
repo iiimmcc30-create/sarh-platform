@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchUserProfile,
   getCachedUserProfile,
+  loadUserProfileSnapshot,
   setFollowUser,
   setBlockUser,
   type PublicUserProfile,
@@ -110,6 +111,11 @@ export default function UserProfileScreen() {
       setProfile(cached);
     } else {
       setProfile((prev) => (prev?.id === targetId ? prev : null));
+      if (targetId) {
+        void loadUserProfileSnapshot(targetId).then((disk) => {
+          if (disk) setProfile((prev) => (prev?.id === targetId ? prev : disk));
+        });
+      }
     }
     setUserPosts([]);
   }, [targetId]);

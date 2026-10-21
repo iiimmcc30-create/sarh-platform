@@ -1,6 +1,7 @@
 import { API_BASE } from '@/services/api';
 import { authFetch } from '@/services/authFetch';
 import { parseApiError } from '@/services/apiError';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type SupportTicketCategory =
   | 'ACCOUNT'
@@ -152,7 +153,7 @@ export async function fetchSupportMeta(): Promise<{
   verification: { requirements: string[]; documentTypes: { value: string; labelAr: string }[] };
   faq: { categories: { value: string; labelAr: string }[] };
 } | null> {
-  const res = await fetch(`${API_BASE}/api/support/meta`);
+  const res = await fetchWithTimeout(`${API_BASE}/api/support/meta`);
   if (!res.ok) return null;
   const json = await res.json();
   return json.success ? json.data : null;
@@ -166,7 +167,7 @@ export async function fetchFaqs(params?: { search?: string; category?: string; t
   if (params?.search) qs.set('search', params.search);
   if (params?.category) qs.set('category', params.category);
   if (params?.top) qs.set('top', String(params.top));
-  const res = await fetch(`${API_BASE}/api/support/faqs?${qs.toString()}`);
+  const res = await fetchWithTimeout(`${API_BASE}/api/support/faqs?${qs.toString()}`);
   if (!res.ok) return null;
   const json = await res.json();
   return json.success ? json.data : null;
@@ -174,7 +175,7 @@ export async function fetchFaqs(params?: { search?: string; category?: string; t
 
 export async function fetchServiceStatus(): Promise<ServiceStatus> {
   try {
-    const res = await fetch(`${API_BASE}/api/support/status`);
+    const res = await fetchWithTimeout(`${API_BASE}/api/support/status`);
     if (!res.ok) return SERVICE_STATUS_DEFAULT;
     const json = await res.json();
     const data = json?.success ? json.data : null;

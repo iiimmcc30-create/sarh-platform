@@ -29,6 +29,8 @@ async function probeApiHealth(baseUrl: string, timeoutMs: number): Promise<boole
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    // Raw fetch: the shared client rebases URLs through resolveRequestUrl, which
+    // would turn this local health probe into a production request.
     const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/health`, {
       signal: controller.signal,
     });

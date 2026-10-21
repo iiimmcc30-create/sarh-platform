@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 // Powered by OnSpace.AI
 // SAFAT — Twilio OTP Authentication Service
 // مزود خدمة المصادقة عبر رقم الجوال
@@ -39,7 +40,7 @@ export async function sendOtp(
   channel: 'sms' | 'whatsapp' = 'sms'
 ): Promise<TwilioSendOtpResponse> {
   try {
-    const res = await fetch(`${TWILIO_BASE}/otp/send`, {
+    const res = await fetchWithTimeout(`${TWILIO_BASE}/otp/send`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,7 +86,7 @@ export async function verifyOtp(
   code: string
 ): Promise<TwilioVerifyResponse> {
   try {
-    const res = await fetch(`${TWILIO_BASE}/otp/verify`, {
+    const res = await fetchWithTimeout(`${TWILIO_BASE}/otp/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

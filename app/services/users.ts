@@ -1,3 +1,4 @@
+import { readEntitySnapshot, writeEntitySnapshot } from '@/lib/feedSnapshot';
 import { API_BASE } from '@/services/api';
 import { parseApiError } from '@/services/apiError';
 import { authFetch } from '@/services/authFetch';
@@ -60,6 +61,23 @@ const publicProfileCache = new Map<string, PublicProfileCacheEntry>();
 /** Test-only reset of per-userId profile cache. */
 export function resetPublicProfileCache(): void {
   publicProfileCache.clear();
+}
+
+/**
+ * Memory cache, then the disk snapshot. A disk hit is stored with `at: 0` so the
+ * next fetch still goes to the network and the screen can render immediately.
+ */
+export async function loadUserProfileSnapshot(
+  userId: string,
+): Promise<PublicUserProfile | null> {
+  const id = userId?.trim();
+  if (!id) return null;
+  const memory = getCachedUserProfile(id);
+  if (memory) return memory;
+  const disk = await readEntitySnapshot<PublicUserProfile>('profile', id);
+  if (!disk || disk.id !== id) return null;
+  publicProfileCache.set(id, { profile: disk, at: 0 });
+  return disk;
 }
 
 export function getCachedUserProfile(userId: string): PublicUserProfile | null {
@@ -137,6 +155,7 @@ export function fetchUserProfile(
       const profile = await loadUserProfileNetwork(id);
       if (profile) {
         publicProfileCache.set(id, { profile, at: Date.now() });
+        void writeEntitySnapshot('profile', id, profile);
         return profile;
       }
       return publicProfileCache.get(id)?.profile ?? null;

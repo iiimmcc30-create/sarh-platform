@@ -1,6 +1,7 @@
 import { ensureApiReachable } from './api';
 import { shouldReuseFreshResult } from './requestCoordination';
 import { digitalPurchasesEnabled } from '@/lib/storePurchases';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type PaidServiceFlags = {
   /** ترويج الظهور */
@@ -126,7 +127,7 @@ export function fetchPaidServiceFlags(options?: {
   inflight = (async () => {
     try {
       const base = await ensureApiReachable();
-      const res = await fetch(`${base.replace(/\/$/, '')}/api/settings/paid-services`, {
+      const res = await fetchWithTimeout(`${base.replace(/\/$/, '')}/api/settings/paid-services`, {
         cache: 'no-store',
       });
       if (!res.ok) return getCachedPaidServiceFlags();

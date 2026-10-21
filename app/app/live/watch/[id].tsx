@@ -2,6 +2,7 @@
 // Viewer screen: fetch media token (LiveKit or Agora) → join → watch host stream
 // Navigation: router.push({ pathname: '/live/watch/[id]', params: { id: streamId } })
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 import { Image } from '@/components/ui/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -94,7 +95,7 @@ export default function WatchScreen() {
   const { isJoined, remoteUsers, remoteVideoTrack, error, join, leave } = useLiveStream({
     role: 'viewer',
     onTokenWillExpire: async () => {
-      const resp = await fetch(`${API_BASE}/api/livestreams/${id}?action=token`, {
+      const resp = await fetchWithTimeout(`${API_BASE}/api/livestreams/${id}?action=token`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const { data } = await resp.json();
@@ -127,7 +128,7 @@ export default function WatchScreen() {
 
     (async () => {
       try {
-        const streamResp = await fetch(`${API_BASE}/api/livestreams/${id}`, {
+        const streamResp = await fetchWithTimeout(`${API_BASE}/api/livestreams/${id}`, {
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         });
         const streamData = await streamResp.json();

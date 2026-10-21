@@ -2,6 +2,7 @@ import { API_BASE } from './api';
 import { authFetch } from './authFetch';
 import { parseApiError } from './apiError';
 import { fetchPublicFeed } from './fetchPublicFeed';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type StoryReactionType = 'like' | 'love' | 'fire' | 'wow' | 'sad';
 
@@ -102,7 +103,7 @@ export async function createStory(
     duration?: number;
   },
 ): Promise<StoryItem> {
-  const res = await fetch(`${API_BASE}/api/stories`, {
+  const res = await fetchWithTimeout(`${API_BASE}/api/stories`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -133,7 +134,7 @@ export async function recordStoryView(
   accessToken: string,
   storyId: string,
 ): Promise<void> {
-  await fetch(`${API_BASE}/api/stories/${storyId}/view`, {
+  await fetchWithTimeout(`${API_BASE}/api/stories/${storyId}/view`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -144,7 +145,7 @@ export async function setStoryReaction(
   storyId: string,
   type: StoryReactionType,
 ): Promise<{ type: string; reactionsCount: number }> {
-  const res = await fetch(`${API_BASE}/api/stories/${storyId}/reactions`, {
+  const res = await fetchWithTimeout(`${API_BASE}/api/stories/${storyId}/reactions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -163,7 +164,7 @@ export async function removeStoryReaction(
   accessToken: string,
   storyId: string,
 ): Promise<{ reactionsCount: number }> {
-  const res = await fetch(`${API_BASE}/api/stories/${storyId}/reactions`, {
+  const res = await fetchWithTimeout(`${API_BASE}/api/stories/${storyId}/reactions`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -179,7 +180,7 @@ export async function replyToStory(
   storyId: string,
   text: string,
 ): Promise<{ threadId: string; messageId: string; receiverId: string }> {
-  const res = await fetch(`${API_BASE}/api/stories/${storyId}/reply`, {
+  const res = await fetchWithTimeout(`${API_BASE}/api/stories/${storyId}/reply`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -209,7 +210,7 @@ export async function fetchStoryViewers(
     viewedAt: string;
   }>;
 }> {
-  const res = await fetch(`${API_BASE}/api/stories/${storyId}/viewers`, {
+  const res = await fetchWithTimeout(`${API_BASE}/api/stories/${storyId}/viewers`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const json = await parseJson(res);

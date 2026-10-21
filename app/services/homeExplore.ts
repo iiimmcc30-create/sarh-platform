@@ -6,6 +6,8 @@ import {
 } from '@/lib/homeExplore';
 import { dedupeInflight } from '@/services/requestCoordination';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
+
 const EXPLORE_TTL_MS = 60_000;
 
 let exploreCache: { at: number; data: HomeExploreCard[] } | null = null;
@@ -26,7 +28,7 @@ export async function fetchHomeExploreSections(
 
   return dedupeInflight('GET:/api/home/explore', async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/home/explore`);
+      const res = await fetchWithTimeout(`${API_BASE}/api/home/explore`);
       if (!res.ok) {
         return exploreCache?.data ?? FALLBACK_HOME_EXPLORE;
       }

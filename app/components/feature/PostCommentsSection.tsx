@@ -50,6 +50,7 @@ import { UserProfileLink } from '@/components/feature/UserProfileLink';
 import type { PostComment } from '@/services/types';
 import { avatarUrl } from '@/lib/listingMedia';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 type PostCommentsSectionProps = {
   postId: string;
   postOwnerId?: string;
@@ -171,7 +172,7 @@ export const PostCommentsProvider = forwardRef<PostCommentsSectionRef, PostComme
       if (!postId) return;
       setLoadError(null);
       try {
-        const res = await fetch(`${API_BASE}/api/posts/${postId}/comments`);
+        const res = await fetchWithTimeout(`${API_BASE}/api/posts/${postId}/comments`);
         const json = await res.json().catch(() => ({}));
         if (res.ok && json.success) {
           const rows = Array.isArray(json.data?.comments) ? json.data.comments : [];

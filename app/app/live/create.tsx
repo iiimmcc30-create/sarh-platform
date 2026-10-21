@@ -1,5 +1,6 @@
 // app/live/create.tsx — إعداد البث المباشر (معاينة + عنوان + فئة + تعهد)
 import { AppIcon } from '@/components/ui/FlaticonIcon';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -182,7 +183,7 @@ export default function CreateStreamScreen() {
 
     try {
       const titleEn = arabicTitle.trim();
-      const resp = await fetch(`${API_BASE}/api/livestreams`, {
+      const resp = await fetchWithTimeout(`${API_BASE}/api/livestreams`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -41,6 +41,7 @@ import {
 } from '@/lib/storyMedia';
 import { showAlert } from '@/lib/confirmDialog';
 
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 type StoryDraft = {
   uri: string;
   kind: StoryMediaKind;
@@ -210,7 +211,7 @@ export default function CreateStoryScreen() {
         location: location.trim() || null,
       };
 
-      const res = await fetch(endpoint, {
+      const res = await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

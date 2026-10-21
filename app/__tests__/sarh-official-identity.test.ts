@@ -18,6 +18,8 @@ const identityFiles = [
   'app/listing/[id].tsx',
   'components/feature/StoryViewer.tsx',
   'constants/sarhOfficial.ts',
+  'constants/sarhPolicies.ts',
+  'app/support/index.tsx',
 ];
 
 describe('Sarh official identity', () => {
@@ -34,6 +36,7 @@ describe('Sarh official identity', () => {
       expect(source).not.toMatch(/info@alsfat\.com/);
       expect(source).not.toMatch(/https:\/\/alsfat\.com/);
       expect(source).not.toMatch(/support@safat\.app/);
+      expect(source).not.toMatch(/sarh@sarhsa\.online/);
     }
   });
 });

@@ -14,7 +14,7 @@
 
 **Who uses it:** Admin/moderator via admin panel. Mobile reads **published** sections via public API, with local Arabic fallback if API unavailable.
 
-> Internal note: policies must be legally reviewed before final publication. Replace placeholders like `[اسم الكيان القانوني]` and `[البريد الإلكتروني الرسمي]`.
+> Internal note: policies must be legally reviewed before final publication. Replace `[اسم الكيان القانوني]` before publish. The official contact address is sarh@getsarh.com.
 
 ---
 

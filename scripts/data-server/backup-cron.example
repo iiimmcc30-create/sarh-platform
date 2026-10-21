@@ -1,14 +1,14 @@
-# DATA SERVER cron — install with: crontab -e   (root). Times are server-local.
-# Replaces the old line that called scripts/hostinger/09-backup-postgres.sh
-# (same BACKUP_DIR and sarh-*.dump naming, so existing dumps are kept/pruned together).
+# DATA SERVER cron — prefer the installer (idempotent, keeps other crontab lines):
+#   sudo SARH_ROOT=/opt/sarh ./scripts/data-server/install-backup-cron.sh
 #
-# Daily pg_dump at 03:15, keep newest BACKUP_MIN_KEEP (7) and anything newer than RETENTION_DAYS (14)
-15 3 * * * SARH_ROOT=/opt/sarh /opt/sarh/scripts/data-server/backup-postgres.sh >> /var/log/sarh-backup.log 2>&1
+# That installs:
+#   03:15 daily   scripts/data-server/run-backup-job.sh
+#                 (pg_dump, then encrypted off-site upload, email on failure)
+#   04:30 Sunday scripts/data-server/run-restore-drill.sh
 #
-# Weekly restore drill (Sunday 04:30): restores the latest dump into a throwaway
-# container and checks tables/row counts/_prisma_migrations. Alert on "FAILED".
-30 4 * * 0 SARH_ROOT=/opt/sarh /opt/sarh/scripts/data-server/restore-verify.sh --compare-live >> /var/log/sarh-restore-verify.log 2>&1
+# Configure RCLONE_REMOTE plus BACKUP_AGE_RECIPIENT or BACKUP_RCLONE_CRYPT=1,
+# and SMTP_* so failures mail sarh@getsarh.com. See docs/BACKUP_RUNBOOK.md.
 #
-# REQUIRED off-site copy — a backup on the same server/volume is not a backup.
-# Configure rclone (or restic/S3) on the server, not in Git:
-# 45 3 * * * rclone copy /opt/backups/sarh/postgres remote:sarh-backups/postgres/ --min-age 5m >> /var/log/sarh-backup-sync.log 2>&1
+# Equivalent lines, if you edit crontab by hand:
+# 15 3 * * * SARH_ROOT=/opt/sarh /opt/sarh/scripts/data-server/run-backup-job.sh >> /var/log/sarh-backup.log 2>&1
+# 30 4 * * 0 SARH_ROOT=/opt/sarh /opt/sarh/scripts/data-server/run-restore-drill.sh >> /var/log/sarh-restore-verify.log 2>&1

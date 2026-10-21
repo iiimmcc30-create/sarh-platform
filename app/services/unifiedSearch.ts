@@ -6,6 +6,7 @@ import type { Listing, Country, Post } from './types';
 import { countries } from './types';
 import { isManagedListing, managedSeller } from '@/lib/managedListing';
 import { dedupeInflight, shouldReuseFreshResult } from './requestCoordination';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type SearchContentType =
   | 'all'
@@ -253,7 +254,7 @@ export async function unifiedSearch(params: {
       if (params.maxPrice != null) qs.set('maxPrice', String(params.maxPrice));
       if (params.region) qs.set('region', params.region);
 
-      const res = await fetch(`${base}/api/search?${qs.toString()}`, {
+      const res = await fetchWithTimeout(`${base}/api/search?${qs.toString()}`, {
         signal: params.signal,
       });
       const json = await res.json().catch(() => ({}));
@@ -291,7 +292,7 @@ export async function fetchSearchSuggestions(
     dedupeInflight(key, async () => {
       const base = await ensureApiReachable();
       const qs = new URLSearchParams({ q: q.trim(), limit: String(limit) });
-      const res = await fetch(`${base}/api/search/suggest?${qs.toString()}`, { signal });
+      const res = await fetchWithTimeout(`${base}/api/search/suggest?${qs.toString()}`, { signal });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) return [];
       const suggestions = (json.data?.suggestions ?? []) as SearchSuggestion[];
@@ -313,7 +314,7 @@ export async function fetchTrendingTags(): Promise<Array<{ tag: string; count: n
   return dedupeInflight('GET:/api/search/trending:24h:16', async () => {
     const base = await ensureApiReachable();
     const qs = new URLSearchParams({ window: '24h', limit: '16' });
-    const res = await fetch(`${base}/api/search/trending?${qs.toString()}`);
+    const res = await fetchWithTimeout(`${base}/api/search/trending?${qs.toString()}`);
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) return [];
     return json.data?.trending ?? [];

@@ -27,6 +27,8 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^react-native$': '<rootDir>/__tests__/mocks/react-native.ts',
+    '^@react-native-community/netinfo$': '<rootDir>/__tests__/mocks/netinfo.ts',
+    '^expo-image-manipulator$': '<rootDir>/__tests__/mocks/expo-image-manipulator.ts',
     '^expo-router$': '<rootDir>/__tests__/mocks/expo-router.ts',
     '^expo-linking$': '<rootDir>/__tests__/mocks/expo-linking.ts',
     '^expo-web-browser$': '<rootDir>/__tests__/mocks/expo-web-browser.ts',

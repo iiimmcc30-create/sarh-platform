@@ -24,6 +24,7 @@ import { BootSplashGate } from '@/components/ui/BootSplashGate';
 import { ListingCovenantHost } from '@/components/listing/ListingCovenantHost';
 import { ActionSheetHost } from '@/components/ui/ActionSheetHost';
 import { ToastHost } from '@/components/ui/ToastHost';
+import { ConnectivityBanner } from '@/components/ui/ConnectivityBanner';
 import { SarhPatternBackground } from '@/components/ui/SarhPatternBackground';
 import { NavigationPathTracker } from '@/components/navigation/NavigationPathTracker';
 import { patternScreenLayout } from '@/components/navigation/ScreenPage';
@@ -224,6 +225,7 @@ function RootLayoutBody() {
                     <ActionSheetHost />
                     <ListingCovenantHost />
                     <ToastHost />
+                    <ConnectivityBanner />
                   </CouncilSessionProvider>
                 </SubscriptionProvider>
               </AuthGuard>

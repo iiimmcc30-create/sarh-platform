@@ -110,7 +110,7 @@ describe('paid-services cache + inflight (P1-05)', () => {
     expect(calls).toBe(1);
     expect(global.fetch).toHaveBeenCalledWith(
       'https://api.test/api/settings/paid-services',
-      { cache: 'no-store' },
+      expect.objectContaining({ cache: 'no-store' }),
     );
   });
 

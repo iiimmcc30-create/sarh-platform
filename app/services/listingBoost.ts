@@ -1,5 +1,6 @@
 import { API_BASE } from '@/services/api';
 import { boostPlansFromCatalog } from '@/services/promoteCatalog';
+import { fetchWithTimeout } from '@/services/fetchWithTimeout';
 
 export type BoostTypeKey = 'pinned' | 'featured' | 'promotion';
 
@@ -75,7 +76,7 @@ function normalizePlans(raw: unknown): BoostPlansMap {
 
 export async function fetchBoostPlans(): Promise<BoostPlansMap> {
   try {
-    const res = await fetch(`${API_BASE}/api/listings/boost/plans`);
+    const res = await fetchWithTimeout(`${API_BASE}/api/listings/boost/plans`);
     if (!res.ok) return FALLBACK_BOOST_PLANS;
     const json = await res.json();
     if (!json.success || !json.data) return FALLBACK_BOOST_PLANS;

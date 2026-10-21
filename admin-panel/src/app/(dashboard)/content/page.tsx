@@ -15,6 +15,7 @@ import {
   seedPolicies,
 } from '@/services/admin.service';
 import { getApiErrorMessage } from '@/services/api.client';
+import { SARH_OFFICIAL_EMAIL } from '@/lib/officialContact';
 
 type Section = {
   id: string;
@@ -96,7 +97,7 @@ export default function ContentPage() {
 
       <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
         تنبيه داخلي: هذه السياسات يجب مراجعتها واعتمادها قانونيًا قبل النشر النهائي للمستخدمين.
-        استبدل العناصر النائبة مثل [اسم الكيان القانوني] و[البريد الإلكتروني الرسمي] قبل الاعتماد.
+        البريد الرسمي للدعم هو {SARH_OFFICIAL_EMAIL}. استبدل [اسم الكيان القانوني] قبل الاعتماد.
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">

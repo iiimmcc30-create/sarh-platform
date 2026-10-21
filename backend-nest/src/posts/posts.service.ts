@@ -41,7 +41,15 @@ export class PostsService {
     reposted: boolean,
     bookmarked = false,
   ) {
-    const { _count, media, ...rest } = post as PostWithCount & {
+    const {
+      _count,
+      media,
+      deletedAt: _deletedAt,
+      isHidden: _isHidden,
+      ...rest
+    } = post as PostWithCount & {
+      deletedAt?: Date | null;
+      isHidden?: boolean;
       media?: Array<{
         id: string;
         url: string;
