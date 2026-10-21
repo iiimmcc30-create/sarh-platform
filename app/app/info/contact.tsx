@@ -19,7 +19,6 @@ import {
   SARH_OFFICIAL_SITE_HOST,
 } from '@/constants/sarhOfficial';
 import { createTicket } from '@/services/support';
-import { SARH_OFFICIAL_EMAIL } from '@/constants/sarhOfficial';
 
 const CHANNELS = [
   {
