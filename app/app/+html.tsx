@@ -8,7 +8,7 @@ import {
 
 /**
  * Static HTML shell for Expo web export.
- * Default Expo template is lang="en" with no dir — that leaves the whole
+ * Default Expo template is lang="en" with no dir â€” that leaves the whole
  * web app LTR even though Sarh is Arabic-first.
  *
  * Site-name metadata (application-name, og:site_name, WebSite JSON-LD) lives
@@ -24,6 +24,10 @@ export default function Root({ children }: PropsWithChildren) {
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
+        />
+        <meta
+          name="domain-verification"
+          content="b92e08eab669778db2e2ff868da3dc6e5f29a1e952a80c2c49fa0e9011463bcf"
         />
         <meta name="application-name" content={SITE_NAME} />
         <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
