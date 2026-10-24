@@ -81,3 +81,21 @@ describe('stage gallery label', () => {
     expect(councilGalleryLabel(null)).toBeNull();
   });
 });
+
+describe('LiveKit council renew (source)', () => {
+  const root = require('path').join(__dirname, '..');
+  const hook = require('fs')
+    .readFileSync(require('path').join(root, 'hooks/useCouncilAudio.ts'), 'utf8')
+    .replace(/\r\n/g, '\n');
+
+  it('renew applies credentials when LiveKit room is up (not only Agora engineRef)', () => {
+    expect(hook).toContain('roomRef.current || engineRef.current');
+    expect(hook).not.toMatch(/if \(next && engineRef\.current\) await applyCredentials/);
+  });
+
+  it('restores publisher state after LiveKit re-grants canPublish', () => {
+    expect(hook).toContain('ParticipantPermissionsChanged');
+    expect(hook).toContain('else if (!publisherRef.current)');
+    expect(hook).toContain('void renew()');
+  });
+});

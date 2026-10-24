@@ -248,7 +248,10 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
     renewing.current = (async () => {
       try {
         const next = await optsRef.current.requestToken();
-        if (next && engineRef.current) await applyCredentials(next, next.micMuted);
+        // LiveKit uses roomRef (engineRef stays null). Agora uses engineRef.
+        if (next && (roomRef.current || engineRef.current)) {
+          await applyCredentials(next, next.micMuted);
+        }
       } catch {
         // retried by the next privilege-will-expire callback / timer
         renewTimer.current = setTimeout(() => void renew(), 15_000);
@@ -361,6 +364,9 @@ export function useCouncilAudio({ councilId, requestToken, onFatal, onMicDenied 
             canCameraRef.current = false;
             void room.localParticipant.setMicrophoneEnabled(false);
             void room.localParticipant.setCameraEnabled(false);
+          } else if (!publisherRef.current) {
+            // Server restored publish (seat / golden grant): re-apply mic + canCamera from token.
+            void renew();
           }
         });
         const syncVideo = () => {
