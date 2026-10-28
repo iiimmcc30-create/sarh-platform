@@ -1,6 +1,6 @@
 export const BRAND_NAME_AR = 'سرح';
 export const BRAND_NAME_EN = 'Sarh';
-export const BRAND_DISPLAY_NAME = 'سرح | Sarh';
+export const BRAND_DISPLAY_NAME = 'سرح للمواشي';
 
 export const BRAND_TAGLINE_AR =
   'المنصة الوطنية الرائدة في خدمات الثروة الحيوانية';

@@ -1,7 +1,7 @@
 /**
  * Google showed the web site name as «تخطى» (the onboarding skip button text)
  * because the exported HTML had an empty <title> and no site-name signals.
- * Guards the official web name «سرح» in every place Google reads it.
+ * Guards the official web name «سرح للمواشي» in every place Google reads it.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -17,18 +17,18 @@ const root = path.join(__dirname, '..');
 const src = (rel: string) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 describe('official web site name (SEO)', () => {
-  it('is «سرح» with the brand alternate name and canonical home URL', () => {
-    expect(SITE_NAME).toBe('سرح');
+  it('is «سرح للمواشي» with the brand alternate name and canonical home URL', () => {
+    expect(SITE_NAME).toBe('سرح للمواشي');
     expect(SITE_ALTERNATE_NAME).toBe('Sarh');
     expect(SITE_URL).toBe('https://getsarh.com/');
   });
 
-  it('emits WebSite JSON-LD with name «سرح»', () => {
+  it('emits WebSite JSON-LD with name «سرح للمواشي»', () => {
     const ld = websiteJsonLd();
     expect(ld['@type']).toBe('WebSite');
-    expect(ld.name).toBe('سرح');
+    expect(ld.name).toBe('سرح للمواشي');
     expect(ld.url).toBe('https://getsarh.com/');
-    expect(ld.alternateName).toEqual(['Sarh']);
+    expect(ld.alternateName).toEqual(['Sarh', 'سرح', 'Sarh Livestock']);
     expect(JSON.parse(websiteJsonLdScript())).toEqual(ld);
     expect(websiteJsonLdScript()).not.toContain('<');
   });
@@ -49,9 +49,9 @@ describe('official web site name (SEO)', () => {
     expect(layout).toMatch(/<title>\{SITE_NAME\}<\/title>/);
   });
 
-  it('web manifest name / short_name are «سرح»', () => {
+  it('web manifest name is «سرح للمواشي» with short_name «سرح»', () => {
     const manifest = JSON.parse(src('public/manifest.json'));
-    expect(manifest.name).toBe('سرح');
+    expect(manifest.name).toBe('سرح للمواشي');
     expect(manifest.short_name).toBe('سرح');
     expect(manifest.lang).toBe('ar');
     expect(manifest.dir).toBe('rtl');

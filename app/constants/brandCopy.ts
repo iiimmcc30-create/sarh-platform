@@ -2,7 +2,7 @@
 
 export const BRAND_NAME_AR = 'سرح';
 export const BRAND_NAME_EN = 'sarh';
-export const BRAND_DISPLAY_NAME = 'سرح | sarh';
+export const BRAND_DISPLAY_NAME = 'سرح للمواشي';
 export const FOUNDER_NAME = 'متعب بن شطي';
 
 export const BRAND_TAGLINE_AR =
@@ -14,7 +14,7 @@ export const BRAND_VISION_AR = `أن يكون سرح المنصة الوطنية
 
 export const BRAND_GOAL_AR = `بناء منظومة رقمية متكاملة تربط ملاك الماشية، والمربين، والجهات الحكومية، والقطاع الخاص، ومقدمي الخدمات، في منصة واحدة توفر تجربة ذكية وآمنة وسهلة، وتدعم نمو القطاع ورفع جودة الخدمات.`;
 
-export const BRAND_LOGIN_SUBTITLE_AR = 'منصة المواشي السعودية';
+export const BRAND_LOGIN_SUBTITLE_AR = 'سرح للمواشي — منصة المواشي السعودية';
 
 export const BRAND_REGISTER_SUBTITLE_AR =
   'انضم إلى المنظومة الرقمية للثروة الحيوانية في المملكة';
@@ -26,4 +26,4 @@ export const BRAND_LOGIN_WELCOME_AR = `مرحبا بكم في ${BRAND_NAME_AR}`;
 export const BRAND_FOOTER_AR = `${BRAND_NAME_EN} v1.0.0 · ${BRAND_NAME_AR} · مؤسسة ماد يونيت للتجارة · جميع الحقوق محفوظة © 2024`;
 export const BRAND_VERIFIED_AR = `موثّق من ${BRAND_NAME_AR}`;
 export const BRAND_VERIFIED_EN = `Verified by ${BRAND_NAME_EN}`;
-export const BRAND_SHARE_TITLE_AR = `${BRAND_NAME_AR} — ${BRAND_TAGLINE_AR}`;
+export const BRAND_SHARE_TITLE_AR = `سرح للمواشي — ${BRAND_TAGLINE_AR}`;
