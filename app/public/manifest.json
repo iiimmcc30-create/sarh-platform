@@ -1,7 +1,7 @@
 {
-  "name": "سرح",
+  "name": "سرح للمواشي",
   "short_name": "سرح",
-  "description": "المنصة الوطنية الرائدة في خدمات الثروة الحيوانية",
+  "description": "سرح للمواشي — سوق المواشي والمجالس والبث المباشر في منصة واحدة",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "/",
@@ -10,8 +10,23 @@
   "background_color": "#020202",
   "theme_color": "#020202",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

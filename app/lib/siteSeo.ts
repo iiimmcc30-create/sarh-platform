@@ -1,4 +1,3 @@
-import { BRAND_NAME_AR, BRAND_TAGLINE_AR } from '@/constants/brandCopy';
 import { SARH_OFFICIAL_SITE } from '@/constants/sarhOfficial';
 
 /**
@@ -7,10 +6,12 @@ import { SARH_OFFICIAL_SITE } from '@/constants/sarhOfficial';
  * Without these, Google picks on-page text instead (it showed the onboarding
  * skip button «تخطي» as the site name).
  */
-export const SITE_NAME = BRAND_NAME_AR;
+/** Public Google/site name — brand + livestock for search intent. */
+export const SITE_NAME = 'سرح للمواشي';
 export const SITE_ALTERNATE_NAME = 'Sarh';
 export const SITE_URL = `${SARH_OFFICIAL_SITE}/`;
-export const SITE_DESCRIPTION = BRAND_TAGLINE_AR;
+export const SITE_DESCRIPTION =
+  'سرح للمواشي — سوق المواشي والمجالس والبث المباشر في منصة واحدة';
 export const SITE_THEME_COLOR = '#020202';
 
 export function websiteJsonLd() {
@@ -18,7 +19,7 @@ export function websiteJsonLd() {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: SITE_NAME,
-    alternateName: [SITE_ALTERNATE_NAME],
+    alternateName: [SITE_ALTERNATE_NAME, 'سرح', 'Sarh Livestock'],
     url: SITE_URL,
     inLanguage: 'ar',
   };

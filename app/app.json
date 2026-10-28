@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Sarh",
+    "name": "سرح للمواشي",
     "slug": "safat",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,7 +14,7 @@
       "bundleIdentifier": "com.sarh.app",
       "icon": "./assets/images/icon.png",
       "infoPlist": {
-        "CFBundleDisplayName": "سرح | Sarh",
+        "CFBundleDisplayName": "سرح للمواشي",
         "NSCameraUsageDescription": "يستخدم سرح الكاميرا لالتقاط الصور ومقاطع الفيديو لإعلاناتك ومنشوراتك وقصصك ومحادثاتك، وللظهور في البث المباشر عند بدئك له.",
         "NSPhotoLibraryUsageDescription": "يحتاج سرح إلى الوصول لمكتبة الصور لتختار منها صور ومقاطع إعلاناتك ومنشوراتك وقصصك وصورة ملفك الشخصي والغلاف، ولإرفاقها في المحادثات وطلبات الدعم.",
         "NSMicrophoneUsageDescription": "يستخدم سرح الميكروفون لتسجيل الرسائل الصوتية في المحادثات، وللتحدث في المجالس والبث المباشر، ولتسجيل صوت مقاطع الفيديو.",
@@ -179,7 +179,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "label": "سرح للمواشي"
     },
     "web": {
       "bundler": "metro",
