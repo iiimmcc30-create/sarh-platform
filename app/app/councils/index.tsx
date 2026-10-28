@@ -203,7 +203,7 @@ export default function CouncilsScreen() {
         }
       >
         <AppText variant="bodySmall" color="textMuted">
-          مجالس صوتية مباشرة — استمع، واطلب الكلمة، وشارك بهدوء.
+          مجالس صوتية مباشرة — ادخل، استمع، واطلب الكلمة.
         </AppText>
         {loading ? (
           <View style={styles.center}>
