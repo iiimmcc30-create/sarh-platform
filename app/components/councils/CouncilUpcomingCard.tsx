@@ -122,8 +122,8 @@ function createStyles(colors: ThemeColors) {
     card: {
       padding: spacing.lg,
       gap: spacing.sm,
-      borderRadius: radius.lg,
-      backgroundColor: colors.bgSurface,
+      borderRadius: radius.xl,
+      backgroundColor: colors.bgElevated,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSoft,
     },

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { AppText, SarhAvatar } from '@/design-system/components';
-import { Row } from '@/design-system/layout';
+import { Row, Stack } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
 import { CouncilTierTag } from './CouncilTierTag';
@@ -12,9 +12,10 @@ import {
   COUNCIL_FOLLOWERS_ONLY_LABEL,
   COUNCIL_GOLDEN_LABEL,
   COUNCIL_LOCKED_LABEL,
+  councilHandle,
   councilListenersLabel,
-  councilSpeakersLabel,
   councilUserName,
+  formatCouncilCount,
   type CouncilCard as CouncilCardData,
 } from '@/services/councils';
 
@@ -23,10 +24,17 @@ type Props = { council: CouncilCardData; onPress: (c: CouncilCardData) => void }
 /** How much neighbouring avatars in the speaker stack overlap. */
 const AVATAR_OVERLAP = 10;
 
+/**
+ * External list card — X Spaces anatomy (title → live/listeners → host row +
+ * overlapping avatars), Arabic RTL, Sarh black/white surfaces (no purple wash).
+ */
 export function CouncilCard({ council, onPress }: Props) {
   const styles = useThemedStyles(({ colors }) => createStyles(colors));
   const { colors } = useTheme();
   const hostTier = subscriberTierOf(council.owner);
+  const hostName = councilUserName(council.owner);
+  const preview = council.speakersPreview.slice(0, 4);
+
   return (
     <Pressable
       testID={
@@ -50,60 +58,98 @@ export function CouncilCard({ council, onPress }: Props) {
       accessibilityLabel={`مجلس ${council.name}`}
     >
       {hostTier === 'gold' ? <View style={styles.goldRule} testID="council-card-gold-rule" /> : null}
-      <Row gap="sm" align="center">
-        <View style={styles.liveDot} />
-        <AppText variant="caption" color="success">
-          مباشر
+
+      <Stack gap="sm" style={styles.body}>
+        <AppText variant="heading2" color="textPrimary" numberOfLines={3} style={styles.title}>
+          {council.name}
         </AppText>
-        {council.locked || council.visibility === 'PRIVATE' ? (
-          <Row gap="xs" align="center" testID="council-card-locked">
-            <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
-            <AppText variant="caption" color="textMuted">
-              {COUNCIL_LOCKED_LABEL}
+
+        {council.description ? (
+          <AppText variant="bodySmall" color="textSecondary" numberOfLines={2}>
+            {council.description}
+          </AppText>
+        ) : null}
+
+        <Row gap="sm" align="center" style={styles.meta} wrap>
+          <Row gap="xs" align="center" style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <AppText variant="caption" style={styles.liveText}>
+              مباشر
             </AppText>
           </Row>
-        ) : null}
-        {council.golden ? (
-          <Row gap="xs" align="center" testID="council-card-golden">
-            <AppIcon name="videocam-outline" size={12} color={colors.tierGold} />
-            <AppText variant="caption" color="textMuted">
-              {COUNCIL_GOLDEN_LABEL}
-            </AppText>
-          </Row>
-        ) : null}
-        {council.followersOnly ? (
-          <Row gap="xs" align="center" testID="council-card-followers-only">
-            <AppIcon name="people-outline" size={12} color={colors.textMuted} />
-            <AppText variant="caption" color="textMuted">
-              {COUNCIL_FOLLOWERS_ONLY_LABEL}
-            </AppText>
-          </Row>
-        ) : null}
-        <CouncilTierTag tier={hostTier} />
-        <View style={{ flex: 1 }} />
-        <AppText variant="caption" color="textMuted">
-          {councilListenersLabel(council.listenerCount)}
-        </AppText>
-      </Row>
-      <AppText variant="cardTitle" color="textPrimary" numberOfLines={2}>
-        {council.name}
-      </AppText>
-      {council.description ? (
-        <AppText variant="bodySmall" color="textSecondary" numberOfLines={2}>
-          {council.description}
-        </AppText>
-      ) : null}
-      <Row gap="sm" align="center">
+          <AppText variant="caption" color="textSecondary">
+            {formatCouncilCount(council.listenerCount)} يستمعون
+          </AppText>
+          {council.locked || council.visibility === 'PRIVATE' ? (
+            <Row gap="xs" align="center" testID="council-card-locked">
+              <AppIcon name="lock-closed-outline" size={12} color={colors.textMuted} />
+              <AppText variant="caption" color="textMuted">
+                {COUNCIL_LOCKED_LABEL}
+              </AppText>
+            </Row>
+          ) : null}
+          {council.golden ? (
+            <Row gap="xs" align="center" testID="council-card-golden">
+              <AppIcon name="videocam-outline" size={12} color={colors.tierGold} />
+              <AppText variant="caption" color="textMuted">
+                {COUNCIL_GOLDEN_LABEL}
+              </AppText>
+            </Row>
+          ) : null}
+          {council.followersOnly ? (
+            <Row gap="xs" align="center" testID="council-card-followers-only">
+              <AppIcon name="people-outline" size={12} color={colors.textMuted} />
+              <AppText variant="caption" color="textMuted">
+                {COUNCIL_FOLLOWERS_ONLY_LABEL}
+              </AppText>
+            </Row>
+          ) : null}
+          <CouncilTierTag tier={hostTier} />
+        </Row>
+      </Stack>
+
+      <Row gap="md" align="center" style={styles.hostRow}>
         <View style={styles.stack}>
-          {council.speakersPreview.slice(0, 4).map((u) => (
+          {preview.map((u) => (
             <View key={u.id} style={styles.stackItem}>
               <SarhAvatar uri={u.avatar ? resolveMediaUrl(u.avatar) : null} name={councilUserName(u)} size="sm" />
             </View>
           ))}
+          {!preview.length ? (
+            <View style={styles.stackItem}>
+              <SarhAvatar
+                uri={council.owner.avatar ? resolveMediaUrl(council.owner.avatar) : null}
+                name={hostName}
+                size="sm"
+              />
+            </View>
+          ) : null}
         </View>
-        <AppText variant="caption" color="textMuted" numberOfLines={1} style={{ flex: 1 }}>
-          {councilUserName(council.owner)} · {councilSpeakersLabel(council.speakersCount)}
-        </AppText>
+
+        <Stack gap="xs" style={styles.hostText}>
+          <Row gap="sm" align="center">
+            <SarhAvatar
+              uri={council.owner.avatar ? resolveMediaUrl(council.owner.avatar) : null}
+              name={hostName}
+              size="sm"
+            />
+            <AppText variant="label" color="textPrimary" numberOfLines={1} style={styles.hostText}>
+              {hostName}
+            </AppText>
+          </Row>
+          <AppText
+            variant="caption"
+            color="textMuted"
+            numberOfLines={1}
+            style={styles.handle}
+            accessibilityLabel={councilListenersLabel(council.listenerCount)}
+          >
+            {councilHandle(council.owner.username)}
+            {council.speakersCount > 0
+              ? ` · ${formatCouncilCount(council.speakersCount)} على المسرح`
+              : ''}
+          </AppText>
+        </Stack>
       </Row>
     </Pressable>
   );
@@ -112,14 +158,29 @@ export function CouncilCard({ council, onPress }: Props) {
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     card: {
-      padding: spacing.lg,
-      gap: spacing.sm,
-      borderRadius: radius.lg,
-      backgroundColor: colors.bgSurface,
+      minHeight: 168,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      gap: spacing.lg,
+      borderRadius: radius.xl,
+      backgroundColor: colors.bgElevated,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSoft,
+      justifyContent: 'space-between',
+      overflow: 'hidden',
     },
-    pressed: { opacity: 0.85 },
+    body: { flexGrow: 1 },
+    title: { fontWeight: '700', letterSpacing: 0.2 },
+    meta: { marginTop: spacing.xs },
+    livePill: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+      backgroundColor: 'rgba(239, 68, 68, 0.14)',
+    },
+    liveText: { color: colors.liveRed ?? colors.success, fontWeight: '700' },
+    pressed: { opacity: 0.88 },
     goldCard: {
       borderWidth: 1,
       backgroundColor: 'rgba(201, 162, 39, 0.07)',
@@ -139,7 +200,14 @@ function createStyles(colors: ThemeColors) {
       borderColor: 'rgba(29, 155, 240, 0.45)',
       backgroundColor: 'rgba(29, 155, 240, 0.05)',
     },
-    liveDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.success },
+    liveDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.liveRed ?? colors.success },
+    hostRow: {
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.borderSoft,
+    },
+    hostText: { flex: 1, minWidth: 0 },
+    handle: { writingDirection: 'ltr', alignSelf: 'flex-start' },
     /**
      * Overlap is symmetric (−AVATAR_OVERLAP/2 on both sides, padded back on the stack) so the
      * stack's box always matches what is painted in LTR and RTL and never runs into the label.
@@ -148,7 +216,7 @@ function createStyles(colors: ThemeColors) {
     stackItem: {
       borderRadius: radius.pill,
       borderWidth: 2,
-      borderColor: colors.bgSurface,
+      borderColor: colors.bgElevated,
       marginHorizontal: -AVATAR_OVERLAP / 2,
     },
   });
