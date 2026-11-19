@@ -1,3 +1,5 @@
+import { MentionAwareInput } from '@/components/mentions/MentionAwareInput';
+import { MentionText } from '@/components/mentions/MentionText';
 import { CommentRowSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { AppText } from '@/components/ui/AppText';
@@ -421,7 +423,7 @@ export function PostCommentsList() {
                 delayLongPress={350}
                 accessibilityHint="اضغط مطولاً لخيارات الرد"
               >
-                <AppText style={styles.commentText}>{c.content}</AppText>
+                <MentionText text={c.content} style={styles.commentText} />
               </Pressable>
               {/* Feed-size reply action (comments have no likes/reposts/bookmarks). */}
               <View style={[styles.commentActions, getRtlRow()]}>
@@ -474,7 +476,7 @@ export function PostCommentsComposer() {
     <View style={[styles.composer, getRtlRow()]} testID="post-reply-composer">
       <Image source={uriSource(avatarUrl(composerAvatar))} style={styles.composerAvatar} contentFit="cover" />
       <View style={styles.inputPill}>
-        <TextInput
+        <MentionAwareInput
           ref={setInputRef}
           style={styles.input}
           placeholder={isAuthenticated ? 'انشر ردك' : 'سجّل الدخول للتعليق'}

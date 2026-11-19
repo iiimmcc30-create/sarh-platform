@@ -38,6 +38,10 @@ export class UpdateNotificationPrefsDto {
 
   @IsOptional()
   @IsBoolean()
+  mentions?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   offers?: boolean;
 }
 

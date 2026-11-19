@@ -11,9 +11,10 @@ import { ReviewCreateLimiter } from './lib/review-create-limiter';
 import { RedisModule } from '../redis/redis.module';
 import { GatewaySharedModule } from '../gateway/gateway-shared.module';
 import { ReportsModule } from '../reports/reports.module';
+import { MentionsModule } from '../mentions/mentions.module';
 
 @Module({
-  imports: [RedisModule, GatewaySharedModule, ReportsModule],
+  imports: [RedisModule, GatewaySharedModule, ReportsModule, MentionsModule],
   // UserSettingsController first: its `me/...` routes must win over `:id`.
   controllers: [
     ProfileViewsController,

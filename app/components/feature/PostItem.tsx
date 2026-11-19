@@ -51,6 +51,8 @@ import {
   POST_META_LINE_HEIGHT,
 } from '@/components/feature/postItemLayout';
 import { avatarUrl } from '@/lib/listingMedia';
+import { useRouter } from 'expo-router';
+import { tokenizeRichText } from '@/lib/mentions';
 
 const HASHTAG_BLUE = '#1D9BF0';
 
@@ -84,21 +86,10 @@ function formatCount(n: number): string {
 }
 
 function PostBody({ text, style, lines }: { text: string; style: TextStyle; lines?: number }) {
-  const parts = useMemo(() => {
-    const tokens: { text: string; isTag: boolean }[] = [];
-    const re = /(#[\u0600-\u06FF\w]+)/g;
-    let last = 0;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(text)) !== null) {
-      if (m.index > last) tokens.push({ text: text.slice(last, m.index), isTag: false });
-      tokens.push({ text: m[0], isTag: true });
-      last = m.index + m[0].length;
-    }
-    if (last < text.length) tokens.push({ text: text.slice(last), isTag: false });
-    return tokens;
-  }, [text]);
+  const router = useRouter();
+  const parts = useMemo(() => tokenizeRichText(text), [text]);
 
-  if (parts.length === 1 && !parts[0].isTag) {
+  if (parts.length === 1 && parts[0].kind === 'text') {
     return (
       <AppText style={style} numberOfLines={lines}>
         {text}
@@ -108,13 +99,25 @@ function PostBody({ text, style, lines }: { text: string; style: TextStyle; line
 
   return (
     <AppText style={style} numberOfLines={lines}>
-      {parts.map((p, i) =>
-        p.isTag ? (
-          <AppText key={i} style={[style, { color: HASHTAG_BLUE }]}>
-            {p.text}
-          </AppText>
+      {parts.map((part, i) =>
+        part.kind === 'text' ? (
+          <AppText key={i}>{part.text}</AppText>
         ) : (
-          <AppText key={i}>{p.text}</AppText>
+          <AppText
+            key={i}
+            style={[style, { color: HASHTAG_BLUE }]}
+            onPress={
+              part.kind === 'mention'
+                ? () =>
+                    router.push({
+                      pathname: '/u/[username]',
+                      params: { username: part.username },
+                    } as never)
+                : undefined
+            }
+          >
+            {part.text}
+          </AppText>
         ),
       )}
     </AppText>

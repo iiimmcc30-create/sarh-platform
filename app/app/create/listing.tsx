@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/hooks/useTheme';
+import { MentionSarhField } from '@/components/mentions/MentionSarhField';
 import { AppText, SarhButton, SarhInput } from '@/design-system/components';
 import { Row, Screen, ScreenBody, Stack } from '@/design-system/layout';
 import { showToast } from '@/lib/toast';
@@ -704,7 +705,7 @@ export default function CreateListingScreen() {
                   ) : null}
                 </Stack>
 
-                <SarhInput
+                <MentionSarhField
                   appearance="theme"
                   label="عنوان العرض"
                   value={titleAr}
@@ -768,7 +769,7 @@ export default function CreateListingScreen() {
                   {renderLocationField()}
                 </Stack>
 
-                <SarhInput
+                <MentionSarhField
                   appearance="theme"
                   label="عنوان العرض"
                   value={titleAr}
@@ -808,7 +809,7 @@ export default function CreateListingScreen() {
                 </Stack>
 
                 <Stack gap="xs">
-                  <SarhInput
+                  <MentionSarhField
                     appearance="theme"
                     label="الوصف"
                     value={descAr}

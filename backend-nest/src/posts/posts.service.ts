@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { throwApi } from '../common/exceptions/api.exception';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
@@ -22,6 +22,7 @@ import {
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { filterBlockedComments } from '../users/lib/block-filter';
 import { actorNotificationData } from '../notifications/actor-payload';
+import { MentionsService } from '../mentions/mentions.service';
 
 const PAGE_SIZE = 20;
 
@@ -34,6 +35,7 @@ export class PostsService {
     private readonly usersRepo: UsersRepository,
     private readonly cache: RedisCacheService,
     private readonly notifications: AppNotificationsService,
+    @Optional() private readonly mentions?: MentionsService,
   ) {}
 
   private mapPost(
@@ -359,6 +361,13 @@ export class PostsService {
 
     await this.cache.del('posts:feed:first');
     await this.cache.delPattern('posts:feed:following:*').catch(() => 0);
+    await this.mentions?.sync({
+      actorId: user.userId,
+      entityType: 'post',
+      entityId: post.id,
+      texts: [dto.content, dto.arabicContent],
+      context: { postId: post.id },
+    });
     const presented = presentPostMedia(post, post.media);
     return { ...post, ...presented };
   }
@@ -449,6 +458,15 @@ export class PostsService {
         : {}),
     });
     await this.invalidatePostCaches(id, post.authorId);
+    if (dto.content !== undefined || dto.arabicContent !== undefined) {
+      await this.mentions?.sync({
+        actorId: user.userId,
+        entityType: 'post',
+        entityId: id,
+        texts: [updated.content, updated.arabicContent],
+        context: { postId: id },
+      });
+    }
     const presented = presentPostMedia(updated, updated.media);
     return { ...updated, ...presented };
   }
@@ -682,6 +700,13 @@ export class PostsService {
 
     await this.cache.del(this.cache.keys.post(postId));
     await this.cache.del('posts:feed:first');
+    await this.mentions?.sync({
+      actorId: user.userId,
+      entityType: 'post_comment',
+      entityId: comment.id,
+      texts: [dto.content],
+      context: { postId, commentId: comment.id },
+    });
     return comment;
   }
 

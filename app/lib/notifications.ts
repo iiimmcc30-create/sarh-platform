@@ -332,7 +332,23 @@ export function handleNotificationNavigation(
   switch (type) {
     case 'like':
     case 'repost':
-      if (postId) return navigateToPost(ctx, postId);
+    case 'mention':
+      if (postId) return navigateToPost(ctx, postId, type === 'mention' && Boolean(stringField(data, 'commentId')));
+      if (type === 'mention' && listingId) {
+        safePush({
+          pathname: '/listing/[id]',
+          params: { id: listingId },
+        } as never, undefined, ctx.router);
+        return true;
+      }
+      if (type === 'mention' && threadId) {
+        safePush({
+          pathname: '/chat',
+          params: { threadId },
+        } as never, undefined, ctx.router);
+        return true;
+      }
+      if (type === 'mention') break;
       break;
 
     case 'comment':

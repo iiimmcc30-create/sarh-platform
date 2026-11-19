@@ -201,7 +201,9 @@ suite('Private councils + golden tier (real Postgres)', () => {
       await seat(id, 'vsp');
       await seat(id, 'usp');
       expect(
-        grants((await service.token(as('vsp'), id)).token).canPublishSources?.sort(),
+        grants(
+          (await service.token(as('vsp'), id)).token,
+        ).canPublishSources?.sort(),
       ).toEqual(['camera', 'microphone']);
       expect(
         grants((await service.token(as('usp'), id)).token).canPublishSources,

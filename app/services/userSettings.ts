@@ -12,6 +12,7 @@ export const NOTIFICATION_PREF_KEYS = [
   'followingPosts',
   'councils',
   'councilStarted',
+  'mentions',
   'offers',
 ] as const;
 
@@ -25,6 +26,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   followingPosts: true,
   councils: true,
   councilStarted: true,
+  mentions: true,
   offers: true,
 };
 
@@ -42,6 +44,11 @@ export const NOTIFICATION_PREF_COPY: Record<NotificationPrefKey, { label: string
     label: 'تنبيه بدء المجلس',
     hint: 'عند الإيقاف لن يصلك تنبيه بدء المجلس داخل التطبيق ولا كإشعار فوري',
     icon: 'megaphone-outline',
+  },
+  mentions: {
+    label: 'الإشارات',
+    hint: 'عند الإيقاف لن يصلك تنبيه عندما يذكرك أحد بـ @',
+    icon: 'at-outline',
   },
   offers: { label: 'العروض', hint: 'العروض والتحديثات التسويقية', icon: 'pricetag-outline' },
 };

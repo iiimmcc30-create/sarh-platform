@@ -10,6 +10,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { formatRelativeTimeAr } from '@/lib/formatRelativeTime';
 import { useApp } from '@/hooks/useApp';
 import { type Listing } from '@/services/types';
+import { MentionText } from '@/components/mentions/MentionText';
 import { isListingFeaturedActive, isListingPinnedActive } from '@/lib/listingBoostState';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchUserProfile, setFollowUser } from '@/services/users';
@@ -193,7 +194,9 @@ export default function ListingDetailScreen() {
         ),
         description: raw.description,
         arabicDescription: raw.arabicDescription,
-        origin: raw.origin === 'ADMIN_MANAGED' ? 'ADMIN_MANAGED' : 'USER',
+        origin: (raw.origin === 'ADMIN_MANAGED' ? 'ADMIN_MANAGED' : 'USER') as
+          | 'USER'
+          | 'ADMIN_MANAGED',
         fee: normalizeListingFee(raw.fee),
         displayUsername: raw.displayUsername || undefined,
         displaySellerName: raw.displaySellerName || undefined,
@@ -751,12 +754,12 @@ export default function ListingDetailScreen() {
             ) : null}
             {listing.arabicDescription ? (
               <View style={{ width: '100%' }}>
-                <AppText variant="body" style={styles.descArabic}>{listing.arabicDescription}</AppText>
+                <MentionText text={listing.arabicDescription} variant="body" style={styles.descArabic} />
               </View>
             ) : null}
             {listing.description && listing.description !== listing.arabicDescription ? (
               <View style={{ width: '100%' }}>
-                <AppText variant="body" color="textSecondary">{listing.description}</AppText>
+                <MentionText text={listing.description} variant="body" color="textSecondary" />
               </View>
             ) : null}
           </View>

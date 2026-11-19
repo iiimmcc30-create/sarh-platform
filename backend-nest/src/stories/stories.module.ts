@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MessagesModule } from '../messages/messages.module';
+import { MentionsModule } from '../mentions/mentions.module';
 import { StoriesController } from './stories.controller';
 import { StoriesService } from './stories.service';
 import { StoriesRepository } from './repositories/stories.repository';
@@ -7,7 +8,7 @@ import { StoryViewRepository } from './repositories/story-view.repository';
 import { StoryReactionRepository } from './repositories/story-reaction.repository';
 
 @Module({
-  imports: [MessagesModule],
+  imports: [MessagesModule, MentionsModule],
   controllers: [StoriesController],
   providers: [
     StoriesService,

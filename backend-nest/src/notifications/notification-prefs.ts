@@ -13,6 +13,7 @@ export const NOTIFICATION_PREF_KEYS = [
   'followingPosts',
   'councils',
   'councilStarted',
+  'mentions',
   'offers',
 ] as const;
 
@@ -28,6 +29,8 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   councils: true,
   /** «تنبيه بدء المجلس»: in-app and push. Off skips the row entirely. */
   councilStarted: true,
+  /** «الإشارات»: in-app and push. Off skips the row entirely. */
+  mentions: true,
   offers: true,
 };
 
@@ -58,6 +61,8 @@ export function notificationCategory(
     case 'story_reaction':
     case 'story_reply':
       return 'interactions';
+    case 'mention':
+      return 'mentions';
     case 'live_start':
       return 'councils';
     case 'offer':
@@ -93,4 +98,9 @@ export function isPushAllowed(
  */
 export function wantsCouncilStartedNotice(prefs: unknown): boolean {
   return normalizeNotificationPrefs(prefs).councilStarted;
+}
+
+/** Full opt-out for @mention alerts (in-app and push). */
+export function wantsMentionNotice(prefs: unknown): boolean {
+  return normalizeNotificationPrefs(prefs).mentions;
 }

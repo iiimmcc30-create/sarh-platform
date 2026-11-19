@@ -18,8 +18,8 @@ export const NOTIFICATION_CATEGORIES: Array<{
   {
     key: 'activity',
     title: 'التفاعل مع حسابك',
-    footer: 'عندما يتابعك أحد أو يتفاعل مع منشوراتك وقصصك.',
-    prefs: ['follows', 'interactions'],
+    footer: 'عندما يتابعك أحد أو يتفاعل مع منشوراتك وقصصك أو يذكرك.',
+    prefs: ['follows', 'interactions', 'mentions'],
   },
   {
     key: 'following',

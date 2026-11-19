@@ -20,6 +20,7 @@ import { StoriesRepository } from './repositories/stories.repository';
 import { StoryViewRepository } from './repositories/story-view.repository';
 import { StoryReactionRepository } from './repositories/story-reaction.repository';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
+import { MentionsService } from '../mentions/mentions.service';
 
 type StoryRow = Awaited<
   ReturnType<StoriesRepository['findActiveStories']>
@@ -51,6 +52,7 @@ export class StoriesService {
     private readonly messages: MessagesService,
     private readonly logger: LoggerService,
     @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly mentions?: MentionsService,
   ) {}
 
   /** Accounts the viewer muted: their stories leave the viewer's tray. */
@@ -497,6 +499,18 @@ export class StoriesService {
         messageId: result.message.id,
         reply: '1',
         ...actor,
+      },
+    });
+
+    await this.mentions?.sync({
+      actorId: user.userId,
+      entityType: 'story_reply',
+      entityId: result.message.id,
+      texts: [dto.text],
+      context: {
+        storyId,
+        threadId: result.threadId,
+        messageId: result.message.id,
       },
     });
 

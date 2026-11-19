@@ -18,6 +18,7 @@ export function mentionsNotificationWhere(
   return {
     userId,
     OR: [
+      { type: 'mention' },
       { type: 'story_reply' },
       {
         type: 'comment',

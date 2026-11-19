@@ -184,7 +184,7 @@ describe('notification prefs client', () => {
     const s = normalizeNotificationSettings({ notificationsEnabled: true, prefs: { messages: false } })!;
     expect(s.prefs.messages).toBe(false);
     expect(s.prefs.follows).toBe(true);
-    expect(notificationsSummary(s)).toBe('6 من 7');
+    expect(notificationsSummary(s)).toBe('7 من 8');
     expect(notificationsSummary({ ...s, notificationsEnabled: false })).toBe('متوقفة');
     expect(notificationsSummary(normalizeNotificationSettings({ prefs: {} }))).toBe('الكل');
     expect(normalizeNotificationSettings(null)).toBeNull();
