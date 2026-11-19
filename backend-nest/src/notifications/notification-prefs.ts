@@ -12,6 +12,8 @@ export const NOTIFICATION_PREF_KEYS = [
   'interactions',
   'followingPosts',
   'councils',
+  'councilStarted',
+  'mentions',
   'offers',
 ] as const;
 
@@ -25,6 +27,10 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   interactions: true,
   followingPosts: true,
   councils: true,
+  /** «تنبيه بدء المجلس»: in-app and push. Off skips the row entirely. */
+  councilStarted: true,
+  /** «الإشارات»: in-app and push. Off skips the row entirely. */
+  mentions: true,
   offers: true,
 };
 
@@ -55,6 +61,8 @@ export function notificationCategory(
     case 'story_reaction':
     case 'story_reply':
       return 'interactions';
+    case 'mention':
+      return 'mentions';
     case 'live_start':
       return 'councils';
     case 'offer':
@@ -82,4 +90,17 @@ export function isPushAllowed(
   const category = notificationCategory(type, data);
   if (category === 'account') return true;
   return normalizeNotificationPrefs(user.notificationPrefs)[category];
+}
+
+/**
+ * Full opt-out for «تنبيه بدء المجلس» (in-app and push).
+ * Distinct from the `councils` push category, which still gates invites.
+ */
+export function wantsCouncilStartedNotice(prefs: unknown): boolean {
+  return normalizeNotificationPrefs(prefs).councilStarted;
+}
+
+/** Full opt-out for @mention alerts (in-app and push). */
+export function wantsMentionNotice(prefs: unknown): boolean {
+  return normalizeNotificationPrefs(prefs).mentions;
 }

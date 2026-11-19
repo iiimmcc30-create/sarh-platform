@@ -13,6 +13,7 @@ import { getRtlRow, getRtlText } from '@/lib/rtl';
 import { avatarUrl } from '@/lib/listingMedia';
 import type { ListingCommentThreadData } from '@/components/feature/listingCommentsUtils';
 import type { PostComment } from '@/services/types';
+import { MentionText } from '@/components/mentions/MentionText';
 
 /**
  * Listing comment row (RTL): one header line — avatar + name + verified badge
@@ -71,7 +72,7 @@ export function ListingCommentRow({ comment: c, sellerId, reply = false, onReply
         ) : null}
       </View>
 
-      <AppText style={reply ? styles.replyText : styles.text}>{c.content}</AppText>
+      <MentionText text={c.content} style={reply ? styles.replyText : styles.text} />
 
       {onReply ? (
         <View style={[styles.actions, getRtlRow()]}>

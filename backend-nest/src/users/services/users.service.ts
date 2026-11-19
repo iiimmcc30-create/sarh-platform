@@ -318,7 +318,11 @@ export class UsersService {
         type: 'follow',
         titleAr: 'متابع جديد',
         bodyAr: `${follower?.arabicName || 'مستخدم'} بدأ متابعتك`,
-        data: { actorId: followerId, actorAvatar: follower?.avatar },
+        data: {
+          actorId: followerId,
+          actorName: follower?.arabicName || 'مستخدم',
+          ...(follower?.avatar ? { actorAvatar: follower.avatar } : {}),
+        },
       });
     }
 

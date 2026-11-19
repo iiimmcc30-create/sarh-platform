@@ -259,10 +259,18 @@ suite('Council subscriber perks (real Postgres)', () => {
     expect(row.remindersSentAt).not.toBeNull();
     expect(notifyUsers).toHaveBeenCalledTimes(1);
     expect(notifyUsers.mock.calls[0][0]).toEqual([users.fan]);
-    expect(notifyUsers.mock.calls[0][1].data).toEqual({
-      kind: 'council_live',
-      councilId: id,
-    });
+    expect(notifyUsers.mock.calls[0][1].data).toEqual(
+      expect.objectContaining({
+        kind: 'council_live',
+        councilId: id,
+        locked: '0',
+        action: 'join',
+      }),
+    );
+    expect(notifyUsers.mock.calls[0][1].data).not.toHaveProperty('code');
+    expect(notifyUsers.mock.calls[0][1].data).not.toHaveProperty('joinCode');
+    expect(notifyUsers.mock.calls[0][1].data).not.toHaveProperty('inviteCode');
+    expect(notifyUsers.mock.calls[0][1].bodyAr).toContain('بدأ المجلس');
 
     // Re-running never starts or notifies twice; now joinable.
     notifyUsers.mockClear();

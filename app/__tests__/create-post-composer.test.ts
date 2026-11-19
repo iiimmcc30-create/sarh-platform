@@ -33,7 +33,7 @@ describe('create post composer (X-style)', () => {
 
   it('shows the avatar with the ماذا يحدث؟ field, autofocused', () => {
     const row = create.slice(create.indexOf('styles.composeRow'));
-    expect(row.indexOf('styles.avatar')).toBeLessThan(row.indexOf('<TextInput'));
+    expect(row.indexOf('styles.avatar')).toBeLessThan(row.indexOf('<MentionAwareInput'));
     expect(create).toContain('placeholder="ماذا يحدث؟"');
     expect(create).toContain('autoFocus');
     expect(create).toContain('borderRadius: AVATAR_SIZE / 2');

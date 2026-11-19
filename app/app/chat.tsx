@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { radius, spacing, type ThemeColors } from '@/constants/theme';
+import { MentionText } from '@/components/mentions/MentionText';
 import { AppText, SarhBackButton, resolveAppTextStyle } from '@/design-system/components';
 import { Row, Screen } from '@/design-system/layout';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -303,10 +304,12 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
             palette={palette}
           />
         ) : null}
-        {parts.text ? (
-          <AppText variant="body" style={[messageStyles.bubbleText, isMe ? messageStyles.textMe : messageStyles.textThem]}>
-            {item.text}
-          </AppText>
+        {typeof item.text === 'string' && item.text ? (
+          <MentionText
+            text={item.text}
+            variant="body"
+            style={[messageStyles.bubbleText, isMe ? messageStyles.textMe : messageStyles.textThem]}
+          />
         ) : null}
         {uploading && (parts.image || parts.video || parts.voice) ? (
           <View style={messageStyles.uploadRow} accessibilityLiveRegion="polite">

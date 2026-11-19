@@ -1,3 +1,4 @@
+import { MentionAwareInput } from '@/components/mentions/MentionAwareInput';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { Image } from '@/components/ui/AppImage';
 import { LinearGradient } from '@/components/ui/AppLinearGradient';
@@ -516,7 +517,7 @@ export function StoryViewer({
             >
               <Text style={styles.heartEmoji}>{story.myReaction === 'love' ? '❤️' : '🤍'}</Text>
             </Pressable>
-            <TextInput
+            <MentionAwareInput
               style={styles.replyInput}
               placeholder="أرسل رسالة..."
               placeholderTextColor="rgba(255,255,255,0.5)"

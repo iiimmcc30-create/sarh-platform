@@ -74,6 +74,7 @@ function normalizeNotification(raw: AppNotification): AppNotification {
 
 export type NotificationListQuery = {
   cursor?: string;
+  tab?: 'all' | 'mentions';
 };
 
 export async function fetchNotifications(
@@ -81,6 +82,7 @@ export async function fetchNotifications(
 ): Promise<NotificationListResult> {
   const params = new URLSearchParams();
   if (query.cursor) params.set('cursor', query.cursor);
+  if (query.tab) params.set('tab', query.tab);
   const qs = params.toString();
 
   const res = await authFetch(`${API_BASE}/api/notifications${qs ? `?${qs}` : ''}`);

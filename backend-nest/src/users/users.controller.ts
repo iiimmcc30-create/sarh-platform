@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './services/users.service';
 import { UserReviewsService } from './services/user-reviews.service';
+import { MentionsService } from '../mentions/mentions.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import {
   OptionalAuth,
@@ -33,6 +34,7 @@ import {
   UpdateUserDto,
   UsernameAvailableQueryDto,
 } from './dto/users.dto';
+import { MentionSuggestQueryDto } from './dto/mention-suggest.dto';
 import {
   CreateUserReviewDto,
   ListUserReviewsQueryDto,
@@ -44,6 +46,7 @@ export class UsersController {
   constructor(
     private readonly users: UsersService,
     private readonly reviews: UserReviewsService,
+    private readonly mentions: MentionsService,
   ) {}
 
   @Public()
@@ -106,6 +109,18 @@ export class UsersController {
   ) {
     return successResponse(
       await this.users.updatePrivacySettings(user.userId, dto),
+    );
+  }
+
+  @RateLimit('api')
+  @Get('mention-suggest')
+  @HttpCode(HttpStatus.OK)
+  async mentionSuggest(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: MentionSuggestQueryDto,
+  ) {
+    return successResponse(
+      await this.mentions.suggest(user.userId, query.q ?? ''),
     );
   }
 

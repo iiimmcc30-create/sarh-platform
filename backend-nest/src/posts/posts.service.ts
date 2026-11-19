@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { throwApi } from '../common/exceptions/api.exception';
 import { RedisCacheService } from '../redis/services/redis-cache.service';
@@ -21,6 +21,8 @@ import {
 } from './lib/post-view-dedupe';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { filterBlockedComments } from '../users/lib/block-filter';
+import { actorNotificationData } from '../notifications/actor-payload';
+import { MentionsService } from '../mentions/mentions.service';
 
 const PAGE_SIZE = 20;
 
@@ -33,6 +35,7 @@ export class PostsService {
     private readonly usersRepo: UsersRepository,
     private readonly cache: RedisCacheService,
     private readonly notifications: AppNotificationsService,
+    @Optional() private readonly mentions?: MentionsService,
   ) {}
 
   private mapPost(
@@ -358,6 +361,13 @@ export class PostsService {
 
     await this.cache.del('posts:feed:first');
     await this.cache.delPattern('posts:feed:following:*').catch(() => 0);
+    await this.mentions?.sync({
+      actorId: user.userId,
+      entityType: 'post',
+      entityId: post.id,
+      texts: [dto.content, dto.arabicContent],
+      context: { postId: post.id },
+    });
     const presented = presentPostMedia(post, post.media);
     return { ...post, ...presented };
   }
@@ -448,6 +458,15 @@ export class PostsService {
         : {}),
     });
     await this.invalidatePostCaches(id, post.authorId);
+    if (dto.content !== undefined || dto.arabicContent !== undefined) {
+      await this.mentions?.sync({
+        actorId: user.userId,
+        entityType: 'post',
+        entityId: id,
+        texts: [updated.content, updated.arabicContent],
+        context: { postId: id },
+      });
+    }
     const presented = presentPostMedia(updated, updated.media);
     return { ...updated, ...presented };
   }
@@ -464,6 +483,24 @@ export class PostsService {
     await this.repo.softDelete(id);
     await this.invalidatePostCaches(id, post.authorId);
     return { deleted: true };
+  }
+
+  private async actorData(user: JwtPayload) {
+    let row: {
+      arabicName?: string | null;
+      username?: string | null;
+      avatar?: string | null;
+    } | null = null;
+    try {
+      row = await this.usersRepo.findUserById(user.userId, {
+        arabicName: true,
+        username: true,
+        avatar: true,
+      });
+    } catch {
+      row = null;
+    }
+    return actorNotificationData(user.userId, row, user.username);
   }
 
   private async assertNotBlockedWithAuthor(viewerId: string, authorId: string) {
@@ -487,13 +524,14 @@ export class PostsService {
     const likesCount = await this.repo.countLikes(postId);
 
     if (liked && post.authorId !== user.userId) {
+      const actor = await this.actorData(user);
       void this.notifications
         .notifyUser({
           userId: post.authorId,
           type: 'like',
           titleAr: 'إعجاب جديد',
-          bodyAr: `أعجب ${user.username} بمنشورك`,
-          data: { postId },
+          bodyAr: `أعجب ${actor.actorName} بمنشورك`,
+          data: { postId, ...actor },
         })
         .catch(() => {});
     }
@@ -518,13 +556,14 @@ export class PostsService {
     );
 
     if (reposted && post.authorId !== user.userId) {
+      const actor = await this.actorData(user);
       void this.notifications
         .notifyUser({
           userId: post.authorId,
           type: 'repost',
           titleAr: 'إعادة نشر',
-          bodyAr: `أعاد ${user.username} نشر منشورك`,
-          data: { postId },
+          bodyAr: `أعاد ${actor.actorName} نشر منشورك`,
+          data: { postId, ...actor },
         })
         .catch(() => {});
     }
@@ -647,19 +686,27 @@ export class PostsService {
     );
 
     if (post.authorId !== user.userId) {
+      const actor = await this.actorData(user);
       void this.notifications
         .notifyUser({
           userId: post.authorId,
           type: 'comment',
           titleAr: 'تعليق جديد',
-          bodyAr: `علّق ${user.username} على منشورك`,
-          data: { postId, commentId: comment.id },
+          bodyAr: `علّق ${actor.actorName} على منشورك`,
+          data: { postId, commentId: comment.id, ...actor },
         })
         .catch(() => {});
     }
 
     await this.cache.del(this.cache.keys.post(postId));
     await this.cache.del('posts:feed:first');
+    await this.mentions?.sync({
+      actorId: user.userId,
+      entityType: 'post_comment',
+      entityId: comment.id,
+      texts: [dto.content],
+      context: { postId, commentId: comment.id },
+    });
     return comment;
   }
 

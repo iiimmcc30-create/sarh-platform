@@ -1,6 +1,7 @@
 // Hook for in-app notification center list
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { InboxTab } from '@/lib/notificationInbox';
 import {
   fetchNotifications,
   markNotificationsRead,
@@ -20,7 +21,7 @@ function errorMessage(err: unknown): string {
   return 'حدث خطأ غير متوقع';
 }
 
-export function useNotificationsList() {
+export function useNotificationsList(tab: InboxTab = 'all') {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -46,18 +47,39 @@ export function useNotificationsList() {
     setLoading(true);
     setError(null);
     try {
-      const page = await fetchNotifications();
+      const page = await fetchNotifications({ tab });
       applyPage(page, false);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [applyPage]);
+  }, [applyPage, tab]);
 
   useEffect(() => {
-    loadInitial();
-  }, [loadInitial]);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setNotifications([]);
+      setNextCursor(null);
+      setHasMore(false);
+      setLoading(true);
+      setError(null);
+      try {
+        const page = await fetchNotifications({ tab });
+        if (cancelled) return;
+        applyPage(page, false);
+      } catch (err) {
+        if (!cancelled) setError(errorMessage(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyPage, tab]);
 
   // New pushes while the list is open show up right away (no manual pull).
   useEffect(() => {
@@ -66,7 +88,7 @@ export function useNotificationsList() {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const Notifications = require('expo-notifications');
       sub = Notifications.addNotificationReceivedListener(() => {
-        void fetchNotifications()
+        void fetchNotifications({ tab })
           .then((page) => applyPage(page, false))
           .catch(() => {});
       });
@@ -74,27 +96,27 @@ export function useNotificationsList() {
       sub = null;
     }
     return () => sub?.remove();
-  }, [applyPage]);
+  }, [applyPage, tab]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
     setError(null);
     try {
-      const page = await fetchNotifications();
+      const page = await fetchNotifications({ tab });
       applyPage(page, false);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setRefreshing(false);
     }
-  }, [applyPage]);
+  }, [applyPage, tab]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore || !nextCursor || loadingMoreRef.current) return;
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const page = await fetchNotifications({ cursor: nextCursor });
+      const page = await fetchNotifications({ cursor: nextCursor, tab });
       applyPage(page, true);
     } catch (err) {
       setError(errorMessage(err));
@@ -102,7 +124,7 @@ export function useNotificationsList() {
       loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [applyPage, hasMore, nextCursor]);
+  }, [applyPage, hasMore, nextCursor, tab]);
 
   const markAsRead = useCallback(async (id: string) => {
     let wasUnread = false;
@@ -119,6 +141,28 @@ export function useNotificationsList() {
     }
     try {
       await markNotificationsRead([id]);
+    } catch {
+      await refresh();
+    }
+  }, [refresh]);
+
+  const markIds = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const unread = new Set(ids);
+    let cleared = 0;
+    setNotifications((prev) =>
+      prev.map((n) => {
+        if (!unread.has(n.id) || n.isRead) return n;
+        cleared += 1;
+        return { ...n, isRead: true, readAt: new Date().toISOString() };
+      }),
+    );
+    if (cleared > 0) {
+      setUnreadCount((c) => Math.max(0, c - cleared));
+      for (let i = 0; i < cleared; i += 1) decrementUnreadNotificationCount();
+    }
+    try {
+      await markNotificationsRead(ids);
     } catch {
       await refresh();
     }
@@ -150,6 +194,7 @@ export function useNotificationsList() {
     refresh,
     loadMore,
     markAsRead,
+    markIds,
     markAllAsRead,
     retry: loadInitial,
   };

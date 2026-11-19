@@ -20,6 +20,7 @@ import { StoriesRepository } from './repositories/stories.repository';
 import { StoryViewRepository } from './repositories/story-view.repository';
 import { StoryReactionRepository } from './repositories/story-reaction.repository';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
+import { MentionsService } from '../mentions/mentions.service';
 
 type StoryRow = Awaited<
   ReturnType<StoriesRepository['findActiveStories']>
@@ -51,6 +52,7 @@ export class StoriesService {
     private readonly messages: MessagesService,
     private readonly logger: LoggerService,
     @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly mentions?: MentionsService,
   ) {}
 
   /** Accounts the viewer muted: their stories leave the viewer's tray. */
@@ -435,15 +437,16 @@ export class StoriesService {
     await this.invalidateFeedCache();
 
     if (story.userId !== user.userId && previous?.type !== dto.type) {
+      const actor = await this.storyActor(user);
       void this.notifications.notifyUser({
         userId: story.userId,
         type: 'story_reaction',
         titleAr: 'تفاعل على قصتك',
-        bodyAr: `تفاعل شخص ما على قصتك بـ ${dto.type}`,
+        bodyAr: `تفاعل ${actor.actorName} على قصتك`,
         data: {
           storyId,
-          actorId: user.userId,
           reaction: dto.type,
+          ...actor,
         },
       });
     }
@@ -484,6 +487,7 @@ export class StoriesService {
       text: `${prefix}${dto.text}`,
     });
 
+    const actor = await this.storyActor(user);
     void this.notifications.notifyUser({
       userId: story.userId,
       type: 'story_reply',
@@ -491,7 +495,20 @@ export class StoriesService {
       bodyAr: dto.text.slice(0, 80),
       data: {
         storyId,
-        actorId: user.userId,
+        threadId: result.threadId,
+        messageId: result.message.id,
+        reply: '1',
+        ...actor,
+      },
+    });
+
+    await this.mentions?.sync({
+      actorId: user.userId,
+      entityType: 'story_reply',
+      entityId: result.message.id,
+      texts: [dto.text],
+      context: {
+        storyId,
         threadId: result.threadId,
         messageId: result.message.id,
       },
@@ -501,6 +518,30 @@ export class StoriesService {
       threadId: result.threadId,
       messageId: result.message.id,
       receiverId: story.userId,
+    };
+  }
+
+  private async storyActor(user: JwtPayload) {
+    let row: {
+      arabicName: string | null;
+      username: string | null;
+      avatar: string | null;
+    } | null = null;
+    if (this.prisma) {
+      try {
+        row = await this.prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { arabicName: true, username: true, avatar: true },
+        });
+      } catch {
+        row = null;
+      }
+    }
+    return {
+      actorId: user.userId,
+      actorName: row?.arabicName || row?.username || user.username,
+      actorUsername: row?.username || user.username,
+      ...(row?.avatar ? { actorAvatar: row.avatar } : {}),
     };
   }
 

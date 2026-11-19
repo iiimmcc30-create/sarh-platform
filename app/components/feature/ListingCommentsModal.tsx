@@ -1,3 +1,4 @@
+import { MentionAwareInput } from '@/components/mentions/MentionAwareInput';
 import { AppIcon } from '@/components/ui/FlaticonIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -248,7 +249,7 @@ export function ListingCommentsModal({
             ]}
           >
             <View style={[styles.inputField, getRtlRow()]}>
-              <TextInput
+              <MentionAwareInput
                 ref={inputRef}
                 style={styles.input}
                 placeholder={isAuthenticated ? 'اكتب تعليقك هنا...' : 'سجّل الدخول للتعليق'}

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { throwApi } from '../../common/exceptions/api.exception';
 import { LoggerService } from '../../common/services/logger.service';
@@ -13,6 +13,8 @@ import {
 } from '../dto/user-reviews.dto';
 import { ReviewCreateLimiter } from '../lib/review-create-limiter';
 import { UsersRepository } from '../repositories/users.repository';
+import { AppNotificationsService } from '../../queue/services/app-notifications.service';
+import { actorNotificationData } from '../../notifications/actor-payload';
 
 const DEFAULT_PAGE = 15;
 
@@ -24,6 +26,7 @@ export class UserReviewsService {
     private readonly redis: RedisService,
     private readonly logger: LoggerService,
     private readonly createLimiter: ReviewCreateLimiter,
+    @Optional() private readonly notifications?: AppNotificationsService,
   ) {}
 
   async list(
@@ -121,8 +124,9 @@ export class UserReviewsService {
     this.createLimiter.assert(reviewerId);
 
     const oathAcceptedAt = new Date();
+    let createdReview: { id: string } | null = null;
     try {
-      await this.repo.createUserReview({
+      createdReview = await this.repo.createUserReview({
         targetId,
         reviewerId,
         rating: dto.rating,
@@ -147,6 +151,7 @@ export class UserReviewsService {
 
     const cache = await this.repo.recomputeRatingCache(targetId);
     await this.redis.cacheDel(`user:${targetId}`, `user:${targetId}:base`);
+    await this.notifyReview(targetId, reviewerId, createdReview?.id);
     this.logger.info(
       { targetId, reviewerId, rating: dto.rating },
       'User review created',
@@ -178,6 +183,43 @@ export class UserReviewsService {
       reason: dto.reason,
       details: dto.details,
     });
+  }
+
+  private async notifyReview(
+    targetId: string,
+    reviewerId: string,
+    reviewId?: string,
+  ) {
+    if (!this.notifications) return;
+    let reviewer: {
+      arabicName?: string | null;
+      username?: string | null;
+      avatar?: string | null;
+    } | null = null;
+    try {
+      reviewer = await this.repo.findUserById(reviewerId, {
+        arabicName: true,
+        username: true,
+        avatar: true,
+      });
+    } catch {
+      reviewer = null;
+    }
+    const actor = actorNotificationData(reviewerId, reviewer);
+    await this.notifications
+      .notifyUser({
+        userId: targetId,
+        type: 'system',
+        titleAr: 'تقييم جديد',
+        bodyAr: `${actor.actorName} قيّم حسابك`,
+        data: {
+          kind: 'review',
+          userId: targetId,
+          ...(reviewId ? { reviewId } : {}),
+          ...actor,
+        },
+      })
+      .catch(() => {});
   }
 
   private assertCreatePayload(dto: CreateUserReviewDto) {

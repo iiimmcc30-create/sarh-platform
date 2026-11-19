@@ -16,6 +16,7 @@ import { MarketCategoriesModule } from '../market-categories/market-categories.m
 import { SettingsModule } from '../settings/settings.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { GeoModule } from '../geo/geo.module';
+import { MentionsModule } from '../mentions/mentions.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { GeoModule } from '../geo/geo.module';
     SettingsModule,
     IntegrationsModule,
     GeoModule,
+    MentionsModule,
   ],
   controllers: [
     ListingsController,

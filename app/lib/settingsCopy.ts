@@ -18,14 +18,14 @@ export const NOTIFICATION_CATEGORIES: Array<{
   {
     key: 'activity',
     title: 'التفاعل مع حسابك',
-    footer: 'عندما يتابعك أحد أو يتفاعل مع منشوراتك وقصصك.',
-    prefs: ['follows', 'interactions'],
+    footer: 'عندما يتابعك أحد أو يتفاعل مع منشوراتك وقصصك أو يذكرك.',
+    prefs: ['follows', 'interactions', 'mentions'],
   },
   {
     key: 'following',
     title: 'من تتابعهم',
-    footer: 'جديد الحسابات التي تتابعها، وبدء المجالس والدعوات إليها.',
-    prefs: ['followingPosts', 'councils'],
+    footer: 'جديد الحسابات التي تتابعها. تنبيه بدء المجلس يُوقف وحده دون دعوات المجالس.',
+    prefs: ['followingPosts', 'councils', 'councilStarted'],
   },
   {
     key: 'sarh',

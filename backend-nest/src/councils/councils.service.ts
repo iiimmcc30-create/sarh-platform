@@ -61,6 +61,13 @@ import {
   canShowCouncilImages,
 } from '../subscriptions/perks/subscriber-perks';
 import { isOurUploadUrl } from '../shared/lib/storage';
+import {
+  COUNCIL_START_OWNER_COOLDOWN_SEC,
+  councilStartCopy,
+  councilStartOptedOut,
+  councilStartPayload,
+  mergeCouncilStartRecipients,
+} from './lib/council-start-notice';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { isListingVideoUrl } from '../shared/lib/media-url';
 import type {
@@ -729,6 +736,9 @@ export class CouncilsService {
       { councilId: id, userId: user.userId, scheduled: Boolean(scheduledFor) },
       'Council created',
     );
+    if (!scheduledFor) {
+      await this.notifyCouncilStarted(id);
+    }
     const { council, member } = await this.loadForViewer(id, user.userId);
     if (scheduledFor) {
       return {
@@ -1096,7 +1106,7 @@ export class CouncilsService {
         councilId: existing?.id,
       });
     }
-    await this.notifyReminders(id);
+    await this.notifyCouncilStarted(id);
     await this.realtime.touchHost(id, user.userId);
     const fresh = await this.loadForViewer(id, user.userId);
     return {
@@ -1129,44 +1139,116 @@ export class CouncilsService {
     });
   }
 
-  /** Tells «ذكّرني» users the council is live (exactly once per council). */
-  private async notifyReminders(id: string) {
-    const { count } = await this.prisma.council.updateMany({
-      where: { id, remindersSentAt: null },
-      data: { remindersSentAt: new Date() },
-    });
-    if (count === 0) return 0;
-    const council = await this.prisma.council.findUnique({
-      where: { id },
-      select: { name: true, ownerId: true },
-    });
-    if (!council) return 0;
-    const rows = await this.prisma.councilReminder.findMany({
-      where: {
-        councilId: id,
-        user: {
-          ...ACTIVE_OWNER,
-          blocksInitiated: { none: { blockedId: council.ownerId } },
-          blocksReceived: { none: { blockerId: council.ownerId } },
+  /**
+   * «تنبيه بدء المجلس»: followers, plus anyone who asked to be reminded.
+   * Once per council (`remindersSentAt`). A new council from the same owner
+   * inside {@link COUNCIL_START_OWNER_COOLDOWN_SEC} does not blast followers
+   * again; reminder opt-ins for that council still go out once. The join code
+   * is never part of the payload — private rooms deep-link to the code gate.
+   */
+  private async notifyCouncilStarted(id: string): Promise<number> {
+    try {
+      const { count } = await this.prisma.council.updateMany({
+        where: { id, remindersSentAt: null },
+        data: { remindersSentAt: new Date() },
+      });
+      if (count === 0) return 0;
+      const council = await this.prisma.council.findUnique({
+        where: { id },
+        select: {
+          name: true,
+          ownerId: true,
+          visibility: true,
+          golden: true,
+          owner: {
+            select: {
+              arabicName: true,
+              displayName: true,
+              username: true,
+              avatar: true,
+            },
+          },
         },
-      },
-      select: { userId: true },
-      take: 5000,
-    });
-    const userIds = rows
-      .map((r) => r.userId)
-      .filter((u) => u !== council.ownerId);
-    if (userIds.length > 0) {
+      });
+      if (!council) return 0;
+      const notBlocked = {
+        ...ACTIVE_OWNER,
+        blocksInitiated: { none: { blockedId: council.ownerId } },
+        blocksReceived: { none: { blockerId: council.ownerId } },
+      };
+      const [followerRows, reminderRows] = await Promise.all([
+        this.prisma.follow.findMany({
+          where: { followingId: council.ownerId, follower: notBlocked },
+          select: { followerId: true },
+          take: 5000,
+        }),
+        this.prisma.councilReminder.findMany({
+          where: { councilId: id, user: notBlocked },
+          select: { userId: true },
+          take: 5000,
+        }),
+      ]);
+      const followerIds = followerRows.map((row) => row.followerId);
+      const reminderIds = reminderRows.map((row) => row.userId);
+      const candidates = [...new Set([...reminderIds, ...followerIds])].filter(
+        (userId) => userId !== council.ownerId,
+      );
+      if (candidates.length === 0) return 0;
+      const prefRows = await this.prisma.user.findMany({
+        where: { id: { in: candidates } },
+        select: { id: true, notificationPrefs: true },
+      });
+      const optedOutIds = councilStartOptedOut(prefRows, candidates);
+      const eligibleFollowers = followerIds.filter(
+        (userId) => userId !== council.ownerId && !optedOutIds.has(userId),
+      );
+      const includeFollowers =
+        eligibleFollowers.length > 0 &&
+        (await this.cache.claimOnce(
+          `council:start-followers:${council.ownerId}`,
+          COUNCIL_START_OWNER_COOLDOWN_SEC,
+        ));
+      const userIds = mergeCouncilStartRecipients({
+        followerIds,
+        reminderIds,
+        ownerId: council.ownerId,
+        includeFollowers,
+        optedOutIds,
+      });
+      if (userIds.length === 0) return 0;
+      const ownerName =
+        council.owner.arabicName ||
+        council.owner.displayName ||
+        council.owner.username ||
+        'مستخدم';
+      const copy = councilStartCopy(ownerName, council.name);
       await this.notifications
         .notifyUsers(userIds, {
           type: 'system',
-          titleAr: 'بدأ المجلس',
-          bodyAr: `«${council.name}» مباشر الآن، انضم واستمع`,
-          data: { kind: 'council_live', councilId: id },
+          titleAr: copy.titleAr,
+          bodyAr: copy.bodyAr,
+          data: councilStartPayload({
+            councilId: id,
+            councilName: council.name,
+            visibility: council.visibility,
+            golden: council.golden,
+            ownerId: council.ownerId,
+            ownerName,
+            ownerAvatar: council.owner.avatar,
+          }),
         })
         .catch(() => {});
+      return userIds.length;
+    } catch (err) {
+      this.logger.warn(
+        {
+          councilId: id,
+          err: err instanceof Error ? err.message : String(err),
+        },
+        'Council start notify failed',
+      );
+      return 0;
     }
-    return userIds.length;
   }
 
   /**
@@ -1207,7 +1289,7 @@ export class CouncilsService {
               data: { kind: 'council_live', councilId: c.id },
             })
             .catch(() => {});
-          await this.notifyReminders(c.id);
+          await this.notifyCouncilStarted(c.id);
         } else if (
           result === 'busy' &&
           (await this.cache.claimOnce(`council:host-nudge:${c.id}`, 24 * 3600))

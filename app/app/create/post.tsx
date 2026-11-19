@@ -27,6 +27,7 @@ import { uploadMediaFromUri } from '@/services/upload';
 import { rtlInputText } from '@/lib/rtl';
 import { cloudinaryVideoFirstFrameUrl, avatarUrl } from '@/lib/listingMedia';
 import { showAlert } from '@/lib/confirmDialog';
+import { MentionAwareInput } from '@/components/mentions/MentionAwareInput';
 
 const MAX_POST_MEDIA = 4;
 const MAX_CHARS = 280;
@@ -261,7 +262,7 @@ export default function CreatePostScreen() {
                 <AppIcon name="person" size={20} color={colors.textMuted} />
               </View>
             )}
-            <TextInput
+            <MentionAwareInput
               value={arabicContent}
               onChangeText={setArabicContent}
               placeholder="ماذا يحدث؟"

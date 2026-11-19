@@ -119,6 +119,8 @@ model User {
   profileViewsGiven                   ProfileView[]                     @relation("ProfileViewsGiven")
   mutesInitiated                      UserMute[]                        @relation("MutesInitiated")
   mutesReceived                       UserMute[]                        @relation("MutesReceived")
+  mentionsMade                        Mention[]                         @relation("MentionActor")
+  mentionsReceived                    Mention[]                         @relation("MentionTarget")
   consentRecords                      ConsentRecord[]
 
   @@index([username])
@@ -1225,6 +1227,23 @@ model Notification {
   @@index([createdAt])
 }
 
+/// One row per mentioned account per saved text (post, comment, listing, story reply).
+model Mention {
+  id          String   @id @default(uuid())
+  actorId     String
+  mentionedId String
+  entityType  String
+  entityId    String
+  username    String
+  createdAt   DateTime @default(now())
+  actor       User     @relation("MentionActor", fields: [actorId], references: [id], onDelete: Cascade)
+  mentioned   User     @relation("MentionTarget", fields: [mentionedId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, mentionedId])
+  @@index([mentionedId, createdAt])
+  @@index([actorId])
+}
+
 model Activity {
   id           String   @id @default(uuid())
   actorId      String
@@ -1403,6 +1422,7 @@ enum NotificationType {
   system
   story_reaction
   story_reply
+  mention
 }
 
 enum PostMediaType {

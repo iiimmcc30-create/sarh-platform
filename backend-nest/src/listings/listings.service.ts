@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { shouldCreateFee } from '../lib/commissions';
 import { hasPaidAccess } from '../lib/subscription-lifecycle';
@@ -78,6 +78,8 @@ import {
 } from '../geo/lib/listing-geo-input';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { filterBlockedComments } from '../users/lib/block-filter';
+import { actorNotificationData } from '../notifications/actor-payload';
+import { MentionsService } from '../mentions/mentions.service';
 
 const PAGE_SIZE = LISTING_PAGE_SIZE;
 /** Radius mode scans the geo keyset in batches and filters each batch with Prisma. */
@@ -148,6 +150,7 @@ export class ListingsService {
     private readonly marketCategories: MarketCategoriesService,
     private readonly paidServices: PaidServicesService,
     private readonly saudiCities: SaudiCitiesService,
+    @Optional() private readonly mentions?: MentionsService,
   ) {}
 
   /** Origin for «القريب منك»: explicit near=lat,lng wins, else the city centre. */
@@ -758,6 +761,18 @@ export class ListingsService {
       });
 
       await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
+      await this.mentions?.sync({
+        actorId: user.userId,
+        entityType: 'listing',
+        entityId: listing.id,
+        texts: [
+          dto.arabicTitle,
+          dto.title,
+          dto.arabicDescription,
+          dto.description,
+        ],
+        context: { listingId: listing.id },
+      });
 
       this.logger.info(
         {
@@ -919,6 +934,25 @@ export class ListingsService {
     const updated = await this.repo.update(id, updateData);
     await this.cache.del(`listing:${id}`);
     await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
+    if (
+      dto.title !== undefined ||
+      dto.arabicTitle !== undefined ||
+      dto.description !== undefined ||
+      dto.arabicDescription !== undefined
+    ) {
+      await this.mentions?.sync({
+        actorId: user.userId,
+        entityType: 'listing',
+        entityId: id,
+        texts: [
+          updated.arabicTitle,
+          updated.title,
+          updated.arabicDescription,
+          updated.description,
+        ],
+        context: { listingId: id },
+      });
+    }
     return sanitizeListingMedia(withEffectiveBoostState(updated));
   }
 
@@ -1099,6 +1133,24 @@ export class ListingsService {
     return { comments: filterBlockedComments(comments, blockedIds) };
   }
 
+  private async commentActor(user: JwtPayload) {
+    let row: {
+      arabicName?: string | null;
+      username?: string | null;
+      avatar?: string | null;
+    } | null = null;
+    try {
+      row = await this.usersRepo.findUserById(user.userId, {
+        arabicName: true,
+        username: true,
+        avatar: true,
+      });
+    } catch {
+      row = null;
+    }
+    return actorNotificationData(user.userId, row, user.username);
+  }
+
   async createComment(
     user: JwtPayload,
     listingId: string,
@@ -1164,6 +1216,7 @@ export class ListingsService {
     // Reply → notify the parent comment's author through the same in-app
     // notification path (no queue changes). The seller still gets the
     // generic comment notification below unless they are that author.
+    const actor = await this.commentActor(user);
     const replyTarget = listingReplyNotifyTarget(parent?.authorId, user.userId);
     if (replyTarget) {
       void this.notifications
@@ -1171,8 +1224,14 @@ export class ListingsService {
           userId: replyTarget,
           type: 'comment',
           titleAr: 'رد جديد على تعليقك',
-          bodyAr: `ردّ ${user.username} على تعليقك في «${listing.arabicTitle}»`,
-          data: { listingId, commentId: comment.id, parentId: parent?.id },
+          bodyAr: `ردّ ${actor.actorName} على تعليقك في «${listing.arabicTitle}»`,
+          data: {
+            listingId,
+            commentId: comment.id,
+            parentId: parent?.id,
+            reply: '1',
+            ...actor,
+          },
         })
         .catch(() => {});
     }
@@ -1187,14 +1246,21 @@ export class ListingsService {
           userId: listing.sellerId,
           type: 'comment',
           titleAr: 'رد جديد على إعلانك',
-          bodyAr: `علّق ${user.username} على إعلان «${listing.arabicTitle}»`,
-          data: { listingId, commentId: comment.id },
+          bodyAr: `علّق ${actor.actorName} على إعلان «${listing.arabicTitle}»`,
+          data: { listingId, commentId: comment.id, ...actor },
         })
         .catch(() => {});
     }
 
     await this.cache.del(`listing:${listingId}`);
     await this.cache.delPattern(LISTINGS_FEED_CACHE_PATTERN);
+    await this.mentions?.sync({
+      actorId: user.userId,
+      entityType: 'listing_comment',
+      entityId: comment.id,
+      texts: [dto.content],
+      context: { listingId, commentId: comment.id },
+    });
     return comment;
   }
 

@@ -4,6 +4,7 @@ import request from 'supertest';
 import { UsersController } from './users.controller';
 import { UsersService } from './services/users.service';
 import { UserReviewsService } from './services/user-reviews.service';
+import { MentionsService } from '../mentions/mentions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
 
@@ -29,6 +30,7 @@ describe('UsersController routes', () => {
       providers: [
         { provide: UsersService, useValue: usersService },
         { provide: UserReviewsService, useValue: reviewsService },
+        { provide: MentionsService, useValue: { suggest: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)
