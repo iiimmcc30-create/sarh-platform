@@ -23,8 +23,11 @@ export class NotificationsController {
   async list(
     @CurrentUser() user: JwtPayload,
     @Query('cursor') cursor?: string,
+    @Query('tab') tab?: string,
   ) {
-    return successResponse(await this.notifications.list(user.userId, cursor));
+    return successResponse(
+      await this.notifications.list(user.userId, cursor, tab),
+    );
   }
 
   @RateLimit('api')

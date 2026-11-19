@@ -24,8 +24,8 @@ export const NOTIFICATION_CATEGORIES: Array<{
   {
     key: 'following',
     title: 'من تتابعهم',
-    footer: 'جديد الحسابات التي تتابعها، وبدء المجالس والدعوات إليها.',
-    prefs: ['followingPosts', 'councils'],
+    footer: 'جديد الحسابات التي تتابعها. تنبيه بدء المجلس يُوقف وحده دون دعوات المجالس.',
+    prefs: ['followingPosts', 'councils', 'councilStarted'],
   },
   {
     key: 'sarh',

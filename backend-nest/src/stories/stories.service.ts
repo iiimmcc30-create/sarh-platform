@@ -435,15 +435,16 @@ export class StoriesService {
     await this.invalidateFeedCache();
 
     if (story.userId !== user.userId && previous?.type !== dto.type) {
+      const actor = await this.storyActor(user);
       void this.notifications.notifyUser({
         userId: story.userId,
         type: 'story_reaction',
         titleAr: 'تفاعل على قصتك',
-        bodyAr: `تفاعل شخص ما على قصتك بـ ${dto.type}`,
+        bodyAr: `تفاعل ${actor.actorName} على قصتك`,
         data: {
           storyId,
-          actorId: user.userId,
           reaction: dto.type,
+          ...actor,
         },
       });
     }
@@ -484,6 +485,7 @@ export class StoriesService {
       text: `${prefix}${dto.text}`,
     });
 
+    const actor = await this.storyActor(user);
     void this.notifications.notifyUser({
       userId: story.userId,
       type: 'story_reply',
@@ -491,9 +493,10 @@ export class StoriesService {
       bodyAr: dto.text.slice(0, 80),
       data: {
         storyId,
-        actorId: user.userId,
         threadId: result.threadId,
         messageId: result.message.id,
+        reply: '1',
+        ...actor,
       },
     });
 
@@ -501,6 +504,30 @@ export class StoriesService {
       threadId: result.threadId,
       messageId: result.message.id,
       receiverId: story.userId,
+    };
+  }
+
+  private async storyActor(user: JwtPayload) {
+    let row: {
+      arabicName: string | null;
+      username: string | null;
+      avatar: string | null;
+    } | null = null;
+    if (this.prisma) {
+      try {
+        row = await this.prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { arabicName: true, username: true, avatar: true },
+        });
+      } catch {
+        row = null;
+      }
+    }
+    return {
+      actorId: user.userId,
+      actorName: row?.arabicName || row?.username || user.username,
+      actorUsername: row?.username || user.username,
+      ...(row?.avatar ? { actorAvatar: row.avatar } : {}),
     };
   }
 

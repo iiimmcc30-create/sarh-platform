@@ -34,6 +34,10 @@ export class UpdateNotificationPrefsDto {
 
   @IsOptional()
   @IsBoolean()
+  councilStarted?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   offers?: boolean;
 }
 

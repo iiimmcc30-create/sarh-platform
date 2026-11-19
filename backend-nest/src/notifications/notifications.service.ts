@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { NotificationsRepository } from './repositories/notifications.repository';
 import { throwApi } from '../common/exceptions/api.exception';
 import { NOTIFICATION_LIST_TAKE } from '../common/utils/query-limits';
+import { parseNotificationTab } from './notification-inbox';
 
 const PAGE_SIZE = NOTIFICATION_LIST_TAKE;
 
@@ -16,8 +17,13 @@ const markReadSchema = z
 export class NotificationsService {
   constructor(private readonly repo: NotificationsRepository) {}
 
-  async list(userId: string, cursor?: string) {
-    const notifications = await this.repo.findMany(userId, cursor, PAGE_SIZE);
+  async list(userId: string, cursor?: string, tab?: string) {
+    const notifications = await this.repo.findMany(
+      userId,
+      cursor,
+      PAGE_SIZE,
+      parseNotificationTab(tab),
+    );
 
     const hasMore = notifications.length > PAGE_SIZE;
     const items = hasMore ? notifications.slice(0, -1) : notifications;

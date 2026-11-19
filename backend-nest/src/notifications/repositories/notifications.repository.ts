@@ -1,17 +1,29 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  mentionsNotificationWhere,
+  type NotificationInboxTab,
+} from '../notification-inbox';
 
 @Injectable()
 export class NotificationsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findMany(userId: string, cursor: string | undefined, pageSize: number) {
+  findMany(
+    userId: string,
+    cursor: string | undefined,
+    pageSize: number,
+    tab: NotificationInboxTab = 'all',
+  ) {
+    const where: Prisma.NotificationWhereInput =
+      tab === 'mentions' ? mentionsNotificationWhere(userId) : { userId };
     return this.prisma.notification.findMany({
-      where: { userId },
+      where,
       take: pageSize + 1,
       cursor: cursor ? { id: cursor } : undefined,
       skip: cursor ? 1 : 0,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 

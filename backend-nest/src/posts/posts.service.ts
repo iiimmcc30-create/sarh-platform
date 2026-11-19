@@ -21,6 +21,7 @@ import {
 } from './lib/post-view-dedupe';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { filterBlockedComments } from '../users/lib/block-filter';
+import { actorNotificationData } from '../notifications/actor-payload';
 
 const PAGE_SIZE = 20;
 
@@ -466,6 +467,24 @@ export class PostsService {
     return { deleted: true };
   }
 
+  private async actorData(user: JwtPayload) {
+    let row: {
+      arabicName?: string | null;
+      username?: string | null;
+      avatar?: string | null;
+    } | null = null;
+    try {
+      row = await this.usersRepo.findUserById(user.userId, {
+        arabicName: true,
+        username: true,
+        avatar: true,
+      });
+    } catch {
+      row = null;
+    }
+    return actorNotificationData(user.userId, row, user.username);
+  }
+
   private async assertNotBlockedWithAuthor(viewerId: string, authorId: string) {
     if (viewerId === authorId) return;
     const blockedIds =
@@ -487,13 +506,14 @@ export class PostsService {
     const likesCount = await this.repo.countLikes(postId);
 
     if (liked && post.authorId !== user.userId) {
+      const actor = await this.actorData(user);
       void this.notifications
         .notifyUser({
           userId: post.authorId,
           type: 'like',
           titleAr: 'إعجاب جديد',
-          bodyAr: `أعجب ${user.username} بمنشورك`,
-          data: { postId },
+          bodyAr: `أعجب ${actor.actorName} بمنشورك`,
+          data: { postId, ...actor },
         })
         .catch(() => {});
     }
@@ -518,13 +538,14 @@ export class PostsService {
     );
 
     if (reposted && post.authorId !== user.userId) {
+      const actor = await this.actorData(user);
       void this.notifications
         .notifyUser({
           userId: post.authorId,
           type: 'repost',
           titleAr: 'إعادة نشر',
-          bodyAr: `أعاد ${user.username} نشر منشورك`,
-          data: { postId },
+          bodyAr: `أعاد ${actor.actorName} نشر منشورك`,
+          data: { postId, ...actor },
         })
         .catch(() => {});
     }
@@ -647,13 +668,14 @@ export class PostsService {
     );
 
     if (post.authorId !== user.userId) {
+      const actor = await this.actorData(user);
       void this.notifications
         .notifyUser({
           userId: post.authorId,
           type: 'comment',
           titleAr: 'تعليق جديد',
-          bodyAr: `علّق ${user.username} على منشورك`,
-          data: { postId, commentId: comment.id },
+          bodyAr: `علّق ${actor.actorName} على منشورك`,
+          data: { postId, commentId: comment.id, ...actor },
         })
         .catch(() => {});
     }

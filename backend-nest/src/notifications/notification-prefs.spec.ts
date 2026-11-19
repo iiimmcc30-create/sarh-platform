@@ -3,6 +3,7 @@ import {
   isPushAllowed,
   normalizeNotificationPrefs,
   notificationCategory,
+  wantsCouncilStartedNotice,
 } from './notification-prefs';
 
 describe('notification prefs', () => {
@@ -36,6 +37,13 @@ describe('notification prefs', () => {
     expect(notificationCategory('fee_due')).toBe('account');
   });
 
+  it('councilStarted defaults on and can be switched off on its own', () => {
+    expect(wantsCouncilStartedNotice(null)).toBe(true);
+    expect(wantsCouncilStartedNotice({ councils: false })).toBe(true);
+    expect(wantsCouncilStartedNotice({ councilStarted: false })).toBe(false);
+    expect(DEFAULT_NOTIFICATION_PREFS.councilStarted).toBe(true);
+  });
+
   it('master switch wins; account notices cannot be switched off', () => {
     expect(isPushAllowed({ notificationsEnabled: false }, 'fee_due')).toBe(
       false,
@@ -46,6 +54,7 @@ describe('notification prefs', () => {
       interactions: false,
       followingPosts: false,
       councils: false,
+      councilStarted: false,
       offers: false,
     };
     expect(

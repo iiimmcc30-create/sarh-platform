@@ -12,6 +12,7 @@ export const NOTIFICATION_PREF_KEYS = [
   'interactions',
   'followingPosts',
   'councils',
+  'councilStarted',
   'offers',
 ] as const;
 
@@ -25,6 +26,8 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   interactions: true,
   followingPosts: true,
   councils: true,
+  /** «تنبيه بدء المجلس»: in-app and push. Off skips the row entirely. */
+  councilStarted: true,
   offers: true,
 };
 
@@ -82,4 +85,12 @@ export function isPushAllowed(
   const category = notificationCategory(type, data);
   if (category === 'account') return true;
   return normalizeNotificationPrefs(user.notificationPrefs)[category];
+}
+
+/**
+ * Full opt-out for «تنبيه بدء المجلس» (in-app and push).
+ * Distinct from the `councils` push category, which still gates invites.
+ */
+export function wantsCouncilStartedNotice(prefs: unknown): boolean {
+  return normalizeNotificationPrefs(prefs).councilStarted;
 }

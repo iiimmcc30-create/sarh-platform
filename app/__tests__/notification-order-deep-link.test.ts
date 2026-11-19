@@ -50,6 +50,42 @@ describe('support and message notification deep links', () => {
     expect(arg.params.lastMessage).toBeUndefined();
   });
 
+  it('opens a council without ever forwarding a join code', () => {
+    const r = router();
+    handleNotificationNavigation(
+      {
+        type: 'system',
+        data: {
+          kind: 'council_live',
+          councilId: 'council-9',
+          locked: '1',
+          visibility: 'PRIVATE',
+          code: 'SECRET',
+          joinCode: 'SECRET',
+          inviteCode: 'SECRET',
+        },
+      },
+      { router: r as never, isAdmin: false },
+    );
+    const arg = lastPush(r);
+    expect(arg.pathname).toBe('/councils/[id]');
+    expect(arg.params).toEqual({ id: 'council-9' });
+  });
+
+  it('opens the reviews page from a new review', () => {
+    const r = router();
+    handleNotificationNavigation(
+      {
+        type: 'system',
+        data: { kind: 'review', userId: 'user-4' },
+      },
+      { router: r as never, isAdmin: false },
+    );
+    const arg = lastPush(r);
+    expect(arg.pathname).toBe('/users/reviews/[id]');
+    expect(arg.params.id).toBe('user-4');
+  });
+
   it('opens listing/user chat from message notifications', () => {
     const r = router();
     handleNotificationNavigation(

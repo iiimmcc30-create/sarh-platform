@@ -47,19 +47,21 @@ function makeService() {
   const redis = { cacheDel: jest.fn().mockResolvedValue(undefined) };
   const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
   const limiter = { assert: jest.fn() };
+  const notifications = { notifyUser: jest.fn().mockResolvedValue(undefined) };
   const service = new UserReviewsService(
     repo as never,
     reports as never,
     redis as never,
     logger as never,
     limiter as never,
+    notifications as never,
   );
-  return { service, repo, reports, redis, limiter };
+  return { service, repo, reports, redis, limiter, notifications };
 }
 
 describe('UserReviewsService.create immutability and validation', () => {
   it('inserts once and refreshes the rating cache', async () => {
-    const { service, repo, redis, limiter } = makeService();
+    const { service, repo, redis, limiter, notifications } = makeService();
     const result = await service.create('target-1', 'reviewer-1', validDto());
     expect(limiter.assert).toHaveBeenCalledWith('reviewer-1');
     expect(repo.createUserReview).toHaveBeenCalledWith(
@@ -78,6 +80,19 @@ describe('UserReviewsService.create immutability and validation', () => {
       'user:target-1:base',
     );
     expect(result).toEqual({ rating: 5, reviewCount: 1, created: true });
+    expect(notifications.notifyUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'target-1',
+        type: 'system',
+        titleAr: 'تقييم جديد',
+        data: expect.objectContaining({
+          kind: 'review',
+          actorId: 'reviewer-1',
+          userId: 'target-1',
+          reviewId: 'rev-1',
+        }),
+      }),
+    );
   });
 
   it('rejects a second review instead of updating', async () => {

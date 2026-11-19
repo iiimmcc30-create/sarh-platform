@@ -417,10 +417,25 @@ export function handleNotificationNavigation(
 
     case 'system': {
       const councilId = stringField(data, 'councilId');
+      const councilKind = stringField(data, 'kind');
+      if (councilKind === 'review') {
+        const profileId =
+          stringField(data, 'userId') ?? stringField(data, 'targetId');
+        if (profileId) {
+          safePush({
+            pathname: '/users/reviews/[id]',
+            params: { id: profileId },
+          } as never, undefined, ctx.router);
+          return true;
+        }
+      }
       if (
         councilId &&
-        (stringField(data, 'kind') === 'council_invite' || stringField(data, 'kind') === 'council_live')
+        (stringField(data, 'kind') === 'council_invite' ||
+          councilKind === 'council_live' ||
+          councilKind === 'council_start')
       ) {
+        // Private councils land on the code gate. Never forward a join code.
         safePush({
           pathname: '/councils/[id]',
           params: { id: councilId },

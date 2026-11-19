@@ -11,6 +11,7 @@ export const NOTIFICATION_PREF_KEYS = [
   'interactions',
   'followingPosts',
   'councils',
+  'councilStarted',
   'offers',
 ] as const;
 
@@ -23,6 +24,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   interactions: true,
   followingPosts: true,
   councils: true,
+  councilStarted: true,
   offers: true,
 };
 
@@ -35,7 +37,12 @@ export const NOTIFICATION_PREF_COPY: Record<NotificationPrefKey, { label: string
     icon: 'heart-outline',
   },
   followingPosts: { label: 'منشورات من تتابعهم', hint: 'عندما ينشر حساب تتابعه', icon: 'newspaper-outline' },
-  councils: { label: 'المجالس', hint: 'بدء المجالس والدعوات والتذكيرات', icon: 'mic-outline' },
+  councils: { label: 'المجالس', hint: 'دعوات المجالس والتنبيهات الأخرى', icon: 'mic-outline' },
+  councilStarted: {
+    label: 'تنبيه بدء المجلس',
+    hint: 'عند الإيقاف لن يصلك تنبيه بدء المجلس داخل التطبيق ولا كإشعار فوري',
+    icon: 'megaphone-outline',
+  },
   offers: { label: 'العروض', hint: 'العروض والتحديثات التسويقية', icon: 'pricetag-outline' },
 };
 
@@ -58,7 +65,7 @@ export function normalizeNotificationSettings(raw: unknown): NotificationSetting
   };
 }
 
-/** Grey value beside «الإشعارات»: متوقفة / الكل / n من 6. */
+/** Grey value beside «الإشعارات»: متوقفة / الكل / n من عدد الأنواع. */
 export function notificationsSummary(s: NotificationSettings | null): string {
   if (!s) return '';
   if (!s.notificationsEnabled) return 'متوقفة';

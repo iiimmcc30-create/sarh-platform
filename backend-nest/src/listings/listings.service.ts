@@ -78,6 +78,7 @@ import {
 } from '../geo/lib/listing-geo-input';
 import { assertUserMediaUrls } from '../shared/lib/media-ownership';
 import { filterBlockedComments } from '../users/lib/block-filter';
+import { actorNotificationData } from '../notifications/actor-payload';
 
 const PAGE_SIZE = LISTING_PAGE_SIZE;
 /** Radius mode scans the geo keyset in batches and filters each batch with Prisma. */
@@ -1099,6 +1100,24 @@ export class ListingsService {
     return { comments: filterBlockedComments(comments, blockedIds) };
   }
 
+  private async commentActor(user: JwtPayload) {
+    let row: {
+      arabicName?: string | null;
+      username?: string | null;
+      avatar?: string | null;
+    } | null = null;
+    try {
+      row = await this.usersRepo.findUserById(user.userId, {
+        arabicName: true,
+        username: true,
+        avatar: true,
+      });
+    } catch {
+      row = null;
+    }
+    return actorNotificationData(user.userId, row, user.username);
+  }
+
   async createComment(
     user: JwtPayload,
     listingId: string,
@@ -1164,6 +1183,7 @@ export class ListingsService {
     // Reply → notify the parent comment's author through the same in-app
     // notification path (no queue changes). The seller still gets the
     // generic comment notification below unless they are that author.
+    const actor = await this.commentActor(user);
     const replyTarget = listingReplyNotifyTarget(parent?.authorId, user.userId);
     if (replyTarget) {
       void this.notifications
@@ -1171,8 +1191,14 @@ export class ListingsService {
           userId: replyTarget,
           type: 'comment',
           titleAr: 'رد جديد على تعليقك',
-          bodyAr: `ردّ ${user.username} على تعليقك في «${listing.arabicTitle}»`,
-          data: { listingId, commentId: comment.id, parentId: parent?.id },
+          bodyAr: `ردّ ${actor.actorName} على تعليقك في «${listing.arabicTitle}»`,
+          data: {
+            listingId,
+            commentId: comment.id,
+            parentId: parent?.id,
+            reply: '1',
+            ...actor,
+          },
         })
         .catch(() => {});
     }
@@ -1187,8 +1213,8 @@ export class ListingsService {
           userId: listing.sellerId,
           type: 'comment',
           titleAr: 'رد جديد على إعلانك',
-          bodyAr: `علّق ${user.username} على إعلان «${listing.arabicTitle}»`,
-          data: { listingId, commentId: comment.id },
+          bodyAr: `علّق ${actor.actorName} على إعلان «${listing.arabicTitle}»`,
+          data: { listingId, commentId: comment.id, ...actor },
         })
         .catch(() => {});
     }
