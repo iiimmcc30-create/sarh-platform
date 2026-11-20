@@ -15,9 +15,12 @@ import {
   type NotificationSettings,
 } from '@/services/userSettings';
 import { NOTIFICATION_CATEGORIES } from '@/lib/settingsCopy';
+import { WebDocumentMeta } from '@/components/web/WebDocumentMeta';
+
+const PAGE_TITLE = 'التنبيهات';
 
 /**
- * Settings → الإشعارات: device permission state, master switch, then one
+ * Settings → التنبيهات: device permission state, master switch, then one
  * grouped category per kind of notification. Toggles auto-save (optimistic,
  * rolled back on failure) — no «حفظ» button.
  */
@@ -65,13 +68,17 @@ export default function NotificationSettingsScreen() {
   const enabledCount = settings ? NOTIFICATION_PREF_KEYS.filter((key) => settings.prefs[key]).length : 0;
 
   return (
-    <SettingsScreen title="الإشعارات">
+    <SettingsScreen title={PAGE_TITLE}>
+      <WebDocumentMeta
+        title={PAGE_TITLE}
+        description="إعدادات التنبيهات في سرح: التنبيهات الفورية وما يصلك داخل التطبيق."
+      />
       {osBlocked ? (
-        <SettingsGroup footer="الإشعارات متوقفة من إعدادات جهازك، فلن يصلك شيء حتى تسمح بها.">
+        <SettingsGroup footer="التنبيهات متوقفة من إعدادات جهازك، فلن يصلك شيء حتى تسمح بها.">
           <SarhSettingsRow
             icon="notifications-off-outline"
             iconTile
-            title="السماح بالإشعارات"
+            title="السماح بالتنبيهات"
             subtitle="افتح إعدادات الجهاز"
             showDivider={false}
             onPress={() => void Linking.openSettings()}
@@ -85,17 +92,17 @@ export default function NotificationSettingsScreen() {
         <SettingsStatus
           state="error"
           icon="notifications-outline"
-          message="تعذّر تحميل إعدادات الإشعارات"
+          message="تعذّر تحميل إعدادات التنبيهات"
           onRetry={() => void load()}
         />
       ) : (
         <>
-          <SettingsGroup footer="عند الإيقاف لن تصلك أي إشعارات فورية، وتبقى الإشعارات داخل التطبيق.">
+          <SettingsGroup footer="عند الإيقاف لن تصلك أي تنبيهات فورية، وتبقى التنبيهات داخل التطبيق.">
             <SarhSettingsRow
               testID="notif-master"
               icon="notifications-outline"
               iconTile
-              title="الإشعارات الفورية"
+              title="التنبيهات الفورية"
               subtitle={
                 settings.notificationsEnabled
                   ? `${enabledCount} من ${NOTIFICATION_PREF_KEYS.length} أنواع مفعّلة`

@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { verifiedBadgeColor } from '@/lib/verifiedBadge';
+import { HeroBadgeMotion } from './HeroBadgeMotion';
 import { TierBadgeMark } from './TierBadgeMark';
 
 type Props = {
@@ -29,7 +30,8 @@ const DOTS: readonly [number, number, number][] = [
 
 /**
  * Verification hero: a large tier badge with a few flat dashes / dots in the
- * same tier colour. No gradients, no glow — switches colour with the tab.
+ * same tier colour. The seal itself breathes and catches a glint; the dashes
+ * stay still. Colour follows the selected tab (blue for Blue and Blue+).
  */
 export function VerificationHero({ tier, width = 240 }: Props) {
   const color = verifiedBadgeColor(tier);
@@ -59,7 +61,9 @@ export function VerificationHero({ tier, width = 240 }: Props) {
           <Circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} fill={color} opacity={0.7} />
         ))}
       </Svg>
-      <TierBadgeMark tier={tier} size={badge} />
+      <HeroBadgeMotion tier={tier} size={badge}>
+        <TierBadgeMark tier={tier} size={badge} />
+      </HeroBadgeMotion>
     </View>
   );
 }

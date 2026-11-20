@@ -69,7 +69,7 @@ describe('settings hub sections (X look)', () => {
       'الأمان والوصول إلى الحساب',
       'التوثيق',
       'الخصوصية والأمان',
-      'الإشعارات',
+      'التنبيهات',
       'المدفوعات',
       'العرض واللغة',
       'موارد إضافية',
@@ -176,6 +176,13 @@ describe('settings search', () => {
     expect(filterSettingsGroups(groups, 'باسورد')[0].rows[0].key).toBe('password');
     expect(filterSettingsGroups(groups, '   ')).toBe(groups);
     expect(filterSettingsGroups(groups, 'zzzz')).toEqual([]);
+  });
+
+  it('finds التنبيهات by the new name and the old اشعارات spelling', () => {
+    expect(groups.find((g) => g.key === 'notifications')!.title).toBe('التنبيهات');
+    expect(filterSettingsGroups(groups, 'تنبيهات')[0].rows[0].title).toBe('التنبيهات');
+    expect(filterSettingsGroups(groups, 'اشعارات')[0].key).toBe('notifications');
+    expect(filterSettingsGroups(groups, 'إشعارات')[0].rows[0].route).toBe('/settings/notifications');
   });
 });
 

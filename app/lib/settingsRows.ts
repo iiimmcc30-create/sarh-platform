@@ -285,15 +285,15 @@ export function buildSettingsGroups(ctx: SettingsContext): SettingsGroup[] {
     },
     {
       key: 'notifications',
-      title: 'الإشعارات',
+      title: 'التنبيهات',
       icon: 'notifications-outline',
-      description: 'اختر أنواع الإشعارات التي تصلك عن نشاطك ومن تتابعهم وعروض سرح.',
+      description: 'اختر أنواع التنبيهات التي تصلك عن نشاطك ومن تتابعهم وعروض سرح.',
       direct: true,
       rows: [
         {
           key: 'notifications',
           icon: 'notifications-outline',
-          title: 'الإشعارات',
+          title: 'التنبيهات',
           description: ctx.notificationsValue,
           route: '/settings/notifications',
           keywords: ['اشعارات', 'تنبيهات', 'رسائل', 'متابعات', 'مجالس', 'عروض'],

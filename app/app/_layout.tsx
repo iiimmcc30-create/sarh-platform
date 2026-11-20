@@ -131,7 +131,7 @@ function RootNavigator() {
             contentStyle: { backgroundColor: 'transparent', ...getRtlDirection() },
           }}
         />
-        <Stack.Screen name="notifications/index" />
+        <Stack.Screen name="notifications/index" options={{ title: 'التنبيهات' }} />
         <Stack.Screen name="favorites" />
         <Stack.Screen name="bookmarks" />
         <Stack.Screen name="collections/index" />
@@ -166,6 +166,7 @@ function RootNavigator() {
         <Stack.Screen name="info/policies" />
         <Stack.Screen name="info/policy/[slug]" />
         <Stack.Screen name="settings/index" />
+        <Stack.Screen name="settings/notifications" options={{ title: 'التنبيهات' }} />
         <Stack.Screen name="settings/account" />
         <Stack.Screen name="settings/blocked" />
         <Stack.Screen name="settings/info" />

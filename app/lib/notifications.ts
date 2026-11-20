@@ -78,7 +78,7 @@ function configureForegroundHandler(): void {
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync('default', {
-    name: 'إشعارات صفاة',
+    name: 'تنبيهات سرح',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#1E6FF1',

@@ -89,6 +89,7 @@ describe('FAQ retrieval (synonyms + trigram)', () => {
     ['كم سعر التثبيت', 'promo-prices'],
     ['انخصم مني مرتين', 'pay-double'],
     ['ما تجيني اشعارات', 'tech-notifications'],
+    ['ما تجيني التنبيهات', 'tech-notifications'],
     ['كيف اسوي ستوري', 'com-story'],
     ['ليش ما اقدر اعدل اعلاني', 'ads-edit-again'],
     ['كم اعلان انشر باليوم', 'ads-daily-limit'],

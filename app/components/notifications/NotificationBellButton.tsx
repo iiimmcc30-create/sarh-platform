@@ -44,7 +44,7 @@ export function NotificationBellButton({
       ]}
       hitSlop={8}
       onPress={() => router.push('/notifications')}
-      accessibilityLabel="الإشعارات"
+      accessibilityLabel="التنبيهات"
       accessibilityRole="button"
     >
       {/* Badge anchors to the glyph box (not the 48pt hit area) so it sits on the

@@ -1,4 +1,4 @@
-// SAFAT — Notification Center (مركز الإشعارات)
+// Notification center (مركز التنبيهات)
 import { EmptyState } from '@/components/ui/EmptyState';
 import { NotificationCardSkeleton, SkeletonRegion } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -22,6 +22,10 @@ import {
 } from 'react-native';
 import { type ThemeColors } from '@/constants/theme';
 import { AppRefreshControl } from '@/components/ui/AppRefreshControl';
+import { WebDocumentMeta } from '@/components/web/WebDocumentMeta';
+
+const PAGE_TITLE = 'التنبيهات';
+const PAGE_DESCRIPTION = 'تنبيهات سرح: الإعجابات وإعادات النشر والمتابعات والمجالس.';
 
 const TABS: { key: InboxTab; label: string }[] = [
   { key: 'all', label: 'الكل' },
@@ -79,7 +83,7 @@ export default function NotificationsScreen() {
   };
 
   const firstLoad = loading && notifications.length === 0;
-  const emptyTitle = tab === 'mentions' ? 'لا توجد إشارات' : 'لا توجد إشعارات';
+  const emptyTitle = tab === 'mentions' ? 'لا توجد إشارات' : 'لا توجد تنبيهات';
   const emptyBody =
     tab === 'mentions'
       ? 'عندما يردّ أحد عليك أو يُشار إليك ستظهر هنا.'
@@ -87,9 +91,10 @@ export default function NotificationsScreen() {
 
   return (
     <Screen edges={['top', 'bottom']}>
+      <WebDocumentMeta title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
       <ScreenHeader
         variant="screen"
-        title="الإشعارات"
+        title={PAGE_TITLE}
         showBack
         rightIcon="checkmark-done-outline"
         onRightPress={unreadCount > 0 ? markAllAsRead : undefined}
@@ -129,7 +134,7 @@ export default function NotificationsScreen() {
 
         {error && notifications.length === 0 ? (
           <EmptyState
-            title="تعذّر تحميل الإشعارات"
+            title="تعذّر تحميل التنبيهات"
             description={error}
             actionLabel="إعادة المحاولة"
             onAction={retry}

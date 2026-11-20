@@ -147,7 +147,7 @@ export default function AccountVerificationScreen() {
     setSaving(false);
     if (!res.ok) Alert.alert('تعذر الإرسال', res.error ?? 'تحقق من البيانات والمستندات');
     else {
-      Alert.alert('تم الإرسال', 'سيتم مراجعة طلبك وإشعارك بالنتيجة');
+      Alert.alert('تم الإرسال', 'سيتم مراجعة طلبك ويصلك تنبيه بالنتيجة');
       void load();
     }
   };
