@@ -21,7 +21,7 @@ import type { FaqCategoryValue } from '../constants/support.constants';
  * Seeded by SupportSeedService (upsert by `key`), editable from the admin
  * panel afterwards. Bump FAQ_KB_VERSION when this file changes.
  */
-export const FAQ_KB_VERSION = 1;
+export const FAQ_KB_VERSION = 2;
 
 export type FaqSeedEntry = {
   key: string;
@@ -1471,12 +1471,19 @@ const TECHNICAL = group('TECHNICAL', [
   },
   {
     key: 'tech-notifications',
-    questionAr: 'ما تجيني الإشعارات',
+    questionAr: 'ما تجيني التنبيهات',
     answerAr:
-      'تأكد إن الإشعارات مفعّلة لتطبيق سرح من إعدادات جوالك ومن إعدادات التطبيق، وتلقى كل الإشعارات في مركز الإشعارات (الجرس).',
-    keywords: ['اشعارات', 'ما يجيني اشعار', 'التنبيهات', 'نوتفكيشن', 'الجرس'],
+      'تأكد إن التنبيهات مفعّلة لتطبيق سرح من إعدادات جوالك ومن إعدادات التطبيق، وتلقى كل التنبيهات في مركز التنبيهات (الجرس).',
+    keywords: [
+      'اشعارات',
+      'ما يجيني اشعار',
+      'التنبيهات',
+      'تنبيه',
+      'نوتفكيشن',
+      'الجرس',
+    ],
     actionRoute: '/notifications',
-    actionLabel: 'الإشعارات',
+    actionLabel: 'التنبيهات',
   },
   {
     key: 'tech-permissions',
@@ -1530,7 +1537,7 @@ const GENERAL = group('GENERAL', [
     key: 'gen-tickets',
     questionAr: 'كيف أتابع تذكرتي؟',
     answerAr:
-      'من مركز المساعدة ← تذاكري، تشوف حالة كل تذكرة والردود عليها، وتجيك إشعار لما يرد الفريق.',
+      'من مركز المساعدة ← تذاكري، تشوف حالة كل تذكرة والردود عليها، ويصلك تنبيه لما يرد الفريق.',
     keywords: ['تذكرتي', 'تذاكري', 'طلبي للدعم', 'رد الدعم', 'متى يردون'],
     actionRoute: '/support/tickets',
     actionLabel: 'تذاكري',

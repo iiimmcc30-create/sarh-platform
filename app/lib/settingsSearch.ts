@@ -1,7 +1,7 @@
 /**
  * Settings search: filters rows by title, group title, current value and
  * keywords. Arabic-aware normalization (hamza forms, taa marbuta, alef maqsura,
- * tatweel, diacritics) so «اشعارات» finds «الإشعارات».
+ * tatweel, diacritics) so «اشعارات» still finds «التنبيهات» via keywords.
  */
 export type SearchableSettingsRow = {
   key: string;

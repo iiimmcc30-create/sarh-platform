@@ -42,7 +42,7 @@ export const NOTIFICATION_PREF_COPY: Record<NotificationPrefKey, { label: string
   councils: { label: 'المجالس', hint: 'دعوات المجالس والتنبيهات الأخرى', icon: 'mic-outline' },
   councilStarted: {
     label: 'تنبيه بدء المجلس',
-    hint: 'عند الإيقاف لن يصلك تنبيه بدء المجلس داخل التطبيق ولا كإشعار فوري',
+    hint: 'عند الإيقاف لن يصلك تنبيه بدء المجلس داخل التطبيق ولا تنبيه فوري',
     icon: 'megaphone-outline',
   },
   mentions: {
@@ -72,7 +72,7 @@ export function normalizeNotificationSettings(raw: unknown): NotificationSetting
   };
 }
 
-/** Grey value beside «الإشعارات»: متوقفة / الكل / n من عدد الأنواع. */
+/** Grey value beside «التنبيهات»: متوقفة / الكل / n من عدد الأنواع. */
 export function notificationsSummary(s: NotificationSettings | null): string {
   if (!s) return '';
   if (!s.notificationsEnabled) return 'متوقفة';
